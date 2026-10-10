@@ -126,4 +126,63 @@ private final class RenderClockProbe {
         XCTAssertTrue(a.allSatisfy { $0.start.isFinite && $0.frames > 0 })
         print("FOLIA_NATIVE_CLOCK lateJoinFirst=\(joined.start) beforePause=\(before.start) pausedEnd=\(stopped.start + Double(stopped.frames)) resumeStart=\(resumed.start) stoppedEnd=\(reset.start + Double(reset.frames)) restartStart=\(restarted.start) commonHostPairs=\(pairs.count) maximumSampleDifference=\(pairs.max() ?? -1)")
     }
+
+    func testSystemTempoPitchDurationAndInputLatencyAcrossOriginalRange() throws {
+        let rate = 44100.0, length = 132300
+        let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2)!
+        for speed: Float in [0.88, 0.95, 1, 1.05, 1.12] {
+            let engine = AVAudioEngine(), pitch = AVAudioUnitTimePitch()
+            var supplied = 0
+            let source = AVAudioSourceNode(format: format) { silence, _, frames, output in
+                let buffers = UnsafeMutableAudioBufferListPointer(output)
+                for channel in 0..<2 {
+                    let data = buffers[channel].mData!.assumingMemoryBound(to: Float.self)
+                    let frequency = channel == 0 ? 440.0 : 659.25
+                    for frame in 0..<Int(frames) {
+                        let index = supplied + frame
+                        data[frame] = index < length ? Float(0.2 * sin(Double(index) * 2 * .pi * frequency / rate)) : 0
+                    }
+                }
+                supplied += Int(frames); silence.pointee = false
+                return noErr
+            }
+            pitch.pitch = 0; pitch.rate = speed
+            engine.attach(source); engine.attach(pitch)
+            engine.connect(source, to: pitch, format: format)
+            engine.connect(pitch, to: engine.mainMixerNode, format: format)
+            try engine.enableManualRenderingMode(.realtime, format: format, maximumFrameCount: 512)
+            engine.prepare(); try engine.start()
+            defer { engine.stop() }
+            let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 512)!
+            var pcm = [[Float](), [Float]()], checkpoints = [Int]()
+            for block in 0..<Int(ceil((3 / Double(speed) + 0.5) * rate / 512)) {
+                buffer.frameLength = 512
+                var error: OSStatus = noErr
+                XCTAssertEqual(engine.manualRenderingBlock(512, buffer.mutableAudioBufferList, &error), .success)
+                XCTAssertEqual(error, noErr)
+                for channel in 0..<2 {
+                    pcm[channel].append(contentsOf: UnsafeBufferPointer(start: buffer.floatChannelData![channel], count: 512))
+                }
+                if block == 0 || block == 85 || block == 171 { checkpoints.append(supplied) }
+            }
+            let first = try XCTUnwrap(pcm[0].firstIndex(where: { abs($0) > 0.01 }))
+            let last = try XCTUnwrap(pcm[0].lastIndex(where: { abs($0) > 0.01 }))
+            // Pitch is measured in a settled one-second window using interpolated positive crossings.
+            // This verifies preservation of BOTH channel frequencies, not equality to another stretcher.
+            var frequencies = [Double]()
+            for channel in 0..<2 {
+                var crossings = [Double]()
+                for index in 22050..<66150 where pcm[channel][index - 1] <= 0 && pcm[channel][index] > 0 {
+                    let a = Double(pcm[channel][index - 1]), b = Double(pcm[channel][index])
+                    crossings.append(Double(index - 1) - a / (b - a))
+                }
+                let measured = Double(crossings.count - 1) * rate / (try XCTUnwrap(crossings.last) - XCTUnwrap(crossings.first))
+                frequencies.append(measured)
+                XCTAssertEqual(measured, channel == 0 ? 440 : 659.25, accuracy: 1)
+            }
+            let audible = Double(last - first + 1) / rate
+            XCTAssertEqual(audible, 3 / Double(speed), accuracy: 0.12, "System window boundaries are not a zero-latency clock")
+            print("FOLIA_SYSTEM_TEMPO speed=\(speed) latency=\(pitch.auAudioUnit.latency) tail=\(pitch.auAudioUnit.tailTime) first=\(first) last=\(last) supplied=\(checkpoints) frequencies=\(frequencies) audible=\(audible)")
+        }
+    }
 }

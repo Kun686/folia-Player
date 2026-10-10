@@ -36,7 +36,8 @@ for name, hashes in sorted(manifest["files"].items()):
         if upstream != data:
             patch.extend(difflib.unified_diff(upstream.decode().splitlines(keepends=True), data.decode().splitlines(keepends=True),
                                             fromfile="a/" + name, tofile="b/" + name))
-assert changed == ["AudioStreaming/Streaming/AudioPlayer/AudioPlayer.swift", "Package.swift"]
+assert changed == ["AudioStreaming/Streaming/AudioPlayer/AudioPlayer.swift",
+                   "AudioStreaming/Streaming/AudioPlayer/Processors/AudioFileStreamProcessor.swift", "Package.swift"]
 if args.upstream_root:
     assert "".join(patch) == (repo / "docs/mobile/AUDIO_STREAMING_VENDOR.patch").read_text(), "Patch differs from vendored changes"
 print(f"AudioStreaming {manifest['version']} {manifest['revision'][:12]}: {len(actual)} files verified, {len(changed)} patched")

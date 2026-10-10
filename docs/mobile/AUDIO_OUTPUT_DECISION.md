@@ -2,13 +2,13 @@
 
 日期：2026-10-10。用户已明确批准固定依赖及验证后接入。
 mobile.7已接入独立双声道流式输出并安装到iPhone；保留的mobile.6旧包仍是AVQueuePlayer路线。
-当前 mobile.9 已包含原 Crossfade、设置与歌曲分析并安装到 iPhone；实际包身份以 BUILD_RECORD.json 为准。
+当前 mobile.10 已包含原 Crossfade、设置、歌曲分析与媒体缓存并安装到 iPhone；实际包身份以 BUILD_RECORD.json 为准。
 
 ## 当前接入结果
 
 mobile.8 已将原生队列接入共享混音／整体音效输出，并安装到 iPhone。使用 mobile.7 之后增加的
-外部渲染接口；依赖本身仍默认关闭此选项，由 App 明确启用。固定版本未变，无新增依赖，仍只修改两个
-vendor 文件。100 项完整原生回归、受控 HTTP 队列及 7 项真机关键测试通过；完整 Automix 未完成。
+外部渲染接口；依赖本身仍默认关闭此选项，由 App 明确启用。当时固定版本未变，无新增依赖，修改两个
+vendor 文件。该阶段 100 项完整原生回归、受控 HTTP 队列及 7 项真机关键测试通过；完整 Automix 未完成。
 各阶段证据和失败记录见 [AUTOMIX_PORT.md](AUTOMIX_PORT.md)，当前包见 VALIDATION.md。
 
 后续开发源码已定位 bypass TimePitch 的 4096 帧延迟，外部接口改为复用原始 PCM 读取路径。
@@ -24,10 +24,14 @@ Folia持有歌曲身份和队列版本，每个播放项使用独立解码器，
 删除待播项会释放其解码器，不经过存在缺陷的上游URL队列，也不会重启当前歌曲。
 
 为支持不消耗歌曲开头的静默预加载，把固定提交`e28a74b7b8632fc14312b7a79dcd82fa302779af`
-的59个源文件纳入`ios/Vendor/AudioStreaming`，原始总计291,190字节；仅两个文件有适配：
-AudioPlayer添加延迟启动输出、缓冲／seek状态读取及可选网络配置，Package.swift去除未复制的上游测试target。
-原解码、网络和音效算法不变，Ogg／Vorbis继续精确锁定0.1.2；原版权和MIT／BSD声明保留。
+的59个源文件纳入`ios/Vendor/AudioStreaming`，原始总计291,190字节；当前开发源码三个文件有适配：
+AudioPlayer添加延迟启动输出、外部渲染、缓冲／seek状态读取及可选网络配置；Package.swift去除未复制的上游测试target；
+AudioFileStreamProcessor在真实EOF后排空系统AudioConverter，修复测试音频末尾丢失2696帧的问题。
+继续复用原解码器、网络和音效实现，Ogg／Vorbis继续精确锁定0.1.2；原版权和MIT／BSD声明保留。
 `AUDIO_STREAMING_VENDOR.json`保存原始及当前逐文件SHA256，完整差异在同名`.patch`中。
+
+EOF修复与系统保音高变速执行层的证据见 [TEMPO_EXECUTION.md](TEMPO_EXECUTION.md)：模拟器166项、
+受控HTTP三项、iPhone十二项通过。变速尚未接入App队列，这些开发变化尚未生成新安装包。
 
 ```sh
 python3 dev/mobile/verify-audio-vendor.py

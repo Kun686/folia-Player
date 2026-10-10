@@ -144,6 +144,79 @@
              try player.auAudioUnit.allocateRenderResources()
              try player.auAudioUnit.startHardware()
          } catch {
+--- a/AudioStreaming/Streaming/AudioPlayer/Processors/AudioFileStreamProcessor.swift
++++ b/AudioStreaming/Streaming/AudioPlayer/Processors/AudioFileStreamProcessor.swift
+@@ -16,6 +16,7 @@
+ 
+ struct AudioConvertInfo {
+     var done: Bool
++    var endOfStream = false
+     let numberOfPackets: UInt32
+     var audioBuffer = AudioBuffer()
+     let packDescription: UnsafeMutablePointer<AudioStreamPacketDescription>?
+@@ -149,6 +150,14 @@
+         
+         if status != noErr {
+             Logger.debug("Failed to flush AudioFileStream packets: \(status)", category: .generic)
++        }
++
++        // The file parser and sample converter have separate buffers. A temporary no-input status
++        // keeps converter PCM pending; only a successful zero-packet callback declares actual EOF.
++        // Drain it through the same bounded ring-buffer/cancellation path before lastFrameQueued.
++        if status == noErr, let converter = audioConverter {
++            var final = AudioConvertInfo(done: true, endOfStream: true, numberOfPackets: 0, packDescription: nil)
++            decodePackets(converter, info: &final)
+         }
+         
+         return status
+@@ -512,6 +521,11 @@
+             inNumberPackets: inNumberPackets
+         )
+ 
++        decodePackets(converter, info: &convertInfo)
++    }
++
++    // Decode available packets, or flush the converter at EOF, using the existing shared PCM ring.
++    private func decodePackets(_ converter: AudioConverterRef, info convertInfo: inout AudioConvertInfo) {
+         var status: OSStatus = noErr
+         packetProcess: while status == noErr {
+             rendererContext.lock.lock()
+@@ -583,7 +597,7 @@
+ 
+                 framesAdded = framesToDecode
+ 
+-                if status == AudioConvertStatus.done.rawValue {
++                if status == AudioConvertStatus.done.rawValue || (convertInfo.endOfStream && status == noErr && framesToDecode == 0) {
+                     fillUsedFrames(framesCount: framesAdded)
+                     return
+                 } else if status != 0 {
+@@ -613,7 +627,7 @@
+ 
+                 framesAdded += framesToDecode
+ 
+-                if status == AudioConvertStatus.done.rawValue {
++                if status == AudioConvertStatus.done.rawValue || (convertInfo.endOfStream && status == noErr && framesToDecode == 0) {
+                     fillUsedFrames(framesCount: framesAdded)
+                     return
+                 } else if status == AudioConvertStatus.processed.rawValue {
+@@ -644,7 +658,7 @@
+                 )
+ 
+                 framesAdded = framesToDecode
+-                if status == AudioConvertStatus.done.rawValue {
++                if status == AudioConvertStatus.done.rawValue || (convertInfo.endOfStream && status == noErr && framesToDecode == 0) {
+                     fillUsedFrames(framesCount: framesAdded)
+                     return
+                 } else if status == AudioConvertStatus.processed.rawValue {
+@@ -754,7 +768,7 @@
+     // we need to tell the converter to stop converting after it should stop converting
+     if convertInfo.pointee.done {
+         ioNumberDataPackets.pointee = 0
+-        return AudioConvertStatus.done.rawValue
++        return convertInfo.pointee.endOfStream ? noErr : AudioConvertStatus.done.rawValue
+     }
+     // calculate the input buffer
+     ioData.pointee.mNumberBuffers = 1
 --- a/Package.swift
 +++ b/Package.swift
 @@ -51,17 +51,5 @@

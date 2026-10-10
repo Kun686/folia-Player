@@ -178,7 +178,7 @@
     },
     "AudioStreaming/Streaming/AudioPlayer/Processors/AudioFileStreamProcessor.swift": {
       "upstreamSHA256": "cb4bdd4d459f88205b951ca16b23c6eb603d070b21b32df294057dafa8c20a7c",
-      "vendoredSHA256": "cb4bdd4d459f88205b951ca16b23c6eb603d070b21b32df294057dafa8c20a7c"
+      "vendoredSHA256": "7dd119ccc4277bb5eb45e5b28887f4f258258b5970c5ee4bd12437f39ed27d4c"
     },
     "AudioStreaming/Streaming/AudioPlayer/Processors/AudioPlayerRenderProcessor.swift": {
       "upstreamSHA256": "765529109d91e34a281320e7d0a82db60d0c934ad94f281a1adce5d0d547ddc8",
