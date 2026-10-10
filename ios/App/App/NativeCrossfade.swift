@@ -18,6 +18,7 @@ final class NativeCrossfade {
     }
     private weak var owner: PlaybackEngine?
     private let planner = NativeTransitionPlanner()
+    private let balance = NativeBalanceCorrection()
     private let profiles: NativeTrackProfiles
     private var work: Task<Void, Never>?
     private var release: DispatchWorkItem?
@@ -34,7 +35,7 @@ final class NativeCrossfade {
         profiles = NativeTrackProfiles(local: owner.local, configuration: owner.mediaNetworkConfiguration ?? .ephemeral, mediaCache: owner.mediaCache)
         profiles.changed = { [weak self] in self?.tick() }
     }
-    deinit { work?.cancel(); release?.cancel(); fade?.tail?.dispose() }
+    deinit { work?.cancel(); release?.cancel(); balance.cancel(); fade?.tail?.dispose() }
 
     // Only the original crossfade mode is executed here. Full Automix requires its separate measured inputs.
     func configure(enabled: Bool, maximumSeconds: Double) throws {
@@ -52,6 +53,7 @@ final class NativeCrossfade {
         work?.cancel(); work = nil; release?.cancel(); release = nil; key = nil; plan = nil
     }
     func cancel(preservingAnalysis: Bool = false) {
+        balance.cancel()
         invalidatePlan()
         // Seeking unchanged decks invalidates timing, not their measured bytes. A fading tail is obsolete.
         if !preservingAnalysis || fade != nil { profiles.cancel() }
@@ -214,6 +216,14 @@ final class NativeCrossfade {
                 owner.error = nil; owner.retried = false; owner.failures = 0
                 self.fade = Fade(tail: outgoing, tailSong: song, sourceURL: outgoing.sourceURL, epoch: owner.generation,
                                  gainGeneration: gainGeneration, seconds: envelope.overlap)
+                self.balance.start(planner: self.planner, output: output, outgoing: outgoing, incoming: pending.entry,
+                    outgoingReference: self.profiles.value(song)?["loudness"] as? Double,
+                    incomingReference: self.profiles.value(owner.queue[pending.index])?["loudness"] as? Double,
+                    overlap: envelope.overlap, generation: gainGeneration,
+                    current: { [weak self] in
+                        guard let self, let fade = self.fade, let owner = self.owner else { return false }
+                        return fade.gainGeneration == gainGeneration && fade.epoch == owner.generation && owner.intentToPlay
+                    })
                 // Early tail EOF does not truncate the incoming gain curve.
                 outgoing.ended = { [weak self, weak outgoing] in self?.releaseTail(outgoing) }
                 outgoing.failed = { [weak self, weak outgoing] in self?.releaseTail(outgoing) }

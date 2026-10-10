@@ -203,18 +203,30 @@ private struct DeckStateReference: Decodable {
         defer { entry.dispose() }
         let pending = try await StreamOccurrence.prepare(url: url, output: output)
         defer { pending.dispose() }
+        // The original analyser needs 16 sampled frames, not 650ms since requesting playback.
+        // Engine startup and a rejected stale snapshot need not coincide with that wall-clock sleep.
+        func readyLevel(history: Bool = false) async throws -> NativeDeckState {
+            let started = Date(), deadline = started.addingTimeInterval(2)
+            while Date() < deadline {
+                if let state = await output.deckState(entry.audio, history: history), state.loudnessDb != nil {
+                    print("Deck level ready after \(Date().timeIntervalSince(started)) seconds; position=\(entry.position)")
+                    return state
+                }
+                try await Task.sleep(nanoseconds: 25_000_000)
+            }
+            XCTFail("Decoded deck did not produce a level within two seconds; playing=\(entry.playing), position=\(entry.position)")
+            throw MobileFailure("test-timeout")
+        }
         try entry.play()
-        try await Task.sleep(nanoseconds: 650_000_000)
-        let initialState = await output.deckState(entry.audio)
-        let initial = try XCTUnwrap(initialState)
+        let initial = try await readyLevel()
         XCTAssertNotNil(initial.loudnessDb)
         let unplayed = await output.deckState(pending.audio)
         XCTAssertNil(unplayed); XCTAssertEqual(pending.position, 0)
         // Master gain and effects are downstream of this tap.
         var settings = NativeAudioSettings(); settings.isMuted = true; output.apply(settings)
         try await Task.sleep(nanoseconds: 250_000_000)
-        let muted = await output.deckState(entry.audio)
-        XCTAssertEqual(try XCTUnwrap(muted?.loudnessDb), try XCTUnwrap(initial.loudnessDb), accuracy: 0.25)
+        let muted = try await readyLevel()
+        XCTAssertEqual(try XCTUnwrap(muted.loudnessDb), try XCTUnwrap(initial.loudnessDb), accuracy: 0.25)
         entry.pause(); output.pause()
         let paused = await output.deckState(entry.audio)
         try await Task.sleep(nanoseconds: 600_000_000)
@@ -226,10 +238,9 @@ private struct DeckStateReference: Decodable {
         try entry.seek(to: 0.3)
         let afterSeek = await output.deckState(entry.audio)
         XCTAssertNil(afterSeek?.loudnessDb, "Seek must discard previous song position measurements")
-        try await Task.sleep(nanoseconds: 600_000_000)
-        let afterNewPCM = await output.deckState(entry.audio, history: true)
-        XCTAssertNotNil(afterNewPCM?.loudnessDb)
-        XCTAssertNil(afterNewPCM?.history, "A seek must never turn a partial play-through into a complete history")
+        let afterNewPCM = try await readyLevel(history: true)
+        XCTAssertNotNil(afterNewPCM.loudnessDb)
+        XCTAssertNil(afterNewPCM.history, "A seek must never turn a partial play-through into a complete history")
         output.setAnalysisEnabled(false)
         let disabled = await output.deckState(entry.audio)
         XCTAssertNil(disabled); XCTAssertTrue(entry.playing)

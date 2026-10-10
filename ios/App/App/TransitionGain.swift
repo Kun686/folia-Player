@@ -5,9 +5,10 @@ struct TransitionGainCurve {
     let outgoing: UUID, incoming: UUID
     let out: [Float], input: [Float]
     let rate: Double, seconds: Double, hold: Double
+    let bands: TransitionBandCurve?
 
     init(outgoing: UUID, incoming: UUID, out: [Double], input: [Double], rate: Double,
-         seconds: Double, hold: Double = 0) throws {
+         seconds: Double, hold: Double = 0, bands: NativeTransitionEnvelope.Bands? = nil) throws {
         guard outgoing != incoming, AudioEffectSources.validRate(rate),
               seconds.isFinite, seconds > 0, seconds <= 25,
               hold.isFinite, hold >= 0, hold <= 25,
@@ -19,13 +20,17 @@ struct TransitionGainCurve {
         self.outgoing = outgoing; self.incoming = incoming
         self.out = out.map(Float.init); self.input = input.map(Float.init)
         self.rate = rate; self.seconds = seconds; self.hold = hold
+        self.bands = try bands.map(TransitionBandCurve.init)
     }
 
     // AudioParam setValueCurveAtTime uses linear interpolation between equally spaced Float32 knots.
     func value(incoming: Bool, elapsed: Double) -> Float {
         let points = incoming ? input : out
         if elapsed < 0 { return incoming ? 0 : 1 }
-        let progress = elapsed / (seconds * rate)
+        return Self.interpolate(points, elapsed: elapsed, duration: seconds * rate)
+    }
+    static func interpolate(_ points: [Float], elapsed: Double, duration: Double) -> Float {
+        let progress = max(0, elapsed / duration)
         if progress >= 1 { return points[points.count - 1] }
         let index = progress * Double(points.count - 1), left = Int(index)
         return Float(Double(points[left]) + (Double(points[left + 1]) - Double(points[left])) * (index - Double(left)))
@@ -60,11 +65,16 @@ final class TransitionGain {
     private var start = 0.0, restoreFrames = 0.0
     private var outID: UUID?, inID: UUID?
     private var outFrom: Float = 1, inFrom: Float = 1
+    private struct TrimRequest { let generation: UInt64; let gain: Float; let seconds: Double; let heldAt: Double? }
+    private var pendingTrim: TrimRequest?
+    private var trimFrom: Float = 1, trimTo: Float = 1
+    private var trimStart = 0.0, trimFrames = 0.0
 
     // Call on control side before asynchronous planning. A previous result cannot revive a cancelled fade.
     @discardableResult func cancel(immediate: Bool = false) -> UInt64 {
         lock.lock(); defer { lock.unlock() }
         generation &+= 1
+        pendingTrim = nil
         // Original rampGain explicitly sets AudioParam.value: WebKit exposes the last rendered sample.
         ready = Command(generation: generation, restoreSeconds: immediate ? 0 : 0.03,
                         cancelledAt: renderedEnd.map { $0 - 1 }); retired = nil
@@ -76,6 +86,20 @@ final class TransitionGain {
         guard expected == generation else { return false }
         retired = nil; ready = command
         return true
+    }
+    @discardableResult func trim(gain: Double, seconds: Double, generation expected: UInt64) -> Bool {
+        guard gain.isFinite, (0...1).contains(gain), seconds.isFinite, seconds > 0, seconds <= 1 else { return false }
+        lock.lock(); defer { lock.unlock() }
+        guard expected == generation else { return false }
+        retired = nil; pendingTrim = TrimRequest(generation: expected, gain: Float(gain), seconds: seconds,
+                                               heldAt: renderedEnd.map { $0 - 1 })
+        return true
+    }
+
+    private func trimValue(at frame: Double) -> Float {
+        guard trimFrames > 0 else { return trimTo }
+        let progress = min(1, max(0, (frame - trimStart) / trimFrames))
+        return Float(Double(trimFrom) + (Double(trimTo) - Double(trimFrom)) * progress)
     }
 
     private func value(incoming: Bool, at frame: Double) -> Float {
@@ -101,7 +125,15 @@ final class TransitionGain {
                     start = frame + curve.hold * rate
                     curveStart = start
                     restoreFrames = 0
-                } else { start = frame; curveStart = nil; restoreFrames = next.restoreSeconds * rate }
+                    trimFrom = 1; trimTo = 1; trimFrames = 0
+                } else {
+                    start = frame; curveStart = nil; restoreFrames = next.restoreSeconds * rate
+                    trimFrom = trimValue(at: heldAt); trimTo = 1; trimStart = frame; trimFrames = restoreFrames
+                }
+            }
+            if let trim = pendingTrim, trim.generation == appliedGeneration {
+                trimFrom = trimValue(at: trim.heldAt ?? frame); trimTo = trim.gain
+                trimStart = frame; trimFrames = trim.seconds * rate; pendingTrim = nil
             }
             renderedEnd = frame + Double(frames)
             lock.unlock()
@@ -110,16 +142,27 @@ final class TransitionGain {
 
     // Decoder buffers are interleaved stereo. Validation precedes clock changes and sample writes.
     @discardableResult func process(_ buffers: UnsafeMutablePointer<AudioBufferList>, frames: Int,
-                                    sampleTime: Double, rate: Double, source: UUID) -> Bool {
+                                    sampleTime: Double, rate: Double, source: UUID, tone: TransitionTone? = nil) -> Bool {
         let list = UnsafeMutableAudioBufferListPointer(buffers)
         guard frames > 0, frames <= 65536, sampleTime.isFinite, abs(sampleTime) < 4_503_599_627_370_496,
               AudioEffectSources.validRate(rate), list.count == 1, list[0].mNumberChannels == 2,
               Int(list[0].mDataByteSize) >= frames * 2 * MemoryLayout<Float>.size,
               let data = list[0].mData?.assumingMemoryBound(to: Float.self) else { return false }
         beginQuantum(sampleTime, frames: frames, rate: rate)
-        guard source == outID || source == inID else { return true }
+        guard source == outID || source == inID else { tone?.consumeNeutral(data, frames: frames); return true }
         guard active?.curve == nil || active?.curve?.rate == rate else { return false }
         let incoming = source == inID
+        // Trim precedes tone and fade, while the per-deck measurement tap remains ahead of all three.
+        if !incoming, trimFrom != 1 || trimTo != 1 {
+            for index in 0..<frames {
+                let trim = trimValue(at: sampleTime + Double(index))
+                data[index * 2] *= trim; data[index * 2 + 1] *= trim
+            }
+        }
+        tone?.process(data, frames: frames, sampleTime: sampleTime, rate: rate,
+                      curve: active?.curve?.bands, incoming: incoming, start: start,
+                      duration: (active?.curve?.seconds ?? 0) * rate,
+                      generation: appliedGeneration, immediate: active?.restoreSeconds == 0)
         for index in 0..<frames {
             let gain = value(incoming: incoming, at: sampleTime + Double(index))
             data[index * 2] *= gain; data[index * 2 + 1] *= gain

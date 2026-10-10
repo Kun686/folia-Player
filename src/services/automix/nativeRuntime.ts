@@ -1,8 +1,10 @@
 import { isTransitionMode, planForMode, type TransitionSettings } from './transitionStrategy';
 import type { TransitionPlan, TransitionTrack } from './transitionPlanner';
 import { shapeBlend, type TransitionStyle } from './transitionChooser';
-import { buildBandCurves, buildCrossfadeCurves, planBlendShape } from './signalAnalysis';
+import { buildBandCurves, buildCrossfadeCurves, dbToGain, planBlendShape } from './signalAnalysis';
 import { TRACK_PROFILE_VERSION } from './trackProfile';
+import { BALANCE_INTERVAL_MS, BALANCE_RAMP_SEC, nextBalanceTrim } from './balanceCorrection';
+import { AUTOMIX_MIN_OVERLAP_SEC } from './transitionPlanner';
 
 // nativeRuntime.ts — JSON boundary for the original planners, bundled for Apple's JavaScriptCore.
 export const protocolVersion = 1;
@@ -99,4 +101,16 @@ export function envelopeJSON(text: string): string {
     return JSON.stringify({ ...shape, snappedToBeat: fade.snappedToBeat,
         gain: { out: Array.from(gain.out), in: Array.from(gain.in) },
         bands: bands ? { out: bands.out.map(row => Array.from(row)), in: bands.in.map(row => Array.from(row)) } : null });
+}
+
+export function balanceJSON(text: string): string {
+    const request = read(text);
+    if (!optionalNumber(request.outgoingDb) || !optionalNumber(request.incomingDb)
+        || !numeric(request.appliedDb) || request.appliedDb < 0
+        || !numeric(request.overlap) || request.overlap < 0) fail();
+    const trimDb = (request.overlap as number) >= AUTOMIX_MIN_OVERLAP_SEC
+        ? nextBalanceTrim(request.outgoingDb as number | null, request.incomingDb as number | null, request.appliedDb as number)
+        : null;
+    return JSON.stringify({ intervalMs: BALANCE_INTERVAL_MS, minOverlap: AUTOMIX_MIN_OVERLAP_SEC,
+        adjustment: trimDb === null ? null : { trimDb, gain: dbToGain(-trimDb), seconds: BALANCE_RAMP_SEC } });
 }

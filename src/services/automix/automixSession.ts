@@ -1,3 +1,4 @@
+import { BALANCE_INTERVAL_MS, BALANCE_RAMP_SEC, nextBalanceTrim } from './balanceCorrection';
 import {
     connectExpansion,
     connectStemBus,
@@ -31,7 +32,7 @@ import {
 import { STEM_NAMES, type TrackStems } from './stems';
 import { createDeckClock, type DeckClock } from './deckClock';
 import { barGrid, settledBpm, RAW_RATE_LIMIT, type Grid } from './musicalTime';
-import { planBlendShape, trimForBalance, BEATS_PER_BAR } from './signalAnalysis';
+import { planBlendShape, BEATS_PER_BAR } from './signalAnalysis';
 import { applyTempoBend, resetTempoBend } from './tempoBend';
 import { shapeBlend } from './transitionChooser';
 import {
@@ -100,12 +101,6 @@ const RELEASE_MARGIN_SEC = 0.25;
 const FADE_CLEANUP_MARGIN_MS = 150;
 /** A refused blend still has to get the outgoing deck to silence without a click. */
 const CUT_SECONDS = 0.05;
-/** How often the balance correction re-reads the two decks during a blend. */
-const BALANCE_INTERVAL_MS = 100;
-/** Slow enough that the correction is never heard arriving. */
-const BALANCE_RAMP_SEC = 0.4;
-/** Nothing smaller than this is worth moving a gain for. */
-const BALANCE_STEP_DB = 0.75;
 /**
  * Longest the incoming deck may be held silent to land the handover where it was planned.
  *
@@ -286,10 +281,8 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         balanceTimer = setInterval(() => {
             const outgoingDb = referenceDb(plannedFrom, tailChain) ?? tailChain.analyser.loudnessDb();
             const incomingDb = incomingReference ?? activeChain.analyser.loudnessDb();
-            if (outgoingDb === null || incomingDb === null) return;
-
-            const target = trimForBalance(outgoingDb, incomingDb);
-            if (target < appliedTrimDb + BALANCE_STEP_DB) return;
+            const target = nextBalanceTrim(outgoingDb, incomingDb, appliedTrimDb);
+            if (target === null) return;
 
             appliedTrimDb = target;
             rampGainDb(context, tailChain.trim, -appliedTrimDb, BALANCE_RAMP_SEC);

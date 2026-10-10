@@ -58,7 +58,9 @@
 | 原规划与曲线计算 | PASS；Crossfade 原生队列测试已调用，完整 Automix 尚未接入 |
 | 两个解码器汇入同一混音与整体 DSP 输出 | PASS；mobile.8 源码已接入 App 默认原生队列 |
 | 按采样时钟调度原增益曲线 | PASS，执行层、Crossfade 原生队列与原设置已随 mobile.9 安装 |
-| 频带交接、回声、伸缩 | NOT_IMPLEMENTED |
+| 频带交接 | 开发源码已接入执行层，原 WebKit 数值对照与双解码器测试 PASS；见 TRANSITION_TONE_BALANCE.md |
+| 过渡响度平衡 | 开发源码复用原规则，原生 Crossfade 已接线；见 TRANSITION_TONE_BALANCE.md |
+| 回声、伸缩 | NOT_IMPLEMENTED |
 | 本地 profile 获取与分析缓存 | PASS，原分析无模型分支、原生静音边界接线；已随 mobile.9 安装，见文末 |
 | 在线 profile（关闭媒体缓存时） | 已接入原 1.5MiB 前缀策略；受控传输、分析、真实解码队列及输出已通过，真实平台／CDN 未验收，见文末 |
 | 完整音频媒体缓存与离线播放 | PASS，已随 mobile.10 安装，见 MEDIA_CACHE.md；封面／歌词持久缓存仍待移植 |

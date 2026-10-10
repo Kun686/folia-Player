@@ -104,6 +104,12 @@ private struct TransitionGainReference: Decodable {
     }
 
     func testOriginalTransitionEnvelopeControlsTwoRealDecodersInSharedOutput() async throws {
+        try await verifyRealDecoderTransition(style: "plainBlend")
+    }
+    func testOriginalBandHandoverRunsBeforeFadeInTwoRealDecoders() async throws {
+        try await verifyRealDecoderTransition(style: "bassSwap")
+    }
+    private func verifyRealDecoderTransition(style: String) async throws {
         let monoURL = try sharedConstantFile(seconds: 4), stereoURL = try sharedConstantFile(seconds: 4, stereo: true)
         defer { try? FileManager.default.removeItem(at: monoURL); try? FileManager.default.removeItem(at: stereoURL) }
         let first = try await preparedExternalPlayer(monoURL), second = try await preparedExternalPlayer(stereoURL)
@@ -141,9 +147,22 @@ private struct TransitionGainReference: Decodable {
         guard stable == 2 else { XCTFail("Two decoded channels never reached their known baseline"); return }
         XCTAssertGreaterThanOrEqual(first.progress, 1024.0 / 44100)
         XCTAssertGreaterThanOrEqual(second.progress, 1024.0 / 44100)
-        let request = Data(#"{"version":1,"plan":{"style":"plainBlend","minOverlap":0,"tiltDb":[0,0]},"timing":{"overlap":0.1,"remaining":0.1,"outgoingDb":null,"nextBeatIn":null,"periodSec":null,"incomingLeadIn":null}}"#.utf8)
+        let request = try JSONSerialization.data(withJSONObject: ["version": 1,
+            "plan": ["style": style, "minOverlap": 0, "tiltDb": [2.0, -2.0]],
+            "timing": ["overlap": 0.1, "remaining": 0.1, "outgoingDb": NSNull(),
+                       "nextBeatIn": NSNull(), "periodSec": NSNull(), "incomingLeadIn": NSNull()]])
         let envelope = try await NativeTransitionPlanner().envelope(request)
         XCTAssertGreaterThan(envelope.overlap, 0)
+        XCTAssertEqual(envelope.bands != nil, style == "bassSwap")
+        let referenceTone = [TransitionTone(), TransitionTone()]
+        let referenceFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 44100, channels: 2, interleaved: true)!
+        let referencePCM = (0..<2).map { _ in AVAudioPCMBuffer(pcmFormat: referenceFormat, frameCapacity: 512)! }
+        let bandCurve = try envelope.bands.map(TransitionBandCurve.init)
+        for deck in 0..<2 {
+            let data = referencePCM[deck].floatChannelData![0]
+            for frame in 0..<512 { data[frame * 2] = 0.125; data[frame * 2 + 1] = deck == 0 ? 0.125 : -0.0625 }
+            referenceTone[deck].consumeNeutral(data, frames: 512)
+        }
         let epoch = output.transitionGain.cancel()
         XCTAssertTrue(try output.scheduleGain(outgoing: first, incoming: second, envelope: envelope, generation: epoch))
         let curve = try TransitionGainCurve(outgoing: UUID(), incoming: UUID(), out: envelope.gain.out,
@@ -157,11 +176,22 @@ private struct TransitionGainReference: Decodable {
             try render()
             let start = try XCTUnwrap(output.transitionGain.clock.curveStart)
             XCTAssertEqual(start, scheduledAt + envelope.hold * 44100, accuracy: 0.000001)
+            for deck in 0..<2 {
+                let data = referencePCM[deck].floatChannelData![0]
+                for frame in 0..<512 { data[frame * 2] = 0.125; data[frame * 2 + 1] = deck == 0 ? 0.125 : -0.0625 }
+                // DSP correctness is checked independently against WebKit in TransitionToneTests.
+                // Here the oracle checks graph ordering, source roles, real decoder routing and the common clock.
+                referenceTone[deck].process(data, frames: 512, sampleTime: at, rate: 44100, curve: bandCurve,
+                    incoming: deck == 1, start: start, duration: envelope.overlap * 44100, generation: epoch, immediate: false)
+            }
             for index in 0..<512 {
                 let elapsed = at + Double(index) - start
                 let outgoing = curve.value(incoming: false, elapsed: elapsed), incoming = curve.value(incoming: true, elapsed: elapsed)
-                maximum = max(maximum, abs(pcm(0, index) - 0.125 * (outgoing + incoming)),
-                    abs(pcm(1, index) - (0.125 * outgoing - 0.0625 * incoming)))
+                for channel in 0..<2 {
+                    let a = referencePCM[0].floatChannelData![0][index * 2 + channel] * outgoing
+                    let b = referencePCM[1].floatChannelData![0][index * 2 + channel] * incoming
+                    maximum = max(maximum, abs(pcm(channel, index) - (a + b)))
+                }
             }
         }
         XCTAssertNotNil(output.transitionGain.clock.curveStart)

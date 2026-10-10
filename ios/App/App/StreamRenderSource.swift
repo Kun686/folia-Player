@@ -19,6 +19,7 @@ final class StreamRenderSource {
         self.identity = identity
         let capture = NativeDeckCapture(rate: rate)
         self.capture = capture
+        let tone = TransitionTone()
         // Block input is interleaved; the host must connect node OUTPUT with the standard format above.
         // AVAudioSourceNode performs PCM layout conversion. Its block retains the decoder until detached.
         node = AVAudioSourceNode(format: player.externalOutputFormat) { silence, time, frames, output in
@@ -28,7 +29,7 @@ final class StreamRenderSource {
             }
             if status == noErr, let gain,
                (!time.pointee.mFlags.contains(.sampleTimeValid)
-                || !gain.process(output, frames: Int(frames), sampleTime: time.pointee.mSampleTime, rate: rate, source: identity)) {
+                || !gain.process(output, frames: Int(frames), sampleTime: time.pointee.mSampleTime, rate: rate, source: identity, tone: tone)) {
                 for buffer in UnsafeMutableAudioBufferListPointer(output) {
                     if let data = buffer.mData { memset(data, 0, Int(buffer.mDataByteSize)) }
                 }
