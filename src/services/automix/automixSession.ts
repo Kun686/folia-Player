@@ -1,4 +1,5 @@
 import { BALANCE_INTERVAL_MS, BALANCE_RAMP_SEC, nextBalanceTrim } from './balanceCorrection';
+import { echoThrowAt } from './echoThrow';
 import {
     connectExpansion,
     connectStemBus,
@@ -1174,7 +1175,7 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
             scheduleEchoThrow(
                 context,
                 tailChain.throw,
-                startAt + (shape.style === 'beatCut' ? 0 : wall * shape.crossover),
+                echoThrowAt(startAt, shape.style, wall, shape.crossover),
                 periodSec,
             );
         }

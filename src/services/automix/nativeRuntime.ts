@@ -5,6 +5,7 @@ import { buildBandCurves, buildCrossfadeCurves, dbToGain, planBlendShape } from 
 import { TRACK_PROFILE_VERSION } from './trackProfile';
 import { BALANCE_INTERVAL_MS, BALANCE_RAMP_SEC, nextBalanceTrim } from './balanceCorrection';
 import { AUTOMIX_MIN_OVERLAP_SEC } from './transitionPlanner';
+import { echoThrowAt, planEchoThrow } from './echoThrow';
 
 // nativeRuntime.ts — JSON boundary for the original planners, bundled for Apple's JavaScriptCore.
 export const protocolVersion = 1;
@@ -86,6 +87,7 @@ export function envelopeJSON(text: string): string {
     const request = read(text), plan = object(request.plan), timing = object(request.timing);
     if (!styles.includes(plan.style as TransitionStyle) || !numeric(plan.minOverlap) || plan.minOverlap < 0
         || !numbers(plan.tiltDb, 2)) fail();
+    if (plan.echoThrow !== undefined && typeof plan.echoThrow !== 'boolean') fail();
     for (const key of ['overlap', 'remaining']) if (!numeric(timing[key]) || (timing[key] as number) < 0) fail();
     if ((timing.overlap as number) > (timing.remaining as number)) fail();
     for (const key of ['outgoingDb', 'nextBeatIn', 'periodSec', 'incomingLeadIn']) if (!optionalNumber(timing[key])) fail();
@@ -99,6 +101,8 @@ export function envelopeJSON(text: string): string {
     const bands = shape.shapeBands ? buildBandCurves({ crossover: shape.crossover, swapBass: true,
         sweepOut: shape.sweepOut, tiltDb: plan.tiltDb as TransitionPlan['tiltDb'] }) : null;
     return JSON.stringify({ ...shape, snappedToBeat: fade.snappedToBeat,
+        ...(plan.echoThrow ? { echo: planEchoThrow(echoThrowAt(shape.hold, shape.style, shape.overlap, shape.crossover),
+            timing.periodSec as number | null, 0) } : {}),
         gain: { out: Array.from(gain.out), in: Array.from(gain.in) },
         bands: bands ? { out: bands.out.map(row => Array.from(row)), in: bands.in.map(row => Array.from(row)) } : null });
 }
@@ -113,4 +117,10 @@ export function balanceJSON(text: string): string {
         : null;
     return JSON.stringify({ intervalMs: BALANCE_INTERVAL_MS, minOverlap: AUTOMIX_MIN_OVERLAP_SEC,
         adjustment: trimDb === null ? null : { trimDb, gain: dbToGain(-trimDb), seconds: BALANCE_RAMP_SEC } });
+}
+
+export function echoJSON(text: string): string {
+    const request = read(text);
+    if (!numeric(request.at) || request.at < 0 || request.at > 50 || !optionalNumber(request.periodSec)) fail();
+    return JSON.stringify(planEchoThrow(request.at as number, request.periodSec as number | null, 0));
 }

@@ -18,6 +18,7 @@ struct NativeTransitionEnvelope: Codable {
     let shapeBands: Bool, sweepOut: Bool, snappedToBeat: Bool
     let gain: Gain
     let bands: Bands?
+    var echo: NativeEchoSchedule? = nil
 }
 
 struct NativeBalanceStep: Decodable {
@@ -41,6 +42,11 @@ actor NativeTransitionPlanner {
     }
     func balance(_ input: Data) throws -> NativeBalanceStep {
         try decode(NativeBalanceStep.self, method: "balanceJSON", input: input)
+    }
+    func echo(_ input: Data) throws -> NativeEchoSchedule {
+        let result = try decode(NativeEchoSchedule.self, method: "echoJSON", input: input)
+        try result.validate()
+        return result
     }
 
     // Only this actor touches JS values. Request data is passed as an argument, never evaluated as source.

@@ -6,9 +6,11 @@ struct TransitionGainCurve {
     let out: [Float], input: [Float]
     let rate: Double, seconds: Double, hold: Double
     let bands: TransitionBandCurve?
+    let echo: NativeEchoSchedule?
 
     init(outgoing: UUID, incoming: UUID, out: [Double], input: [Double], rate: Double,
-         seconds: Double, hold: Double = 0, bands: NativeTransitionEnvelope.Bands? = nil) throws {
+         seconds: Double, hold: Double = 0, bands: NativeTransitionEnvelope.Bands? = nil,
+         echo: NativeEchoSchedule? = nil) throws {
         guard outgoing != incoming, AudioEffectSources.validRate(rate),
               seconds.isFinite, seconds > 0, seconds <= 25,
               hold.isFinite, hold >= 0, hold <= 25,
@@ -21,6 +23,7 @@ struct TransitionGainCurve {
         self.out = out.map(Float.init); self.input = input.map(Float.init)
         self.rate = rate; self.seconds = seconds; self.hold = hold
         self.bands = try bands.map(TransitionBandCurve.init)
+        try echo?.validate(); self.echo = echo
     }
 
     // AudioParam setValueCurveAtTime uses linear interpolation between equally spaced Float32 knots.
@@ -142,7 +145,8 @@ final class TransitionGain {
 
     // Decoder buffers are interleaved stereo. Validation precedes clock changes and sample writes.
     @discardableResult func process(_ buffers: UnsafeMutablePointer<AudioBufferList>, frames: Int,
-                                    sampleTime: Double, rate: Double, source: UUID, tone: TransitionTone? = nil) -> Bool {
+                                    sampleTime: Double, rate: Double, source: UUID, tone: TransitionTone? = nil,
+                                    echo: TransitionEcho? = nil) -> Bool {
         let list = UnsafeMutableAudioBufferListPointer(buffers)
         guard frames > 0, frames <= 65536, sampleTime.isFinite, abs(sampleTime) < 4_503_599_627_370_496,
               AudioEffectSources.validRate(rate), list.count == 1, list[0].mNumberChannels == 2,
@@ -163,9 +167,15 @@ final class TransitionGain {
                       curve: active?.curve?.bands, incoming: incoming, start: start,
                       duration: (active?.curve?.seconds ?? 0) * rate,
                       generation: appliedGeneration, immediate: active?.restoreSeconds == 0)
+        echo?.adopt(incoming ? nil : active?.curve?.echo, generation: appliedGeneration,
+                    anchor: start - (active?.curve?.hold ?? 0) * rate, sampleTime: sampleTime,
+                    immediate: active?.restoreSeconds == 0)
         for index in 0..<frames {
             let gain = value(incoming: incoming, at: sampleTime + Double(index))
-            data[index * 2] *= gain; data[index * 2 + 1] *= gain
+            let wet = echo?.next(left: data[index * 2], right: data[index * 2 + 1],
+                                 frame: sampleTime + Double(index)) ?? (0, 0)
+            data[index * 2] = data[index * 2] * gain + wet.0
+            data[index * 2 + 1] = data[index * 2 + 1] * gain + wet.1
         }
         return true
     }

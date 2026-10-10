@@ -79,7 +79,7 @@ final class StreamMixOutput {
               let next = sources[ObjectIdentifier(incoming)]?.source else { throw MobileFailure("audio-failed") }
         let curve = try TransitionGainCurve(outgoing: out.identity, incoming: next.identity,
             out: envelope.gain.out, input: envelope.gain.in, rate: out.format.sampleRate,
-            seconds: envelope.overlap, hold: envelope.hold, bands: envelope.bands)
+            seconds: envelope.overlap, hold: envelope.hold, bands: envelope.bands, echo: envelope.echo)
         return transitionGain.schedule(curve, generation: generation)
     }
     func remove(_ player: AudioPlayer) {

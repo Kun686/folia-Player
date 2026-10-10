@@ -183,7 +183,7 @@ final class NativeCrossfade {
                     value.time.map { CACurrentMediaTime() - $0 < 0.25 ? value : nil } ?? nil
                 }
                 let request: [String: Any] = ["version": 1,
-                    "plan": ["style": plan.style, "minOverlap": plan.minOverlap, "tiltDb": plan.tiltDb],
+                    "plan": ["style": plan.style, "minOverlap": plan.minOverlap, "tiltDb": plan.tiltDb, "echoThrow": plan.echoThrow],
                     "timing": ["overlap": min(plan.overlap, remaining), "remaining": remaining,
                         "outgoingDb": live?.loudnessDb as Any? ?? NSNull(), "nextBeatIn": live?.nextBeatIn as Any? ?? NSNull(),
                         "periodSec": live?.tempo?.periodSec as Any? ?? NSNull(), "incomingLeadIn": NSNull()]]

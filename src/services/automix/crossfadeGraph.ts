@@ -9,6 +9,7 @@ import {
 } from './signalAnalysis';
 import { STEM_NAMES, type StemName, type TrackStems } from './stems';
 import { OTHER_SWEEP_END, OTHER_SWEEP_HZ } from './stemGesture';
+import { DEFAULT_THROW_DELAY_SEC, THROW_FEEDBACK, planEchoThrow } from './echoThrow';
 
 // src/services/automix/crossfadeGraph.ts
 // The Web Audio half of automix: two identical deck chains feeding one mix point, and the ramp
@@ -68,21 +69,6 @@ const TONE_RESET_SEC = 0.12;
  * of a curve is not a boundary that forgives being crossed.
  */
 const CURVE_TAIL_GUARD_SEC = 0.006;
-
-/**
- * How long the thrown echo takes to repeat, when there is no tempo to derive it from.
- *
- * An eighth note at 120, which is the tempo nothing in a library is far from. With a tempo it is
- * derived instead, because an echo that repeats off the grid is heard as a fault rather than as an
- * effect.
- */
-const DEFAULT_THROW_DELAY_SEC = 0.25;
-/** How much of each repeat survives into the next. Four or five audible repeats, then gone. */
-const THROW_FEEDBACK = 0.45;
-/** How much of the outgoing track is fed in at the moment of the throw. */
-const THROW_SEND = 0.6;
-/** How long the send takes to open. Long enough not to click, short enough to be one gesture. */
-const THROW_OPEN_SEC = 0.15;
 
 /**
  * Wires one deck into the shared mix point.
@@ -282,21 +268,18 @@ export const scheduleEchoThrow = (
     /** Beat period of the outgoing track, for the repeat length. Null falls back to an eighth at 120. */
     periodSec: number | null,
 ): void => {
-    const repeat = periodSec && periodSec > 0
-        ? Math.min(1, Math.max(0.08, periodSec / 2))
-        : DEFAULT_THROW_DELAY_SEC;
-    const opensAt = Math.max(context.currentTime, at - THROW_OPEN_SEC);
+    const { delay, opensAt, peaksAt, closesAt, send } = planEchoThrow(at, periodSec, context.currentTime);
 
     try {
         node.delay.delayTime.cancelScheduledValues(opensAt);
-        node.delay.delayTime.setValueAtTime(repeat, opensAt);
+        node.delay.delayTime.setValueAtTime(delay, opensAt);
         node.send.gain.cancelScheduledValues(opensAt);
         node.send.gain.setValueAtTime(0, opensAt);
-        node.send.gain.linearRampToValueAtTime(THROW_SEND, Math.max(opensAt + 0.001, at));
+        node.send.gain.linearRampToValueAtTime(send, peaksAt);
         // Shut again the moment the track goes: what is already in the line keeps repeating, which
         // is the effect. Leaving the send open would feed it the silence of a paused deck instead.
-        node.send.gain.setValueAtTime(THROW_SEND, Math.max(opensAt + 0.001, at));
-        node.send.gain.linearRampToValueAtTime(0, Math.max(opensAt + 0.001, at) + 0.03);
+        node.send.gain.setValueAtTime(send, peaksAt);
+        node.send.gain.linearRampToValueAtTime(0, closesAt);
     } catch (error) {
         console.warn('[Automix] the echo throw was refused, cutting dry instead', error);
         node.send.gain.value = 0;
