@@ -7,6 +7,7 @@ final class StreamMixOutput {
     let mixer = AVAudioMixerNode()
     let node: AVAudioUnit
     let unit: AudioEffectUnit
+    let transitionGain = TransitionGain()
     var meter: AudioMeter { unit.meter }
     var configurationChanged: (() -> Void)?
     private var sources: [ObjectIdentifier: (bus: AVAudioNodeBus, source: StreamRenderSource)] = [:]
@@ -24,6 +25,7 @@ final class StreamMixOutput {
         observer = NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange,
             object: engine, queue: .main) { [weak self] _ in
                 guard let self, !self.closed else { return }
+                self.transitionGain.cancel()
                 self.configurationChanged?()
             }
     }
@@ -44,7 +46,7 @@ final class StreamMixOutput {
         guard let bus = (0..<2).map({ AVAudioNodeBus($0) }).first(where: { !occupied.contains($0) }) else {
             throw MobileFailure("audio-decks-full")
         }
-        let source = try StreamRenderSource(player: player)
+        let source = try StreamRenderSource(player: player, gain: transitionGain)
         engine.attach(source.node)
         engine.connect(source.node, to: mixer, fromBus: 0, toBus: bus, format: source.format)
         sources[identity] = (bus, source)
@@ -54,7 +56,17 @@ final class StreamMixOutput {
         guard !closed, !sources.isEmpty else { throw MobileFailure("audio-failed") }
         if !engine.isRunning { engine.prepare(); try engine.start() }
     }
-    func pause() { engine.pause() }
+    func pause() { transitionGain.cancel(); engine.pause() }
+    // Original envelopes are supplied by NativeTransitionPlanner; no platform rules live in this graph.
+    func scheduleGain(outgoing: AudioPlayer, incoming: AudioPlayer, envelope: NativeTransitionEnvelope,
+                      generation: UInt64) throws -> Bool {
+        guard !closed, let out = sources[ObjectIdentifier(outgoing)]?.source,
+              let next = sources[ObjectIdentifier(incoming)]?.source else { throw MobileFailure("audio-failed") }
+        let curve = try TransitionGainCurve(outgoing: out.identity, incoming: next.identity,
+            out: envelope.gain.out, input: envelope.gain.in, rate: out.format.sampleRate,
+            seconds: envelope.overlap, hold: envelope.hold)
+        return transitionGain.schedule(curve, generation: generation)
+    }
     func remove(_ player: AudioPlayer) {
         guard let entry = sources.removeValue(forKey: ObjectIdentifier(player)) else { return }
         engine.disconnectNodeOutput(entry.source.node)
