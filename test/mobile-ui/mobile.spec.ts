@@ -6,6 +6,8 @@ test.beforeEach(async ({ page }) => {
     const win = window as any;
     win.CapacitorCustomPlatform = { name: 'ios' };
     let subscriber: (state: unknown) => void;
+    let cacheSubscriber: () => void;
+    win.fixtureCache = { settings: { enabled: false, limitGB: 5 }, count: 0, bytes: 0, pending: 0, revision: 0, error: null, songs: [] };
     let cookie = false;
     const effects = { highpass: 20, lowpass: 20000, drive: 0, crush: 0, wow: 0, noise: 0, width: 1, space: 0, punch: 0 };
     win.fixtureTransition = { enabled: false, mode: 'automix', crossfadeMaxSec: 5 };
@@ -21,13 +23,23 @@ test.beforeEach(async ({ page }) => {
     win.fixturePlayback = state;
     const emit = () => { state.revision++; subscriber?.({ ...state }); };
     const methods = ['bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR',
-      'localCatalog', 'importAudio', 'localDetails', 'importLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings'];
+      'localCatalog', 'importAudio', 'localDetails', 'importLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache'];
     win.Capacitor = {
       PluginHeaders: [{ name: 'FoliaNative', methods: [...methods.map(name => ({ name, rtype: 'promise' })), { name: 'addListener' }, { name: 'removeListener' }] }],
-      nativeCallback: (_plugin: string, method: string, _options: unknown, cb: (state: unknown) => void) => {
-        if (method === 'addListener') subscriber = cb; return 'callback-1';
+      nativeCallback: (_plugin: string, method: string, options: any, cb: (state: unknown) => void) => {
+        if (method === 'addListener') { if (options.eventName === 'mediaCache') cacheSubscriber = cb as () => void; else subscriber = cb; } return 'callback-1';
       },
       nativePromise: async (_plugin: string, method: string, options: any) => {
+        if (method === 'getMediaCacheSettings') return structuredClone(win.fixtureCache.settings);
+        if (method === 'mediaCacheState') return structuredClone(win.fixtureCache);
+        if (method === 'setMediaCacheSettings') {
+          if (win.fixtureCacheFailure) throw new Error('cache-settings-failed');
+          win.fixtureCache.settings = structuredClone(options.settings); cacheSubscriber?.();
+          return structuredClone(options.settings);
+        }
+        if (method === 'clearMediaCache') {
+          win.fixtureCache.songs = []; win.fixtureCache.count = 0; win.fixtureCache.bytes = 0; cacheSubscriber?.(); return {};
+        }
         if (method === 'getTransitionSettings') return structuredClone(win.fixtureTransition);
         if (method === 'setTransitionSettings') {
           if (win.fixtureTransitionFailure) throw new Error('transition-settings-failed');
@@ -342,4 +354,44 @@ test('paused Partita lyrics are visible after switching modes and seeking', asyn
   await expect(page.locator('.lyric-stage .inline-flex.origin-center').first()).toContainText('第');
   await expect.poll(visibleChunk).toBe(true);
   await expect(page.locator('.player-panel').getByRole('button', { name: '播放', exact: true })).toBeVisible();
+});
+
+
+test('original cache controls retain offline songs and recover from rejected edits', async ({ page }, info) => {
+  await page.addInitScript(() => {
+    const win = window as any;
+    win.fixtureNoServer = true;
+    win.fixtureCache.count = 1; win.fixtureCache.bytes = 1048576;
+    win.fixtureCache.songs = [{ id: 'cached', name: '离线缓存歌曲', artists: [], album: { id: '', name: '' },
+      durationMs: 180000, sourceRef: { kind: 'online', providerId: 'qq', mediaId: 'cached' } }];
+  });
+  await page.goto('/mobile.html');
+  await page.getByRole('button', { name: '媒体缓存', exact: true }).click();
+  await page.getByRole('button', { name: '播放 离线缓存歌曲', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).fixturePlayback.playing)).toBe(true);
+  const back = page.getByRole('button', { name: '返回音乐库', exact: true });
+  if (await back.isVisible()) await back.click();
+  await page.getByRole('button', { name: '服务器与外观', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '服务器与外观' });
+  const toggle = dialog.getByRole('switch');
+  await expect(toggle).toHaveAttribute('aria-checked', 'false');
+  await toggle.click();
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureCache.settings.enabled)).toBe(true);
+  await dialog.getByRole('button', { name: '缓存上限', exact: true }).click();
+  await page.getByRole('option', { name: '不限制', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureCache.settings.limitGB)).toBe(0);
+  await expect(page.getByRole('listbox', { name: '缓存上限', exact: true })).toHaveCount(0);
+  await dialog.getByRole('button', { name: '清除音频缓存', exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: '.mobile-test-results/cache-settings-' + info.project.name + '.png' });
+  await page.evaluate(() => { (window as any).fixtureCacheFailure = true; });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-checked', 'true');
+  await expect(dialog.getByRole('alert')).toHaveText('缓存操作失败，请检查网络或可用空间。');
+  page.once('dialog', popup => popup.accept());
+  await dialog.getByRole('button', { name: '清除音频缓存', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureCache.count)).toBe(0);
+  await expect.poll(() => page.evaluate(() => (window as any).fixturePlayback.playing)).toBe(true);
+  await dialog.getByRole('button', { name: '关闭', exact: true }).click();
+  await expect(page.getByRole('button', { name: '播放 离线缓存歌曲', exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

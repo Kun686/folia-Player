@@ -10,6 +10,8 @@ final class NativeCrossfade {
     private struct Fade {
         var tail: StreamOccurrence?
         let tailSong: [String: Any]
+        let sourceURL: URL
+        var cached = false
         let epoch: Int, gainGeneration: UInt64
         let seconds: Double
     }
@@ -28,7 +30,7 @@ final class NativeCrossfade {
 
     init(owner: PlaybackEngine) {
         self.owner = owner
-        profiles = NativeTrackProfiles(local: owner.local, configuration: owner.mediaNetworkConfiguration ?? .ephemeral)
+        profiles = NativeTrackProfiles(local: owner.local, configuration: owner.mediaNetworkConfiguration ?? .ephemeral, mediaCache: owner.mediaCache)
         profiles.changed = { [weak self] in self?.tick() }
     }
     deinit { work?.cancel(); release?.cancel(); fade?.tail?.dispose() }
@@ -59,6 +61,8 @@ final class NativeCrossfade {
     }
     func invalidateProvider(_ provider: String) { invalidatePlan(); profiles.invalidateProvider(provider) }
     func cancelAnalysis() { profiles.cancel() }
+    func mediaAvailable(_ identity: String) { profiles.mediaAvailable(identity); tick() }
+    func cacheSettingsChanged() { profiles.resetOnline(); if !isFading { invalidatePlan(); tick() } }
 
     // Native media time decides readiness; the shared render clock decides when a scheduled fade is over.
     func tick() {
@@ -68,6 +72,7 @@ final class NativeCrossfade {
             let clock = owner.streamOutput?.transitionGain.clock
             if clock?.generation == fade.gainGeneration, let start = clock?.curveStart, let end = clock?.renderedEnd,
                end >= start + (fade.seconds + 0.15) * 44100 {
+                if !fade.cached { owner.cachePlayedSong(fade.tailSong, source: fade.sourceURL) }
                 cancel(); owner.prefetch(); owner.publish()
             }
             return
@@ -197,7 +202,7 @@ final class NativeCrossfade {
                 owner.index = pending.index; owner.detachedSong = owner.queue[pending.index]
                 owner.restoredPosition = pending.entry.position
                 owner.error = nil; owner.retried = false; owner.failures = 0
-                self.fade = Fade(tail: outgoing, tailSong: song, epoch: owner.generation,
+                self.fade = Fade(tail: outgoing, tailSong: song, sourceURL: outgoing.sourceURL, epoch: owner.generation,
                                  gainGeneration: gainGeneration, seconds: envelope.overlap)
                 // Early tail EOF does not truncate the incoming gain curve.
                 outgoing.ended = { [weak self, weak outgoing] in self?.releaseTail(outgoing) }
@@ -213,6 +218,9 @@ final class NativeCrossfade {
     }
     private func releaseTail(_ entry: StreamOccurrence?) {
         guard let entry, fade?.tail === entry else { return }
+        if entry.hasEnded, let fade { owner?.cachePlayedSong(fade.tailSong, source: fade.sourceURL); self.fade?.cached = true }
+        // A failed tail must not be counted as a fully played song.
+        if entry.hasFailed { fade?.cached = true }
         entry.dispose(); fade?.tail = nil
     }
 }

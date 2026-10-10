@@ -3,6 +3,7 @@ import AudioStreaming
 
 // StreamOccurrence.swift — one cancellable decoder per native queue occurrence; URLs never identify songs.
 final class StreamOccurrence: AudioPlayerDelegate {
+    var cachedMedia: NativeCachedMedia?
     let sourceURL: URL
     let audio: AudioPlayer
     let node: AVAudioUnit
@@ -106,7 +107,7 @@ final class StreamOccurrence: AudioPlayerDelegate {
     func dispose() {
         guard !disposed else { return }
         disposed = true; clearEvents(); audio.delegate = nil
-        output?.remove(audio); audio.stop()
+        output?.remove(audio); audio.stop(); cachedMedia = nil
     }
     deinit { audio.delegate = nil; output?.remove(audio); audio.stop() }
     private static func finite(_ value: Double) -> Double { value.isFinite ? max(0, value) : 0 }

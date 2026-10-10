@@ -15,14 +15,7 @@ final class NativeProfilePrefix: NSObject, URLSessionDataDelegate, @unchecked Se
 
     init(configuration: URLSessionConfiguration = .ephemeral) { self.configuration = configuration; super.init() }
     static func request(_ url: URL) throws -> URLRequest {
-        guard url.scheme == "https", url.host != nil, url.user == nil, url.password == nil else {
-            throw MobileFailure("invalid-audio-url")
-        }
-        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
-        request.httpShouldHandleCookies = false
-        request.setValue("bytes=0-\(limit - 1)", forHTTPHeaderField: "Range")
-        request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
-        return request
+        try NativeMediaTransport.request(url, range: "bytes=0-\(limit - 1)")
     }
     func read(_ url: URL) async throws -> Data {
         let request = try Self.request(url)
@@ -34,10 +27,7 @@ final class NativeProfilePrefix: NSObject, URLSessionDataDelegate, @unchecked Se
                     lock.unlock(); continuation.resume(throwing: error); return
                 }
                 started = true; self.continuation = continuation
-                let config = configuration.copy() as! URLSessionConfiguration
-                config.httpCookieStorage = nil; config.httpShouldSetCookies = false; config.urlCredentialStorage = nil
-                config.urlCache = nil; config.httpAdditionalHeaders = [:]
-                config.timeoutIntervalForRequest = 20; config.timeoutIntervalForResource = 30
+                let config = NativeMediaTransport.configuration(configuration, resourceTimeout: 30)
                 let queue = OperationQueue(); queue.maxConcurrentOperationCount = 1; queue.qualityOfService = .utility
                 let session = URLSession(configuration: config, delegate: self, delegateQueue: queue)
                 self.session = session

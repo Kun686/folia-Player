@@ -1,5 +1,10 @@
 // src/mobile/locale.ts
 export const mobileEn = {
+  clearMediaCache: "Clear audio cache",
+  confirmClearMediaCache: "Clear cached audio? Imported music is kept and current playback can continue.",
+  cachePending: "Caching {{count}} tracks",
+  cacheError: "Cache operation failed. Check the network or available storage.",
+
   transitionSettingsError: 'Transition settings could not be applied. The last confirmed settings have been kept.',
   transitionAnalysisUnavailable: 'Automix is not available in this version. Song changes use crossfade.',
   retry: 'Retry', audioSettingsError: 'Audio settings could not be applied. The last confirmed settings have been kept.',
@@ -33,6 +38,11 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  clearMediaCache: "清除音频缓存",
+  confirmClearMediaCache: "清除缓存的音频？本地导入的音乐会保留，正在播放的歌曲可以继续播放。",
+  cachePending: "正在缓存 {{count}} 首歌曲",
+  cacheError: "缓存操作失败，请检查网络或可用空间。",
+
   transitionSettingsError: '过渡设置未能应用，已保留上次确认的设置。',
   transitionAnalysisUnavailable: '此版本暂不支持 Automix，换歌使用交叉淡化。',
   retry: '重试', audioSettingsError: '声音设置未能应用，已保留上次确认的设置。',
@@ -66,6 +76,11 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  clearMediaCache: "Hapus cache audio",
+  confirmClearMediaCache: "Hapus audio cache? Musik impor tetap disimpan dan pemutaran saat ini dapat berlanjut.",
+  cachePending: "Menyimpan {{count}} lagu",
+  cacheError: "Operasi cache gagal. Periksa jaringan atau ruang penyimpanan.",
+
   transitionSettingsError: 'Pengaturan transisi gagal diterapkan. Pengaturan terakhir tetap dipakai.',
   transitionAnalysisUnavailable: 'Automix belum tersedia pada versi ini. Transisi memakai crossfade.',
   retry: 'Coba lagi', audioSettingsError: 'Pengaturan audio gagal diterapkan. Pengaturan terakhir tetap dipakai.',

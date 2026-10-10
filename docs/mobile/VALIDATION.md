@@ -1,6 +1,32 @@
 # 移动候选验证记录
 
-## mobile.9：原 Crossfade、设置与歌曲分析（当前开发候选）
+## mobile.10 源码：原版音频缓存
+
+沿用原开关（默认关闭）、5GB 默认上限、0 无上限及 LRU。原生自然 EOF 或完成交叉淡化后缓存，
+手动跳过不缓存；启用时原过渡分析可以提前下载完整音频。完整缓存优先于网关解析，缓存与
+当前解码器独立持有文件，清空／容量淘汰不打断当前播放与拖动。退出仅清理对应平台的缓存与任务。
+设置控件从原存储页抽出共用，原文案、选项及 settings-media-cache 命令锚点保留，未新增依赖。
+
+- PASS：移动逻辑 51 项，`media-cache-unit.log`。
+- PASS：最终原生 Release 全量 142 项，63.424 秒，`media-cache-final-regression.{log,xcresult}`。
+  同既有基线排除需要独立 HTTP 服务器的 3 项；包含通知主线程收紧及完整缓存队列测试。
+  此前一轮 141 项、61.746 秒也通过，见 `media-cache-regression.{log,xcresult}`。
+- PASS：iPhone XS Max / iOS18.7.10 / Release，13 项，15.313 秒，`media-cache-device.{log,xcresult}`。
+  12 项缓存专项 + 原在线前缀队列回归。完整下载→原分析→Crossfade→缓存重播没有新增网关解析／网络请求。
+  测试包与 xctestrun 均核对为 app.folia.validation.App，完成后已卸载，个人安装未被测试包覆盖。
+- PASS：3 个视口现有 UI 24 项；新增缓存 UI 3 项，`media-cache-ui-final.log`。覆盖容量“不限制”、
+  失败设置回退、离线曲目入口、清理时播放保持、无横向溢出。截图 `cache-settings-{phone,ipad,ipad-narrow}.png`。
+- PASS：TypeScript、前端资源构建／Capacitor 同步、差异空白检查。见 `media-cache-typecheck-reviewed.log`、
+  `media-cache-final-sync.log`。
+- 失败记录：第一次 native 命令错用了 NativeTests target（实际为 FoliaNativeTests），无测试执行；
+  改正 target 后测试通过。首次 UI 新用例把“服务器与外观”“返回音乐库”误写为“设置”“返回”，
+  24 项原用例通过、3 项新增定位失败；修正定位并增加容量选择后，3 个尺寸全部通过。
+- 边界：下载／HTTP 用范围受限的 URLProtocol 样本，实际走 URLSessionDownloadTask 和原生解码，
+  不等于真实 QQ／网易 API、CDN 或 TLS 验收。音频之外的封面／歌词缓存移植、完整 Automix、长时间锁屏、
+  物理耳机／蓝牙、歌词精度与性能仍未完成。详见 [MEDIA_CACHE.md](MEDIA_CACHE.md)。
+- 本节为源码验证；是否已安装以 BUILD_RECORD.json 与后续安装记录为准。
+
+## mobile.9：原 Crossfade、设置与歌曲分析（已安装的上一候选）
 
 本轮候选包含原 Crossfade 队列、原过渡设置、本地完整／在线前缀分析与启动延迟修正；
 默认仍关闭过渡，完整 Automix 未完成。源代码增加可选网络配置以验证流式解码与分析的完整链路，

@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { native, isNative } from './bridge';
+import MediaCacheControls from './MediaCacheControls';
+import type { useMediaCache } from './useMediaCache';
 import { cancelProvider, clearProvider } from './runtime';
 
 // src/mobile/SettingsSheet.tsx
-export default function SettingsSheet({ server, light, setLight, saved, close }: {
-  server: string; light: boolean; setLight: (value: boolean) => void; saved: (server: string) => void; close: () => void;
+export default function SettingsSheet({ mediaCache, server, light, setLight, saved, close }: {
+  mediaCache: ReturnType<typeof useMediaCache>; server: string; light: boolean; setLight: (value: boolean) => void; saved: (server: string) => void; close: () => void;
 }) {
   const { t } = useTranslation();
   const [address, setAddress] = useState(server);
@@ -38,6 +40,7 @@ export default function SettingsSheet({ server, light, setLight, saved, close }:
     <label>{t('mobile.theme')}<select value={light ? 'light' : 'dark'} onChange={e => setLight(e.target.value === 'light')}>
       <option value="dark">{t('mobile.dark')}</option><option value="light">{t('mobile.light')}</option>
     </select></label>
+    <MediaCacheControls cache={mediaCache} light={light} />
     <p className="muted">{t('mobile.limited')}</p>
   </section></div>;
 }

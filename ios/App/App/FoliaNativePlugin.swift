@@ -9,7 +9,8 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = ["bootstrap", "configure", "health", "saveSession", "clearSession",
         "request", "cancelRequests", "setQueue", "editQueue", "selectQueue", "command", "getState", "shareQR",
         "localCatalog", "importAudio", "localDetails", "importLyrics", "removeLocal", "audioLevels",
-        "getAudioSettings", "setAudioSettings", "getTransitionSettings", "setTransitionSettings"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
+        "getAudioSettings", "setAudioSettings", "getTransitionSettings", "setTransitionSettings", "getMediaCacheSettings", "setMediaCacheSettings",
+        "mediaCacheState", "clearMediaCache"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
     private let picker = LocalImportPicker()
     private var importing = false
     private let gateway = GatewayClient()
@@ -18,6 +19,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     public override func load() {
         DispatchQueue.main.async {
             self.engine = PlaybackEngine(gateway: self.gateway, usesStereoOutput: true)
+            self.engine.mediaCacheChanged = { [weak self] in self?.notifyListeners("mediaCache", data: [:]) }
             self.engine.emit = { [weak self] state in self?.notifyListeners("playback", data: state) }
         }
     }
@@ -63,7 +65,11 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func clearSession(_ call: CAPPluginCall) { run(call) {
         let provider = try self.provider(call)
         self.engine.invalidateProvider(provider)
-        try SecureStore.remove("session." + provider); call.resolve()
+        try SecureStore.remove("session." + provider)
+        Task { @MainActor in
+            do { try await self.engine.mediaCachePurges[provider]?.value; call.resolve() }
+            catch { call.reject("cache-clear-failed") }
+        }
     } }
     @objc func request(_ call: CAPPluginCall) { run(call) {
         guard let id = call.getString("id"), let payload = call.getObject("payload"), self.requests.count < 24 else { throw MobileFailure("invalid-request") }
@@ -107,6 +113,27 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func setAudioSettings(_ call: CAPPluginCall) { run(call) {
         guard let settings = call.getObject("settings") else { throw MobileFailure("invalid-audio-settings") }
         call.resolve(try self.engine.setAudioSettings(settings))
+    } }
+    @objc func getMediaCacheSettings(_ call: CAPPluginCall) { run(call) {
+        Task { @MainActor in call.resolve(await self.engine.mediaCache.settings.dictionary) }
+    } }
+    @objc func setMediaCacheSettings(_ call: CAPPluginCall) { run(call) {
+        guard let raw = call.getObject("settings"), let enabled = raw["enabled"] as? Bool, let limit = raw["limitGB"] as? Double else { throw MobileFailure("invalid-cache-settings") }
+        Task { @MainActor in
+            do { call.resolve(try await self.engine.configureMediaCache(.init(enabled: enabled, limitGB: limit))) }
+            catch { call.reject((error as? MobileFailure)?.code ?? "cache-settings-failed") }
+        }
+    } }
+    @objc func mediaCacheState(_ call: CAPPluginCall) { run(call) {
+        Task { @MainActor in
+            call.resolve(await self.engine.mediaCache.summary())
+        }
+    } }
+    @objc func clearMediaCache(_ call: CAPPluginCall) { run(call) {
+        Task { @MainActor in
+            do { try await self.engine.clearMediaCache(); call.resolve() }
+            catch { call.reject("cache-clear-failed") }
+        }
     } }
     @objc func audioLevels(_ call: CAPPluginCall) { run(call) {
         call.resolve(self.engine.meter?.snapshot() ?? ["available": false, "spectrum": [], "sampleRate": 44100])

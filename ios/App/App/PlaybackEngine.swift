@@ -18,6 +18,10 @@ final class PlaybackEngine {
     let gateway: GatewayClient
     let storage: UserDefaults
     let local: LocalMediaLibrary
+    let mediaCache: NativeMediaCache
+    var mediaCacheEpoch = 0
+    var mediaCacheChanged: (() -> Void)?
+    var mediaCachePurges: [String: Task<Void, Error>] = [:]
     let mediaNetworkConfiguration: URLSessionConfiguration?
     let network = NWPathMonitor()
     var networkResume: Double?
@@ -52,9 +56,11 @@ final class PlaybackEngine {
     var restoredPosition: Double = 0
 
     init(gateway: GatewayClient, storage: UserDefaults = .standard, local: LocalMediaLibrary = LocalMediaLibrary(),
-         usesStereoOutput: Bool = false, mediaNetworkConfiguration: URLSessionConfiguration? = nil) {
+         usesStereoOutput: Bool = false, mediaNetworkConfiguration: URLSessionConfiguration? = nil, mediaCache: NativeMediaCache? = nil) {
         self.usesStereoOutput = usesStereoOutput
         self.mediaNetworkConfiguration = mediaNetworkConfiguration?.copy() as? URLSessionConfiguration
+        let cacheSettings = storage.data(forKey: "folia.media-cache").flatMap { try? JSONDecoder().decode(NativeMediaCacheSettings.self, from: $0) } ?? NativeMediaCacheSettings()
+        self.mediaCache = mediaCache ?? NativeMediaCache(configuration: mediaNetworkConfiguration ?? .ephemeral, settings: cacheSettings)
         self.gateway = gateway
         self.storage = storage
         self.local = local
@@ -64,6 +70,12 @@ final class PlaybackEngine {
         restoreAudioSettings()
         crossfade = NativeCrossfade(owner: self)
         restoreTransitionSettings()
+        Task { @MainActor [weak self, cache = self.mediaCache] in
+            await cache.onChange { [weak self] identity in
+                self?.mediaCacheChanged?()
+                if let identity { self?.crossfade?.mediaAvailable(identity) }
+            }
+        }
         setupSystem()
         setupNetwork()
         if usesStereoOutput {
@@ -188,6 +200,9 @@ final class PlaybackEngine {
         intentToPlay = false; pauseOutput(); error = code; persist(); publish()
     }
     func invalidateProvider(_ provider: String) {
+        mediaCacheEpoch += 1
+        let previous = mediaCachePurges[provider]
+        mediaCachePurges[provider] = Task { [mediaCache] in _ = try? await previous?.value; try await mediaCache.clear(provider: provider) }
         crossfade?.invalidateProvider(provider)
         removeSongs { ($0["sourceRef"] as? [String: Any])?["providerId"] as? String == provider }
     }

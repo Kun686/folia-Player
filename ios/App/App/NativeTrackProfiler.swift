@@ -21,7 +21,7 @@ actor NativeTrackProfiler {
         if !partial { cache.save(result, key: key) }
         return result
     }
-    // Media caching is not yet implemented on iOS. Preserve the original default-off, head-only bandwidth policy.
+    // Uncached, default-off media keeps the original head-only bandwidth policy.
     func profile(remote url: URL, identity: NativeProfileIdentity,
                  configuration: URLSessionConfiguration = .ephemeral) async throws -> Data? {
         try Task.checkCancellation()
@@ -38,6 +38,15 @@ actor NativeTrackProfiler {
         try Task.checkCancellation()
         // A failed/empty decode is not evidence about the next URL or account. Only measured profiles persist.
         if let result { cache.save(result, key: identity.cacheKey, provider: provider) }
+        return result
+    }
+    func profile(cached media: NativeCachedMedia, identity: NativeProfileIdentity) throws -> Data? {
+        try Task.checkCancellation()
+        let key = NativeProfileCache.digest(Data(("v9-gridless-vdsp|complete|" + identity.key + "|" + media.generation).utf8))
+        if let hit = cache.read(key) { return hit.profile }
+        let result = try analyse(NativeProfilePCM.decode(media.url), partial: false)
+        try Task.checkCancellation()
+        if let result { cache.save(result, key: key, provider: identity.provider) }
         return result
     }
     func invalidateProvider(_ provider: String) { cache.remove(provider: provider) }

@@ -10,10 +10,20 @@ export interface PlaybackSnapshot {
   audioProcessingAvailable?: boolean;
   audioEffects?: { available: boolean; pending: boolean; error?: string };
 }
+export interface NativeMediaCacheSettings { enabled: boolean; limitGB: number }
+export interface NativeMediaCacheState {
+  settings: NativeMediaCacheSettings; count: number; bytes: number; pending: number;
+  revision: number; error: string | null; songs: SongResult[];
+}
 export interface NativeAudioSettings { volume: number; isMuted: boolean; equalizer: AudioEqualizerSettings }
 export interface NativeTransitionSettings { enabled: boolean; mode: 'crossfade' | 'automix'; crossfadeMaxSec: number }
 export type PlaybackEvent = Omit<PlaybackSnapshot, 'queue' | 'currentSong'> & Partial<Pick<PlaybackSnapshot, 'queue' | 'currentSong'>>;
 export interface FoliaNativePlugin {
+  getMediaCacheSettings(): Promise<NativeMediaCacheSettings>;
+  setMediaCacheSettings(options: { settings: NativeMediaCacheSettings }): Promise<NativeMediaCacheSettings>;
+  mediaCacheState(): Promise<NativeMediaCacheState>;
+  clearMediaCache(): Promise<void>;
+  addListener(name: 'mediaCache', listener: () => void): Promise<PluginListenerHandle>;
   localCatalog(): Promise<{ songs: SongResult[] }>;
   importAudio(): Promise<{ songs?: SongResult[]; failures?: { name: string; code: string }[]; cancelled?: boolean }>;
   localDetails(options: { id: string }): Promise<{ content?: string; cover?: string }>;

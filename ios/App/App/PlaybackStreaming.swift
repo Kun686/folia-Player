@@ -44,8 +44,7 @@ extension PlaybackEngine {
                 }
                 let entry: StreamOccurrence
                 if let cached { entry = cached }
-                else { entry = try await StreamOccurrence.prepare(url: self.resolve(song), position: position, output: output,
-                                                                  networkConfiguration: self.mediaNetworkConfiguration) }
+                else { entry = try await self.prepareMedia(song, refresh: refresh, position: position, output: output) }
                 guard epoch == self.generation, !Task.isCancelled else { entry.dispose(); return }
                 self.stream = entry; self.meter = entry.meter
                 entry.apply(self.audioSettings)
@@ -67,8 +66,7 @@ extension PlaybackEngine {
         preload = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                let entry = try await StreamOccurrence.prepare(url: self.resolve(song), output: output,
-                                                               networkConfiguration: self.mediaNetworkConfiguration)
+                let entry = try await self.prepareMedia(song, output: output)
                 guard epoch == self.generation, !Task.isCancelled else { entry.dispose(); return }
                 self.preparedStream?.entry.dispose()
                 self.preparedStream = (next, entry, Date())
@@ -96,6 +94,7 @@ extension PlaybackEngine {
         }
         entry.ended = { [weak self, weak entry] in
             guard let self, let entry, epoch == self.generation, self.stream === entry, self.intentToPlay else { return }
+            if let song = self.currentSong { self.cachePlayedSong(song, entry: entry) }
             self.failures = 0; self.move(1, automatic: true)
         }
         entry.failed = { [weak self, weak entry] in
