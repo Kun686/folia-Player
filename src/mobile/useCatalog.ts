@@ -28,7 +28,7 @@ export function useCatalog(provider: string, connected: boolean) {
     } catch { if (request === epoch.current) setError('account'); return false; }
   }, [provider]);
   useEffect(() => {
-    epoch.current++; setUser(null); setSongs([]); setCollections([]); setError(''); setMore(false);
+    epoch.current++; setUser(null); setSongs([]); setCollections([]); setError(''); setMore(false); setBusy(false);
     paging.current = { offset: 0 };
     if (connected) void refresh();
     return () => { epoch.current++; void cancelProvider(provider); };

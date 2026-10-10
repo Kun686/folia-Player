@@ -7,7 +7,10 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "FoliaNativePlugin"
     public let jsName = "FoliaNative"
     public let pluginMethods: [CAPPluginMethod] = ["bootstrap", "configure", "health", "saveSession", "clearSession",
-        "request", "cancelRequests", "setQueue", "command", "getState", "shareQR"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
+        "request", "cancelRequests", "setQueue", "command", "getState", "shareQR",
+        "localCatalog", "importAudio", "localDetails", "importLyrics", "removeLocal", "audioLevels"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
+    private let picker = LocalImportPicker()
+    private var importing = false
     private let gateway = GatewayClient()
     private var engine: PlaybackEngine!
     private var requests: [String: Task<Void, Never>] = [:]
@@ -33,9 +36,11 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func configure(_ call: CAPPluginCall) { run(call) {
         let server = try GatewayClient.validatedServer(call.getString("server") ?? "")
         guard let token = call.getString("token"), token.count >= 32, token.count <= 4096 else { throw MobileFailure("invalid-token") }
-        self.engine.stop()
+        if !self.engine.currentIsLocal { self.engine.stop() }
+        self.engine.discardPrepared()
         self.requests.values.forEach { $0.cancel() }; self.requests.removeAll()
         try SecureStore.write("gateway", ["server": server, "token": token])
+        self.engine.prefetch()
         call.resolve()
     } }
     @objc func health(_ call: CAPPluginCall) { run(call) {
@@ -84,6 +89,61 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve()
     } }
     @objc func getState(_ call: CAPPluginCall) { run(call) { call.resolve(self.engine.snapshot()) } }
+    @objc func audioLevels(_ call: CAPPluginCall) { run(call) {
+        call.resolve(self.engine.meter?.snapshot() ?? ["available": false, "spectrum": [], "sampleRate": 44100])
+    } }
+    @objc func localCatalog(_ call: CAPPluginCall) { run(call) {
+        Task { @MainActor in
+            do { call.resolve(["songs": try await self.engine.local.catalog()]) }
+            catch { call.reject("local-library-unavailable") }
+        }
+    } }
+    @objc func localDetails(_ call: CAPPluginCall) { run(call) {
+        Task { @MainActor in
+            do { call.resolve(try await self.engine.local.details(call.getString("id") ?? "")) }
+            catch { call.reject("local-file-missing") }
+        }
+    } }
+    @objc func removeLocal(_ call: CAPPluginCall) { run(call) {
+        let id = call.getString("id") ?? ""
+        guard LocalMediaLibrary.validID(id), !self.importing else { throw MobileFailure("invalid-local-identity") }
+        Task { @MainActor in
+            do {
+                try await self.engine.local.remove(id)
+                self.engine.removeSongs { song in
+                    let ref = song["sourceRef"] as? [String: Any]
+                    return ref?["kind"] as? String == "local" && ref?["mediaId"] as? String == id
+                }
+                call.resolve()
+            } catch { call.reject("local-remove-failed") }
+        }
+    } }
+    @objc func importAudio(_ call: CAPPluginCall) { chooseFiles(call, lyrics: false) }
+    @objc func importLyrics(_ call: CAPPluginCall) { chooseFiles(call, lyrics: true) }
+    private func chooseFiles(_ call: CAPPluginCall, lyrics: Bool) { run(call) {
+        guard !self.importing, let controller = self.bridge?.viewController else { throw MobileFailure("import-busy") }
+        if lyrics && !LocalMediaLibrary.validID(call.getString("id") ?? "") { throw MobileFailure("invalid-local-identity") }
+        try self.picker.present(on: controller, lyrics: lyrics) { urls in
+            self.importing = true
+            Task { @MainActor in
+                defer { self.importing = false }
+                guard !urls.isEmpty else { call.resolve(["cancelled": true]); return }
+                guard urls.count <= 100 else { call.reject("too-many-files"); return }
+                do {
+                    if lyrics {
+                        call.resolve(try await self.engine.local.importLyrics(urls[0], for: call.getString("id") ?? ""))
+                    } else {
+                        var songs: [[String: Any]] = [], failures: [[String: String]] = []
+                        for url in urls {
+                            do { songs.append(try await self.engine.local.importAudio(url)) }
+                            catch { failures.append(["name": url.lastPathComponent, "code": (error as? MobileFailure)?.code ?? "import-failed"]) }
+                        }
+                        call.resolve(["songs": songs, "failures": failures])
+                    }
+                } catch { call.reject((error as? MobileFailure)?.code ?? "import-failed") }
+            }
+        }
+    } }
     @objc func shareQR(_ call: CAPPluginCall) { run(call) {
         guard let raw = call.getString("image"), raw.hasPrefix("data:image/"), raw.count <= 4_000_000,
               let encoded = raw.split(separator: ",", maxSplits: 1).last,

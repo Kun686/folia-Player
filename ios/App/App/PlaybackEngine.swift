@@ -8,6 +8,7 @@ final class PlaybackEngine {
     let player = AVQueuePlayer()
     let gateway: GatewayClient
     let storage: UserDefaults
+    let local: LocalMediaLibrary
     let network = NWPathMonitor()
     var networkResume: (index: Int, position: Double)?
     var stalledRecovery: DispatchWorkItem?
@@ -23,7 +24,8 @@ final class PlaybackEngine {
     var retried = false
     var task: Task<Void, Never>?
     var preload: Task<Void, Never>?
-    var prepared: (index: Int, item: AVPlayerItem, at: Date)?
+    var prepared: (index: Int, item: AVPlayerItem, at: Date, meter: AudioMeter?)?
+    var meter: AudioMeter?
     var observers: [NSObjectProtocol] = []
     var observedItem: AVPlayerItem?
     var statusObservation: NSKeyValueObservation?
@@ -36,9 +38,10 @@ final class PlaybackEngine {
     var resumeAfterInterruption = false
     var restoredPosition: Double = 0
 
-    init(gateway: GatewayClient, storage: UserDefaults = .standard) {
+    init(gateway: GatewayClient, storage: UserDefaults = .standard, local: LocalMediaLibrary = LocalMediaLibrary()) {
         self.gateway = gateway
         self.storage = storage
+        self.local = local
         player.actionAtItemEnd = .advance
         player.automaticallyWaitsToMinimizeStalling = true
         restore()
@@ -54,12 +57,7 @@ final class PlaybackEngine {
         }
     }
     func setQueue(_ songs: [[String: Any]], at position: Int) throws {
-        guard !songs.isEmpty, songs.count <= 1000, songs.indices.contains(position),
-              songs.allSatisfy({ song in
-                  guard let ref = song["sourceRef"] as? [String: Any],
-                        let provider = ref["providerId"] as? String, let id = ref["mediaId"] as? String else { return false }
-                  return ref["kind"] as? String == "online" && ["netease", "qq", "kugou"].contains(provider) && !id.isEmpty && id.count <= 128
-              }) else { throw MobileFailure("invalid-queue") }
+        guard !songs.isEmpty, songs.count <= 1000, songs.indices.contains(position) else { throw MobileFailure("invalid-queue") }
         queue = try songs.map(Self.sanitizedSong); failures = 0; intentToPlay = true
         select(position)
     }
@@ -84,7 +82,8 @@ final class PlaybackEngine {
         player.pause(); statusObservation = nil; observedItem = nil; player.removeAllItems()
         index = target; error = nil
         if !refresh { retried = false }
-        let cached = !refresh && prepared?.index == target && Date().timeIntervalSince(prepared!.at) < 120 ? prepared?.item : nil
+        let cached = !refresh && prepared?.index == target && Date().timeIntervalSince(prepared!.at) < 120 ? prepared : nil
+        meter = nil
         prepared = nil
         let song = queue[target]
         publish()
@@ -96,9 +95,14 @@ final class PlaybackEngine {
             defer { if background != .invalid { UIApplication.shared.endBackgroundTask(background) } }
             do {
                 let item: AVPlayerItem
-                if let cached { item = cached }
-                else { item = AVPlayerItem(url: try await self.gateway.resolve(song)) }
+                let meter: AudioMeter?
+                if let cached { item = cached.item; meter = cached.meter }
+                else {
+                    item = AVPlayerItem(url: try await self.resolve(song))
+                    meter = await AudioMeter.attach(to: item)
+                }
                 guard epoch == self.generation, !Task.isCancelled else { return }
+                self.meter = meter
                 self.player.insert(item, after: nil)
                 self.observeStatus(item, epoch: epoch)
                 if position > 0 { await self.player.seek(to: CMTime(seconds: position, preferredTimescale: 600)) }
@@ -110,17 +114,19 @@ final class PlaybackEngine {
         }
     }
     func prefetch() {
-        guard let next = nextIndex(automatic: true) else { return }
+        guard queue.indices.contains(index), player.currentItem != nil, let next = nextIndex(automatic: true) else { return }
         let epoch = generation, song = queue[next]
         preload = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                let url = try await self.gateway.resolve(song)
+                let url = try await self.resolve(song)
                 let asset = AVURLAsset(url: url)
                 let playable = try await asset.load(.isPlayable)
                 guard playable, epoch == self.generation, !Task.isCancelled else { return }
                 let item = AVPlayerItem(asset: asset)
-                self.prepared = (next, item, Date())
+                let meter = await AudioMeter.attach(to: item)
+                guard epoch == self.generation, !Task.isCancelled else { return }
+                self.prepared = (next, item, Date(), meter)
                 if self.player.canInsert(item, after: self.player.currentItem) {
                     self.player.insert(item, after: self.player.currentItem)
                 }
@@ -144,9 +150,7 @@ final class PlaybackEngine {
         intentToPlay = false; player.pause(); error = code; persist(); publish()
     }
     func invalidateProvider(_ provider: String) {
-        stop()
-        queue.removeAll { ($0["sourceRef"] as? [String: Any])?["providerId"] as? String == provider }
-        index = -1; player.removeAllItems(); persist(); publish()
+        removeSongs { ($0["sourceRef"] as? [String: Any])?["providerId"] as? String == provider }
     }
     func activate() throws {
         let session = AVAudioSession.sharedInstance()
@@ -178,7 +182,8 @@ final class PlaybackEngine {
               let saved = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let songs = saved["queue"] as? [[String: Any]], songs.count <= 1000 else { return }
         restoredPosition = saved["position"] as? Double ?? 0
-        queue = songs; index = saved["index"] as? Int ?? -1; repeatMode = saved["repeat"] as? String ?? "off"
+        guard let validated = try? songs.map(Self.sanitizedSong) else { return }
+        queue = validated; index = saved["index"] as? Int ?? -1; repeatMode = saved["repeat"] as? String ?? "off"
         // Restore paused; no network traffic or unexpected audio until the user presses play.
     }
     deinit {

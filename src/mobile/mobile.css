@@ -1,10 +1,10 @@
-@import "tailwindcss";
+@import "../index.css";
 /* src/mobile/mobile.css */
 :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color-scheme: dark; background: #09090b; }
 * { box-sizing: border-box; }
-body { margin: 0; overscroll-behavior: none; }
+body { margin: 0; overscroll-behavior: none; overflow: auto; }
 button, input, select { font: inherit; }
-button { min-height: 44px; min-width: 44px; border: 0; border-radius: 12px; padding: 10px 14px; background: var(--raised); color: inherit; cursor: pointer; touch-action: manipulation; }
+:where(.library-panel, .mini-player, .player-controls, .sheet:not(.visual-settings)) button, .player-collapse, .visual-settings > header button { min-height: 44px; min-width: 44px; border: 0; border-radius: 12px; padding: 10px 14px; background: var(--raised); color: inherit; cursor: pointer; touch-action: manipulation; }
 button:disabled { opacity: .4; cursor: default; }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
 input, select { color: inherit; background: var(--raised); border: 1px solid var(--border); border-radius: 12px; padding: 12px; min-height: 44px; min-width: 0; }
@@ -45,6 +45,17 @@ h1, h2, p { margin: 0; } h1 { font-size: 32px; letter-spacing: -.04em; } h2 { fo
 .empty-lyrics p { color: var(--muted); font-size: 13px; }
 .player-controls { padding: 20px 24px; } .player-controls h2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .player-controls p { color: var(--muted); font-size: 13px; margin: 8px 0; } input[type=range] { width: 100%; padding: 0; accent-color: var(--text); }
+.player-options { display: flex; justify-content: center; gap: 8px; margin-top: 12px; }
+.player-options button { font-size: 12px; }
+.connection-hint { font-size: 13px; color: var(--muted); padding-block: 16px; }
+.check-label { flex-direction: row !important; align-items: center; }
+.check-label input { width: 22px; min-height: 22px; }
+.visual-settings { text-align: left; }
+.visual-settings input[type=range] { touch-action: pan-y; }
+.visual-settings > details, .appearance-transfer { margin-block: 20px; }
+.visual-settings summary { cursor: pointer; min-height: 44px; padding-block: 12px; }
+.appearance-transfer textarea { width: 100%; background: var(--raised); border-radius: 8px; padding: 12px; overflow-wrap: anywhere; }
+.appearance-transfer button { min-height: 44px; padding: 8px 12px; background: var(--raised); border-radius: 10px; }
 .transport { justify-content: center; gap: 12px; } .transport select { max-width: 110px; font-size: 12px; }
 .primary-play { border-radius: 50%; padding: 18px; color: var(--bg); background: var(--text); }
 .sheet-backdrop { position: fixed; z-index: 60; inset: 0; background: #000a; display: grid; place-items: center; padding: max(20px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom)); }

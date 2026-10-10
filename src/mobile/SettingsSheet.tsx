@@ -27,6 +27,7 @@ export default function SettingsSheet({ server, light, setLight, saved, close }:
   };
   return <div className="sheet-backdrop"><section className="sheet" role="dialog" aria-modal="true" aria-label={t('mobile.settings')}>
     <header><h2>{t('mobile.settings')}</h2><button onClick={close}>{t('mobile.close')}</button></header>
+    <p>{t('mobile.optionalServer')}</p>
     <form onSubmit={e => { e.preventDefault(); void save(); }}>
       <label>{t('mobile.server')}<input type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" required value={address} onChange={e => setAddress(e.target.value)} placeholder="https://music.example.com" /></label>
       <label>{t('mobile.token')}<input type="password" autoComplete="off" required minLength={32} value={token} onChange={e => setToken(e.target.value)} /></label>

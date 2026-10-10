@@ -1,20 +1,52 @@
-import { useEffect, useRef, useState } from 'react';
-import { useMotionValue, useMotionValueEvent, type MotionValue } from 'framer-motion';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMotionValueEvent, type MotionValue } from 'framer-motion';
 import { Play, Pause, SkipBack, SkipForward, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import Classic from '../components/visualizer/classic/Visualizer';
-import { DEFAULT_THEME, DAYLIGHT_THEME } from '../services/baseThemes';
+import VisualizerRenderer from '../components/visualizer/VisualizerRenderer';
+import { useVisualizerSettingsStore } from '../stores/useVisualizerSettingsStore';
+import { useVisualizerBackgroundConfig } from '../components/visualizer/useVisualizerBackgroundConfig';
+import { useVisualizerTunings } from '../components/visualizer/useVisualizerTunings';
+import { useThemeSettingsStore } from '../stores/useThemeSettingsStore';
+import { useMobileTheme } from './useMobileTheme';
+import { useTypographySettingsStore } from '../stores/useTypographySettingsStore';
+import { buildVisualizerTheme } from '../components/app/presentation/buildVisualizerTheme';
 import { findLatestActiveLineIndex } from '../utils/appPlaybackHelpers';
-import { omni } from '../services/onlineMusic/omni';
-import type { LyricData } from '../types';
+import { useMobileLyrics } from './useMobileLyrics';
+import { useNativeAudio } from './useNativeAudio';
+import VisualSettings from './VisualSettings';
+import { useShallow } from 'zustand/react/shallow';
+import { useVisualizerAssetStore } from '../stores/useVisualizerAssetStore';
+import { NO_LYRIC_LINES } from '../utils/lyrics/noLyricLines';
 import { native, type PlaybackSnapshot } from './bridge';
 
-// src/mobile/PlayerPanel.tsx — original parsed lyrics/Classic animations consume the native clock.
+// src/mobile/PlayerPanel.tsx — original registry renderers consume the native clock and decoded audio.
+const MobileVisualizer = memo(VisualizerRenderer);
 export default function PlayerPanel({ state, time, visible, light, expanded, collapse }: {
   state: PlaybackSnapshot; time: MotionValue<number>; visible: boolean; light: boolean; expanded: boolean; collapse: () => void;
 }) {
   const { t } = useTranslation();
-  const [lyrics, setLyrics] = useState<LyricData | null>(null);
+  const [visualSettings, setVisualSettings] = useState(false);
+  const mode = useVisualizerSettingsStore(s => s.visualizerMode);
+  const appearance = useMobileTheme();
+  const typography = useTypographySettingsStore(useShallow(s => ({
+    lyricsFontStyle: s.lyricsFontStyle, lyricsFontWeight: s.lyricsFontWeight,
+    lyricsCustomFontFamily: s.lyricsCustomFont?.family ?? null, lyricsFontFallbackFamilies: s.lyricsFontFallbackFamilies,
+    lyricsFontScale: s.lyricsFontScale, subtitleFontScale: s.subtitleFontScale, subtitleOverlayOpacity: s.subtitleOverlayOpacity,
+    subtitleOverlayBackground: s.subtitleOverlayBackground, subtitleUpcomingLyricsBlur: s.subtitleUpcomingLyricsBlur,
+    showHarmonySubtitle: s.showHarmonySubtitle, harmonySubtitleBackground: s.harmonySubtitleBackground,
+    showSubtitleTranslation: s.showSubtitleTranslation, subtitleContentMode: s.subtitleContentMode,
+    subtitleFontInheritsLyrics: s.subtitleFontInheritsLyrics, subtitleFontStyle: s.subtitleFontStyle,
+    subtitleFontWeight: s.subtitleFontWeight, subtitleFontFamily: s.subtitleFontFamily, subtitleFontFallbackFamilies: s.subtitleFontFallbackFamilies,
+  })));
+  const { visualizerTheme, visualizerSubtitleTheme } = useMemo(() => buildVisualizerTheme({ ...typography, appStyle: {},
+    theme: light ? appearance.theme.light : appearance.theme.dark, visualizerMode: mode }), [typography, light, appearance.theme, mode]);
+  const staticMode = useThemeSettingsStore(s => s.staticMode);
+  const background = useVisualizerBackgroundConfig();
+  const visualizerTunings = useVisualizerTunings();
+  const assets = useVisualizerAssetStore(useShallow(s => ({
+    cappellaCustomEmojiImages: s.cappellaCustomEmojiImages, cappellaCustomAvatarImages: s.cappellaCustomAvatarImages,
+    monetPortraitImage: s.monetPortraitImage,
+  })));
   const [line, setLine] = useState(-1);
   const lineRef = useRef(-1);
   const [wide, setWide] = useState(matchMedia('(min-width: 850px)').matches);
@@ -25,14 +57,19 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
     return () => media.removeEventListener('change', changed);
   }, []);
   const [error, setError] = useState(false);
-  const zero = useMotionValue(0);
+  const seekLyrics = useCallback((position: number) => {
+    void native.command({ action: 'seek', position }).catch(() => setError(true));
+  }, []);
   const song = state.queue[state.index];
-  const key = song ? JSON.stringify(song.sourceRef) : '';
-  useEffect(() => {
-    let active = true; setLyrics(null); setLine(-1); lineRef.current = -1; setError(false);
-    if (song) void omni.getLyrics(song).then(result => { if (active) setLyrics(result.lyrics); }).catch(() => { if (active) setError(true); });
-    return () => { active = false; };
-  }, [key]);
+  const { lyrics, cover, error: lyricsError, refresh } = useMobileLyrics(song);
+  const rendering = visible && (expanded || wide) && !visualSettings;
+  const audio = useNativeAudio(rendering && state.playing);
+  const importLyrics = async () => {
+    if (song?.sourceRef?.kind !== 'local') return;
+    setError(false);
+    try { const result = await native.importLyrics({ id: song.sourceRef.mediaId }); if (!result.cancelled) refresh(); }
+    catch { setError(true); }
+  };
   useEffect(() => {
     const index = findLatestActiveLineIndex(lyrics?.lines ?? [], time.get());
     lineRef.current = index; setLine(index);
@@ -46,11 +83,12 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
   return <section className={'player-panel ' + (expanded ? 'expanded' : '')} aria-label={t('mobile.play')}>
     <button className="player-collapse" onClick={collapse} aria-label={t('mobile.back')}><ChevronDown /></button>
     <div className="lyric-stage">
-      {song && visible && (expanded || wide) && lyrics?.lines.length ? <Classic currentTime={time} lines={lyrics.lines} currentLineIndex={line}
-        theme={light ? DAYLIGHT_THEME : DEFAULT_THEME} audioPower={zero}
-        audioBands={{ bass: zero, lowMid: zero, mid: zero, vocal: zero, treble: zero }}
+      {song && rendering ? <MobileVisualizer mode={mode} currentTime={time} lines={lyrics?.lines ?? NO_LYRIC_LINES} currentLineIndex={line}
+        theme={visualizerTheme} subtitleTheme={visualizerSubtitleTheme} {...typography} {...audio} isDaylight={light}
         paused={!state.playing} songTitle={song.name}  songArtist={song.artists.map(a => a.name).join(' / ')}
-        onLyricLineSeek={position => command('seek', position)} background={{ mode: 'common', common: { disableGeometricBackground: true, disableVignette: true } }} backgroundStaticMode staticMode={false} />
+        songAlbum={song.album.name} coverUrl={cover} seed={JSON.stringify(song.sourceRef)}
+        onLyricLineSeek={seekLyrics}
+        background={background} visualizerTunings={visualizerTunings} staticMode={staticMode} {...assets} />
         : <div className="empty-lyrics"><span>Folia</span><p>{song ? t('mobile.noLyrics') : t('mobile.noSongs')}</p></div>}
     </div>
     <div className="player-controls">
@@ -68,7 +106,11 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
           {(['off', 'all', 'one'] as const).map(mode => <option key={mode} value={mode}>{t('mobile.' + mode)}</option>)}
         </select>
       </div>
-      {(state.error || error) && <p role="alert">{t('mobile.error')} {state.error}</p>}
+      <div className="player-options"><button onClick={() => setVisualSettings(true)}>{t('mobile.visuals')}</button>
+        {song?.sourceRef?.kind === 'local' && <button onClick={() => void importLyrics()}>{t('mobile.importLyrics')}</button>}</div>
+      {song && !lyrics?.lines.length && <p className="muted">{t('mobile.noLyrics')}</p>}
+      {(state.error || error || lyricsError) && <p role="alert">{t('mobile.error')} {state.error}</p>}
     </div>
+    {visualSettings && <VisualSettings light={light} appearance={appearance} close={() => setVisualSettings(false)} />}
   </section>;
 }

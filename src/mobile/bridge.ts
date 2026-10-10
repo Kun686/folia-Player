@@ -7,6 +7,12 @@ export interface PlaybackSnapshot {
   repeat: 'off' | 'all' | 'one'; error?: string; revision: number;
 }
 export interface FoliaNativePlugin {
+  localCatalog(): Promise<{ songs: SongResult[] }>;
+  importAudio(): Promise<{ songs?: SongResult[]; failures?: { name: string; code: string }[]; cancelled?: boolean }>;
+  localDetails(options: { id: string }): Promise<{ content?: string; cover?: string }>;
+  importLyrics(options: { id: string }): Promise<{ content?: string; cover?: string; cancelled?: boolean }>;
+  removeLocal(options: { id: string }): Promise<void>;
+  audioLevels(): Promise<{ available: boolean; spectrum: number[]; sampleRate: number }>;
   bootstrap(): Promise<{ server: string; sessions: Record<string, Record<string, string>> }>;
   configure(options: { server: string; token: string }): Promise<void>;
   health(): Promise<{ protocol: number; providers: string[] }>;

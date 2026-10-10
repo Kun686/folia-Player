@@ -1,7 +1,49 @@
 # 移动候选验证记录
 
-日期：2026-10-10。源码基线 d824c0b854e54d5411cb072092999823e9bd7071，移动候选源码及服务器内部验证见 SERVER_VALIDATION.md。
-当前代码指纹见 BUILD_RECORD.json。**本地工程验证通过，不代表真实三平台／真机首版已验收。**
+日期：2026-10-10。当前候选 **0.7.16-mobile.2 / build 2**，基于 mobile-main 的 61f914d 继续移植。
+当前源码指纹见 BUILD_RECORD.json。上游基线 d824c0b854e54d5411cb072092999823e9bd7071。
+本轮以本地导入、原播放器和动效为重点；没有更改远端服务器、平台规则或依赖锁。
+**本地工程验证通过，不代表真实在线账户／两台真机首版已验收。**
+
+## mobile.2 验证
+
+| 层级 | 结果 | 证据与边界 |
+|---|---|---|
+| TypeScript | PASS | npm run typecheck；mobile2-typecheck-final.log |
+| 移动逻辑 | PASS | npm run test:mobile，19 项；local-unit-tests.log |
+| 原生 XCTest | PASS | 21 项；mobile2-native.{log,xcresult}；默认模拟器签名 |
+| UI | PASS | npm run test:mobile:ui，12 项，WebKit；手机／宽 iPad／窄窗口各4项；mobile2-ui-import-stable.log |
+| 系统文件导入 | PASS | iPad Pro 11-inch (M5) / iPadOS26.5 Simulator；真实 UIDocumentPicker 多选4个合成 WAV，无服务器 |
+| 原生本地播放／LRC | PASS | iPad 模拟器实际播放、自动跨曲，系统选择器导入 LRC 并显示 Classic 动画；暂停、拖动、横竖屏 |
+| 14 模式接入与外观配置 | PASS（接入） | 原注册表、参数和背景组件；UI fixture 挂载与短码回读；不是14种效果的完整视觉或性能验收 |
+| 真实解码音频频谱 | PASS（本地 PCM） | 原生测试440Hz输入对应FFT峰值、停止读取后不再分析；在线流编码支持未全部验证 |
+| iPhone 安装／启动 | PASS | build2 开发签名覆盖安装并启动，devicectl结构化结果success；未卸载用户App |
+| App 内网易云／QQ完整在线流程 | NOT_RUN | 接口和账户历史证据在 SERVER_VALIDATION.md；本次没有重新扫码或App到网关端到端测试 |
+| iPad实体设备、两机30分钟锁屏 | NOT_RUN | 模拟器不能替代真机长期验收 |
+| 蓝牙／耳机／网络切换／歌词≤150ms／温升内存 | NOT_RUN | 没有对应的真机与仪器化证据 |
+
+原生新增用例包括：导入后删除来源仍能播放、重建库后读取、拒绝路径遍历、歌词持久化、
+损坏文件清理、断网下四首本地音频自动跨过三个边界且没有网关请求、退出在线平台保留本地播放、
+恢复的暂停队列不会因预加载自行选曲，以及真实PCM频谱。21项包含全部15项既有回归。
+这些测试不使用WebView，但只证明短时本地播放，不证明真机挂起时远程地址刷新。
+
+UI使用专用原生桥fixture和平台样本；测试包含登录、歌单、搜索、播放控制、网络错误、本地导入／移除、
+14模式挂载、外观短码和暂停时Partita切换／跳转。测试文件与样本没有进入App资源。
+Partita暂停挂载时主歌词透明的问题先复现失败，再修正初始离散状态读取当前时钟；
+保留原动画参数和视觉设计。证据为mobile2-partita-red.log和最终UI报告。
+中间一次UI运行因初始歌词加载改变按钮位置，歌词导入点击未生效；修正测试等待初始加载完成并确认导入调用，
+随后12项一次通过，没有放宽歌词内容断言。
+
+开发环境仍有继承的Pixi／Three弃用警告和React useInsertionEffect警告；最终没有未捕获pageerror。
+不能将Pixi打印的弃用调用栈当成已证实的渲染器崩溃，也不能将无pageerror当成性能合格。
+原生频谱首轮测试读取到启动静音，改为等到实际非零信号后仍断言频率峰值；未改成虚假信号。
+
+实际iPad截图：.mobile-test-results/mobile2-ipad-native-lyrics-{portrait,landscape}.png。
+其中音乐和歌词明确标注为验收用合成内容，不是真实平台账户数据。最终资源及设备构建见文末更新。
+
+## mobile.1 历史验证（非本次重新执行）
+
+以下保留既有工程、服务器和设备证据；旧版启动服务器设置页的行为已经由mobile.2的本地曲库入口替换。
 
 | 层级 | 结果 | 证据与边界 |
 |---|---|---|
@@ -56,8 +98,8 @@ GHSA-rvm3-566m-v7fv 不覆盖8.5.3，这不是全面安全认证。
 
 ## 交付条件
 
-当前交付源码、Xcode工程、配置模板、构建说明与分层证据。QQ／网易内部服务与真实账户接口已验证，
-已生成开发签名包并安装iPhone，未做真机后台验收。按 ACCEPTANCE.md 补齐 HTTPS 和设备条件后继续。
+mobile.1交付了源码、Xcode工程、配置模板、构建说明与分层证据。QQ／网易内部服务与真实账户接口已验证，
+开发签名包已安装iPhone，未做真机后台验收。当前mobile.2的本地使用无需HTTPS；在线网关连接与真机验收条件见ACCEPTANCE.md。
 
 2026-10-10 部署阶段增量复测：TypeScript PASS，移动逻辑19项 PASS，三种窗口UI共6项 PASS，
 ios:sync PASS，原生XCTest11项 PASS（native-deploy.xcresult）。当前部署锁审计见 SERVER_VALIDATION.md。
@@ -104,3 +146,20 @@ SHA256：88b0eb4d6502b98c0143b139a877fce352b23acb85098966774ab3111eddc78a。
 上一版 a367f22 安装包仍保留。IPA、设备标识与签名描述文件不上传仓库。
 本地忽略目录 .mobile-test-results 中保存 device-recovery-build.log、device-recovery-install.{log,json}、
 device-recovery-launch.{log,json}。此次未修改服务器、HTTPS 配置、平台规则或产品功能。
+
+## mobile.2 最终设备更新
+
+2026-10-10：npm run ios:sync、generic iOS开发签名构建、Simulator构建均通过，资源约11 MiB。
+codesign --verify --deep --strict通过；设备包public下资源与本次dist-mobile逐字节一致。
+最终构建证据：mobile2-resources-verified.log、mobile2-device-verified.log、mobile2-sim-verified.log。
+
+已在连接的 iPhone XS Max / iOS18.7.10 上覆盖安装并启动 build2；
+mobile2-verified-{install,launch}.json均为success。iPad模拟器也安装最终包，保留导入曲库、歌词和设置；
+重新打开队列为暂停状态，Partita暂停后关闭／打开设置仍显示主歌词，
+截图mobile2-ipad-native-paused-partita.png。该检查只验证状态恢复和显示，不证明长期性能。
+
+本地交付文件：移动端交付/Folia-0.7.16-mobile.2-3b71ed27-development.ipa，6,938,977 bytes。
+源码指纹：3b71ed2786ef7f4a89fa585e90562e7e6e4a5834f1c59a8f169b71f0ec18fb73。
+IPA SHA256：5f6af233f15ebd067c3c7c6ff8f0a2a6554fd7f70158727f0a70605670d22d8d。
+旧mobile.1包仍保留；IPA不含验收音频，也不上传仓库。只适用于开发描述文件允许的设备。
+本次没有修改服务器部署、网关HTTPS规则、线上账号或生产依赖。

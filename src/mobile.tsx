@@ -3,9 +3,11 @@ import { createRoot } from 'react-dom/client';
 import { initializeRuntime } from './mobile/runtime';
 import { isNative } from './mobile/bridge';
 import './mobile/mobile.css';
+import { installGlobalVisualizerFrameRateLimiter } from './utils/frameRateLimiter';
 
 // src/mobile.tsx — isolate mobile startup from desktop modules, AI and local filesystem bootstrap.
 globalThis.Buffer = Buffer;
+installGlobalVisualizerFrameRateLimiter();
 async function start() {
   const server = isNative ? await initializeRuntime() : '';
   const { default: MobileApp } = await import('./mobile/MobileApp');

@@ -1,11 +1,11 @@
 import { List, type RowComponentProps } from 'react-window';
-import { Play, Plus } from 'lucide-react';
+import { Play, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { SongResult } from '../types';
 
 // src/mobile/SongList.tsx — virtualized, touch-accessible rows; no hover-only actions.
-interface Props { songs: SongResult[]; play: (index: number) => void; add: (song: SongResult) => void }
-function Row({ index, style, songs, play, add }: RowComponentProps<Props>) {
+interface Props { songs: SongResult[]; play: (index: number) => void; add: (song: SongResult) => void; remove?: (song: SongResult) => void }
+function Row({ index, style, songs, play, add, remove }: RowComponentProps<Props>) {
   const { t } = useTranslation();
   const song = songs[index];
   return <div className="song-row" style={style}>
@@ -13,6 +13,7 @@ function Row({ index, style, songs, play, add }: RowComponentProps<Props>) {
       <Play size={18} /><span><strong>{song.name}</strong><small>{song.artists.map(a => a.name).join(' / ')}</small></span>
     </button>
     <button className="icon-button" onClick={() => add(song)} aria-label={t('mobile.add') + ' ' + song.name}><Plus size={20} /></button>
+    {remove && <button className="icon-button" onClick={() => remove(song)} aria-label={t('mobile.remove') + ' ' + song.name}><Trash2 size={18} /></button>}
   </div>;
 }
 export default function SongList(props: Props) {

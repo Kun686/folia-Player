@@ -104,18 +104,19 @@ extension PlaybackEngine {
     func setupNetwork() {
         network.pathUpdateHandler = { [weak self] path in
             DispatchQueue.main.async {
-                guard let self else { return }
-                if path.status != .satisfied && self.intentToPlay {
-                    let pending = (self.index, self.finiteTime(self.player.currentTime()))
-                    self.stop("network")
-                    self.networkResume = pending
-                } else if path.status == .satisfied, let pending = self.networkResume {
-                    self.networkResume = nil; self.intentToPlay = true
-                    self.select(pending.index, position: pending.position)
-                }
+                self?.networkChanged(connected: path.status == .satisfied)
             }
         }
         network.start(queue: DispatchQueue(label: "app.folia.network"))
+    }
+    func networkChanged(connected: Bool) {
+        if !connected && intentToPlay && !currentIsLocal {
+            let pending = (index, finiteTime(player.currentTime()))
+            stop("network"); networkResume = pending
+        } else if connected, let pending = networkResume {
+            networkResume = nil; intentToPlay = true
+            select(pending.index, position: pending.position)
+        }
     }
     func updateNowPlaying() {
         guard queue.indices.contains(index) else { MPNowPlayingInfoCenter.default().nowPlayingInfo = nil; return }
