@@ -12,7 +12,8 @@ vendor 文件。100 项完整原生回归、受控 HTTP 队列及 7 项真机关
 各阶段证据和失败记录见 [AUTOMIX_PORT.md](AUTOMIX_PORT.md)，当前包见 VALIDATION.md。
 
 后续开发源码已定位 bypass TimePitch 的 4096 帧延迟，外部接口改为复用原始 PCM 读取路径。
-原生 Crossfade 队列及原版开关／模式／时长设置已接线，默认仍关闭；分析、完整 Automix 与动画事件仍未接完。
+原生 Crossfade 队列及原版开关／模式／时长设置已接线，默认仍关闭；本地歌曲已接入原分析的无模型分支、
+缓存和首尾静音边界。iPad 模拟器完整 121 项原生回归通过；在线分析、完整 Automix 与动画事件仍未接完。
 这一变化尚未发布到 mobile.8，详见 AUTOMIX_PORT.md 的开发阶段记录。
 
 复用已批准的AudioStreaming 1.4.5解码／网络实现、Apple音频图及现有Folia DSP，不新增依赖版本。

@@ -10,6 +10,7 @@ extension PlaybackEngine {
         let cache = preparedStream
         preparedStream = nil
         let reusable = !refresh && position == 0 && cache?.index == target && Date().timeIntervalSince(cache!.at) < 120
+            && cache?.entry.preparedPosition == 0
             && cache?.entry.hasFailed == false
         let cached = reusable ? cache?.entry : nil
         if !reusable { cache?.entry.dispose() }

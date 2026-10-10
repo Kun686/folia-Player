@@ -10,3 +10,10 @@ await build({
     lib: { entry: 'src/services/automix/nativeRuntime.ts', name: 'FoliaTransitions', formats: ['iife'], fileName: () => 'transitions.js' },
   },
 });
+await build({
+  configFile: false, root, publicDir: false,
+  build: {
+    target: 'safari17', outDir: 'dist-mobile/native', emptyOutDir: false,
+    lib: { entry: 'src/services/automix/nativeProfileRuntime.ts', name: 'FoliaProfiles', formats: ['iife'], fileName: () => 'profiles.js' },
+  },
+});

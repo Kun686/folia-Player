@@ -1,18 +1,20 @@
 # 移动候选验证记录
 
-## 后续开发源码：Crossfade 队列与原设置
+## 后续开发源码：Crossfade、原设置与本地歌曲分析
 
 本阶段没有发布新 IPA，当前个人 iPhone 仍为下述 mobile.8。开发源码已修正外部解码输出的 TimePitch
 启动延迟和末尾丢帧，并将原 Crossfade 规则、原设置面板／store 接入原生队列；默认仍关闭。
-完整 Automix 与原过渡动画接线未完成。
+本地导入歌曲现可通过原版无模型分析得到首尾静音边界，进入原生 Crossfade；具备版本缓存和任务取消。
+在线分析、完整 Automix 与原过渡动画接线未完成。
 
-- PASS：移动逻辑 46 项、TypeScript、移动资源打包及 iOS 同步、vendor 完整核对。
+- PASS：本轮移动逻辑 48 项；连同原 Automix 相关回归共 462 项。TypeScript、移动资源打包及 iOS 同步通过；vendor 无改动。
 - PASS：手机／iPad／窄窗口设置及音效回归 9 项，按钮样式隔离后三尺寸专项 3 项。
-- PASS：iPad 模拟器 Release 全量原生 112 项，51.365 秒。
-- PASS：iPhone XS Max / iOS18.7.10 / Release 独立 QA 包 8 项，6.856 秒；QA 包已卸载，个人 App 保留。
+- PASS：本轮最终 iPad 模拟器 Release 全量原生 121 项，52.841 秒，`profile-fft-full.{log,xcresult}`。
+- PASS：本轮 iPhone XS Max / iOS18.7.10 / Release 独立 QA 包 9 项，20.874 秒，`profile-fft-device.{log,xcresult}`。
+  原分析接系统双精度 FFT 后，同样 8 组数值对照从 29.460 秒降至 3.982 秒，保持 1e-6 容差；QA 包已卸载。
 - NOT_RUN：本次改动的长时间锁屏、真实平台音乐、物理音频听感／设备切换、性能与歌词精度验收。
 
-完整证据、失败修正与尚未实现的边界见 [AUTOMIX_PORT.md](AUTOMIX_PORT.md) 的最后两节。
+完整证据、失败修正与尚未实现的边界见 [AUTOMIX_PORT.md](AUTOMIX_PORT.md) 的开发阶段记录。
 
 ## mobile.8：共享输出接入（当前开发候选）
 

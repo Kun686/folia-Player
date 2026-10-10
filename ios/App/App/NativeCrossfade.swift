@@ -3,7 +3,7 @@ import Foundation
 // NativeCrossfade.swift — original crossfade plans on the native identity queue, independent of WebView timers.
 final class NativeCrossfade {
     private struct Key: Equatable {
-        let epoch: Int, queueRevision: Int
+        let epoch: Int, queueRevision: Int, profileRevision: Int
         let outgoing: ObjectIdentifier, incoming: ObjectIdentifier
         let fromDuration: Double, toDuration: Double
     }
@@ -15,6 +15,7 @@ final class NativeCrossfade {
     }
     private weak var owner: PlaybackEngine?
     private let planner = NativeTransitionPlanner()
+    private let profiles: NativeTrackProfiles
     private var work: Task<Void, Never>?
     private var release: DispatchWorkItem?
     private var revision: UInt64 = 0
@@ -25,7 +26,11 @@ final class NativeCrossfade {
     private(set) var maximumSeconds = 5.0
     var isFading: Bool { fade != nil }
 
-    init(owner: PlaybackEngine) { self.owner = owner }
+    init(owner: PlaybackEngine) {
+        self.owner = owner
+        profiles = NativeTrackProfiles(local: owner.local)
+        profiles.changed = { [weak self] in self?.tick() }
+    }
     deinit { work?.cancel(); release?.cancel(); fade?.tail?.dispose() }
 
     // Only the original crossfade mode is executed here. Full Automix requires its separate measured inputs.
@@ -44,6 +49,7 @@ final class NativeCrossfade {
     }
     func cancel() {
         invalidatePlan()
+        profiles.cancel()
         fade?.tail?.dispose(); fade = nil
         owner?.streamOutput?.transitionGain.cancel()
     }
@@ -71,6 +77,8 @@ final class NativeCrossfade {
               owner.nextIndex(automatic: true) == pending.index,
               let currentSong = owner.currentSong,
               differentSongs(currentSong, owner.queue[pending.index]) else { return }
+        let upcomingSong = owner.queue[pending.index]
+        profiles.update([currentSong, upcomingSong])
         if Date().timeIntervalSince(pending.at) >= 120 {
             owner.discardPrepared(); owner.prefetch(); return
         }
@@ -78,6 +86,7 @@ final class NativeCrossfade {
         let toDuration = pending.entry.duration > 0 ? pending.entry.duration
             : (owner.queue[pending.index]["durationMs"] as? Double ?? 0) / 1000
         let current = Key(epoch: owner.generation, queueRevision: owner.queueRevision,
+                          profileRevision: profiles.revision,
                           outgoing: ObjectIdentifier(outgoing), incoming: ObjectIdentifier(pending.entry),
                           fromDuration: fromDuration, toDuration: toDuration)
         if key != current {
@@ -85,12 +94,17 @@ final class NativeCrossfade {
             let position = owner.playbackPosition, maximum = maximumSeconds
             work = Task { @MainActor [weak self] in
                 guard let self else { return }
+                guard !Task.isCancelled, self.matches(current) else { self.discardStale(current); return }
                 do {
                     let request: [String: Any] = ["version": 1,
                         "settings": ["mode": "crossfade", "crossfadeMaxSec": maximum, "performance": false],
-                        "from": ["duration": fromDuration, "lines": NSNull()],
-                        "to": ["duration": toDuration, "lines": NSNull()], "bpm": NSNull(), "at": position]
+                        "from": ["duration": fromDuration, "lines": NSNull(), "profile": self.profiles.value(currentSong) as Any? ?? NSNull()],
+                        "to": ["duration": toDuration, "lines": NSNull(), "profile": self.profiles.value(upcomingSong) as Any? ?? NSNull()],
+                        "bpm": NSNull(), "at": position]
                     let result = try await self.planner.plan(JSONSerialization.data(withJSONObject: request))
+                    guard !Task.isCancelled else { return }
+                    guard self.matches(current) else { self.discardStale(current); return }
+                    if result.kind == "fade" { try await pending.entry.preparePosition(result.inStart) }
                     guard !Task.isCancelled else { return }
                     guard self.matches(current) else { self.discardStale(current); return }
                     self.work = nil; self.plan = result; self.tick()
@@ -120,7 +134,7 @@ final class NativeCrossfade {
 
     private func matches(_ expected: Key) -> Bool {
         guard let owner, enabled, owner.intentToPlay, owner.outputIsPlaying, key == expected,
-              owner.generation == expected.epoch, owner.queueRevision == expected.queueRevision,
+              owner.generation == expected.epoch, owner.queueRevision == expected.queueRevision, profiles.revision == expected.profileRevision,
               let current = owner.stream, let next = owner.preparedStream,
               ObjectIdentifier(current) == expected.outgoing, ObjectIdentifier(next.entry) == expected.incoming,
               owner.nextIndex(automatic: true) == next.index else { return false }

@@ -15,6 +15,7 @@ final class StreamOccurrence: AudioPlayerDelegate {
     private(set) var hasFailed = false
     private var disposed = false
     private var started = false
+    private(set) var preparedPosition = 0.0
     private var endPosition: Double = 0
     var position: Double { hasEnded ? endPosition : Self.finite(audio.progress) }
     var duration: Double { Self.finite(audio.duration) }
@@ -38,6 +39,7 @@ final class StreamOccurrence: AudioPlayerDelegate {
             try await entry.waitForPCM()
             if position > 0 {
                 guard entry.audio.isSeekable else { throw MobileFailure("unsupported-seek") }
+                entry.preparedPosition = position
                 entry.audio.seek(to: position)
                 try await entry.waitForPCM()
             }
@@ -54,6 +56,20 @@ final class StreamOccurrence: AudioPlayerDelegate {
             try await Task.sleep(nanoseconds: 20_000_000)
         }
         throw MobileFailure("network-timeout")
+    }
+
+    // Moving an unstarted deck must not reset the shared audible DSP or release its PCM prematurely.
+    @MainActor func preparePosition(_ position: Double) async throws {
+        guard !started, !disposed, position.isFinite, position >= 0 else { throw MobileFailure("invalid-position") }
+        if abs(position - preparedPosition) > 0.001 {
+            guard audio.isSeekable else { throw MobileFailure("unsupported-seek") }
+            // Record the intent before suspending: cancelling preparation cannot make a moved deck reusable at zero.
+            preparedPosition = position
+            audio.seek(to: position)
+        }
+        // A replacement plan may target the same pending seek; it still has to await usable PCM.
+        try await waitForPCM()
+        try Task.checkCancellation()
     }
 
     func play() throws {

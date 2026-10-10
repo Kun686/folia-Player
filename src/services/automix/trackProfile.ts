@@ -676,12 +676,15 @@ export const analyseTrack = async (
          * which of the two happened, and the profile has to be able to say. See the field.
          */
         gridless?: boolean;
+        /** Optional equivalent FFT primitive for native runtimes; Web/worker keeps the original transform. */
+        transform?: typeof fft;
     } = {},
 ): Promise<TrackProfile | null> => {
     const duration = mono.length / sampleRate;
     if (!(duration > 1) || !(sampleRate > 0)) return null;
 
     const hopSec = HOP / sampleRate;
+    const transform = options.transform ?? fft;
     const bins = FFT_SIZE / 2;
     const binHz = sampleRate / FFT_SIZE;
     const fluxBins = Math.max(8, Math.round(FLUX_CEILING_HZ / binHz));
@@ -752,7 +755,7 @@ export const analyseTrack = async (
             real[index] = frame[index] * window[index];
             imag[index] = 0;
         }
-        fft(real, imag);
+        transform(real, imag);
 
         const binIndex = Math.min(binCount - 1, Math.floor((start / sampleRate) / NOVELTY_BIN_SEC));
         const sectionBin = sectionBins[binIndex];
@@ -833,7 +836,7 @@ export const analyseTrack = async (
                 sideReal[index] = side[start + index] * window[index];
                 sideImag[index] = 0;
             }
-            fft(sideReal, sideImag);
+            transform(sideReal, sideImag);
             let sideBand = 0;
             for (let index = vocalLowBin; index <= vocalHighBin; index += 1) {
                 sideBand += sideReal[index] * sideReal[index] + sideImag[index] * sideImag[index];

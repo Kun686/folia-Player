@@ -59,13 +59,14 @@
 | 两个解码器汇入同一混音与整体 DSP 输出 | PASS；mobile.8 源码已接入 App 默认原生队列 |
 | 按采样时钟调度原增益曲线 | PASS，执行层、Crossfade 原生队列与原设置已接入开发源码；未替换 mobile.8 |
 | 频带交接、回声、伸缩 | NOT_IMPLEMENTED |
-| profile 获取、分析缓存、Beat This! / htdemucs 模型与表演手势 | NOT_IMPLEMENTED |
+| 本地 profile 获取与分析缓存 | PASS，原分析无模型分支、原生静音边界接线；仅开发源码，见文末 |
+| 在线 profile、Beat This! / htdemucs 模型与表演手势 | NOT_IMPLEMENTED |
 | Crossfade 队列、暂停、拖动、手动选曲与尾曲清理 | PASS，原生测试及设置接线；默认关闭，尚未生成新交付包 |
 | 原开关、模式、时长设置 | PASS，原面板／store／桥接／原生持久化；开发源码 |
 | 分析证据、完整 Automix、动画事件接线 | NOT_IMPLEMENTED |
 | 真机连续混音、听感、功耗与歌词时序验收 | NOT_RUN |
 
-下一步接原分析输入与完整 Automix。mobile.7 每个播放项独立处理音效并输出；mobile.8 已改为共用整体音效和最终音量，
+下一步接在线分析输入与完整 Automix。mobile.7 每个播放项独立处理音效并输出；mobile.8 已改为共用整体音效和最终音量，
 但尚未进行音乐性过渡，所以不能据此宣称 Automix 等价。
 原版 `connectStemBus` 的软限幅仅用于分离音轨的过渡总线，普通 crossfade 不经过它；
 后续按原分支接入，不把限幅永久加到单曲或普通淡化路径。
@@ -166,7 +167,7 @@ vendor 仍为同一固定提交的 59 文件、仅两文件有差异，完整补
 
 - `NativeCrossfade` 直接调用已打包的原 `planForMode(mode: crossfade)` 和原包络函数，
   使用实际解码时长，保留原最大时长、短曲四分之一上限及不足空间时自然结束的规则。
-  当前尚无原离线 profile 与逐 deck 实时分析，相关输入显式为 null；不宣称已达到完整原版效果。
+  此阶段离线 profile 与逐 deck 实时分析显式为 null；本地 profile 后续接入见文末，完整原版效果仍未完成。
 - 先连接仍静默的待播解码器、提交成对增益，再释放其 PCM 读取，避免下一首先以满音量闯入。
   原生队列切为入场曲，旧曲保留到音频时钟确认淡出结束；尾曲提前 EOF 只释放尾曲，不重置入场曲曲线。
 - 按歌曲时间预约原生启动回调，不把过渡起点量化到 250ms 快照轮询。回调再次读取实际媒体位置；
@@ -242,3 +243,57 @@ QA App 已移除，个人 mobile.8 保留，未生成新 IPA、未改 BUILD_RECO
 未完成：原 profile／实时分析输入、动态响度平衡、频带／回声／伸缩、完整 Automix 和原过渡动画接线；
 三平台真实账户／流媒体、30 分钟锁屏、物理耳机／蓝牙／网络切换、150ms 歌词同步与功耗验收仍分别保留原状态，
 本轮短样本和模拟界面测试不替代这些证据。
+
+## 开发阶段：原本地歌曲分析与静音边界
+
+### 复用与实现边界
+
+- `nativeProfileRuntime.ts` 直接调用原 `analyseTrack`，使用原 version 9、22050Hz 和既有
+  `gridless: true` 无模型分支。没有复制频谱、节拍、结构或静音检测算法；未接入 Beat This! / htdemucs，
+  不将未运行模型解释为模型已确认无节拍。打包后的 `profiles.js` 为 12,708 字节，这是脚本大小，非安装包增量。
+- `analyseTrack` 仅增加可注入的 FFT 运算接口；Web／worker 继续用原 FFT。原生复用项目已有的系统
+  Accelerate，提供 2048 点双精度正向变换，所有窗口、权重、节拍／结构判定和参数仍由原 JS 代码决定。
+  JSC 的数组指针只保证当前 API 调用期间有效，因此按 SDK 约定立即复制到复用缓冲，再计算和写回；
+  不保存临时指针，不为每个分析帧新建工作数组。设置随分析上下文释放，缓存键区分该执行路径。
+- 系统 AVAudioFile / AVAudioConverter 解码本地文件，使用最高重采样质量；mid/side 与原版一样先做
+  双精度计算再写 Float32。一个 actor 串行运行分析，每次创建短生命周期 JavaScriptCore 上下文；
+  PCM 直接作为有原生所有者的 typed array 输入，不经过 JSON 或 WKWebView，不在主线程或音频回调分析。
+- `NativeProfileCache` 只保存原 profile，完整本地文件按版本、无模型分支、路径、大小和修改时间隔离。
+  SHA256 校验损坏记录，原子写入，首次解锁后可读取；磁盘最多 200 条，内存最多 200 条。
+  记录不含路径、音频、平台 Cookie 或签名 URL；缓存失败不影响播放，partial 结果不替换完整缓存。
+- 当前／下一首本地歌曲进入分析范围，队列变化取消过时任务；请求 UUID 与结果版本避免迟到结果覆盖新意图。
+  原 Crossfade 直接读取实测 leadIn / leadOut，并使用原 0.1 秒入场余量准备下一首。
+  手动选曲、关闭过渡后的自然切歌从零开始；预备 seek 即使在 PCM 就绪前取消，也不能误用已偏移的解码器。
+- 仅支持系统可解码的单／双声道完整本地文件。工作内存保护上限为 20 分钟，分析执行预算为 45 秒；
+  超限或格式不支持时继续普通播放、使用原无 profile 退化规则。尚未完成大文件内存／功耗验收。
+  同一 PCM 的分析对照不代表系统重采样与 Web Audio 的所有输出样本完全相同。
+- 在线获取未接入；后续必须遵循原 `profileService.ts` 的缓存与带宽策略：关闭缓存时仅取
+  1,572,864 字节的 206 前缀，拒绝服务器返回的 200 全量响应，不能暗中下载整首待播歌曲。
+
+未新增依赖、改变原决策规则／默认设置／界面／主题／动效，也没有生成新 IPA 或修改 BUILD_RECORD.json。
+完整 Automix 的实时分析、响度平衡、频带交接、回声、伸缩和动画事件仍未完成。
+
+### 验证与失败修正
+
+- `profile-reference.log` 与 `profile-mobile-tests.log`：原分析 8 组确定 PCM 对照，涵盖静音、短曲、
+  首尾静音、立体声、结构、节拍及 partial；移动逻辑最终 48 项通过。参考 JSON 只进入测试包。
+- `profile-fft-unit.log`：增加可注入 FFT 后，移动逻辑及原 Automix 相关 32 个文件共 **462 项通过**；
+  参考数据未重生成，Web 默认仍走原变换。
+- `profile-fft-typecheck.log`、`profile-fft-sync.log`：最终 TypeScript、移动资源构建及 Capacitor 同步通过。
+- `profile-fft-full.{log,xcresult}`：最终 iPad Pro 11-inch (M5) / iOS26.5 / Release，
+  **121 项原生测试全部通过，52.841 秒**。新增 9 项涵盖原 8 组分析数值（1e-6 容差）、
+  系统重采样／单声道、取消／错误恢复、PCM 释放、缓存损坏及文件变化、过时范围取消、
+  实测静音边界进入真实解码队列、手动选择／关闭过渡及取消预备 seek 的竞态。
+
+首轮构建修正 Int32 与 Int 比较。系统解码初次到达已知 EOF 后再次读取得到无 NSError 的失败，
+改为先检查 `framePosition < length`。默认重采样质量将恒定 0.5 变为 0.49998873，
+改用系统最高质量后为 0.5000003，保留 1e-5 断言。队列测试最初 seek 到 7.2 秒，
+留给测得有声结尾的时间不足原 0.8 秒最短过渡，按原规则不淡化；改为 6.5 秒后通过，未修改算法阈值。
+原失败日志 `profile-native-first`、`profile-native-retry`、`profile-decode-eof`、`profile-queue-first` 均保留。
+
+真机首轮 `profile-device` 为 6/9 项通过，三项队列／范围用例因 5 秒时限失败。系统重采样为 0.013 秒，
+8 组原 JS 分析耗时 29.460 秒，数值对照通过；耗时集中在分析而非解码。引入系统双精度 FFT 后，
+`profile-fft-device.{log,xcresult}` 在同一 iPhone XS Max / iOS18.7.10 / Release 上 **9/9 项通过，
+20.874 秒**；同样 8 组分析变为 **3.982 秒**，保持 1e-6 字段容差。未放宽任何队列时限或数值断言。
+这是这组受控 PCM 的前后测量，不是所有歌曲、温升或长期性能结论。QA 测试包已卸载，
+`profile-qa-uninstall.json` 为 success；`profile-personal-app.json` 回读个人包仍为 build 8。
