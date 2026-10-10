@@ -12,7 +12,7 @@
 | UI | PASS | Playwright WebKit 26.6，6 项，390×844／1194×834／600×834 |
 | 模拟器编译 | PASS | Xcode 26.6，iOS 26.5 Simulator，Bundle ID app.folia.personal，最低系统17 |
 | 设备架构编译／开发签名 | PASS | generic iOS / iphoneos；有效开发证书，codesign strict校验与描述文件匹配 |
-| 原生 XCTest | PASS | 11 项：HTTPS校验、Keychain、队列身份、跨平台循环、凭据清除、失败上限、认证停止、持久化、快速切歌和自动换曲 |
+| 原生 XCTest | PASS | 15 项：原有11项及原生播放事件／地址恢复4项，见文末回归增量 |
 | 加强自动换曲断言 | PASS | 单独复测，实际封闭的1秒静音WAV；要求下一首 readyToPlay、failures=0、时长正确，避免“失败跳歌”假阳性 |
 | 实际模拟器启动 | PASS | 本地签名包安装并启动，原生 bootstrap／Keychain 读取后展示服务器设置页 |
 | Compose 结构 | PASS | 实际服务器 compose config --quiet；默认3个服务，仅回环地址17863 |
@@ -86,4 +86,21 @@ ios:sync PASS，原生XCTest11项 PASS（native-deploy.xcresult）。当前部�
 
 本地证据：.mobile-test-results/native-recovery-red.{log,xcresult}、native-stop-red.{log,xcresult}、
 native-recovery-green.{log,xcresult}。执行命令为有时限的 xcodebuild test，使用同一 App scheme 和
-iPhone 17 Pro / iOS 26.5 Simulator。此前服务器部署与手机安装仍对应 a367f22；本节是后续源码修复证据。
+iPhone 17 Pro / iOS 26.5 Simulator。服务器部署仍对应 a367f22；手机随后更新为下节所列修复包。
+
+## 修复包设备更新
+
+2026-10-10：基于源码提交 652be4593120a046d4e871457f0c8f4671dbe8d1 重新构建设备签名包，
+源码与 BUILD_RECORD.json 的所有文件摘要一致。该提交的 GitHub Mobile checks 已通过：
+https://github.com/Kun686/folia-Player/actions/runs/38041388838 。
+
+generic iOS Debug 构建、codesign --verify --deep --strict、描述文件设备覆盖、Bundle ID 与
+entitlements 一致性检查均通过。继续使用 app.folia.personal，在现有 iOS18.7.10 iPhone 上
+执行覆盖安装，没有卸载 App；devicectl 安装和启动的结构化结果均为 success。
+这仅证明修复包安装／启动，不证明账户恢复、在线播放或后台验收。
+
+本地私有交付包：移动端交付/Folia-0.7.16-mobile.1-652be45-development.ipa，6,821,500 bytes；
+SHA256：88b0eb4d6502b98c0143b139a877fce352b23acb85098966774ab3111eddc78a。
+上一版 a367f22 安装包仍保留。IPA、设备标识与签名描述文件不上传仓库。
+本地忽略目录 .mobile-test-results 中保存 device-recovery-build.log、device-recovery-install.{log,json}、
+device-recovery-launch.{log,json}。此次未修改服务器、HTTPS 配置、平台规则或产品功能。
