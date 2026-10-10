@@ -62,7 +62,14 @@
     "WebAudioWaveShaper.swift": [
       "Modules/webaudio/WaveShaperDSPKernel.cpp",
       "Modules/webaudio/WaveShaperDSPKernel.h"
+    ],
+    "WebAudioCompressor.swift": [
+      "platform/audio/DynamicsCompressorKernel.cpp",
+      "platform/audio/DynamicsCompressorKernel.h",
+      "platform/audio/DynamicsCompressor.cpp"
+    ],
+    "WebAudioCompressorCurve.swift": [
+      "platform/audio/DynamicsCompressorKernel.cpp"
     ]
-  },
-  "remaining": "DynamicsCompressorKernel referenced but not yet adapted"
+  }
 }

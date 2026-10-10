@@ -43,7 +43,7 @@ final class AudioMeter {
             spectrum.analyse(samples)
             analysedRevision = captureRevision
         }
-        return ["available": available, "spectrum": spectrum.bytes, "sampleRate": sampleRate]
+        return ["available": available, "spectrum": spectrum.bytes, "sampleRate": sampleRate, "channels": channels]
     }
     func processingAvailable() -> Bool {
         lock.lock(); defer { lock.unlock() }; return processingReady

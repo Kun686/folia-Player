@@ -15,6 +15,7 @@
 | AudioStereoWidth | effectNodes.ts | 原版左右直达／交叉矩阵及0.03秒渐变；需要显式立体声输入，不把单声道当作已完成的立体声处理 |
 | WebAudioOversampling | 固定WebKit UpSampler/DownSampler | 两级2倍升采样和降采样、128/256点半带核；现有Accelerate卷积，无新增运行库 |
 | WebAudioWaveShaper | 固定WebKit WaveShaperDSPKernel | Float32曲线插值、输入限幅及非有限样本处理，供饱和和低位深复用 |
+| WebAudioCompressor / AudioPunch | 固定WebKit DynamicsCompressorKernel + effectNodes.ts | 6ms前瞻、32帧包络、双声道联动、原版punch参数与增益；静态及动态调节对照通过 |
 
 渲染用历史缓冲预分配；参数和DSP历史由单一渲染调用方拥有。
 曲线／随机素材应在控制线程生成。后续整合需要提供可靠的控制线程交接与回收，
@@ -38,6 +39,16 @@
 约e^-10的绝对／相对剩余值或十个时间常数后收敛；更换目标前也需结算旧渐变。
 原生补齐该行为，避免小幅残余LFO继续改变延迟。没有提高测试误差阈值。
 
+压缩器的threshold/knee/ratio为128帧更新一次的k-rate参数。逐量子记录原版参数后查明：
+Float32融合乘加以及新事件起点的`target + Float32(value - target)`舍入必须保留。
+仅用数学等价的Double逐样本渐变会影响膝点搜索。修正后三个参数在20组自动化场景中逐量子精确相等，
+最终PCM也通过原定阈值；没有放宽误差。压缩器重置保留本采样率的6ms前瞻，
+不复刻上游reset将读写间隔恢复为固定256帧的内部实现细节。
+
+实际AVPlayer音频tap已测试48kHz单／双声道WAV：输入单声道时tap仍为1声道，立体声为2声道。
+不能假设tap会自动升为立体声，也不能修改prepare回调中的只读格式来改变输出声道数。
+单声道的双声道噪声／混响接入方案仍未完成。
+
 ## 测试证据
 
 证据位于被Git忽略的 `.mobile-test-results/`。参考JSON和再生成脚本提交到仓库。
@@ -50,6 +61,9 @@
 | 基础原生DSP | PASS | effect-primitives-fixed.{log,xcresult}；8项 |
 | 原始过采样／低位深参考生成 | PASS | oversampling-reference.log；OversamplingReference.json；30组 |
 | 过采样／低位深原生DSP | PASS | oversampling-native.{log,xcresult}；2项；1/73/128帧回调；空曲线、运行中更换曲线、重置和非法输入 |
+| 原始压缩器与参数参考生成 | PASS | compressor-parameter-reference.log；CompressorReference.json；40组，含20组逐量子参数快照 |
+| 压缩器原生DSP | PASS | compressor-rounding.{log,xcresult}；4项；分离／交错布局、73/257帧回调 |
+| 实际AVPlayer tap声道格式 | PASS（格式探测） | compressor-k-rate.log；AudioFormatTests；1项；不等于完整效果链验收 |
 | TypeScript | PASS | effect-primitives-typecheck.log |
 | 实际音效链、真机听感／性能、二进制增量 | NOT_RUN | 未接入播放器；不是音效交付验收 |
 
@@ -62,15 +76,16 @@
 初始抖晃参考测试因WebKit多声道问题失败；改用单声道参考后暴露收敛规则遗漏。
 最终修正前另有一次Swift `exp` 重载编译失败，改为明确的常数表示后编译和测试通过。
 未删除原始失败日志：modulation-primitives、effect-primitives-linked、effect-primitives-convergence。
+压缩器初始两轮自动化数值失败保留在compressor-native和compressor-k-rate；静态包络两轮均通过。
 
 ## 复用与待办边界
 
 用户已明确批准 [DSP源码复用](DSP_SOURCE_REUSE.md)。WebKit固定提交为
 9c50e091cb1b47fddb7afa7ffec7f9f22c0ee38b；逐文件来源与哈希见 WEBKIT_DSP_SOURCES.json。
-已适配UpSampler、DownSampler、WaveShaperDSPKernel；完整许可证保留在Swift源文件及
-App资源WEBKIT_DSP_LICENSES.txt中。压缩器的许可与来源已核查，尚未适配实现。
+已适配UpSampler、DownSampler、WaveShaperDSPKernel、DynamicsCompressorKernel；完整许可证保留在Swift源文件及
+App资源WEBKIT_DSP_LICENSES.txt中。
 
-仍需完成压缩器、噪声滤波与混响卷积、控制线程交接、实际tap声道格式核查、
+仍需完成噪声滤波与混响卷积、控制线程交接、单声道立体声输出方案、
 当前和预加载曲目的完整效果链、持久化与复合预设接入。
 单声道输入需要验证真实原生tap格式及显式立体声处理能力，不能默认具备双声道噪声／混响输出。
 后续交付时更新构建指纹并测量设备二进制增量；本记录不替代整体移植验收表。
