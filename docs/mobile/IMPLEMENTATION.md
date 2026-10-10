@@ -64,8 +64,9 @@ ios:sync 会构建本地资源、重命名首页并同步到 iOS。不要给 Cap
 在 Xcode 的 App target 选择自己的开发 Team，使用独立 Bundle ID app.folia.personal
 （若签名账户要求全局唯一，改为自己拥有的 ID），开启自动签名，选择 iOS 17+ 设备运行。
 无需在源码填写 Apple ID、密码、服务器或音乐账户。
-已生成的 ios/DerivedData/Build/Products/Debug-iphoneos/App.app 是**未签名设备构建**，不能直接安装；
-Debug-iphonesimulator/App.app 是模拟器构建，也不是 IPA。真实签名和设备安装需要用户的开发身份。
+2026-10-10 已用本机有效 Apple Development 身份构建签名设备包，并通过 devicectl 安装到一台 iOS 18.7.10 iPhone。
+签名配置通过命令行注入，不把个人 Team 配置写死在源码。
+Debug-iphonesimulator/App.app 仍是模拟器构建，不能安装到真机。开发签名包仅供其描述文件覆盖的设备使用。
 
 首次打开进入服务器设置。输入受信任的 HTTPS **源地址**（不含路径、用户名、查询串）和访问令牌。
 分别进入服务器已启用的平台扫码登录，将二维码通过 AirDrop／系统分享发到 Mac 或另一台设备，再用官方音乐 App 扫描。

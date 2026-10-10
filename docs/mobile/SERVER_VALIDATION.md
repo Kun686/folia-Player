@@ -6,7 +6,7 @@
 ## 部署事实
 
 - Debian 13.2 amd64，Docker 29.8.2，Compose 5.6.0。
-- 独立目录 /opt/folia-player；current 指向 releases/20261010-mobile1。
+- 独立目录 /opt/folia-player；current 指向 releases/20261010-mobile1-a367f22；运行源码提交 a367f2266238191525f9babcb4a815ea4d225361。
 - 项目 folia-mobile，仅 backend、netease-api、qq-api；酷狗暂不启用。
 - 宿主端口仅 127.0.0.1:17863；平台 API 无宿主端口，现有 nginx 配置未改动。
 - 凭据在 shared/mobile.env，权限 0600；QQ 会话目录使用独立卷，平台容器关闭日志驱动。
@@ -33,7 +33,8 @@
 | QQ 带账户地址解析／CDN | PASS | 共享移动解析接口返回 HTTPS 地址；有限 Range 请求返回 206 audio/mpeg |
 | QQ 退出 | PASS | 退出后 profile 消失，临时测试会话文件已删除 |
 | HTTPS／App 到服务器 | NOT_RUN | 用户选择暂不配置域名；未绕过 TLS 校验 |
-| iPhone／iPad 后台连续播放 | NOT_RUN | 未签名安装和真机验证；CDN Range 不证明设备播放 |
+| iPhone签名安装／启动 | PASS | iOS18.7.10，用户确认与devicectl启动结果一致 |
+| iPhone／iPad 后台连续播放 | NOT_RUN | iPad未安装，尚未做后台验证；CDN Range 不证明设备播放 |
 
 QQ Node 3.1.4 没有可选 /login/channels 路由，返回 404；现有 adapter 按其原有规则使用 QQ 默认通道。
 早期探测脚本把每页结果设为 3，QQ 返回 2001；换成与 App 一致的 50 和查询参数后返回有效歌曲。
@@ -47,8 +48,11 @@ QQ Node 3.1.4 没有可选 /login/channels 路由，返回 404；现有 adapter 
 
 ## 仍需完成
 
-可信 HTTPS、Apple 开发签名、两类真机各 30 分钟锁屏跨曲，
+可信 HTTPS、iPad 安装、两类真机各 30 分钟锁屏跨曲，
 WebView 挂起期间下一首解析与 URL 失效恢复、耳机／蓝牙／网络切换、歌词误差和温升内存测量。
 模拟器单测、浏览器 fixture 和接口检查不能替代这些验收。
 
 网易退出以 App 清除会话为必要条件：原生 Keychain 清除与对应平台队列失效已有 XCTest；不能将调用上游 /logout 等同于原 Cookie 已被平台立即撤销。此次验证使用临时测试会话，未导入 App，手机安装后需重新扫码。
+
+GitHub Mobile checks 已通过： https://github.com/Kun686/folia-Player/actions/runs/38040181997 。
+最终服务器构建输入已与 BUILD_RECORD.json 按 SHA256 比对一致；两个测试账户临时文件剩余数量为 0。

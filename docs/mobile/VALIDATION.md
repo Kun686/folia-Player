@@ -11,7 +11,7 @@
 | Web 构建 | PASS | npm run ios:sync，产物约 11 MiB，资源打包在 App 内 |
 | UI | PASS | Playwright WebKit 26.6，6 项，390×844／1194×834／600×834 |
 | 模拟器编译 | PASS | Xcode 26.6，iOS 26.5 Simulator，Bundle ID app.folia.personal，最低系统17 |
-| 设备架构编译 | PASS | generic iOS / iphoneos；未签名，不是可安装 IPA |
+| 设备架构编译／开发签名 | PASS | generic iOS / iphoneos；有效开发证书，codesign strict校验与描述文件匹配 |
 | 原生 XCTest | PASS | 11 项：HTTPS校验、Keychain、队列身份、跨平台循环、凭据清除、失败上限、认证停止、持久化、快速切歌和自动换曲 |
 | 加强自动换曲断言 | PASS | 单独复测，实际封闭的1秒静音WAV；要求下一首 readyToPlay、failures=0、时长正确，避免“失败跳歌”假阳性 |
 | 实际模拟器启动 | PASS | 本地签名包安装并启动，原生 bootstrap／Keychain 读取后展示服务器设置页 |
@@ -19,7 +19,8 @@
 | Docker构建与内部服务 | PASS | 三镜像已构建部署并固定不可变ID；HTTPS按用户选择暂缓 |
 | QQ／网易真实账户 | PASS | 用户扫码后验证登录、个人歌单和带账户解析；CDN有限Range请求；详见服务器记录 |
 | 酷狗账户 | NOT_RUN | 按最新范围延后 |
-| 真机安装与30分钟锁屏 | BLOCKED | 无签名身份及iPhone/iPad验收设备 |
+| iPhone安装与启动 | PASS | iOS18.7.10，devicectl安装成功；用户确认手动正常打开，随后devicectl启动亦成功 |
+| iPad安装与两机30分钟锁屏 | NOT_RUN | 尚未进行iPad安装与后台验收 |
 | 真实远程控制／蓝牙／网络切换 | NOT_RUN | 已实现系统通知／命令处理，但没有外设或真机证据 |
 | WebView挂起时远程地址刷新 | NOT_RUN | 原生自动换曲与共享解析已有自动测试，未在真机挂起场景验证 |
 | 歌词≤150ms／温升／长期内存 | NOT_RUN | 未做固定音频的仪器化测量或长期真机测试 |
@@ -56,8 +57,17 @@ GHSA-rvm3-566m-v7fv 不覆盖8.5.3，这不是全面安全认证。
 ## 交付条件
 
 当前交付源码、Xcode工程、配置模板、构建说明与分层证据。QQ／网易内部服务与真实账户接口已验证，
-未签名导出IPA，未做真机后台验收。按 ACCEPTANCE.md 补齐 HTTPS 和设备条件后继续。
+已生成开发签名包并安装iPhone，未做真机后台验收。按 ACCEPTANCE.md 补齐 HTTPS 和设备条件后继续。
 
 2026-10-10 部署阶段增量复测：TypeScript PASS，移动逻辑19项 PASS，三种窗口UI共6项 PASS，
 ios:sync PASS，原生XCTest11项 PASS（native-deploy.xcresult）。当前部署锁审计见 SERVER_VALIDATION.md。
 这些新增证据不把既往模拟器编译等同于真实设备安装。
+
+## 真机安装增量
+
+2026-10-10：开发签名包使用当前 a367f2266238191525f9babcb4a815ea4d225361 源码。
+本地 codesign --verify --deep --strict 通过，开发证书在描述文件中，设备UDID也被覆盖，entitlements匹配。
+首次远程启动被系统以签名／信任的合并错误拒绝，用户随后确认手动正常打开，再次远程启动成功。
+不把首次错误未经证实归因于某个证书问题。legacy idevicescreenshot 服务不可用，因此没有此次真机截图证据。
+签名IPA仅保存在用户本地“移动端交付”目录，未上传到公开仓库；SHA256为
+021c414b16a82bf5c19efb7fbd1318ed85b46ccf13f30651208fcbe6bd085f7e。
