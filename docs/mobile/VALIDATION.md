@@ -1,9 +1,49 @@
 # 移动候选验证记录
 
-日期：2026-10-10。当前候选 **0.7.16-mobile.3 / build 3**，基于 mobile-main 的 4057384 继续移植。
+日期：2026-10-10。当前候选 **0.7.16-mobile.4 / build 4**，基于 mobile-main 的 0403abb 继续移植。
 当前源码指纹见 BUILD_RECORD.json。上游基线 d824c0b854e54d5411cb072092999823e9bd7071。
-本轮对齐原版队列操作，没有更改服务器、平台规则、主题／动效参数或依赖锁。
-**本地工程验证通过，不代表真实在线账户／两台真机首版已验收。**
+本轮补音量／静音／十段EQ，没有更改服务器、平台规则、主题／动效参数或生产依赖。
+**本地工程验证通过，不代表真实在线账户／两台真机完整功能已验收。**
+
+## mobile.4 声音控制与均衡器
+
+| 层级 | 结果 | 证据与边界 |
+|---|---|---|
+| TypeScript | PASS | mobile4-typecheck-final.log |
+| 逻辑 | PASS | 43项；移动逻辑及原audioEqualizer设置；audio-unit.log |
+| 原生 | PASS | 全部36项，audio-native.{log,xcresult}；追加实际tap测试单项PASS，audio-native-tap-signal.{log,xcresult}；共37个不同用例 |
+| 原WebKit输出参考 | PASS | audio-webkit-reference.log；5种采样率×3组增益，保存原Web Audio图的冲激采样和能量供原生独立比较 |
+| UI | PASS | 18项，手机／宽iPad／窄窗口各6项；audio-ui-final.log；平台和原生传输为fixture |
+
+原生测试覆盖左右声道隔离、平面／交错浮点PCM、零增益精确旁路、关闭后的平滑回落、
+流不连续时清除滤波历史、格式能力检测、无效与不支持参数原子拒绝、保存恢复、静音下调音量、
+当前／预加载曲目接收新参数。追加测试播放合成1kHz WAV，在停止FFT轮询后设置−12dB，
+恢复读取时观察到真实解码PCM的频谱下降；不涉及真实在线歌曲或设备锁屏。
+稳态采样绝对误差阈值2e-5（单位幅度），能量相对阈值2e-4；动态15ms平滑按32帧更新，
+不宣称与Web Audio自动化逐采样完全一致。
+
+前端复用原设置store与对话框，桌面默认行为不变。移动桥串行合并连续编辑、保留最新意图，
+原生拒绝后回填最后确认值。原版复合音色仍需移植额外音效，因此置灰并解释原因。
+新增音量输出是单独的status区域，目录加载断言已限定在目录内。
+首轮UI因新增测试选择器、歌词加载时序和对话框零尺寸语义容器失败，修正后通过；
+测试时原生资源同步曾触发Vite重载，移动dev watcher现忽略ios／dist-mobile／证据目录。
+实际tap测试首次抓到播放初始静音缓冲，改为等待合成信号后通过，没有放宽−12dB响应断言。
+iPad实际容器随后复现触摸滑块数值变动但未保存：音量／静音可恢复，EQ仍为旧值。
+新增事件顺序回归先失败（audio-touch-order-red.log，预期7实为0）；移动对话框改为从input事件提交，
+桌面仍按原方式提交，3种窗口定向复测通过（audio-touch-order-green.log）。最终修改后没有重跑无关原生逻辑。
+Pixi／Three弃用及既有React useInsertionEffect警告仍存在，不代表性能验收。
+
+### mobile.4 安装与验收边界
+
+- 最终资源同步、Simulator及开发签名设备构建PASS：mobile4-resources-touch.log、mobile4-sim-touch.log、mobile4-device-touch.log。
+- codesign --verify --deep --strict PASS；设备包98个前端文件逐字节对应dist-mobile，无XCTest／参考音频样本；mobile4-package-verification.json。
+- 最终build4已覆盖安装并成功启动于已连接iPhone XS Max／iOS18.7.10，未卸载用户App；mobile4-final-install.json、mobile4-final-launch.json为success。
+- iPad Pro 11-inch (M5)／iPadOS26.5 Simulator实际触摸调节后，保存的原生设置及杀进程重启后的界面均为音量27%、静音、1kHz −8dB、EQ启用、自定义1。
+  mobile4-ipad-audio-saved.json及mobile4-ipad-eq-restored.png记录此闭环；此前导入的4个合成音频仍保留。
+- IPA、SHA256和构建记录存放于上级「移动端交付」。旧包保留；本版本仍是开发候选。
+混响／饱和等附加效果、Automix、完整桌面编辑功能仍未完成。
+App到网关网易云／QQ真实账户验证、两台真机30分钟锁屏、耳机／蓝牙／网络切换、
+歌词≤150ms及温升／内存测试仍为 NOT_RUN。既有服务器记录是历史证据。
 
 ## mobile.3 队列与播放器回归
 

@@ -6,6 +6,7 @@ import Network
 // PlaybackEngine.swift — native song identities survive WebView suspension and URL expiry.
 final class PlaybackEngine {
     let player = AVQueuePlayer()
+    var audioSettings = NativeAudioSettings()
     let gateway: GatewayClient
     let storage: UserDefaults
     let local: LocalMediaLibrary
@@ -48,6 +49,7 @@ final class PlaybackEngine {
         player.actionAtItemEnd = .advance
         player.automaticallyWaitsToMinimizeStalling = true
         restore()
+        restoreAudioSettings()
         setupSystem()
         setupNetwork()
         timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.25, preferredTimescale: 600),
@@ -107,6 +109,7 @@ final class PlaybackEngine {
                 }
                 guard epoch == self.generation, !Task.isCancelled else { return }
                 self.meter = meter
+                self.configureMeter(meter)
                 self.player.insert(item, after: nil)
                 self.observeStatus(item, epoch: epoch)
                 if position > 0 { await self.player.seek(to: CMTime(seconds: position, preferredTimescale: 600)) }
@@ -132,6 +135,7 @@ final class PlaybackEngine {
                 let meter = await AudioMeter.attach(to: item)
                 guard epoch == self.generation, !Task.isCancelled else { return }
                 self.prepared = (next, item, Date(), meter)
+                self.configureMeter(meter)
                 if self.player.canInsert(item, after: self.player.currentItem) {
                     self.player.insert(item, after: self.player.currentItem)
                 }
@@ -172,7 +176,8 @@ final class PlaybackEngine {
         ["queue": queue, "index": index, "currentSong": currentSong as Any? ?? NSNull(), "queueRevision": queueRevision,
          "position": player.currentItem == nil ? restoredPosition : finiteTime(player.currentTime()),
          "duration": playbackDuration, "playing": player.timeControlStatus == .playing,
-         "repeat": repeatMode, "error": error ?? "", "revision": revision]
+         "repeat": repeatMode, "error": error ?? "", "revision": revision,
+         "audioProcessingAvailable": meter?.processingAvailable() ?? false]
     }
     func publish() {
         revision += 1; updateNowPlaying()

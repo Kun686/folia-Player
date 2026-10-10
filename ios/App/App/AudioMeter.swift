@@ -3,14 +3,16 @@ import MediaToolbox
 import Accelerate
 import QuartzCore
 
-// AudioMeter.swift — observe decoded PCM without changing samples; FFT stops when the UI stops polling.
+// AudioMeter.swift — native EQ precedes spectrum analysis; only FFT depends on UI polling.
 final class AudioMeter {
+    let equalizer = AudioEqualizer()
     private let lock = NSLock()
     private var requestedAt = -Double.infinity
     private var sampledAt = -Double.infinity
     private var values = [Float](repeating: 0, count: 512)
     private var sampleRate: Double = 44100
     private var floatPCM = false
+    private var processingReady = false
     private var samples = [Float](repeating: 0, count: 1024)
     private var imaginary = [Float](repeating: 0, count: 1024)
     private var realOutput = [Float](repeating: 0, count: 1024)
@@ -25,11 +27,20 @@ final class AudioMeter {
         requestedAt = CACurrentMediaTime()
         return ["available": requestedAt - sampledAt < 0.4, "spectrum": values.map { Int($0) }, "sampleRate": sampleRate]
     }
+    func processingAvailable() -> Bool {
+        lock.lock(); defer { lock.unlock() }; return processingReady
+    }
     private func prepare(_ format: AudioStreamBasicDescription) {
         lock.lock(); defer { lock.unlock() }
         sampleRate = format.mSampleRate
         floatPCM = format.mFormatID == kAudioFormatLinearPCM && format.mFormatFlags & kAudioFormatFlagIsFloat != 0 && format.mBitsPerChannel == 32
         cursor = 0
+        equalizer.prepare(format)
+        processingReady = equalizer.available
+    }
+    private func unprepare() {
+        lock.lock(); defer { lock.unlock() }
+        equalizer.unprepare(); processingReady = false
     }
     private func consume(_ buffers: UnsafeMutablePointer<AudioBufferList>, frames: Int) {
         let now = CACurrentMediaTime()
@@ -67,11 +78,14 @@ final class AudioMeter {
             init: { _, info, storage in storage.pointee = info },
             finalize: { tap in Unmanaged<AudioMeter>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).release() },
             prepare: { tap, _, format in Unmanaged<AudioMeter>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue().prepare(format.pointee) },
-            unprepare: nil,
+            unprepare: { tap in Unmanaged<AudioMeter>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue().unprepare() },
             process: { tap, count, _, buffers, outputCount, outputFlags in
                 let status = MTAudioProcessingTapGetSourceAudio(tap, count, buffers, outputFlags, nil, outputCount)
                 if status == noErr {
-                    Unmanaged<AudioMeter>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue().consume(buffers, frames: Int(outputCount.pointee))
+                    let meter = Unmanaged<AudioMeter>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
+                    meter.equalizer.process(buffers, frames: Int(outputCount.pointee),
+                        discontinuity: outputFlags.pointee & kMTAudioProcessingTapFlag_StartOfStream != 0)
+                    meter.consume(buffers, frames: Int(outputCount.pointee))
                 } else { outputCount.pointee = 0 }
             })
         var tap: MTAudioProcessingTap?

@@ -13,7 +13,7 @@ import {
     type AudioEqualizerSettings,
 } from '../../utils/audioEqualizer';
 import { AUDIO_SOUND_PRESETS, AUDIO_SOUND_PRESET_IDS } from '../../utils/audioPresets';
-import { createNeutralAudioEffects, type AudioEffectId, type AudioEffectSettings } from '../../utils/audioEffects';
+import { createNeutralAudioEffects, isNeutralAudioEffects, type AudioEffectId, type AudioEffectSettings } from '../../utils/audioEffects';
 import ThemedDialog from '../shared/ThemedDialog';
 import AudioEffectGrid from './equalizer/AudioEffectGrid';
 import EqualizerBandGrid from './equalizer/EqualizerBandGrid';
@@ -26,11 +26,14 @@ import { useAudioSettingsStore } from '../../stores/useAudioSettingsStore';
 type AudioEqualizerDialogProps = {
     isDaylight: boolean;
     theme: Theme;
+    equalizerOnly?: boolean;
+    commitOnInput?: boolean;
+    statusMessage?: string;
 };
 
 const PRESET_IDS: AudioEqualizerModeId[] = [...AUDIO_SOUND_PRESET_IDS, ...AUDIO_EQUALIZER_CUSTOM_SLOT_IDS];
 
-const AudioEqualizerDialog: React.FC<AudioEqualizerDialogProps> = ({ isDaylight, theme }) => {
+const AudioEqualizerDialog: React.FC<AudioEqualizerDialogProps> = ({ isDaylight, theme, equalizerOnly = false, commitOnInput = false, statusMessage }) => {
     const { t } = useTranslation();
     const settings = useAudioSettingsStore(state => state.audioEqualizerSettings);
     const isOpen = useAudioSettingsStore(state => state.isAudioEqualizerOpen);
@@ -92,10 +95,13 @@ const AudioEqualizerDialog: React.FC<AudioEqualizerDialogProps> = ({ isDaylight,
         const gains = [...draftRef.current.gains];
         gains[index] = value;
         writeCustomDraft(gains, { ...draftRef.current.effects });
+        // WKWebView may deliver input after pointerup; mobile commits from the actual value event.
+        if (commitOnInput) commitSettings(draftRef.current);
     };
 
     const updateEffectDraft = (id: AudioEffectId, value: number) => {
         writeCustomDraft([...draftRef.current.gains], { ...draftRef.current.effects, [id]: value });
+        if (commitOnInput) commitSettings(draftRef.current);
     };
 
     const applyPreset = (presetId: AudioEqualizerModeId) => {
@@ -141,13 +147,15 @@ const AudioEqualizerDialog: React.FC<AudioEqualizerDialogProps> = ({ isDaylight,
         return null;
     }
 
-    return createPortal((
+    const bands = <EqualizerBandGrid gains={draft.gains} styles={styles} onBandChange={updateBandDraft} onCommit={commitDraft} />;
+    const dialog = (
         <ThemedDialog
             isOpen={isOpen}
             onClose={close}
             isDaylight={isDaylight}
             title={t('ui.equalizerTitle')}
-            description={t('ui.equalizerDescription')}
+            description={t(equalizerOnly ? 'mobile.equalizerOnly' : 'ui.equalizerDescription')}
+            footer={equalizerOnly ? <button onClick={close}>{t('mobile.close')}</button> : undefined}
             maxWidthClass="max-w-2xl"
         >
             {/* display:contents，布局一如从前；在的意义只是让这扇对话框自己也能被思索命中。 */}
@@ -155,6 +163,7 @@ const AudioEqualizerDialog: React.FC<AudioEqualizerDialogProps> = ({ isDaylight,
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <button
                     type="button"
+                    disabled={equalizerOnly && !draft.enabled && !isNeutralAudioEffects(draft.effects)}
                     onClick={() => {
                         const next = { ...draftRef.current, enabled: !draftRef.current.enabled };
                         updateDraft(next);
@@ -177,6 +186,8 @@ const AudioEqualizerDialog: React.FC<AudioEqualizerDialogProps> = ({ isDaylight,
                         <button
                             key={presetId}
                             type="button"
+                            disabled={equalizerOnly && !isNeutralAudioEffects(isAudioEqualizerCustomSlotId(presetId)
+                                ? draft.customSlots[getAudioEqualizerCustomSlotIndex(presetId)].effects : AUDIO_SOUND_PRESETS[presetId].effects)}
                             onClick={() => applyPreset(presetId)}
                             aria-pressed={draft.preset === presetId}
                             className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors ${styles.buttonClass}`}
@@ -202,21 +213,19 @@ const AudioEqualizerDialog: React.FC<AudioEqualizerDialogProps> = ({ isDaylight,
                 </div>
             </div>
 
-            <EqualizerBandGrid
-                gains={draft.gains}
-                styles={styles}
-                onBandChange={updateBandDraft}
-                onCommit={commitDraft}
-            />
-            <AudioEffectGrid
+            {equalizerOnly ? <fieldset disabled={!isNeutralAudioEffects(draft.effects)}>{bands}</fieldset> : bands}
+            {equalizerOnly ? <p className="audio-effects-pending">{t('mobile.effectsPending')}</p> : <AudioEffectGrid
                 effects={draft.effects}
                 styles={styles}
                 onEffectChange={updateEffectDraft}
                 onCommit={commitDraft}
-            />
+            />}
+            {statusMessage && <p role="alert">{statusMessage}</p>}
             </div>
         </ThemedDialog>
-    ), document.body);
+    );
+    return createPortal(equalizerOnly ? <div className="mobile-audio-dialog" data-daylight={isDaylight} role={isOpen ? 'dialog' : undefined}
+        aria-label={t('ui.equalizerTitle')} aria-modal={isOpen ? true : undefined}>{dialog}</div> : dialog, document.body);
 };
 
 export default AudioEqualizerDialog;

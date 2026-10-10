@@ -1,5 +1,9 @@
 // src/mobile/locale.ts
 export const mobileEn = {
+  retry: 'Retry', audioSettingsError: 'Audio settings could not be applied. The last confirmed settings have been kept.',
+  equalizerOnly: 'Ten-band equalizer · native playback',
+  effectsPending: 'Reverb, saturation and other effects are still being ported. Presets that require them are unavailable.',
+  equalizerUnavailable: 'This audio stream does not support equalization. Playback continues without EQ.',
   songActions: 'Song actions', playNext: 'Play next', toEnd: 'Move to end', removeFromQueue: 'Remove from queue',
   shuffleQueue: 'Shuffle queue', clearQueue: 'Clear queue', queueEmpty: 'The queue is empty',
   confirmClearQueue: 'Clear the queue? The current song will keep playing.',
@@ -19,11 +23,15 @@ export const mobileEn = {
   refresh: 'New QR code', waiting: 'Waiting for scan', scanned: 'Confirm in the music app', confirmed: 'Signed in',
   expired: 'Code expired', error: 'Request failed. Check the connection or sign in again.', loading: 'Loading…',
   noSongs: 'Search for a song or open a playlist', more: 'Load more', dark: 'Midnight', light: 'Daylight',
-  theme: 'Theme', limited: 'Lyrics and animations use the original Folia renderers. EQ and Automix have not yet been ported.',
+  theme: 'Theme', limited: 'Lyrics and animations use the original Folia renderers. The additional effect chain and Automix are still being ported.',
   noLyrics: 'No lyrics available', repeat: 'Repeat', off: 'Off', all: 'All', one: 'One', cancel: 'Cancel',
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  retry: '重试', audioSettingsError: '声音设置未能应用，已保留上次确认的设置。',
+  equalizerOnly: '十段均衡器 · 原生播放',
+  effectsPending: '混响、饱和等音效仍在移植中，依赖这些音效的预设暂不可用。',
+  equalizerUnavailable: '当前音频流不支持均衡处理，将继续播放原始声音。',
   songActions: '歌曲操作', playNext: '下一首播放', toEnd: '移到队尾', removeFromQueue: '从队列移除',
   shuffleQueue: '打乱队列', clearQueue: '清空队列', queueEmpty: '播放队列为空',
   confirmClearQueue: '清空播放队列？当前歌曲会继续播放。',
@@ -43,11 +51,15 @@ export const mobileZh: typeof mobileEn = {
   refresh: '重新生成二维码', waiting: '等待扫码', scanned: '请在音乐 App 中确认', confirmed: '已登录',
   expired: '二维码已过期', error: '请求失败，请检查连接或重新登录。', loading: '正在加载…',
   noSongs: '搜索一首歌，或打开你的歌单', more: '加载更多', dark: '午夜墨染', light: '日光素白',
-  theme: '主题', limited: '歌词和动画沿用 Folia 原有渲染器。均衡器、自动混音尚未移植。',
+  theme: '主题', limited: '歌词和动画沿用 Folia 原有渲染器。附加音效链、自动混音仍在移植中。',
   noLyrics: '暂无歌词', repeat: '循环', off: '关闭', all: '列表循环', one: '单曲循环', cancel: '取消',
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  retry: 'Coba lagi', audioSettingsError: 'Pengaturan audio gagal diterapkan. Pengaturan terakhir tetap dipakai.',
+  equalizerOnly: 'Equalizer sepuluh band · pemutaran native',
+  effectsPending: 'Reverb, saturasi, dan efek lain masih dipindahkan. Preset yang memerlukannya belum tersedia.',
+  equalizerUnavailable: 'Stream audio ini tidak mendukung equalizer. Pemutaran berlanjut tanpa EQ.',
   songActions: 'Tindakan lagu', playNext: 'Putar berikutnya', toEnd: 'Pindah ke akhir', removeFromQueue: 'Hapus dari antrean',
   shuffleQueue: 'Acak antrean', clearQueue: 'Kosongkan antrean', queueEmpty: 'Antrean kosong',
   confirmClearQueue: 'Kosongkan antrean? Lagu saat ini tetap diputar.',
@@ -67,7 +79,7 @@ export const mobileIn: typeof mobileEn = {
   refresh: 'Kode QR baru', waiting: 'Menunggu pemindaian', scanned: 'Konfirmasi di aplikasi musik', confirmed: 'Berhasil masuk',
   expired: 'Kode kedaluwarsa', error: 'Permintaan gagal. Periksa koneksi atau masuk kembali.', loading: 'Memuat…',
   noSongs: 'Cari lagu atau buka playlist', more: 'Muat lagi', dark: 'Tengah malam', light: 'Siang',
-  theme: 'Tema', limited: 'Lirik dan animasi memakai renderer asli Folia. EQ dan Automix belum dipindahkan.',
+  theme: 'Tema', limited: 'Lirik dan animasi memakai renderer asli Folia. Rangkaian efek tambahan dan Automix masih dipindahkan.',
   noLyrics: 'Lirik tidak tersedia', repeat: 'Ulangi', off: 'Mati', all: 'Semua', one: 'Satu', cancel: 'Batal',
   position: 'Posisi pemutaran', back: 'Kembali ke pustaka', empty: 'Tidak ada hasil', saved: 'Koneksi disimpan',
 };

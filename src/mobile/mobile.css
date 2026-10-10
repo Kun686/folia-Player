@@ -53,6 +53,19 @@ h1, h2, p { margin: 0; } h1 { font-size: 32px; letter-spacing: -.04em; } h2 { fo
 .player-controls p { color: var(--muted); font-size: 13px; margin: 8px 0; } input[type=range] { width: 100%; padding: 0; accent-color: var(--text); }
 .player-options { display: flex; justify-content: center; gap: 8px; margin-top: 12px; }
 .player-options button { font-size: 12px; }
+.volume-controls { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.volume-controls input { flex: 1; min-width: 0; }
+.volume-controls output { font-size: 12px; min-width: 32px; text-align: right; }
+.volume-controls button { flex-shrink: 0; padding-inline: 10px; font-size: 12px; }
+.mobile-audio-dialog[role=dialog] { position: fixed; inset: 0; z-index: 200; color: #f4f4f5; }
+.mobile-audio-dialog[data-daylight=true] { color: #18181b; }
+.mobile-audio-dialog > div { padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+.mobile-audio-dialog > div > div { max-height: 100%; overflow-y: auto; }
+.mobile-audio-dialog button { min-height: 44px; min-width: 44px; touch-action: manipulation; }
+.mobile-audio-dialog input[type=range] { width: 44px; height: 128px; min-height: 128px; border: 0; padding: 0 18px; border-radius: 0; background-color: #ffffff1a; background-clip: content-box; touch-action: none; accent-color: inherit; }
+.mobile-audio-dialog[data-daylight=true] input[type=range] { background-color: #00000026; }
+.mobile-audio-dialog fieldset { min-width: 0; border: 0; padding: 0; }
+.mobile-audio-dialog .audio-effects-pending { font-size: 12px; opacity: .65; line-height: 1.6; margin-top: 16px; }
 .connection-hint { font-size: 13px; color: var(--muted); padding-block: 16px; }
 .check-label { flex-direction: row !important; align-items: center; }
 .check-label input { width: 22px; min-height: 22px; }

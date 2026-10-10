@@ -14,6 +14,8 @@ import { findLatestActiveLineIndex } from '../utils/appPlaybackHelpers';
 import { useMobileLyrics } from './useMobileLyrics';
 import { useNativeAudio } from './useNativeAudio';
 import VisualSettings from './VisualSettings';
+import AudioControls from './AudioControls';
+import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useVisualizerAssetStore } from '../stores/useVisualizerAssetStore';
 import { NO_LYRIC_LINES } from '../utils/lyrics/noLyricLines';
@@ -26,6 +28,7 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
 }) {
   const { t } = useTranslation();
   const [visualSettings, setVisualSettings] = useState(false);
+  const audioSettingsOpen = useAudioSettingsStore(s => s.isAudioEqualizerOpen);
   const mode = useVisualizerSettingsStore(s => s.visualizerMode);
   const appearance = useMobileTheme();
   const typography = useTypographySettingsStore(useShallow(s => ({
@@ -62,7 +65,7 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
   }, []);
   const song = state.currentSong;
   const { lyrics, cover, error: lyricsError, refresh } = useMobileLyrics(song ?? undefined);
-  const rendering = visible && (expanded || wide) && !visualSettings;
+  const rendering = visible && (expanded || wide) && !visualSettings && !audioSettingsOpen;
   const audio = useNativeAudio(rendering && state.playing);
   const importLyrics = async () => {
     if (song?.sourceRef?.kind !== 'local') return;
@@ -106,6 +109,8 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
           {(['off', 'all', 'one'] as const).map(mode => <option key={mode} value={mode}>{t('mobile.' + mode)}</option>)}
         </select>
       </div>
+      <AudioControls light={light} theme={light ? appearance.theme.light : appearance.theme.dark}
+        unavailable={state.playing && state.audioProcessingAvailable === false} />
       <div className="player-options"><button onClick={() => setVisualSettings(true)}>{t('mobile.visuals')}</button>
         {song?.sourceRef?.kind === 'local' && <button onClick={() => void importLyrics()}>{t('mobile.importLyrics')}</button>}</div>
       {song && !lyrics?.lines.length && <p className="muted">{t('mobile.noLyrics')}</p>}

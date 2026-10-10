@@ -1,12 +1,15 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 import type { SongResult } from '../types';
+import type { AudioEqualizerSettings } from '../utils/audioEqualizer';
 
 // src/mobile/bridge.ts — native owns transport secrets, playback and queue state.
 export interface PlaybackSnapshot {
   queue: SongResult[]; index: number; position: number; duration: number; playing: boolean;
   repeat: 'off' | 'all' | 'one'; error?: string; revision: number;
   currentSong: SongResult | null; queueRevision: number;
+  audioProcessingAvailable?: boolean;
 }
+export interface NativeAudioSettings { volume: number; isMuted: boolean; equalizer: AudioEqualizerSettings }
 export type PlaybackEvent = Omit<PlaybackSnapshot, 'queue' | 'currentSong'> & Partial<Pick<PlaybackSnapshot, 'queue' | 'currentSong'>>;
 export interface FoliaNativePlugin {
   localCatalog(): Promise<{ songs: SongResult[] }>;
@@ -15,6 +18,8 @@ export interface FoliaNativePlugin {
   importLyrics(options: { id: string }): Promise<{ content?: string; cover?: string; cancelled?: boolean }>;
   removeLocal(options: { id: string }): Promise<void>;
   audioLevels(): Promise<{ available: boolean; spectrum: number[]; sampleRate: number }>;
+  getAudioSettings(): Promise<NativeAudioSettings>;
+  setAudioSettings(options: { settings: NativeAudioSettings }): Promise<NativeAudioSettings>;
   bootstrap(): Promise<{ server: string; sessions: Record<string, Record<string, string>> }>;
   configure(options: { server: string; token: string }): Promise<void>;
   health(): Promise<{ protocol: number; providers: string[] }>;

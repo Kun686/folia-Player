@@ -7,6 +7,9 @@ test.beforeEach(async ({ page }) => {
     win.CapacitorCustomPlatform = { name: 'ios' };
     let subscriber: (state: unknown) => void;
     let cookie = false;
+    const effects = { highpass: 20, lowpass: 20000, drive: 0, crush: 0, wow: 0, noise: 0, width: 1, space: 0, punch: 0 };
+    win.fixtureAudio = { volume: 1, isMuted: false, equalizer: { enabled: false, gains: Array(10).fill(0), preset: 'flat', effects,
+      customSlots: [1, 2].map(() => ({ gains: Array(10).fill(0), effects })) } };
     const song = { id: 42, name: '测试歌曲', ar: [{ id: 1, name: '测试歌手' }], al: { id: 1, name: '专辑' }, dt: 180000 };
     const state = { queue: [] as any[], index: -1, position: 0, duration: 180, playing: false, repeat: 'off', revision: 0, queueRevision: 0, currentSong: null as any };
     const localSong = { id: '11111111-1111-4111-8111-111111111111', name: '本地测试音乐', artists: [{ id: '', name: '本地歌手' }], album: { id: '', name: '' }, durationMs: 180000,
@@ -16,13 +19,18 @@ test.beforeEach(async ({ page }) => {
     win.fixturePlayback = state;
     const emit = () => { state.revision++; subscriber?.({ ...state }); };
     const methods = ['bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR',
-      'localCatalog', 'importAudio', 'localDetails', 'importLyrics', 'removeLocal', 'audioLevels'];
+      'localCatalog', 'importAudio', 'localDetails', 'importLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings'];
     win.Capacitor = {
       PluginHeaders: [{ name: 'FoliaNative', methods: [...methods.map(name => ({ name, rtype: 'promise' })), { name: 'addListener' }, { name: 'removeListener' }] }],
       nativeCallback: (_plugin: string, method: string, _options: unknown, cb: (state: unknown) => void) => {
         if (method === 'addListener') subscriber = cb; return 'callback-1';
       },
       nativePromise: async (_plugin: string, method: string, options: any) => {
+        if (method === 'getAudioSettings') return structuredClone(win.fixtureAudio);
+        if (method === 'setAudioSettings') {
+          if (win.fixtureAudioFailure) throw new Error('audio-settings-failed');
+          win.fixtureAudio = structuredClone(options.settings); return structuredClone(win.fixtureAudio);
+        }
         if (method === 'health') return { protocol: 1, providers: ['netease', 'qq'] };
         if (method === 'bootstrap') return { server: win.fixtureNoServer ? '' : 'https://fixture.invalid', sessions: {} };
         if (method === 'localCatalog') return { songs: localSongs };
@@ -90,7 +98,7 @@ test('login, catalog, queue, controls and responsive layout', async ({ page }, i
   await expect(page.getByRole('button', { name: '播放 测试歌曲', exact: true })).toBeVisible();
   await page.getByRole('textbox', { name: '搜索歌曲' }).fill('测试');
   await page.getByRole('button', { name: '搜索歌曲', exact: true }).click();
-  await expect(page.getByRole('status')).toHaveCount(0);
+  await expect(page.locator('.library-panel').getByRole('status')).toHaveCount(0);
   await expect(page.getByRole('button', { name: '播放 测试歌曲', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '加入队列 测试歌曲' }).click();
   await page.getByRole('button', { name: '播放 测试歌曲', exact: true }).click();
@@ -112,7 +120,9 @@ test('touch queue editing preserves current song and rejects stale actions', asy
   await page.goto('/mobile.html');
   await page.getByRole('button', { name: '导入音乐', exact: true }).click();
   await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
+  await expect(page.locator('.player-controls').getByText('暂无歌词', { exact: true })).toHaveCount(0);
   await page.locator('.player-panel').getByRole('button', { name: '暂停', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).fixturePlayback.playing)).toBe(false);
   if (info.project.name !== 'ipad') await page.getByRole('button', { name: '返回音乐库' }).click();
   await page.getByRole('button', { name: '播放队列 · 3' }).click();
   await page.getByRole('button', { name: '歌曲操作 本地音乐3', exact: true }).click();
@@ -137,6 +147,44 @@ test('touch queue editing preserves current song and rejects stale actions', asy
   const current = info.project.name === 'ipad' ? page.locator('.player-controls h2') : page.locator('.mini-title strong');
   await expect(current).toHaveText('本地测试音乐');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('volume, mute and original EQ controls apply and recover from native failure', async ({ page }, info) => {
+  await page.addInitScript(() => { (window as any).fixtureNoServer = true; });
+  await page.goto('/mobile.html');
+  await page.getByRole('button', { name: '导入音乐', exact: true }).click();
+  await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
+  await expect(page.locator('.player-controls').getByText('暂无歌词', { exact: true })).toHaveCount(0);
+  const volume = page.getByRole('slider', { name: '音量', exact: true });
+  await expect(volume).toBeEnabled();
+  await page.getByRole('button', { name: '静音', exact: true }).click();
+  const box = (await volume.boundingBox())!;
+  await page.mouse.click(box.x + box.width * 0.35, box.y + box.height / 2);
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureAudio.volume)).toBeLessThan(0.6);
+  expect(await page.evaluate(() => (window as any).fixtureAudio.isMuted)).toBe(true);
+  await page.getByRole('button', { name: '音频效果器', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '音频效果器' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Lo-Fi', exact: true })).toBeDisabled();
+  const band = dialog.getByRole('slider', { name: '31 Hz', exact: true }), bandBox = (await band.boundingBox())!;
+  await page.mouse.click(bandBox.x + bandBox.width / 2, bandBox.y + bandBox.height * 0.15);
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureAudio.equalizer.gains[0])).toBeGreaterThan(0);
+  expect(await page.evaluate(() => (window as any).fixtureAudio.equalizer.enabled)).toBe(true);
+  // iOS can deliver the final input after pointerup. The latest touch value must still reach native storage.
+  await dialog.getByRole('slider', { name: '1k Hz', exact: true }).evaluate(element => {
+    const input = element as HTMLInputElement;
+    input.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'touch' }));
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '7');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureAudio.equalizer.gains[5])).toBe(7);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.evaluate(() => { (window as any).fixtureAudioFailure = true; });
+  await dialog.getByRole('button', { name: '音频处理已开启', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toHaveText('声音设置未能应用，已保留上次确认的设置。');
+  await expect(dialog.getByRole('button', { name: '音频处理已开启', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await dialog.getByRole('button', { name: '关闭', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
 });
 
 test('settings and unavailable server error are visible', async ({ page }) => {

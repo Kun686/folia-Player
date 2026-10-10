@@ -8,7 +8,8 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     public let jsName = "FoliaNative"
     public let pluginMethods: [CAPPluginMethod] = ["bootstrap", "configure", "health", "saveSession", "clearSession",
         "request", "cancelRequests", "setQueue", "editQueue", "selectQueue", "command", "getState", "shareQR",
-        "localCatalog", "importAudio", "localDetails", "importLyrics", "removeLocal", "audioLevels"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
+        "localCatalog", "importAudio", "localDetails", "importLyrics", "removeLocal", "audioLevels",
+        "getAudioSettings", "setAudioSettings"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
     private let picker = LocalImportPicker()
     private var importing = false
     private let gateway = GatewayClient()
@@ -97,6 +98,11 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve()
     } }
     @objc func getState(_ call: CAPPluginCall) { run(call) { call.resolve(self.engine.snapshot()) } }
+    @objc func getAudioSettings(_ call: CAPPluginCall) { run(call) { call.resolve(self.engine.audioSettings.dictionary) } }
+    @objc func setAudioSettings(_ call: CAPPluginCall) { run(call) {
+        guard let settings = call.getObject("settings") else { throw MobileFailure("invalid-audio-settings") }
+        call.resolve(try self.engine.setAudioSettings(settings))
+    } }
     @objc func audioLevels(_ call: CAPPluginCall) { run(call) {
         call.resolve(self.engine.meter?.snapshot() ?? ["available": false, "spectrum": [], "sampleRate": 44100])
     } }
