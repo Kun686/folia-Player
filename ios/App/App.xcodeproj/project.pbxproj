@@ -15,6 +15,19 @@ F01200000000000000000012 = {isa = PBXContainerItemProxy; containerPortal = 504EC
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXBuildFile section */
+F022B0000000000000000005 = {isa = PBXBuildFile; fileRef = F022A0000000000000000005; };
+F022B0000000000000000004 = {isa = PBXBuildFile; fileRef = F022A0000000000000000004; };
+F022B0000000000000000003 = {isa = PBXBuildFile; fileRef = F022A0000000000000000003; };
+F022B0000000000000000002 = {isa = PBXBuildFile; fileRef = F022A0000000000000000002; };
+F022B0000000000000000001 = {isa = PBXBuildFile; fileRef = F022A0000000000000000001; };
+F021B0000000000000000004 = {isa = PBXBuildFile; fileRef = F021A0000000000000000004; };
+F021B0000000000000000003 = {isa = PBXBuildFile; fileRef = F021A0000000000000000003; };
+F021B0000000000000000002 = {isa = PBXBuildFile; fileRef = F021A0000000000000000002; };
+F021B0000000000000000001 = {isa = PBXBuildFile; fileRef = F021A0000000000000000001; };
+F020B0000000000000000004 = {isa = PBXBuildFile; fileRef = F020A0000000000000000004; };
+F020B0000000000000000003 = {isa = PBXBuildFile; fileRef = F020A0000000000000000003; };
+F020B0000000000000000002 = {isa = PBXBuildFile; fileRef = F020A0000000000000000002; };
+F020B0000000000000000001 = {isa = PBXBuildFile; fileRef = F020A0000000000000000001; };
 F019B0000000000000000003 = {isa = PBXBuildFile; fileRef = F019A0000000000000000003; };
 F019B0000000000000000002 = {isa = PBXBuildFile; fileRef = F019A0000000000000000002; };
 F019B0000000000000000001 = {isa = PBXBuildFile; fileRef = F019A0000000000000000001; };
@@ -46,6 +59,19 @@ F01200000000000000000001 /* NativeTests.swift in Sources */ = {isa = PBXBuildFil
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+F022A0000000000000000005 = {isa = PBXFileReference; lastKnownFileType = text; path = WEBKIT_DSP_LICENSES.txt; sourceTree = "<group>"; };
+F022A0000000000000000004 = {isa = PBXFileReference; lastKnownFileType = text.json; path = OversamplingReference.json; sourceTree = "<group>"; };
+F022A0000000000000000003 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OversamplingTests.swift; sourceTree = "<group>"; };
+F022A0000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebAudioWaveShaper.swift; sourceTree = "<group>"; };
+F022A0000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebAudioOversampling.swift; sourceTree = "<group>"; };
+F021A0000000000000000004 = {isa = PBXFileReference; lastKnownFileType = text.json; path = ModulationReference.json; sourceTree = "<group>"; };
+F021A0000000000000000003 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModulationTests.swift; sourceTree = "<group>"; };
+F021A0000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioStereoWidth.swift; sourceTree = "<group>"; };
+F021A0000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioWowDelay.swift; sourceTree = "<group>"; };
+F020A0000000000000000004 = {isa = PBXFileReference; lastKnownFileType = text.json; path = EffectReference.json; sourceTree = "<group>"; };
+F020A0000000000000000003 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffectPrimitiveTests.swift; sourceTree = "<group>"; };
+F020A0000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCutoffFilters.swift; sourceTree = "<group>"; };
+F020A0000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEffectSources.swift; sourceTree = "<group>"; };
 F019A0000000000000000003 = {isa = PBXFileReference; lastKnownFileType = text.json; path = SpectrumReference.json; sourceTree = "<group>"; };
 F019A0000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrumTests.swift; sourceTree = "<group>"; };
 F019A0000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSpectrum.swift; sourceTree = "<group>"; };
@@ -92,7 +118,7 @@ F01200000000000000000008 = {isa = PBXFrameworksBuildPhase; buildActionMask = 214
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-F01200000000000000000004 = {isa = PBXGroup; children = (F01200000000000000000002,F015A0000000000000000001,F016A0000000000000000001,F018A0000000000000000002,F018A0000000000000000001,F019A0000000000000000003,F019A0000000000000000002,); path = NativeTests; sourceTree = "<group>"; };
+F01200000000000000000004 = {isa = PBXGroup; children = (F01200000000000000000002,F015A0000000000000000001,F016A0000000000000000001,F018A0000000000000000002,F018A0000000000000000001,F019A0000000000000000003,F019A0000000000000000002,F020A0000000000000000003,F020A0000000000000000004,F021A0000000000000000003,F021A0000000000000000004,F022A0000000000000000003,F022A0000000000000000004,); path = NativeTests; sourceTree = "<group>"; };
 		504EC2FB1FED79650016851F = {
 			isa = PBXGroup;
 			children = (
@@ -123,6 +149,13 @@ F014A0000000000000000003,
 F017A0000000000000000002,
 F017A0000000000000000001,
 F019A0000000000000000001,
+F020A0000000000000000002,
+F020A0000000000000000001,
+F021A0000000000000000002,
+F021A0000000000000000001,
+F022A0000000000000000005,
+F022A0000000000000000002,
+F022A0000000000000000001,
 F014A0000000000000000002,
 F014A0000000000000000001,
 				F011A0000000000000000004 /* FoliaNativePlugin.swift */,
@@ -205,7 +238,7 @@ name = FoliaNativeTests; productName = FoliaNativeTests; productReference = F012
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-F01800000000000000000001 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (F018B0000000000000000002,F019B0000000000000000003,); runOnlyForDeploymentPostprocessing = 0; };
+F01800000000000000000001 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (F018B0000000000000000002,F019B0000000000000000003,F020B0000000000000000004,F021B0000000000000000004,F022B0000000000000000004,); runOnlyForDeploymentPostprocessing = 0; };
 		504EC3021FED79650016851F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -215,6 +248,7 @@ F01800000000000000000001 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147
 				504EC30F1FED79650016851F /* Assets.xcassets in Resources */,
 				50379B232058CBB4000EE86E /* capacitor.config.json in Resources */,
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
+F022B0000000000000000005,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -222,7 +256,7 @@ F01800000000000000000001 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-F01200000000000000000007 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (F01200000000000000000001,F015B0000000000000000001,F016B0000000000000000001,F018B0000000000000000001,F019B0000000000000000002,); runOnlyForDeploymentPostprocessing = 0; };
+F01200000000000000000007 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (F01200000000000000000001,F015B0000000000000000001,F016B0000000000000000001,F018B0000000000000000001,F019B0000000000000000002,F020B0000000000000000003,F021B0000000000000000003,F022B0000000000000000003,); runOnlyForDeploymentPostprocessing = 0; };
 		504EC3001FED79650016851F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -233,6 +267,12 @@ F014B0000000000000000003,
 F017B0000000000000000002,
 F017B0000000000000000001,
 F019B0000000000000000001,
+F020B0000000000000000002,
+F020B0000000000000000001,
+F021B0000000000000000002,
+F021B0000000000000000001,
+F022B0000000000000000002,
+F022B0000000000000000001,
 F014B0000000000000000002,
 F014B0000000000000000001,
 				F011B0000000000000000004 /* FoliaNativePlugin.swift in Sources */,

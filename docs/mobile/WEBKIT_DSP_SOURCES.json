@@ -1,0 +1,68 @@
+{
+  "revision": "9c50e091cb1b47fddb7afa7ffec7f9f22c0ee38b",
+  "files": [
+    {
+      "path": "platform/audio/UpSampler.cpp",
+      "bytes": 4712,
+      "sha256": "f9721057b6c9dec5e74dbb332d1f622b26797d57ad5228dae46f0f6fa9c123ee"
+    },
+    {
+      "path": "platform/audio/UpSampler.h",
+      "bytes": 2921,
+      "sha256": "f14e2375652d44d5013738adfd3657f4bbac258edebdd4b026c756e89b154031"
+    },
+    {
+      "path": "platform/audio/DownSampler.cpp",
+      "bytes": 5852,
+      "sha256": "2956df5f771aae733d27b7ce9b0d61249dd42f662ad3c5895bf2a1f7d35345e0"
+    },
+    {
+      "path": "platform/audio/DownSampler.h",
+      "bytes": 2799,
+      "sha256": "e2e7fa16e99ddfdb8440ef518c42fed76494acb4d43e673a21152c35a846e84a"
+    },
+    {
+      "path": "platform/audio/DynamicsCompressorKernel.cpp",
+      "bytes": 18589,
+      "sha256": "1b63272df7c55ec3dc399e3d4c38a008e1382ad1579eaac89f992b93fb28851c"
+    },
+    {
+      "path": "platform/audio/DynamicsCompressorKernel.h",
+      "bytes": 5027,
+      "sha256": "6e4b860c1196445633738580ccc5aa03526d060276b38d847b1e830a218758c7"
+    },
+    {
+      "path": "platform/audio/DynamicsCompressor.cpp",
+      "bytes": 6965,
+      "sha256": "fb9a29621fdf046fab9d1857b6c952364f4ada1fe16e92a925782be06c2f0e90"
+    },
+    {
+      "path": "platform/audio/DynamicsCompressor.h",
+      "bytes": 4053,
+      "sha256": "06fb59054cb0e64db490666da1e39f68653ff3e72a465a54d2dcb4d2025160cf"
+    },
+    {
+      "path": "Modules/webaudio/WaveShaperDSPKernel.cpp",
+      "bytes": 7170,
+      "sha256": "8025a99a76d1f8febde5f6938979d00e76d3fd0675b0f9c8639f1cf31f66407c"
+    },
+    {
+      "path": "Modules/webaudio/WaveShaperDSPKernel.h",
+      "bytes": 3622,
+      "sha256": "453ef243cff097ad29d412b7976fcb4628760ead6be06a02db07f2765c225e84"
+    }
+  ],
+  "adaptations": {
+    "WebAudioOversampling.swift": [
+      "platform/audio/UpSampler.cpp",
+      "platform/audio/UpSampler.h",
+      "platform/audio/DownSampler.cpp",
+      "platform/audio/DownSampler.h"
+    ],
+    "WebAudioWaveShaper.swift": [
+      "Modules/webaudio/WaveShaperDSPKernel.cpp",
+      "Modules/webaudio/WaveShaperDSPKernel.h"
+    ]
+  },
+  "remaining": "DynamicsCompressorKernel referenced but not yet adapted"
+}
