@@ -60,8 +60,8 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
   const seekLyrics = useCallback((position: number) => {
     void native.command({ action: 'seek', position }).catch(() => setError(true));
   }, []);
-  const song = state.queue[state.index];
-  const { lyrics, cover, error: lyricsError, refresh } = useMobileLyrics(song);
+  const song = state.currentSong;
+  const { lyrics, cover, error: lyricsError, refresh } = useMobileLyrics(song ?? undefined);
   const rendering = visible && (expanded || wide) && !visualSettings;
   const audio = useNativeAudio(rendering && state.playing);
   const importLyrics = async () => {
@@ -98,7 +98,7 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
         onChange={e => command('seek', Number(e.target.value))} />
       <div className="transport">
         <button onClick={() => command('previous')} aria-label={t('mobile.previous')} disabled={!song}><SkipBack /></button>
-        <button className="primary-play" onClick={() => command(state.playing ? 'pause' : 'play')} aria-label={t(state.playing ? 'mobile.pause' : 'mobile.play')} disabled={!song}>
+        <button className="primary-play" onClick={() => command(state.playing ? 'pause' : 'play')} aria-label={t(state.playing ? 'mobile.pause' : 'mobile.play')} disabled={!song && !state.queue.length}>
           {state.playing ? <Pause /> : <Play />}
         </button>
         <button onClick={() => command('next')} aria-label={t('mobile.next')} disabled={!song}><SkipForward /></button>

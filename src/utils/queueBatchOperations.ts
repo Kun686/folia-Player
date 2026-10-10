@@ -20,6 +20,19 @@ const findCurrentQueueIndex = (queue: SongResult[], currentSong: SongResult | nu
     return queue.findIndex(song => getPlaybackSongKey(song) === currentSongKey);
 };
 
+// Original player shuffle: keep the current song first and shuffle the remaining identities.
+export const shufflePlaybackQueue = (queue: SongResult[], currentSong: SongResult | null): SongResult[] => {
+    if (queue.length <= 1) return queue;
+    const key = currentSong ? getPlaybackSongKey(currentSong) : null;
+    const first = key ? queue.find(song => getPlaybackSongKey(song) === key) : undefined;
+    const rest = key ? queue.filter(song => getPlaybackSongKey(song) !== key) : [...queue];
+    for (let index = rest.length - 1; index > 0; index -= 1) {
+        const target = Math.floor(Math.random() * (index + 1));
+        [rest[index], rest[target]] = [rest[target], rest[index]];
+    }
+    return first ? [first, ...rest] : rest;
+};
+
 export const applyQueueBatchOperation = ({
     queue,
     targetIndices,

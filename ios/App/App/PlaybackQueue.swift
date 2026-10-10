@@ -39,17 +39,45 @@ extension PlaybackEngine {
         return try await gateway.resolve(song)
     }
     var currentIsLocal: Bool {
-        queue.indices.contains(index) && (queue[index]["sourceRef"] as? [String: Any])?["kind"] as? String == "local"
+        (currentSong?["sourceRef"] as? [String: Any])?["kind"] as? String == "local"
     }
     // Removing another provider must not interrupt a local track or an unrelated account.
     func removeSongs(where matches: ([String: Any]) -> Bool) {
-        let removesCurrent = queue.indices.contains(index) && matches(queue[index])
+        promotePreparedItem()
+        let song = currentSong
+        let removesCurrent = song.map(matches) ?? false
         let removedBefore = queue.prefix(max(0, index)).filter(matches).count
         if removesCurrent { stop(); player.removeAllItems() } else { discardPrepared() }
         queue.removeAll(where: matches)
+        detachedSong = removesCurrent ? nil : song
         index = removesCurrent ? -1 : index - removedBefore
+        if removesCurrent { restoredPosition = 0 }
         if !removesCurrent { prefetch() }
         persist(); publish()
+    }
+
+    // The foreground reuses the desktop queue helpers. Commit only against the native queue
+    // version it read, preserving the playing occurrence and AVPlayerItem even after removal.
+    func editQueue(_ songs: [[String: Any]], currentIndex: Int, expectedRevision: Int) throws {
+        promotePreparedItem()
+        guard expectedRevision == queueRevision else { throw MobileFailure("queue-changed") }
+        guard songs.count <= 1000, currentIndex == -1 || songs.indices.contains(currentIndex) else { throw MobileFailure("invalid-queue") }
+        let validated = try songs.map(Self.sanitizedSong)
+        let song = currentSong
+        if currentIndex >= 0 {
+            guard let currentRef = song?["sourceRef"] as? NSDictionary,
+                  let nextRef = validated[currentIndex]["sourceRef"] as? NSDictionary,
+                  currentRef.isEqual(nextRef) else { throw MobileFailure("invalid-current-song") }
+        }
+        discardPrepared()
+        detachedSong = song; queue = validated; index = currentIndex
+        prefetch(); persist(); publish()
+    }
+    func selectQueue(_ target: Int, expectedRevision: Int) throws {
+        promotePreparedItem()
+        guard expectedRevision == queueRevision else { throw MobileFailure("queue-changed") }
+        guard queue.indices.contains(target) else { throw MobileFailure("invalid-queue") }
+        failures = 0; intentToPlay = true; select(target)
     }
 
     func discardPrepared() {

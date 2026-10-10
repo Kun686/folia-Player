@@ -10,11 +10,14 @@ final class PlaybackEngine {
     let storage: UserDefaults
     let local: LocalMediaLibrary
     let network = NWPathMonitor()
-    var networkResume: (index: Int, position: Double)?
+    var networkResume: Double?
     var stalledRecovery: DispatchWorkItem?
     var queueDirty = true
-    var queue: [[String: Any]] = [] { didSet { queueDirty = true } }
-    var index = -1
+    var queueRevision = 0
+    var queue: [[String: Any]] = [] { didSet { queueDirty = true; queueRevision += 1 } }
+    var index = -1 { didSet { if oldValue != index { queueDirty = true; queueRevision += 1 } } }
+    var detachedSong: [String: Any]?
+    var currentSong: [String: Any]? { queue.indices.contains(index) ? queue[index] : detachedSong }
     var repeatMode = "off"
     var intentToPlay = false
     var error: String?
@@ -66,26 +69,27 @@ final class PlaybackEngine {
         if automatic && repeatMode == "one" { return index }
         let target = index + delta
         if queue.indices.contains(target) { return target }
-        if repeatMode == "all" { return (target + queue.count) % queue.count }
+        if repeatMode == "all" { return delta < 0 ? queue.count - 1 : 0 }
         return nil
     }
     func move(_ delta: Int, automatic: Bool = false) {
-        if let next = nextIndex(delta, automatic: automatic) { select(next) }
-        else { intentToPlay = false; player.pause(); publish() }
+        if let next = nextIndex(delta, automatic: automatic) {
+            if !automatic { intentToPlay = true }
+            select(next)
+        } else if automatic { intentToPlay = false; player.pause(); publish() }
     }
     // Every new playback intent invalidates previous resolves and preloads.
     func select(_ target: Int, refresh: Bool = false, position: Double = 0) {
-        guard queue.indices.contains(target) else { return }
+        guard let song = queue.indices.contains(target) ? queue[target] : (target == -1 ? detachedSong : nil) else { return }
         generation += 1; let epoch = generation
         task?.cancel(); preload?.cancel(); stalledRecovery?.cancel(); networkResume = nil
         // Detach before removing items: their queued completion events belong to the old intent.
         player.pause(); statusObservation = nil; observedItem = nil; player.removeAllItems()
-        index = target; error = nil
+        index = target; detachedSong = song; restoredPosition = position; error = nil
         if !refresh { retried = false }
         let cached = !refresh && prepared?.index == target && Date().timeIntervalSince(prepared!.at) < 120 ? prepared : nil
         meter = nil
         prepared = nil
-        let song = queue[target]
         publish()
         task = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -114,8 +118,9 @@ final class PlaybackEngine {
         }
     }
     func prefetch() {
-        guard queue.indices.contains(index), player.currentItem != nil, let next = nextIndex(automatic: true) else { return }
-        let epoch = generation, song = queue[next]
+        guard currentSong != nil, player.currentItem != nil, let next = nextIndex(automatic: true),
+              let song = queue.indices.contains(next) ? queue[next] : detachedSong else { return }
+        let epoch = generation
         preload = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
@@ -142,7 +147,7 @@ final class PlaybackEngine {
         if !retried { retried = true; select(index, refresh: true, position: finiteTime(player.currentTime())); return }
         failures += 1
         if failures >= 3 || nextIndex() == nil { stop(code); return }
-        move(1)
+        if let next = nextIndex() { select(next) }
     }
     func stop(_ code: String? = nil) {
         generation += 1; task?.cancel(); discardPrepared(); stalledRecovery?.cancel(); networkResume = nil
@@ -158,21 +163,27 @@ final class PlaybackEngine {
         try session.setActive(true)
     }
     func finiteTime(_ time: CMTime) -> Double { let value = time.seconds; return value.isFinite ? max(0, value) : 0 }
+    var playbackDuration: Double {
+        let loaded = finiteTime(player.currentItem?.duration ?? .zero)
+        let metadata = (currentSong?["durationMs"] as? Double ?? 0) / 1000
+        return loaded > 0 ? loaded : (metadata.isFinite ? max(0, metadata) : 0)
+    }
     func snapshot() -> [String: Any] {
-        ["queue": queue, "index": index, "position": finiteTime(player.currentTime()),
-         "duration": finiteTime(player.currentItem?.duration ?? .zero), "playing": player.timeControlStatus == .playing,
+        ["queue": queue, "index": index, "currentSong": currentSong as Any? ?? NSNull(), "queueRevision": queueRevision,
+         "position": player.currentItem == nil ? restoredPosition : finiteTime(player.currentTime()),
+         "duration": playbackDuration, "playing": player.timeControlStatus == .playing,
          "repeat": repeatMode, "error": error ?? "", "revision": revision]
     }
     func publish() {
         revision += 1; updateNowPlaying()
         var event = snapshot()
-        if !queueDirty { event.removeValue(forKey: "queue") }
+        if !queueDirty { event.removeValue(forKey: "queue"); event.removeValue(forKey: "currentSong") }
         queueDirty = false; emit?(event)
         if Date().timeIntervalSince(lastSave) > 5 { persist() }
     }
     func persist() {
         lastSave = Date()
-        if let data = try? JSONSerialization.data(withJSONObject: ["queue": queue, "index": index,
+        if let data = try? JSONSerialization.data(withJSONObject: ["queue": queue, "index": index, "currentSong": currentSong as Any? ?? NSNull(),
             "position": player.currentItem == nil ? restoredPosition : finiteTime(player.currentTime()), "repeat": repeatMode]) {
             storage.set(data, forKey: "folia.queue")
         }
@@ -181,9 +192,13 @@ final class PlaybackEngine {
         guard let data = storage.data(forKey: "folia.queue"),
               let saved = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let songs = saved["queue"] as? [[String: Any]], songs.count <= 1000 else { return }
-        restoredPosition = saved["position"] as? Double ?? 0
+        let position = saved["position"] as? Double ?? 0
+        restoredPosition = position.isFinite ? max(0, position) : 0
         guard let validated = try? songs.map(Self.sanitizedSong) else { return }
         queue = validated; index = saved["index"] as? Int ?? -1; repeatMode = saved["repeat"] as? String ?? "off"
+        if !queue.indices.contains(index) { index = -1 }
+        if let song = saved["currentSong"] as? [String: Any] { detachedSong = try? Self.sanitizedSong(song) }
+        if !["off", "all", "one"].contains(repeatMode) { repeatMode = "off" }
         // Restore paused; no network traffic or unexpected audio until the user presses play.
     }
     deinit {

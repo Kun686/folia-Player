@@ -7,7 +7,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "FoliaNativePlugin"
     public let jsName = "FoliaNative"
     public let pluginMethods: [CAPPluginMethod] = ["bootstrap", "configure", "health", "saveSession", "clearSession",
-        "request", "cancelRequests", "setQueue", "command", "getState", "shareQR",
+        "request", "cancelRequests", "setQueue", "editQueue", "selectQueue", "command", "getState", "shareQR",
         "localCatalog", "importAudio", "localDetails", "importLyrics", "removeLocal", "audioLevels"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
     private let picker = LocalImportPicker()
     private var importing = false
@@ -78,10 +78,18 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     } }
     @objc func setQueue(_ call: CAPPluginCall) { run(call) {
         guard let songs = call.getArray("songs", JSObject.self), let index = call.getInt("index") else { throw MobileFailure("invalid-queue") }
-        if call.getBool("append") == true && !self.engine.queue.isEmpty {
-            guard self.engine.queue.count + songs.count <= 1000 else { throw MobileFailure("queue-full") }
-            self.engine.queue.append(contentsOf: try songs.map(PlaybackEngine.sanitizedSong)); self.engine.discardPrepared(); self.engine.prefetch(); self.engine.persist(); self.engine.publish()
-        } else { try self.engine.setQueue(songs, at: index) }
+        try self.engine.setQueue(songs, at: index)
+        call.resolve()
+    } }
+    @objc func editQueue(_ call: CAPPluginCall) { run(call) {
+        guard let songs = call.getArray("songs", JSObject.self), let index = call.getInt("currentIndex"),
+              let revision = call.getInt("queueRevision") else { throw MobileFailure("invalid-queue") }
+        try self.engine.editQueue(songs, currentIndex: index, expectedRevision: revision)
+        call.resolve(self.engine.snapshot())
+    } }
+    @objc func selectQueue(_ call: CAPPluginCall) { run(call) {
+        guard let index = call.getInt("index"), let revision = call.getInt("queueRevision") else { throw MobileFailure("invalid-queue") }
+        try self.engine.selectQueue(index, expectedRevision: revision)
         call.resolve()
     } }
     @objc func command(_ call: CAPPluginCall) { run(call) {

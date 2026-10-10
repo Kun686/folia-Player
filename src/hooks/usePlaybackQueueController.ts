@@ -24,6 +24,7 @@ import {
     resolveNavidromePlaybackCarrier,
 } from '../utils/appPlaybackGuards';
 import { applyQueueAddBehavior } from '../utils/queueAddBehavior';
+import { shufflePlaybackQueue } from '../utils/queueBatchOperations';
 import { buildStagePlayerSnapshot, resolveStagePlayerQueueItemIndex } from '../utils/stagePlayerSnapshot';
 import type { LocalLibraryDisplayCatalog } from '../services/playbackAdapters';
 import type { SearchReturnView, SearchSource } from '../stores/useSearchNavigationStore';
@@ -1284,23 +1285,7 @@ export function usePlaybackQueueController({
         if (isNowPlayingStageActive) return;
         if (!playQueue || playQueue.length <= 1) return;
 
-        const currentSongKey = currentSong ? getPlaybackSongKey(currentSong) : null;
-        let songsToShuffle: SongResult[] = [];
-        let firstSong: SongResult | null = null;
-
-        if (currentSongKey) {
-            firstSong = playQueue.find(song => getPlaybackSongKey(song) === currentSongKey) || null;
-            songsToShuffle = playQueue.filter(song => getPlaybackSongKey(song) !== currentSongKey);
-        } else {
-            songsToShuffle = [...playQueue];
-        }
-
-        for (let index = songsToShuffle.length - 1; index > 0; index -= 1) {
-            const randomIndex = Math.floor(Math.random() * (index + 1));
-            [songsToShuffle[index], songsToShuffle[randomIndex]] = [songsToShuffle[randomIndex], songsToShuffle[index]];
-        }
-
-        const nextQueue = firstSong ? [firstSong, ...songsToShuffle] : songsToShuffle;
+        const nextQueue = shufflePlaybackQueue(playQueue, currentSong);
 
         setPlayQueue(nextQueue);
         setStatusMsg({ type: 'success', text: t('status.queueShuffled') || 'Queue Shuffled' });

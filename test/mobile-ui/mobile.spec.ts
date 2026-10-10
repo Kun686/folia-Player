@@ -8,13 +8,14 @@ test.beforeEach(async ({ page }) => {
     let subscriber: (state: unknown) => void;
     let cookie = false;
     const song = { id: 42, name: '测试歌曲', ar: [{ id: 1, name: '测试歌手' }], al: { id: 1, name: '专辑' }, dt: 180000 };
-    const state = { queue: [] as any[], index: -1, position: 0, duration: 180, playing: false, repeat: 'off', revision: 0 };
+    const state = { queue: [] as any[], index: -1, position: 0, duration: 180, playing: false, repeat: 'off', revision: 0, queueRevision: 0, currentSong: null as any };
     const localSong = { id: '11111111-1111-4111-8111-111111111111', name: '本地测试音乐', artists: [{ id: '', name: '本地歌手' }], album: { id: '', name: '' }, durationMs: 180000,
       sourceRef: { kind: 'local', mediaId: '11111111-1111-4111-8111-111111111111' } };
     let localSongs: any[] = [];
     let lyric = '[00:00.00]测试本地歌词\n[00:10.00]第二句';
+    win.fixturePlayback = state;
     const emit = () => { state.revision++; subscriber?.({ ...state }); };
-    const methods = ['bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'command', 'getState', 'shareQR',
+    const methods = ['bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR',
       'localCatalog', 'importAudio', 'localDetails', 'importLyrics', 'removeLocal', 'audioLevels'];
     win.Capacitor = {
       PluginHeaders: [{ name: 'FoliaNative', methods: [...methods.map(name => ({ name, rtype: 'promise' })), { name: 'addListener' }, { name: 'removeListener' }] }],
@@ -25,18 +26,35 @@ test.beforeEach(async ({ page }) => {
         if (method === 'health') return { protocol: 1, providers: ['netease', 'qq'] };
         if (method === 'bootstrap') return { server: win.fixtureNoServer ? '' : 'https://fixture.invalid', sessions: {} };
         if (method === 'localCatalog') return { songs: localSongs };
-        if (method === 'importAudio') { localSongs = [localSong]; return { songs: localSongs, failures: [] }; }
+        if (method === 'importAudio') {
+          localSongs = win.fixtureMany ? [localSong, ...[2, 3].map(i => ({ ...localSong, name: '本地音乐' + i,
+            id: '00000000-0000-4000-8000-00000000000' + i,
+            sourceRef: { kind: 'local', mediaId: '00000000-0000-4000-8000-00000000000' + i } }))] : [localSong];
+          return { songs: localSongs, failures: [] };
+        }
         if (method === 'localDetails') return { content: lyric };
         if (method === 'importLyrics') { win.fixtureLyricImports = (win.fixtureLyricImports ?? 0) + 1; lyric = '[00:00.00]新导入的歌词\n[00:08.00]下一句'; return { content: lyric }; }
         if (method === 'removeLocal') { localSongs = []; return {}; }
         if (method === 'audioLevels') return { available: true, spectrum: Array(512).fill(140), sampleRate: 44100 };
         if (method === 'getState') return { ...state };
         if (method === 'clearSession') { cookie = false; return {}; }
-        if (method === 'setQueue') {
-          state.queue = options.append ? [...state.queue, ...options.songs] : options.songs;
-          state.index = options.index; state.playing = true; emit(); return {};
+        if (method === 'setQueue' || method === 'selectQueue') {
+          if (method === 'selectQueue' && options.queueRevision !== state.queueRevision) throw new Error('queue-changed');
+          if (method === 'setQueue') state.queue = options.songs;
+          state.index = options.index; state.currentSong = state.queue[state.index]; state.playing = true;
+          state.position = 0; state.queueRevision++; emit(); return {};
         }
-        if (method === 'command') { state.playing = options.action === 'play'; if (options.action === 'seek') state.position = options.position; emit(); return {}; }
+        if (method === 'editQueue') {
+          if (win.fixtureStaleEdit) { win.fixtureStaleEdit = false; state.queueRevision++; emit(); throw new Error('queue-changed'); }
+          if (options.queueRevision !== state.queueRevision) throw new Error('queue-changed');
+          state.queue = options.songs; state.index = options.currentIndex; state.queueRevision++; emit(); return { ...state };
+        }
+        if (method === 'command') {
+          if (options.action === 'play' || options.action === 'pause') state.playing = options.action === 'play';
+          if (options.action === 'seek') state.position = options.position;
+          if (options.action === 'repeat') state.repeat = options.mode;
+          emit(); return {};
+        }
         if (method !== 'request') return {};
         const path = options.payload.path as string;
         let body: any = { code: 200 };
@@ -89,6 +107,38 @@ test('login, catalog, queue, controls and responsive layout', async ({ page }, i
   await expect(page.getByRole('button', { name: '扫码登录', exact: true })).toBeVisible();
   expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain('fixture-cookie');
 });
+test('touch queue editing preserves current song and rejects stale actions', async ({ page }, info) => {
+  await page.addInitScript(() => { (window as any).fixtureNoServer = true; (window as any).fixtureMany = true; });
+  await page.goto('/mobile.html');
+  await page.getByRole('button', { name: '导入音乐', exact: true }).click();
+  await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
+  await page.locator('.player-panel').getByRole('button', { name: '暂停', exact: true }).click();
+  if (info.project.name !== 'ipad') await page.getByRole('button', { name: '返回音乐库' }).click();
+  await page.getByRole('button', { name: '播放队列 · 3' }).click();
+  await page.getByRole('button', { name: '歌曲操作 本地音乐3', exact: true }).click();
+  await page.getByRole('dialog', { name: '歌曲操作' }).getByRole('button', { name: '下一首播放', exact: true }).click();
+  await expect(page.locator('.song-main')).toHaveText(['本地测试音乐本地歌手', '本地音乐3本地歌手', '本地音乐2本地歌手']);
+  expect(await page.evaluate(() => (window as any).fixturePlayback.playing)).toBe(false);
+  await page.getByRole('button', { name: '歌曲操作 本地测试音乐', exact: true }).click();
+  await page.getByRole('button', { name: '从队列移除', exact: true }).click();
+  await expect(page.getByRole('button', { name: '播放队列 · 2' })).toBeVisible();
+  expect(await page.evaluate(() => (window as any).fixturePlayback.currentSong.name)).toBe('本地测试音乐');
+  expect(await page.evaluate(() => (window as any).fixturePlayback.index)).toBe(-1);
+  await page.evaluate(() => { (window as any).fixtureStaleEdit = true; });
+  await page.getByRole('button', { name: '歌曲操作 本地音乐3', exact: true }).click();
+  await page.getByRole('button', { name: '从队列移除', exact: true }).click();
+  await expect(page.getByRole('alert')).toHaveText('播放队列已变化，请重新选择歌曲。');
+  await expect(page.getByRole('button', { name: '播放队列 · 2' })).toBeVisible();
+  await page.getByRole('button', { name: '打乱队列', exact: true }).click();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: '清空队列', exact: true }).click();
+  await expect(page.getByText('播放队列为空', { exact: true })).toBeVisible();
+  const current = info.project.name === 'ipad' ? page.locator('.player-controls h2') : page.locator('.mini-title strong');
+  await expect(current).toHaveText('本地测试音乐');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
 test('settings and unavailable server error are visible', async ({ page }) => {
   await page.goto('/mobile.html');
   await page.locator('.brand').getByRole('button', { name: '服务器与外观' }).click();

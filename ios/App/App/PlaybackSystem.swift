@@ -8,23 +8,27 @@ extension PlaybackEngine {
     func command(_ action: String, position: Double? = nil, mode: String? = nil) throws {
         switch action {
         case "play":
-            guard queue.indices.contains(index) else { return }
+            guard currentSong != nil else {
+                if !queue.isEmpty { intentToPlay = true; select(0) }
+                return
+            }
             intentToPlay = true
-            if player.currentItem == nil || player.currentItem?.status == .failed || error != nil { select(index, position: restoredPosition); restoredPosition = 0 }
+            if player.currentItem == nil || player.currentItem?.status == .failed || error != nil { select(index, position: restoredPosition) }
             else {
                 if let item = player.currentItem { observeStatus(item, epoch: generation) }
                 try activate(); player.play()
             }
         case "pause": intentToPlay = false; resumeAfterInterruption = false; networkResume = nil; player.pause()
         case "next": failures = 0; move(1)
-        case "previous":
-            if finiteTime(player.currentTime()) > 3 { try command("seek", position: 0) }
-            else { failures = 0; move(-1) }
+        case "previous": failures = 0; move(-1)
         case "seek":
             guard let position, position.isFinite, position >= 0 else { throw MobileFailure("invalid-position") }
-            let duration = finiteTime(player.currentItem?.duration ?? .zero)
-            player.seek(to: CMTime(seconds: min(position, duration), preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) {
-                [weak self] _ in DispatchQueue.main.async { self?.publish() }
+            let duration = playbackDuration, target = duration > 0 ? min(position, duration) : position
+            if player.currentItem == nil { restoredPosition = target }
+            else {
+                player.seek(to: CMTime(seconds: target, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) {
+                    [weak self] _ in DispatchQueue.main.async { self?.publish() }
+                }
             }
         case "repeat":
             guard let mode, ["off", "all", "one"].contains(mode) else { throw MobileFailure("invalid-repeat") }
@@ -111,22 +115,21 @@ extension PlaybackEngine {
     }
     func networkChanged(connected: Bool) {
         if !connected && intentToPlay && !currentIsLocal {
-            let pending = (index, finiteTime(player.currentTime()))
+            let pending = finiteTime(player.currentTime())
             stop("network"); networkResume = pending
         } else if connected, let pending = networkResume {
             networkResume = nil; intentToPlay = true
-            select(pending.index, position: pending.position)
+            select(index, position: pending)
         }
     }
     func updateNowPlaying() {
-        guard queue.indices.contains(index) else { MPNowPlayingInfoCenter.default().nowPlayingInfo = nil; return }
-        let song = queue[index]
+        guard let song = currentSong else { MPNowPlayingInfoCenter.default().nowPlayingInfo = nil; return }
         let artists = (song["artists"] as? [[String: Any]] ?? []).compactMap { $0["name"] as? String }.joined(separator: " / ")
         MPNowPlayingInfoCenter.default().nowPlayingInfo = [
             MPMediaItemPropertyTitle: song["name"] as? String ?? "Folia",
             MPMediaItemPropertyArtist: artists,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: finiteTime(player.currentTime()),
-            MPMediaItemPropertyPlaybackDuration: finiteTime(player.currentItem?.duration ?? .zero),
+            MPMediaItemPropertyPlaybackDuration: playbackDuration,
             MPNowPlayingInfoPropertyPlaybackRate: player.rate,
             MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue]
     }

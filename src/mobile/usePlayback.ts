@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMotionValue } from 'framer-motion';
-import { native, isNative, type PlaybackSnapshot } from './bridge';
+import { native, isNative, type PlaybackSnapshot, type PlaybackEvent } from './bridge';
 
 // src/mobile/usePlayback.ts — snapshots correct a foreground-only interpolation clock.
-const initial: PlaybackSnapshot = { queue: [], index: -1, position: 0, duration: 0, playing: false, repeat: 'off', revision: -1 };
+const initial: PlaybackSnapshot = { queue: [], index: -1, currentSong: null, queueRevision: -1, position: 0, duration: 0, playing: false, repeat: 'off', revision: -1 };
 export function usePlayback() {
   const [state, setState] = useState(initial);
   const [visible, setVisible] = useState(!document.hidden);
@@ -12,8 +12,8 @@ export function usePlayback() {
   useEffect(() => {
     if (!isNative) return;
     let disposed = false;
-    const receive = (event: Omit<PlaybackSnapshot, "queue"> & { queue?: PlaybackSnapshot["queue"] }) => {
-      const value = { ...event, queue: event.queue ?? snapshot.current.state.queue };
+    const receive = (event: PlaybackEvent) => {
+      const value = { ...snapshot.current.state, ...event, queue: event.queue ?? snapshot.current.state.queue };
       if (disposed || value.revision < snapshot.current.state.revision) return;
       snapshot.current = { state: value, at: performance.now() };
       currentTime.set(value.position); setState(value);

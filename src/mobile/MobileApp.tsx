@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Settings, Search, Music2, Play, Pause } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import '../i18n/config';
@@ -15,6 +15,7 @@ import LoginSheet from './LoginSheet';
 import SettingsSheet from './SettingsSheet';
 import PlayerPanel from './PlayerPanel';
 import type { SongResult } from '../types';
+import { addMobileSongs, editMobileQueue, type QueueAction } from './queueActions';
 
 // src/mobile/MobileApp.tsx — phone library + expandable player; split view follows window width.
 export default function MobileApp({ initialServer }: { initialServer: string }) {
@@ -30,6 +31,9 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const setLight = useThemeSettingsStore(s => s.setDaylightPreference);
   useAppPreferences();
   const [error, setError] = useState(false);
+  const [queueError, setQueueError] = useState('');
+  const [queueBusy, setQueueBusy] = useState(false);
+  const queueLock = useRef(false);
   const available = useProviders(server);
   const providerEnabled = available.providers.includes(provider);
   useEffect(() => {
@@ -39,17 +43,31 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const catalog = useCatalog(provider, !!server && isNative && providerEnabled);
   const local = useLocalCatalog();
   const isLocal = provider === 'local';
-  const songs = queueView ? playback.state.queue : isLocal ? local.songs.filter(song =>
-    `${song.name} ${song.artists.map(a => a.name).join(' ')}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) : catalog.songs;
-  const active = playback.state.queue[playback.state.index];
+  const songs = useMemo(() => queueView ? playback.state.queue : isLocal ? local.songs.filter(song =>
+    `${song.name} ${song.artists.map(a => a.name).join(' ')}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) : catalog.songs,
+  [queueView, playback.state.queue, isLocal, local.songs, query, catalog.songs]);
+  const active = playback.state.currentSong;
+  const queueWork = async (work: () => Promise<unknown>) => {
+    if (queueLock.current) return;
+    queueLock.current = true; setQueueBusy(true); setQueueError('');
+    try { await work(); }
+    catch (cause) { setQueueError(cause instanceof Error && cause.message === 'queue-changed' ? 'queueChanged'
+      : cause instanceof Error && cause.message === 'queue-full' ? 'queueFull' : 'error'); }
+    finally { queueLock.current = false; setQueueBusy(false); }
+  };
   const play = async (index: number) => {
-    try { if (songs.some(song => song.sourceRef?.kind === 'online')) await flushSessions(); await native.setQueue({ songs, index }); setExpanded(true); }
-    catch { setError(true); }
+    await queueWork(async () => {
+      if (songs.some(song => song.sourceRef?.kind === 'online')) await flushSessions();
+      if (queueView) await native.selectQueue({ index, queueRevision: playback.state.queueRevision });
+      else await native.setQueue({ songs, index });
+      setExpanded(true);
+    });
   };
-  const add = async (song: SongResult) => {
-    try { if (song.sourceRef?.kind === 'online') await flushSessions(); await native.setQueue({ songs: [song], index: 0, append: true }); }
-    catch { setError(true); }
-  };
+  const add = (song: SongResult, next = false) => queueWork(async () => {
+    if (song.sourceRef?.kind === 'online') await flushSessions();
+    await addMobileSongs([song], next ? 'next' : 'append');
+  });
+  const edit = (action: QueueAction) => void queueWork(() => editMobileQueue(playback.state, action));
   return <main className={'mobile-app ' + (light ? 'daylight' : '')}>
     <div className="library-panel">
       <header className="brand"><div><small>FOLIA / PERSONAL</small><h1>{t('mobile.library')}</h1></div>
@@ -70,14 +88,20 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       </form>
       <div className="section-heading"><h2>{queueView ? t('mobile.queue') : t(isLocal ? 'mobile.local' : 'mobile.playlists')}</h2>
         <button aria-pressed={queueView} onClick={() => setQueueView(!queueView)}>{t('mobile.queue')} · {playback.state.queue.length}</button></div>
+      {queueView && <div className="queue-toolbar">
+        <button disabled={queueBusy || songs.length < 2} onClick={() => edit({ type: 'shuffle' })}>{t('mobile.shuffleQueue')}</button>
+        <button disabled={queueBusy || !songs.length} onClick={() => { if (window.confirm(t('mobile.confirmClearQueue'))) edit({ type: 'clear' }); }}>{t('mobile.clearQueue')}</button>
+      </div>}
       {!isLocal && !queueView && catalog.collections.length > 0 && <div className="collections">{catalog.collections.map(collection =>
         <button key={String(collection.id)} onClick={() => void catalog.load({ collection })}><Music2 size={18} />{collection.name}</button>)}</div>}
       {((!isLocal && (catalog.error || available.error)) || error) && <p role="alert">{t('mobile.error')}</p>}
+      {queueError && <p role="alert">{t('mobile.' + queueError)}</p>}
       {isLocal && local.error && <p role="alert">{t('mobile.importError')} {local.error}</p>}
       {(catalog.busy || local.busy) && <p role="status">{t('mobile.loading')}</p>}
-      {songs.length ? <SongList songs={songs} play={index => void play(index)} add={song => void add(song)}
+      {songs.length ? <SongList songs={songs} play={index => void play(index)} add={(song, next) => void add(song, next)}
+        busy={queueBusy} edit={queueView ? edit : undefined} currentIndex={queueView ? playback.state.index : undefined}
         remove={isLocal && !queueView ? song => { if (window.confirm(t('mobile.confirmRemove', { name: song.name }))) void local.remove(song); } : undefined} />
-        : <div className="empty"><Music2 size={44} /><p>{t(isLocal ? 'mobile.localEmpty' : 'mobile.noSongs')}</p></div>}
+        : <div className="empty"><Music2 size={44} /><p>{t(queueView ? 'mobile.queueEmpty' : isLocal ? 'mobile.localEmpty' : 'mobile.noSongs')}</p></div>}
       {!isLocal && catalog.more && !queueView && <button disabled={catalog.busy} onClick={() => void catalog.load()}>{t('mobile.more')}</button>}
     </div>
     <PlayerPanel state={playback.state} time={playback.currentTime} visible={playback.visible} light={light}
@@ -85,7 +109,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
     <footer className="mini-player">
       <button className="mini-title" onClick={() => setExpanded(true)}><Music2 /><span><strong>{active?.name ?? 'Folia'}</strong>
         <small>{active?.artists.map(a => a.name).join(' / ') ?? 'Classic'}</small></span></button>
-      <button disabled={!active} aria-label={t(playback.state.playing ? 'mobile.pause' : 'mobile.play')}
+      <button disabled={!active && !playback.state.queue.length} aria-label={t(playback.state.playing ? 'mobile.pause' : 'mobile.play')}
         onClick={() => void native.command({ action: playback.state.playing ? 'pause' : 'play' }).catch(() => setError(true))}>
         {playback.state.playing ? <Pause /> : <Play />}</button>
     </footer>

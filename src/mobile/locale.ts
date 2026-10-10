@@ -1,5 +1,9 @@
 // src/mobile/locale.ts
 export const mobileEn = {
+  songActions: 'Song actions', playNext: 'Play next', toEnd: 'Move to end', removeFromQueue: 'Remove from queue',
+  shuffleQueue: 'Shuffle queue', clearQueue: 'Clear queue', queueEmpty: 'The queue is empty',
+  confirmClearQueue: 'Clear the queue? The current song will keep playing.',
+  queueChanged: 'The queue has changed. Please choose the song again.', queueFull: 'The queue can hold up to 1,000 songs.',
   appearanceTransfer: 'Import / export appearance', appearanceCode: 'Folia appearance code or JSON', customTheme: 'Use custom theme',
   exportAppearance: 'Generate code', importAppearance: 'Apply configuration', invalidAppearance: 'Invalid or unsupported appearance configuration.',
   local: 'On this device', tracks: 'tracks', importAudio: 'Import music', importLyrics: 'Import lyrics',
@@ -20,6 +24,10 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  songActions: '歌曲操作', playNext: '下一首播放', toEnd: '移到队尾', removeFromQueue: '从队列移除',
+  shuffleQueue: '打乱队列', clearQueue: '清空队列', queueEmpty: '播放队列为空',
+  confirmClearQueue: '清空播放队列？当前歌曲会继续播放。',
+  queueChanged: '播放队列已变化，请重新选择歌曲。', queueFull: '播放队列最多容纳 1,000 首歌曲。',
   appearanceTransfer: '导入／导出外观', appearanceCode: 'Folia 外观短码或 JSON', customTheme: '使用自定义主题',
   exportAppearance: '生成外观短码', importAppearance: '应用外观配置', invalidAppearance: '外观配置无效或包含尚未支持的模式。',
   local: '本地音乐', tracks: '首歌曲', importAudio: '导入音乐', importLyrics: '导入歌词',
@@ -40,6 +48,10 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  songActions: 'Tindakan lagu', playNext: 'Putar berikutnya', toEnd: 'Pindah ke akhir', removeFromQueue: 'Hapus dari antrean',
+  shuffleQueue: 'Acak antrean', clearQueue: 'Kosongkan antrean', queueEmpty: 'Antrean kosong',
+  confirmClearQueue: 'Kosongkan antrean? Lagu saat ini tetap diputar.',
+  queueChanged: 'Antrean berubah. Pilih lagu lagi.', queueFull: 'Antrean dapat memuat hingga 1.000 lagu.',
   appearanceTransfer: 'Impor / ekspor tampilan', appearanceCode: 'Kode tampilan Folia atau JSON', customTheme: 'Gunakan tema kustom',
   exportAppearance: 'Buat kode', importAppearance: 'Terapkan konfigurasi', invalidAppearance: 'Konfigurasi tidak valid atau tidak didukung.',
   local: 'Musik lokal', tracks: 'lagu', importAudio: 'Impor musik', importLyrics: 'Impor lirik',

@@ -1,11 +1,49 @@
 # 移动候选验证记录
 
-日期：2026-10-10。当前候选 **0.7.16-mobile.2 / build 2**，基于 mobile-main 的 61f914d 继续移植。
+日期：2026-10-10。当前候选 **0.7.16-mobile.3 / build 3**，基于 mobile-main 的 4057384 继续移植。
 当前源码指纹见 BUILD_RECORD.json。上游基线 d824c0b854e54d5411cb072092999823e9bd7071。
-本轮以本地导入、原播放器和动效为重点；没有更改远端服务器、平台规则或依赖锁。
+本轮对齐原版队列操作，没有更改服务器、平台规则、主题／动效参数或依赖锁。
 **本地工程验证通过，不代表真实在线账户／两台真机首版已验收。**
 
-## mobile.2 验证
+## mobile.3 队列与播放器回归
+
+| 层级 | 结果 | 证据与边界 |
+|---|---|---|
+| TypeScript | PASS | npm run typecheck；queue-typecheck-fixed.log |
+| 逻辑测试 | PASS | 移动逻辑及原 queueAddBehavior／queueBatchOperations，34 项；queue-unit.log |
+| 原生 XCTest | PASS | 29 项，含全部21项既有回归；mobile3-native-final.{log,xcresult} |
+| UI | PASS | 15 项，WebKit 手机／宽iPad／窄窗口各5项；queue-ui.log |
+
+新增原生用例证明队列编辑保留实际 AVPlayerItem、位置与暂停状态；拒绝跨平台同ID替换当前项；
+原生已自动前进但KVO回调未处理时，先校准再拒绝旧版本操作；清空后保持当前歌曲及暂停恢复；
+注销清除队列外的当前歌曲；手动切歌、边界和脱离队列后的前后导航符合既定行为。
+移动逻辑用例覆盖原工具函数复用、重复歌曲 occurrence、跨平台身份、仅身份式加入可有限重试。
+UI新增触摸菜单、下一首、移除当前项、过期操作提示、打乱和清空后保留当前信息。
+
+初次TypeScript检查发现nullable输入及联合类型收窄问题，修正后通过。首轮原生28项和UI15项均单次通过。随后在实际iPad容器发现恢复时长未加载导致进度条显示不准，
+补上元数据时长与恢复状态拖动逻辑后，最终29项原生回归通过；没有更改前端代码。
+iPad实际容器使用上轮导入的4个合成WAV，验证队列触摸菜单、下一首插入、选曲、暂停，
+移除当前项／清空队列后保留当前曲目、歌词和播放位置。
+截图：mobile3-ipad-detached-current.png、mobile3-ipad-empty-queue.png。
+
+测试中的音频和平台响应为标注样本，不替代实际账户播放与真机长时间测试。
+原有Pixi／Three弃用及React useInsertionEffect警告仍存在；没有新增未捕获pageerror证据。
+
+### mobile.3 最终包与设备
+
+- npm run ios:sync PASS；mobile3-resources.log。
+- 最终 iOS 签名构建与 Simulator 构建 PASS；mobile3-device-final.log、mobile3-sim-final.log。
+- codesign --verify --deep --strict PASS；设备包98个前端资源逐字节对应 dist-mobile；无测试插件。
+- build3 最终包已覆盖安装并启动于已连接的 iPhone XS Max / iOS18.7.10；
+  mobile3-final-install.json、mobile3-final-launch.json 均 success，未卸载用户App。
+- 最终包在 iPad Pro 11-inch (M5) / iPadOS26.5 Simulator 重启后保持空队列及队列外当前歌曲；
+  暂停时进度正确，拖动校准原 Partita 歌词，再从新位置播放／暂停；
+  mobile3-ipad-restored-seek.png 为最终构建证据。
+- 开发签名IPA、SHA256与构建记录存放于工作区上级「移动端交付」；文件名使用当前源码指纹前8位。
+  旧mobile.1／mobile.2包保留。凭据、音频样本和测试代码不进入交付App。
+- 真机实际音乐播放／30分钟锁屏与蓝牙／网络切换未在本轮执行；App在线真实账户验证仍为 NOT_RUN。
+
+## mobile.2 历史验证（非本次重新执行的项目保留原边界）
 
 | 层级 | 结果 | 证据与边界 |
 |---|---|---|
