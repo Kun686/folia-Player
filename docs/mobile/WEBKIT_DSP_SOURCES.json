@@ -71,5 +71,13 @@
     "WebAudioCompressorCurve.swift": [
       "platform/audio/DynamicsCompressorKernel.cpp"
     ]
-  }
+  },
+  "referenceOnly": [
+    {
+      "path": "platform/audio/Reverb.cpp",
+      "bytes": 10179,
+      "sha256": "ead1671dce73c783893ded67a3194306d535d6a0b2e4ecf972cd04efd71a8fec",
+      "purpose": "Verify original ConvolverNode normalization constants; convolution uses system Accelerate"
+    }
+  ]
 }

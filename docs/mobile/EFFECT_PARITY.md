@@ -16,12 +16,21 @@
 | WebAudioOversampling | 固定WebKit UpSampler/DownSampler | 两级2倍升采样和降采样、128/256点半带核；现有Accelerate卷积，无新增运行库 |
 | WebAudioWaveShaper | 固定WebKit WaveShaperDSPKernel | Float32曲线插值、输入限幅及非有限样本处理，供饱和和低位深复用 |
 | WebAudioCompressor / AudioPunch | 固定WebKit DynamicsCompressorKernel + effectNodes.ts | 6ms前瞻、32帧包络、双声道联动、原版punch参数与增益；静态及动态调节对照通过 |
+| AudioNoise | noiseBranch.ts / effectSources.ts | 原版3秒双声道循环、2600Hz/Q0.5带通、0.12秒增益渐变；循环边界及开关对照通过 |
+| AudioConvolution / AudioReverb | reverbBranch.ts / effectSources.ts + Accelerate | 原版2.2秒双声道脉冲、0.08秒湿干增益渐变；完整尾音、直接卷积对照及分段边界通过 |
 
 渲染用历史缓冲预分配；参数和DSP历史由单一渲染调用方拥有。
 曲线／随机素材应在控制线程生成。后续整合需要提供可靠的控制线程交接与回收，
 不能直接让界面线程并发修改这些模块，也不能在实时音频回调里生成素材。
 波形整形的升／降采样即使曲线为空也保留，与原版相同，基础采样率延迟为192帧。
 分块长度不增加额外延迟，回调切分不会改变滤波历史。
+
+混响使用已有Accelerate DFT和向量运算。前128点直接卷积，128至2047点以128帧分段，
+2048点之后以1024帧分段；各段按脉冲自身位置输出，不另加块延迟。
+频域历史只存非负频率，DC/Nyquist分别保存，逆变换前恢复共轭对称。
+所有FFT设置和缓冲在构造时分配；分支渲染不生成随机素材或分配FFT缓冲。
+素材和卷积对象由控制侧预建并保留至渲染侧退役，接入时必须实现控制侧回收，不能让大对象在回调中析构。
+噪声／混响关闭后保留800ms的渲染帧数再退役，快速重新开启保留相位／尾音；暂停期间的墙钟退役由后续控制层处理。
 
 ## 已查明的WebKit差异
 
@@ -49,6 +58,12 @@ Float32融合乘加以及新事件起点的`target + Float32(value - target)`舍
 不能假设tap会自动升为立体声，也不能修改prepare回调中的只读格式来改变输出声道数。
 单声道的双声道噪声／混响接入方案仍未完成。
 
+混响归一化核对了[Web Audio规范](https://webaudio.github.io/web-audio-api/#ConvolverNode-normalization)和固定版本的
+[WebKit Reverb.cpp](https://github.com/WebKit/WebKit/blob/9c50e091cb1b47fddb7afa7ffec7f9f22c0ee38b/Source/WebCore/platform/audio/Reverb.cpp)。
+规范示例增益校正常数为0.00125，原版WebKit实现实际使用`10^(-58/20)`。
+原生采用后者，结合双声道RMS、最小RMS 0.000125和44100/Fs校正，独立WebKit参考通过。
+卷积调度由本项目实现，FFT运算使用系统Accelerate；研究记录中的Reverb.cpp仅用于核对归一化数值。
+
 ## 测试证据
 
 证据位于被Git忽略的 `.mobile-test-results/`。参考JSON和再生成脚本提交到仓库。
@@ -64,7 +79,12 @@ Float32融合乘加以及新事件起点的`target + Float32(value - target)`舍
 | 原始压缩器与参数参考生成 | PASS | compressor-parameter-reference.log；CompressorReference.json；40组，含20组逐量子参数快照 |
 | 压缩器原生DSP | PASS | compressor-rounding.{log,xcresult}；4项；分离／交错布局、73/257帧回调 |
 | 实际AVPlayer tap声道格式 | PASS（格式探测） | compressor-k-rate.log；AudioFormatTests；1项；不等于完整效果链验收 |
-| TypeScript | PASS | effect-primitives-typecheck.log |
+| 原始噪声／混响参考生成 | PASS | noise-reference.log、reverb-reference.log；各五种采样率 |
+| 噪声与共用滤波回归 | PASS | noise-native.{log,xcresult}；4项，其中2项是已有截止滤波回归 |
+| 分段卷积与混响 | PASS | reverb-native.{log,xcresult}；4项；含全尾音、直接求和独立参考、DC/Nyquist、无额外延迟、重置 |
+| 噪声／混响最终回归 | PASS | effect-branches-final.{log,xcresult}；4项；补充单声道拒绝和非有限／极大输入检查 |
+| TypeScript | PASS | effect-branches-typecheck.log |
+| 固定源码哈希与App内完整许可证 | PASS | 按WEBKIT_DSP_SOURCES.json逐项校验；Debug模拟器包与源码许可证逐字节一致 |
 | 实际音效链、真机听感／性能、二进制增量 | NOT_RUN | 未接入播放器；不是音效交付验收 |
 
 采样对照阈值为绝对误差0.00002，能量误差为0.02%或0.00001中的较大者。
@@ -85,7 +105,7 @@ Float32融合乘加以及新事件起点的`target + Float32(value - target)`舍
 已适配UpSampler、DownSampler、WaveShaperDSPKernel、DynamicsCompressorKernel；完整许可证保留在Swift源文件及
 App资源WEBKIT_DSP_LICENSES.txt中。
 
-仍需完成噪声滤波与混响卷积、控制线程交接、单声道立体声输出方案、
-当前和预加载曲目的完整效果链、持久化与复合预设接入。
+目前累计21项音效模块／格式探测原生测试通过。仍需完成控制线程交接、单声道立体声输出方案、
+当前和预加载曲目的完整效果链、后台与暂停时的分支释放、持久化与复合预设接入。
 单声道输入需要验证真实原生tap格式及显式立体声处理能力，不能默认具备双声道噪声／混响输出。
 后续交付时更新构建指纹并测量设备二进制增量；本记录不替代整体移植验收表。

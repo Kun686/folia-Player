@@ -38,18 +38,18 @@ struct AudioEffectRamp {
     }
 }
 
-private struct CutoffState {
+struct AudioEffectBiquadState {
     var x1 = 0.0, x2 = 0.0, y1 = 0.0, y2 = 0.0
-    mutating func process(_ input: Float, _ c: CutoffCoefficients) -> Float {
+    mutating func process(_ input: Float, _ c: AudioEffectBiquadCoefficients) -> Float {
         let x = input.isFinite ? Double(input) : 0
         let y = c.b0 * x + c.b1 * x1 + c.b2 * x2 - c.a1 * y1 - c.a2 * y2
-        guard y.isFinite, abs(y) <= Double(Float.greatestFiniteMagnitude) else { self = CutoffState(); return 0 }
+        guard y.isFinite, abs(y) <= Double(Float.greatestFiniteMagnitude) else { self = AudioEffectBiquadState(); return 0 }
         x2 = x1; x1 = x; y2 = y1; y1 = y
         return Float(y)
     }
 }
 
-private struct CutoffCoefficients {
+struct AudioEffectBiquadCoefficients {
     var b0 = 1.0, b1 = 0.0, b2 = 0.0, a1 = 0.0, a2 = 0.0
     init(frequency: Double, rate: Double, highpass: Bool) {
         // W3C Web Audio biquad formulas. HP/LP Q is dB; peaking/bandpass Q uses a linear value.
@@ -59,14 +59,21 @@ private struct CutoffCoefficients {
         b1 = (highpass ? -(1 + cosine) : 1 - cosine) / denominator
         b2 = b0; a1 = -2 * cosine / denominator; a2 = (1 - alpha) / denominator
     }
+    init(bandpassFrequency: Double, rate: Double, q: Double) {
+        // W3C bandpass uses linear Q and a constant 0 dB peak gain.
+        let angle = 2 * Double.pi * bandpassFrequency / rate
+        let alpha = sin(angle) / (2 * q), denominator = 1 + alpha
+        b0 = alpha / denominator; b1 = 0; b2 = -b0
+        a1 = -2 * cos(angle) / denominator; a2 = (1 - alpha) / denominator
+    }
 }
 
 final class AudioCutoffFilters {
     private var rate = 44100.0
     private var highpass = AudioEffectRamp(20, rate: 44100)
     private var lowpass = AudioEffectRamp(20000, rate: 44100)
-    private var highStates: [CutoffState] = []
-    private var lowStates: [CutoffState] = []
+    private var highStates: [AudioEffectBiquadState] = []
+    private var lowStates: [AudioEffectBiquadState] = []
     private(set) var available = false
 
     // Render-owner API: caller transfers requested settings before processing; no shared mutable control state.
@@ -76,8 +83,8 @@ final class AudioCutoffFilters {
         self.rate = rate
         highpass = AudioEffectRamp(20, rate: rate)
         lowpass = AudioEffectRamp(min(20000, rate * 0.475), rate: rate)
-        highStates = Array(repeating: CutoffState(), count: channels)
-        lowStates = Array(repeating: CutoffState(), count: channels)
+        highStates = Array(repeating: AudioEffectBiquadState(), count: channels)
+        lowStates = Array(repeating: AudioEffectBiquadState(), count: channels)
         available = true
     }
     func unprepare() { available = false; highStates.removeAll(); lowStates.removeAll() }
@@ -86,7 +93,7 @@ final class AudioCutoffFilters {
         self.highpass.set(highpass); self.lowpass.set(min(lowpass, rate * 0.475))
     }
     func reset() {
-        for index in highStates.indices { highStates[index] = CutoffState(); lowStates[index] = CutoffState() }
+        for index in highStates.indices { highStates[index] = AudioEffectBiquadState(); lowStates[index] = AudioEffectBiquadState() }
     }
     // Sample-accurate coefficient ramps match setTargetAtTime rather than stepping once per audio callback.
     func process(_ buffers: UnsafeMutablePointer<AudioBufferList>, frames: Int, discontinuity: Bool = false) {
@@ -95,8 +102,8 @@ final class AudioCutoffFilters {
         guard Self.valid(list, frames: frames, channels: highStates.count) else { return }
         if discontinuity { reset() }
         for frame in 0..<frames {
-            let high = CutoffCoefficients(frequency: Double(Float(highpass.next())), rate: rate, highpass: true)
-            let low = CutoffCoefficients(frequency: Double(Float(lowpass.next())), rate: rate, highpass: false)
+            let high = AudioEffectBiquadCoefficients(frequency: Double(Float(highpass.next())), rate: rate, highpass: true)
+            let low = AudioEffectBiquadCoefficients(frequency: Double(Float(lowpass.next())), rate: rate, highpass: false)
             var channel = 0
             for buffer in list {
                 let stride = Int(buffer.mNumberChannels), data = buffer.mData!.assumingMemoryBound(to: Float.self)
