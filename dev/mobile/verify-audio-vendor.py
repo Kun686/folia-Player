@@ -3,6 +3,7 @@ import difflib
 import hashlib
 import json
 import pathlib
+import subprocess
 
 # Verify the approved decoder snapshot and its complete local patch without network access.
 parser = argparse.ArgumentParser()
@@ -14,7 +15,12 @@ manifest = json.loads((repo / "docs/mobile/AUDIO_STREAMING_VENDOR.json").read_te
 assert manifest["version"] == "1.4.5"
 assert manifest["revision"] == "e28a74b7b8632fc14312b7a79dcd82fa302779af"
 actual = {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file() and ".build" not in p.parts}
-assert actual == set(manifest["files"]), "Vendored source inventory differs from the approved snapshot"
+expected = set(manifest["files"])
+assert actual == expected, f"Vendored source inventory differs: missing={sorted(expected - actual)}, extra={sorted(actual - expected)}"
+if (repo / ".git").exists():
+    tracked = subprocess.check_output(["git", "ls-files", "-z", "--", root.relative_to(repo).as_posix()], cwd=repo, timeout=10).decode().split("\0")
+    names = {pathlib.PurePosixPath(p).relative_to(root.relative_to(repo)).as_posix() for p in tracked if p}
+    assert names == expected, f"Git snapshot differs: missing={sorted(expected - names)}, extra={sorted(names - expected)}"
 patch = []
 changed = []
 for name, hashes in sorted(manifest["files"].items()):

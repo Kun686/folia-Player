@@ -59,6 +59,9 @@ plan/
 # Model weights: fetched and hash-verified by build/fetchModels.mjs, shipped in the installer,
 # never committed - 83MB that never changes does not belong in every clone's history.
 models/
+# Keep the approved audio decoder's small Swift model files, not ML model assets.
+!ios/Vendor/AudioStreaming/AudioStreaming/Streaming/Audio Entry/Models/
+!ios/Vendor/AudioStreaming/AudioStreaming/Streaming/Audio Entry/Models/*.swift
 build/windowtolayer
 build/windowtolayer-COPYING
 build/ffmpeg/
