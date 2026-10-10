@@ -58,7 +58,7 @@ final class TransitionTone {
         quantum = (quantum + frames) % 128
     }
 
-    // Source-local histories survive role changes, but cannot leak into a new decoder/source identity.
+    // Deck-local histories survive role changes and decoder replacement, like the original persistent graph.
     // All storage is allocated before rendering. The common neutral path leaves PCM byte-for-byte intact.
     func process(_ pcm: UnsafeMutablePointer<Float>, frames: Int, sampleTime: Double, rate: Double,
                  curve: TransitionBandCurve?, incoming: Bool, start: Double, duration: Double,

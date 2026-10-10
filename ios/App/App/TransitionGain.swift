@@ -153,25 +153,25 @@ final class TransitionGain {
               Int(list[0].mDataByteSize) >= frames * 2 * MemoryLayout<Float>.size,
               let data = list[0].mData?.assumingMemoryBound(to: Float.self) else { return false }
         beginQuantum(sampleTime, frames: frames, rate: rate)
-        guard source == outID || source == inID else { tone?.consumeNeutral(data, frames: frames); return true }
+        let participating = source == outID || source == inID
         guard active?.curve == nil || active?.curve?.rate == rate else { return false }
         let incoming = source == inID
         // Trim precedes tone and fade, while the per-deck measurement tap remains ahead of all three.
-        if !incoming, trimFrom != 1 || trimTo != 1 {
+        if participating && !incoming, trimFrom != 1 || trimTo != 1 {
             for index in 0..<frames {
                 let trim = trimValue(at: sampleTime + Double(index))
                 data[index * 2] *= trim; data[index * 2 + 1] *= trim
             }
         }
         tone?.process(data, frames: frames, sampleTime: sampleTime, rate: rate,
-                      curve: active?.curve?.bands, incoming: incoming, start: start,
+                      curve: participating ? active?.curve?.bands : nil, incoming: incoming, start: start,
                       duration: (active?.curve?.seconds ?? 0) * rate,
                       generation: appliedGeneration, immediate: active?.restoreSeconds == 0)
-        echo?.adopt(incoming ? nil : active?.curve?.echo, generation: appliedGeneration,
+        echo?.adopt(participating && !incoming ? active?.curve?.echo : nil, generation: appliedGeneration,
                     anchor: start - (active?.curve?.hold ?? 0) * rate, sampleTime: sampleTime,
                     immediate: active?.restoreSeconds == 0)
         for index in 0..<frames {
-            let gain = value(incoming: incoming, at: sampleTime + Double(index))
+            let gain = participating ? value(incoming: incoming, at: sampleTime + Double(index)) : 1
             let wet = echo?.next(left: data[index * 2], right: data[index * 2 + 1],
                                  frame: sampleTime + Double(index)) ?? (0, 0)
             data[index * 2] = data[index * 2] * gain + wet.0

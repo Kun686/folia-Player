@@ -24,6 +24,11 @@ final class AudioEffectUnit: AUAudioUnit {
     private var outputs: AUAudioUnitBusArray!
     private let renderState = EffectRenderState()
     var meter: AudioMeter { renderState.meter }
+    // A deck uses the same validated AU buffer adapter, while the final insert retains the full effects.
+    func useDeck(_ processor: TransitionDeckProcessor) throws {
+        guard !renderResourcesAllocated else { throw MobileFailure("audio-failed") }
+        renderState.deck = processor
+    }
     func requestDiscontinuity() { renderState.requestReset() }
     override var inputBusses: AUAudioUnitBusArray { inputs }
     override var outputBusses: AUAudioUnitBusArray { outputs }
@@ -42,19 +47,20 @@ final class AudioEffectUnit: AUAudioUnit {
         let format = output.format
         guard input.format == format, format.commonFormat == .pcmFormatFloat32, !format.isInterleaved,
               format.channelCount == 2, AudioEffectSources.validRate(format.sampleRate),
-              maximumFramesToRender > 0,
+              maximumFramesToRender > 0, maximumFramesToRender <= 65536,
               let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: maximumFramesToRender) else {
             throw NSError(domain: NSOSStatusErrorDomain, code: Int(kAudioUnitErr_FormatNotSupported))
         }
+        if let deck = renderState.deck { try deck.prepare(rate: format.sampleRate, capacity: maximumFramesToRender) }
         try super.allocateRenderResources()
         renderState.storage = buffer
         renderState.needsReset = true
         renderState.endSample = nil
-        meter.prepare(format.streamDescription.pointee)
+        if renderState.deck == nil { meter.prepare(format.streamDescription.pointee) }
     }
 
     override func deallocateRenderResources() {
-        meter.unprepare()
+        if renderState.deck == nil { meter.unprepare() }
         renderState.storage = nil
         renderState.endSample = nil
         super.deallocateRenderResources()
@@ -77,6 +83,7 @@ final class AudioEffectUnit: AUAudioUnit {
 // Buffers are allocated before render starts; no FFT, allocation or blocking lock in this adapter.
 private final class EffectRenderState {
     let meter = AudioMeter()
+    var deck: TransitionDeckProcessor?
     var storage: AVAudioPCMBuffer?
     var needsReset = true
     var endSample: Double?
@@ -112,6 +119,16 @@ private final class EffectRenderState {
         }
         let time = timestamp.pointee
         let validTime = time.mFlags.contains(.sampleTimeValid) && time.mSampleTime.isFinite
+        if let deck {
+            guard validTime, deck.process(output, frames: Int(frames), sampleTime: time.mSampleTime) else {
+                for buffer in destination { if let data = buffer.mData { memset(data, 0, Int(buffer.mDataByteSize)) } }
+                flags.pointee.insert(.unitRenderAction_OutputIsSilence)
+                return kAudioUnitErr_InvalidParameter
+            }
+            // An empty upstream mixer still feeds the persistent delay line with zeros.
+            flags.pointee.remove(.unitRenderAction_OutputIsSilence)
+            return noErr
+        }
         if resetLock.try() {
             if requestedReset { needsReset = true; requestedReset = false }
             resetLock.unlock()

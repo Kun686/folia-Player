@@ -39,8 +39,12 @@ final class TransitionEcho {
             if !activated { delay = Double(Float(schedule.defaultDelay)) * rate }
             activated = true; feedback = Float(schedule.feedback)
         } else {
-            resetFrom = lastSend; resetAt = sampleTime; resetFrames = immediate ? 0 : 0.05 * rate
+            stopSending(at: sampleTime, immediate: immediate)
         }
+    }
+    func stopSending(at sampleTime: Double, immediate: Bool = false) {
+        schedule = nil
+        resetFrom = lastSend; resetAt = sampleTime; resetFrames = immediate ? 0 : 0.05 * rate
     }
     // WebKit's feedback GainNode contributes its previous 128-frame render quantum. This latency is
     // in the feedback path only: moving the main delay would also move the first repeat incorrectly.

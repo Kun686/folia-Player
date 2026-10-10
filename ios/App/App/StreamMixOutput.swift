@@ -7,7 +7,11 @@ final class StreamMixOutput {
     let mixer = AVAudioMixerNode()
     let node: AVAudioUnit
     let unit: AudioEffectUnit
-    let transitionGain = TransitionGain()
+    let transitionGain: TransitionGain
+    private struct Deck {
+        let input: AVAudioMixerNode, node: AVAudioUnit, processor: TransitionDeckProcessor
+    }
+    private let decks: [Deck]
     private let analysis = NativeDeckAnalysis()
     var meter: AudioMeter { unit.meter }
     var configurationChanged: (() -> Void)?
@@ -17,10 +21,15 @@ final class StreamMixOutput {
     var attachedCount: Int { sources.count }
     var running: Bool { !closed && engine.isRunning }
 
-    private init(node: AVAudioUnit, unit: AudioEffectUnit) {
-        self.node = node; self.unit = unit
+    private init(node: AVAudioUnit, unit: AudioEffectUnit, gain: TransitionGain, decks: [Deck]) {
+        self.node = node; self.unit = unit; transitionGain = gain; self.decks = decks
         let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2)!
         engine.attach(mixer); engine.attach(node)
+        for (index, deck) in decks.enumerated() {
+            engine.attach(deck.input); engine.attach(deck.node)
+            engine.connect(deck.input, to: deck.node, format: format)
+            engine.connect(deck.node, to: mixer, fromBus: 0, toBus: AVAudioNodeBus(index), format: format)
+        }
         engine.connect(mixer, to: node, format: format)
         engine.connect(node, to: engine.mainMixerNode, format: format)
         observer = NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange,
@@ -37,7 +46,17 @@ final class StreamMixOutput {
         let node = try await AudioEffectUnit.makeNode()
         try Task.checkCancellation()
         guard let unit = node.auAudioUnit as? AudioEffectUnit else { throw MobileFailure("audio-failed") }
-        return StreamMixOutput(node: node, unit: unit)
+        let gain = TransitionGain()
+        var decks: [Deck] = []
+        for _ in 0..<2 {
+            let deckNode = try await AudioEffectUnit.makeNode()
+            try Task.checkCancellation()
+            guard let deckUnit = deckNode.auAudioUnit as? AudioEffectUnit else { throw MobileFailure("audio-failed") }
+            let processor = TransitionDeckProcessor(gain: gain)
+            try deckUnit.useDeck(processor)
+            decks.append(Deck(input: AVAudioMixerNode(), node: deckNode, processor: processor))
+        }
+        return StreamMixOutput(node: node, unit: unit, gain: gain, decks: decks)
     }
 
     // Only sounding decks join the graph. Prepared/cancelled network work never changes audible routing.
@@ -49,9 +68,11 @@ final class StreamMixOutput {
         guard let bus = (0..<2).map({ AVAudioNodeBus($0) }).first(where: { !occupied.contains($0) }) else {
             throw MobileFailure("audio-decks-full")
         }
-        let source = try StreamRenderSource(player: player, gain: transitionGain)
+        let source = try StreamRenderSource(player: player)
+        let deck = decks[Int(bus)]
+        deck.processor.source(source.identity)
         engine.attach(source.node)
-        engine.connect(source.node, to: mixer, fromBus: 0, toBus: bus, format: source.format)
+        engine.connect(source.node, to: deck.input, fromBus: 0, toBus: 0, format: source.format)
         sources[identity] = (bus, source)
         analysis.add(source.capture)
     }
@@ -77,6 +98,10 @@ final class StreamMixOutput {
                       generation: UInt64) throws -> Bool {
         guard !closed, let out = sources[ObjectIdentifier(outgoing)]?.source,
               let next = sources[ObjectIdentifier(incoming)]?.source else { throw MobileFailure("audio-failed") }
+        guard out.format.sampleRate == next.format.sampleRate,
+              out.format.sampleRate == mixer.outputFormat(forBus: 0).sampleRate else {
+            throw MobileFailure("unsupported-audio-format")
+        }
         let curve = try TransitionGainCurve(outgoing: out.identity, incoming: next.identity,
             out: envelope.gain.out, input: envelope.gain.in, rate: out.format.sampleRate,
             seconds: envelope.overlap, hold: envelope.hold, bands: envelope.bands, echo: envelope.echo)
