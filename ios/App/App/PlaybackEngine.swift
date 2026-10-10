@@ -185,6 +185,7 @@ final class PlaybackEngine {
         intentToPlay = false; pauseOutput(); error = code; persist(); publish()
     }
     func invalidateProvider(_ provider: String) {
+        crossfade?.invalidateProvider(provider)
         removeSongs { ($0["sourceRef"] as? [String: Any])?["providerId"] as? String == provider }
     }
     func activate() throws {

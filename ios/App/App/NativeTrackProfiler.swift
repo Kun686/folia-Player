@@ -21,6 +21,26 @@ actor NativeTrackProfiler {
         if !partial { cache.save(result, key: key) }
         return result
     }
+    // Media caching is not yet implemented on iOS. Preserve the original default-off, head-only bandwidth policy.
+    func profile(remote url: URL, identity: NativeProfileIdentity,
+                 configuration: URLSessionConfiguration = .ephemeral) async throws -> Data? {
+        try Task.checkCancellation()
+        guard let provider = identity.provider else { throw MobileFailure("invalid-identity") }
+        if let hit = cache.read(identity.cacheKey) { return hit.profile }
+        let bytes = try await NativeProfilePrefix(configuration: configuration).read(url)
+        try Task.checkCancellation()
+        let ext = ["mp3", "m4a", "mp4", "aac", "flac", "wav", "aiff", "caf", "ogg"].contains(url.pathExtension.lowercased())
+            ? url.pathExtension.lowercased() : "audio"
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(ext)
+        defer { try? FileManager.default.removeItem(at: file) }
+        try bytes.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        let result = try analyse(NativeProfilePCM.decode(file), partial: true)
+        try Task.checkCancellation()
+        // A failed/empty decode is not evidence about the next URL or account. Only measured profiles persist.
+        if let result { cache.save(result, key: identity.cacheKey, provider: provider) }
+        return result
+    }
+    func invalidateProvider(_ provider: String) { cache.remove(provider: provider) }
     func analyse(_ pcm: NativeProfilePCM, partial: Bool = false) throws -> Data? {
         try Task.checkCancellation()
         guard pcm.mid.length % 4 == 0, pcm.frames <= NativeProfilePCM.maxFrames,

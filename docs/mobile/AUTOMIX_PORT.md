@@ -60,13 +60,14 @@
 | 按采样时钟调度原增益曲线 | PASS，执行层、Crossfade 原生队列与原设置已接入开发源码；未替换 mobile.8 |
 | 频带交接、回声、伸缩 | NOT_IMPLEMENTED |
 | 本地 profile 获取与分析缓存 | PASS，原分析无模型分支、原生静音边界接线；仅开发源码，见文末 |
-| 在线 profile、Beat This! / htdemucs 模型与表演手势 | NOT_IMPLEMENTED |
+| 在线 profile（关闭媒体缓存时） | 已接入原 1.5MiB 前缀策略；受控传输／分析测试通过，真实在线队列验收未通过，见文末 |
+| 完整媒体缓存、Beat This! / htdemucs 模型与表演手势 | NOT_IMPLEMENTED |
 | Crossfade 队列、暂停、拖动、手动选曲与尾曲清理 | PASS，原生测试及设置接线；默认关闭，尚未生成新交付包 |
 | 原开关、模式、时长设置 | PASS，原面板／store／桥接／原生持久化；开发源码 |
 | 分析证据、完整 Automix、动画事件接线 | NOT_IMPLEMENTED |
 | 真机连续混音、听感、功耗与歌词时序验收 | NOT_RUN |
 
-下一步接在线分析输入与完整 Automix。mobile.7 每个播放项独立处理音效并输出；mobile.8 已改为共用整体音效和最终音量，
+下一步补完整媒体缓存、在线链路验收与完整 Automix。mobile.7 每个播放项独立处理音效并输出；mobile.8 已改为共用整体音效和最终音量，
 但尚未进行音乐性过渡，所以不能据此宣称 Automix 等价。
 原版 `connectStemBus` 的软限幅仅用于分离音轨的过渡总线，普通 crossfade 不经过它；
 后续按原分支接入，不把限幅永久加到单曲或普通淡化路径。
@@ -267,7 +268,7 @@ QA App 已移除，个人 mobile.8 保留，未生成新 IPA、未改 BUILD_RECO
 - 仅支持系统可解码的单／双声道完整本地文件。工作内存保护上限为 20 分钟，分析执行预算为 45 秒；
   超限或格式不支持时继续普通播放、使用原无 profile 退化规则。尚未完成大文件内存／功耗验收。
   同一 PCM 的分析对照不代表系统重采样与 Web Audio 的所有输出样本完全相同。
-- 在线获取未接入；后续必须遵循原 `profileService.ts` 的缓存与带宽策略：关闭缓存时仅取
+- 本地分析阶段尚未接在线获取；后续在线阶段见下文，遵循原 `profileService.ts` 的缓存与带宽策略：关闭缓存时仅取
   1,572,864 字节的 206 前缀，拒绝服务器返回的 200 全量响应，不能暗中下载整首待播歌曲。
 
 未新增依赖、改变原决策规则／默认设置／界面／主题／动效，也没有生成新 IPA 或修改 BUILD_RECORD.json。
@@ -301,3 +302,48 @@ QA App 已移除，个人 mobile.8 保留，未生成新 IPA、未改 BUILD_RECO
 首次远端 Linux CI `38075172073` 的参考文件断言失败：例如调性置信度仅相差约 6e-16、结构边界约 5e-15。
 同一运行时的包装层与原函数仍逐字段精确相等；仅将跨系统保存的 JSON 浮点参考改为 12 位小数精度比较，
 整数、字段集合、布尔、null 与数组结构仍精确校验。参考文件及产品代码不变，原生 1e-6 容差不变。
+
+## 开发阶段：在线歌曲的有界前缀分析
+
+### 复用与行为
+
+- `NativeProfilePrefix` 使用系统 URLSession 读取当前／待播解码器已经持有的 HTTPS 地址，
+  不调用平台解析接口。原 `profileService.ts` 的关闭媒体缓存路径规定 1,572,864 字节前缀；
+  原生请求相同 Range，收到 200 时立即取消，不接受未经约束的全量音频。
+- 校验 206、从零开始的 Content-Range、长度一致性及未压缩响应；读取中再次限制实际字节数。
+  禁止 HTTP 降级／URL 用户凭据，最多五次 HTTPS 重定向；每次重建请求，禁用 Cookie、认证存储、
+  继承请求头和 URL 缓存。模块只返回错误代码，不记录地址或凭据；最多 30 秒资源请求时间。
+- 继续复用 AVAudioFile / AVAudioConverter 与原 `analyseTrack` 无模型分支。临时文件有首次解锁保护，
+  无论成功或失败均清理；结果明确 `partial: true`，未读取的尾部字段为 null。格式无法解码时保留原无 profile 退化路径。
+- `NativeProfileIdentity` 复用原生歌曲清洗，按平台、标准音质、来源标识／representation 元数据与分析版本隔离。
+  签名 URL 仅留在当前分析范围内；更换 URL 可重试，缓存记录不保存 URL。只有测得的在线 profile 落盘。
+  原本地完整分析缓存不受影响；完整媒体缓存仍未实现，不能把本阶段称为“在线全曲分析”。
+- 换歌、删除待播和退出平台会取消过时任务；UUID 防止旧结果发布。退出还清除该平台内存／磁盘分析记录，
+  同平台的新分析等待清理完成，保留其他平台与本地记录。单次分析异常不使正在播放的歌曲失败。
+- 队列已把当前／待播 occurrence 的实际 URL 传入分析层；原规划读取分析结果。这是源码接线事实，
+  目前缺少在线源经真实网络和解码队列发生正确过渡的端到端证据。
+
+### 验证与边界
+
+- `online-profile-first.{log,xcresult}`：前七项专项通过，1.339 秒。
+- `online-profile-full.{log,xcresult}`：iPad Pro 11-inch (M5) / iOS26.5 / Release，
+  **129 项全部通过，54.321 秒**。本阶段八项新增测试使用 URLSession 的受控 URLProtocol，
+  覆盖全量响应拒绝、请求头、范围溢出／截断、取消与所有者释放、重定向回调、实际截断 WAV 解码、
+  原分析 partial 字段、跨平台／representation 缓存及退出竞态。既有真实本地解码队列回归也通过。
+- 完整回归依照此前基线排除了三个需要独立 HTTP 服务的既有测试，本轮未重跑这三项。
+  固定 AudioStreaming 59 文件、两处历史补丁与原 checkout 核对通过；本轮没有改 vendor 或依赖。
+- `online-profile-device-build.log`：独立 QA 包构建／签名通过，核对 `.xctestrun` 和签名包均为
+  `app.folia.validation.App` 后执行 `test-without-building`。
+  `online-profile-device.{log,xcresult}`：iPhone XS Max / iOS18.7.10 / Release，**11 项通过，12.204 秒**，
+  包括新增八项与既有本地缓存、范围取消及实测静音边界队列。`online-profile-qa-uninstall.json` 记录 QA 卸载，
+  `online-profile-personal-app.json` 回读个人包版本；不把手机上的受控 URLProtocol 测试记为真实联网验收。
+
+`online-profile-queue` 的额外在线队列集成试验未通过：全局注册的 URLProtocol 没有拦截实际解码请求，
+请求到达测试域名并失败，队列没有开始播放。`online-profile-queue-config` 改为显式注入分析网络配置后，
+仍为 fixture requests=0、prefixes=0、resolves=1、playing=false；确认尚未进入分析链，第二次亦失败。
+未继续重试。该用例及仅为它增加的构造注入已撤下；日志保留，不计入通过的回归数量。
+需要后续用明确受控的传输接入或可信 HTTPS 音频服务补齐集成证据，不能用本地队列测试替代。
+
+上述测试没有访问真实 QQ／网易云 API 或 CDN，也不验证网络 TLS、真实压缩格式前缀、长时间锁屏、
+物理音频输出、150ms 歌词同步与持续性能。完整媒体缓存、完整 Automix、模型、实时测量及原过渡动画仍待接入。
+未修改界面、主题、默认设置、音效参数或 BUILD_RECORD.json；本阶段源码尚未进入个人 mobile.8 安装包。

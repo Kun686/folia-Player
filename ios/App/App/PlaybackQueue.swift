@@ -83,6 +83,7 @@ extension PlaybackEngine {
 
     func discardPrepared() {
         crossfade?.invalidatePlan()
+        crossfade?.cancelAnalysis()
         preload?.cancel()
         preparedStream?.entry.dispose(); preparedStream = nil
         if let pending = prepared?.item, pending !== player.currentItem { player.remove(pending) }

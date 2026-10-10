@@ -56,6 +56,8 @@ final class NativeCrossfade {
     func removeTail(where matches: ([String: Any]) -> Bool) {
         if let fade, matches(fade.tailSong) { cancel() }
     }
+    func invalidateProvider(_ provider: String) { invalidatePlan(); profiles.invalidateProvider(provider) }
+    func cancelAnalysis() { profiles.cancel() }
 
     // Native media time decides readiness; the shared render clock decides when a scheduled fade is over.
     func tick() {
@@ -78,7 +80,11 @@ final class NativeCrossfade {
               let currentSong = owner.currentSong,
               differentSongs(currentSong, owner.queue[pending.index]) else { return }
         let upcomingSong = owner.queue[pending.index]
-        profiles.update([currentSong, upcomingSong])
+        var sources: [String: URL] = [:]
+        for (song, url) in [(currentSong, outgoing.sourceURL), (upcomingSong, pending.entry.sourceURL)] {
+            if let identity = NativeProfileIdentity(song) { sources[identity.key] = url }
+        }
+        profiles.update([currentSong, upcomingSong], sources: sources)
         if Date().timeIntervalSince(pending.at) >= 120 {
             owner.discardPrepared(); owner.prefetch(); return
         }

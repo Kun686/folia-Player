@@ -4,7 +4,7 @@ import CryptoKit
 // NativeProfileCache.swift — bounded, versioned analysis records; no audio, paths, credentials or signed URLs in records.
 struct NativeProfileCache {
     struct Hit { let profile: Data? }
-    private struct Record: Codable { let schema: Int; let payload: Data; let digest: String }
+    private struct Record: Codable { let schema: Int; let payload: Data; let digest: String; let provider: String? }
     let directory: URL
     static func digest(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
     func key(for file: URL) throws -> String {
@@ -23,9 +23,9 @@ struct NativeProfileCache {
               fields["version"] as? Int == 9, fields["gridless"] as? Bool == true else { return nil }
         return Hit(profile: record.payload)
     }
-    func save(_ profile: Data?, key: String) {
+    func save(_ profile: Data?, key: String, provider: String? = nil) {
         let manager = FileManager.default, payload = profile ?? Data("null".utf8)
-        guard let data = try? JSONEncoder().encode(Record(schema: 1, payload: payload, digest: Self.digest(payload))) else { return }
+        guard let data = try? JSONEncoder().encode(Record(schema: 1, payload: payload, digest: Self.digest(payload), provider: provider)) else { return }
         do {
             try manager.createDirectory(at: directory, withIntermediateDirectories: true)
             try data.write(to: directory.appendingPathComponent(key + ".json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
@@ -36,5 +36,15 @@ struct NativeProfileCache {
             let dates = files.map { ($0, (try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast) }
             for (url, _) in dates.sorted(by: { $0.1 < $1.1 }).prefix(max(0, files.count - 200)) { try? manager.removeItem(at: url) }
         } catch { /* Cache I/O never makes playable audio fail. A later request can measure it again. */ }
+    }
+    func remove(provider: String) {
+        guard let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.fileSizeKey]) else { return }
+        for url in files where url.pathExtension == "json" && url.deletingPathExtension().lastPathComponent.count == 64
+            && url.deletingPathExtension().lastPathComponent.allSatisfy({ "0123456789abcdef".contains($0) }) {
+            guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= 393216,
+                  let data = try? Data(contentsOf: url), let record = try? JSONDecoder().decode(Record.self, from: data),
+                  record.provider == provider else { continue }
+            try? FileManager.default.removeItem(at: url)
+        }
     }
 }

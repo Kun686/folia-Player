@@ -3,6 +3,7 @@ import AudioStreaming
 
 // StreamOccurrence.swift — one cancellable decoder per native queue occurrence; URLs never identify songs.
 final class StreamOccurrence: AudioPlayerDelegate {
+    let sourceURL: URL
     let audio: AudioPlayer
     let node: AVAudioUnit
     let unit: AudioEffectUnit
@@ -21,7 +22,8 @@ final class StreamOccurrence: AudioPlayerDelegate {
     var duration: Double { Self.finite(audio.duration) }
     var playing: Bool { started && !disposed && !hasEnded && audio.state == .playing }
 
-    private init(node: AVAudioUnit, unit: AudioEffectUnit, output: StreamMixOutput?) {
+    private init(url: URL, node: AVAudioUnit, unit: AudioEffectUnit, output: StreamMixOutput?) {
+        sourceURL = url
         self.node = node; self.unit = unit; self.output = output
         audio = AudioPlayer(configuration: AudioPlayerConfiguration(flushQueueOnSeek: false, enableLogs: false),
                             automaticallyStartsOutput: false, externallyRendered: output != nil)
@@ -33,7 +35,7 @@ final class StreamOccurrence: AudioPlayerDelegate {
         let node: AVAudioUnit
         if let output { node = output.node } else { node = try await AudioEffectUnit.makeNode() }
         guard let unit = node.auAudioUnit as? AudioEffectUnit else { throw MobileFailure("audio-failed") }
-        let entry = StreamOccurrence(node: node, unit: unit, output: output)
+        let entry = StreamOccurrence(url: url, node: node, unit: unit, output: output)
         entry.audio.play(url: url)
         do {
             try await entry.waitForPCM()

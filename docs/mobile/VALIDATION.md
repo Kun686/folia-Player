@@ -1,11 +1,29 @@
 # 移动候选验证记录
 
-## 后续开发源码：Crossfade、原设置与本地歌曲分析
+## 后续开发源码：在线歌曲前缀分析
+
+本阶段未发布新 IPA；个人 iPhone 仍为 mobile.8。沿用原版关闭媒体缓存时的策略，在线分析仅请求
+当前／待播地址的前 1,572,864 字节，要求 206，拒绝完整响应；原分析得到 `partial: true`，不推测未读尾部。
+歌曲来源标识参与缓存键，临时播放 URL 不落盘；退出该平台后取消分析并清理其记录。
+
+- PASS：iPad Pro 11-inch (M5) / iOS26.5 / Release，129 项原生回归，54.321 秒，
+  `online-profile-full.{log,xcresult}`。本轮新增 8 项覆盖下载边界、无认证头、重定向回调、取消释放、
+  原分析处理截断 WAV、平台／版本缓存隔离和退出竞态。依赖 vendor 逐文件／补丁核对通过，未改版本。
+- PASS：iPhone XS Max / iOS18.7.10 / Release，11 项专项，12.204 秒，`online-profile-device.{log,xcresult}`。
+  包括上述 8 项及本地缓存、范围取消、实测静音边界的真实解码队列；QA 包签名／宿主身份已核对，测试后移除。
+- 未通过：在线前缀与真实流式解码队列的集成测试。全局 URLProtocol 注册未拦截 AudioStreaming 请求，
+  改为单独注入分析网络配置后仍未进入播放；原日志 `online-profile-queue`、`online-profile-queue-config` 保留。
+  该试验没有形成有效的回归用例，未纳入上述 129 项；没有降低断言或将失败标记为通过。
+- NOT_RUN：真实 QQ／网易云 API、CDN／TLS、在线 Crossfade、锁屏长时间播放、网络切换与歌词精度。
+  受控 URLSession 数据与原分析测试不替代真实平台或真机联网验收。
+- NOT_IMPLEMENTED：完整媒体缓存、完整 Automix 的实时分析／响度／频带／回声／伸缩及原过渡动画接线。
+
+## 先前开发源码：Crossfade、原设置与本地歌曲分析
 
 本阶段没有发布新 IPA，当前个人 iPhone 仍为下述 mobile.8。开发源码已修正外部解码输出的 TimePitch
 启动延迟和末尾丢帧，并将原 Crossfade 规则、原设置面板／store 接入原生队列；默认仍关闭。
 本地导入歌曲现可通过原版无模型分析得到首尾静音边界，进入原生 Crossfade；具备版本缓存和任务取消。
-在线分析、完整 Automix 与原过渡动画接线未完成。
+当时在线分析、完整 Automix 与原过渡动画接线未完成；后续前缀分析进展见上节。
 
 - PASS：本轮移动逻辑 48 项；连同原 Automix 相关回归共 462 项。TypeScript、移动资源打包及 iOS 同步通过；vendor 无改动。
 - PASS：手机／iPad／窄窗口设置及音效回归 9 项，按钮样式隔离后三尺寸专项 3 项。
