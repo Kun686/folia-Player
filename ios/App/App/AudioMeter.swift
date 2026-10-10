@@ -62,7 +62,7 @@ final class AudioMeter {
         effects.prepare(rate: processingReady ? format.mSampleRate : 0, channels: channels)
         clearCapture()
     }
-    private func unprepare() {
+    func unprepare() {
         lock.lock(); defer { lock.unlock() }
         equalizer.unprepare(); effects.unprepare(); processingReady = false; channels = 0; clearCapture()
     }

@@ -5,6 +5,18 @@ mobile.5之后的附加音效开发单独记录在 [EFFECT_PARITY.md](EFFECT_PAR
 随后实际tap接线9项、iPad Release内部链路14项通过；公开设置接入后的7项原生测试及6项界面测试通过。
 当前mobile.6已开放立体声音效，Mono暂仅EQ并提示。
 
+## 已批准的双声道流式输出验证（尚未接入播放器）
+
+AudioStreaming 1.4.5及Ogg／Vorbis 0.1.2已固定安装、校验并保留许可证。
+新增AU音效适配复用现有DSP：本地／HTTP Mono实际双声道、可听滤波、左右噪声／混响差异、
+拖动与暂停恢复通过；完整Release原生回归79项通过，见`streaming-native-standard-format`。
+初轮AU交错格式测试失败，修正为SDK支持的标准格式及显式拒绝断言后通过，原记录保留。
+
+上游队列另有真实复现的限制：初始化期间紧接入队可能丢项；删除已缓冲下一首无效。
+能力探针确认缺陷不代表队列验收通过。因此实际播放器及已安装mobile.6未切换，Mono功能缺口尚未关闭。
+详情、证据及复现命令见[AUDIO_OUTPUT_DECISION.md](AUDIO_OUTPUT_DECISION.md)。
+新后端的完整App增量、真机和在线平台验收仍为NOT_RUN；本轮无界面变更，不重复跑UI套件。
+
 ## mobile.6之后的音效资源修复（仅源码）
 
 - 噪声、混响与未改变的波形曲线复用；已准备但尚未播放的图同样复用素材。
@@ -15,7 +27,8 @@ mobile.5之后的附加音效开发单独记录在 [EFFECT_PARITY.md](EFFECT_PAR
   噪声和混响各只构造一次；未播放图20次调参也只各构造一次。
 - 首轮实际PCM测试把启动静音误当作音量基准而失败；加入播放时钟就绪条件和基准非静音断言后通过，
   原衰减／恢复断言未放宽。失败日志effect-resource-reuse保留，定向复测effect-resource-ready为8项通过。
-- 暂停后无回调的墙钟资源释放仍未完成。本轮没有前端修改，不重复运行界面套件；真机性能仍为NOT_RUN。
+- 后续测试确认当前模拟器的AVPlayer暂停后仍调用tap，关闭音效可完成淡出退役；
+  中断／后台挂起时无回调的资源释放及真机性能仍为NOT_RUN。
 - 此源码修复尚未打入交付IPA或安装至iPhone。BUILD_RECORD.json继续标识已交付的mobile.6，不代表修复后的源码。
 
 ## mobile.6 原音效与原生播放链

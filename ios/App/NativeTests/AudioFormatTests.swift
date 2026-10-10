@@ -4,6 +4,108 @@ import AVFoundation
 
 // AudioFormatTests.swift — observe AVPlayer's actual processing-tap format before connecting stereo effect branches.
 @MainActor extension NativeTests {
+    func testPausedTapAppliesDisabledEffectsWithoutResumingPlayback() async throws {
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
+        defer { try? FileManager.default.removeItem(at: source) }
+        let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2)!
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 44100 * 8)!
+        buffer.frameLength = buffer.frameCapacity
+        for channel in 0..<2 { buffer.floatChannelData![channel].update(repeating: 0.01, count: Int(buffer.frameLength)) }
+        do { let file = try AVAudioFile(forWriting: source, settings: format.settings); try file.write(from: buffer) }
+        let tested = engine(AudioFixtureGateway(url: source)); tested.network.cancel(); defer { tested.stop() }
+        var settings = NativeAudioSettings(); settings.equalizer.enabled = true
+        settings.equalizer.effects["space"] = 0.4; settings.equalizer.effects["noise"] = 0.2
+        _ = try tested.setAudioSettings(settings.dictionary)
+        try tested.setQueue([song("qq", "pause-lifecycle")], at: 0)
+        for _ in 0..<60 {
+            if tested.meter?.effects.status.available == true && tested.finiteTime(tested.player.currentTime()) > 0.3 { break }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        let meter = try XCTUnwrap(tested.meter)
+        XCTAssertTrue(meter.effects.status.available)
+        try tested.command("pause")
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        let pausedPosition = tested.finiteTime(tested.player.currentTime())
+        settings.equalizer.enabled = false
+        _ = try tested.setAudioSettings(settings.dictionary)
+        let disabledRevision = meter.effects.status.requested
+        for _ in 0..<120 {
+            let state = meter.effects.status
+            if state.requested > disabledRevision && state.applied == state.requested { break }
+            try await Task.sleep(nanoseconds: 25_000_000)
+        }
+        XCTAssertGreaterThan(meter.effects.status.requested, disabledRevision, "The tap must finish fading and schedule resource retirement")
+        XCTAssertEqual(meter.effects.status.applied, meter.effects.status.requested)
+        XCTAssertEqual(tested.player.timeControlStatus, .paused)
+        XCTAssertEqual(tested.finiteTime(tested.player.currentTime()), pausedPosition, accuracy: 0.02)
+        try tested.command("play")
+        try await Task.sleep(nanoseconds: 400_000_000)
+        XCTAssertEqual(tested.player.timeControlStatus, .playing)
+        XCTAssertEqual(meter.effects.status.applied, meter.effects.status.requested)
+    }
+    #if FOLIA_AUDIO_OUTPUT_PROBE
+    func testRemoteAssetReaderStereoProbe() async throws {
+        let url = URL(string: "http://127.0.0.1:18779/mono.wav")!
+        let asset = AVURLAsset(url: url)
+        let tracks = try await asset.loadTracks(withMediaType: .audio)
+        let track = try XCTUnwrap(tracks.first)
+        let formats = try await track.load(.formatDescriptions)
+        XCTAssertEqual(CMAudioFormatDescriptionGetStreamBasicDescription(try XCTUnwrap(formats.first))?.pointee.mChannelsPerFrame, 1)
+        do {
+            let reader = try AVAssetReader(asset: asset)
+            defer { reader.cancelReading() }
+            let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
+                AVFormatIDKey: kAudioFormatLinearPCM, AVLinearPCMIsFloatKey: true,
+                AVLinearPCMBitDepthKey: 32, AVLinearPCMIsNonInterleaved: false,
+                AVSampleRateKey: 44100, AVNumberOfChannelsKey: 2])
+            XCTAssertTrue(reader.canAdd(output)); reader.add(output)
+            let started = reader.startReading()
+            let sample = started ? output.copyNextSampleBuffer() : nil
+            let channels = sample.flatMap(CMSampleBufferGetFormatDescription).flatMap(CMAudioFormatDescriptionGetStreamBasicDescription)?.pointee.mChannelsPerFrame ?? 0
+            print("FOLIA_REMOTE_READER started=\(started) channels=\(channels) status=\(reader.status.rawValue) error=\(reader.error.map { ($0 as NSError).code } ?? 0)")
+        } catch {
+            print("FOLIA_REMOTE_READER initializationError=\((error as NSError).domain):\((error as NSError).code)")
+        }
+    }
+    func testMonoCompositionTapFormatProbe() async throws {
+        let asset = AVURLAsset(url: URL(string: "http://127.0.0.1:18779/mono.wav")!)
+        let tracks = try await asset.loadTracks(withMediaType: .audio)
+        let track = try XCTUnwrap(tracks.first)
+        let duration = try await asset.load(.duration)
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
+        defer { try? FileManager.default.removeItem(at: source) }
+        let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2)!
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4410)!
+        buffer.frameLength = 4410
+        for channel in 0..<2 { buffer.floatChannelData![channel].update(repeating: 0, count: 4410) }
+        do { let file = try AVAudioFile(forWriting: source, settings: format.settings); try file.write(from: buffer) }
+        let silenceAsset = AVURLAsset(url: source)
+        let silenceTracks = try await silenceAsset.loadTracks(withMediaType: .audio)
+        let silenceTrack = try XCTUnwrap(silenceTracks.first)
+        let composition = AVMutableComposition()
+        let music = try XCTUnwrap(composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid))
+        let silence = try XCTUnwrap(composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid))
+        try music.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: track, at: .zero)
+        let silenceDuration = CMTime(seconds: 0.1, preferredTimescale: 44100)
+        try silence.insertTimeRange(CMTimeRange(start: .zero, duration: silenceDuration), of: silenceTrack, at: .zero)
+        silence.insertEmptyTimeRange(CMTimeRange(start: silenceDuration, end: duration))
+        let item = AVPlayerItem(asset: composition)
+        let attached = await AudioMeter.attach(to: item)
+        let meter = try XCTUnwrap(attached)
+        let player = AVPlayer(playerItem: item)
+        defer { player.pause(); player.replaceCurrentItem(with: nil) }
+        try AVAudioSession.sharedInstance().setCategory(.playback)
+        try AVAudioSession.sharedInstance().setActive(true)
+        player.play()
+        for _ in 0..<80 {
+            if meter.snapshot()["available"] as? Bool == true { break }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        let snapshot = meter.snapshot()
+        print("FOLIA_COMPOSITION_TAP channels=\(snapshot["channels"] ?? 0) available=\(snapshot["available"] ?? false) status=\(item.status.rawValue) error=\(item.error.map { ($0 as NSError).code } ?? 0)")
+        XCTAssertEqual(item.status, .readyToPlay)
+    }
+    #endif
     func testEffectChainProcessesActualDecodedStereoWithoutVisualizerPolling() async throws {
         let source = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
         defer { try? FileManager.default.removeItem(at: source) }
