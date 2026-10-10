@@ -6,6 +6,11 @@ import Network
 // PlaybackEngine.swift — native song identities survive WebView suspension and URL expiry.
 final class PlaybackEngine {
     let player = AVQueuePlayer()
+    // Keep the AVQueuePlayer path as the verified fallback while the stereo output is integrated.
+    let usesStereoOutput: Bool
+    var stream: StreamOccurrence?
+    var preparedStream: (index: Int, entry: StreamOccurrence, at: Date)?
+    var streamTimer: DispatchSourceTimer?
     var audioSettings = NativeAudioSettings()
     let gateway: GatewayClient
     let storage: UserDefaults
@@ -42,7 +47,8 @@ final class PlaybackEngine {
     var resumeAfterInterruption = false
     var restoredPosition: Double = 0
 
-    init(gateway: GatewayClient, storage: UserDefaults = .standard, local: LocalMediaLibrary = LocalMediaLibrary()) {
+    init(gateway: GatewayClient, storage: UserDefaults = .standard, local: LocalMediaLibrary = LocalMediaLibrary(), usesStereoOutput: Bool = false) {
+        self.usesStereoOutput = usesStereoOutput
         self.gateway = gateway
         self.storage = storage
         self.local = local
@@ -52,6 +58,16 @@ final class PlaybackEngine {
         restoreAudioSettings()
         setupSystem()
         setupNetwork()
+        if usesStereoOutput {
+            let timer = DispatchSource.makeTimerSource(queue: .main)
+            timer.schedule(deadline: .now(), repeating: 0.25, leeway: .milliseconds(20))
+            timer.setEventHandler { [weak self] in
+                guard let self, self.intentToPlay else { return }
+                self.publish()
+            }
+            streamTimer = timer; timer.resume()
+            return
+        }
         timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.25, preferredTimescale: 600),
                                                       queue: .main) { [weak self] _ in self?.publish() }
         itemObservation = player.observe(\.currentItem, options: [.new]) { [weak self] _, _ in
@@ -78,10 +94,11 @@ final class PlaybackEngine {
         if let next = nextIndex(delta, automatic: automatic) {
             if !automatic { intentToPlay = true }
             select(next)
-        } else if automatic { intentToPlay = false; player.pause(); publish() }
+        } else if automatic { intentToPlay = false; pauseOutput(); publish() }
     }
     // Every new playback intent invalidates previous resolves and preloads.
     func select(_ target: Int, refresh: Bool = false, position: Double = 0) {
+        if usesStereoOutput { selectStream(target, refresh: refresh, position: position); return }
         guard let song = queue.indices.contains(target) ? queue[target] : (target == -1 ? detachedSong : nil) else { return }
         generation += 1; let epoch = generation
         task?.cancel(); preload?.cancel(); stalledRecovery?.cancel(); networkResume = nil
@@ -121,6 +138,7 @@ final class PlaybackEngine {
         }
     }
     func prefetch() {
+        if usesStereoOutput { prefetchStream(); return }
         guard currentSong != nil, player.currentItem != nil, let next = nextIndex(automatic: true),
               let song = queue.indices.contains(next) ? queue[next] : detachedSong else { return }
         let epoch = generation
@@ -148,15 +166,16 @@ final class PlaybackEngine {
         if ["auth-required", "gateway-auth-required", "rate-limited"].contains(code) {
             stop(code); return
         }
-        if !retried { retried = true; select(index, refresh: true, position: finiteTime(player.currentTime())); return }
+        if !retried { retried = true; select(index, refresh: true, position: playbackPosition); return }
         failures += 1
         if failures >= 3 || nextIndex() == nil { stop(code); return }
         if let next = nextIndex() { select(next) }
     }
     func stop(_ code: String? = nil) {
-        generation += 1; task?.cancel(); discardPrepared(); stalledRecovery?.cancel(); networkResume = nil
+        generation += 1; task?.cancel(); discardPrepared(); stalledRecovery?.cancel(); stalledRecovery = nil; networkResume = nil
         statusObservation = nil; observedItem = nil
-        intentToPlay = false; player.pause(); error = code; persist(); publish()
+        stream?.clearEvents()
+        intentToPlay = false; pauseOutput(); error = code; persist(); publish()
     }
     func invalidateProvider(_ provider: String) {
         removeSongs { ($0["sourceRef"] as? [String: Any])?["providerId"] as? String == provider }
@@ -167,15 +186,23 @@ final class PlaybackEngine {
         try session.setActive(true)
     }
     func finiteTime(_ time: CMTime) -> Double { let value = time.seconds; return value.isFinite ? max(0, value) : 0 }
+    var hasCurrentOutput: Bool { usesStereoOutput ? stream != nil : player.currentItem != nil }
+    var outputIsPlaying: Bool { usesStereoOutput ? stream?.playing == true : player.timeControlStatus == .playing }
+    var playbackPosition: Double { usesStereoOutput ? (stream?.position ?? restoredPosition) : (player.currentItem == nil ? restoredPosition : finiteTime(player.currentTime())) }
+    func pauseOutput() { if usesStereoOutput { stream?.pause() } else { player.pause() } }
+    func clearOutput() {
+        if usesStereoOutput { stream?.dispose(); stream = nil; meter = nil }
+        else { player.removeAllItems() }
+    }
     var playbackDuration: Double {
-        let loaded = finiteTime(player.currentItem?.duration ?? .zero)
+        let loaded = usesStereoOutput ? (stream?.duration ?? 0) : finiteTime(player.currentItem?.duration ?? .zero)
         let metadata = (currentSong?["durationMs"] as? Double ?? 0) / 1000
         return loaded > 0 ? loaded : (metadata.isFinite ? max(0, metadata) : 0)
     }
     func snapshot() -> [String: Any] {
         ["queue": queue, "index": index, "currentSong": currentSong as Any? ?? NSNull(), "queueRevision": queueRevision,
-         "position": player.currentItem == nil ? restoredPosition : finiteTime(player.currentTime()),
-         "duration": playbackDuration, "playing": player.timeControlStatus == .playing,
+         "position": playbackPosition,
+         "duration": playbackDuration, "playing": outputIsPlaying,
          "repeat": repeatMode, "error": error ?? "", "revision": revision,
          "audioProcessingAvailable": meter?.processingAvailable() ?? false,
          "audioEffects": meter?.effectState() ?? ["available": false, "pending": false, "error": ""]]
@@ -190,7 +217,7 @@ final class PlaybackEngine {
     func persist() {
         lastSave = Date()
         if let data = try? JSONSerialization.data(withJSONObject: ["queue": queue, "index": index, "currentSong": currentSong as Any? ?? NSNull(),
-            "position": player.currentItem == nil ? restoredPosition : finiteTime(player.currentTime()), "repeat": repeatMode]) {
+            "position": playbackPosition, "repeat": repeatMode]) {
             storage.set(data, forKey: "folia.queue")
         }
     }
@@ -209,6 +236,7 @@ final class PlaybackEngine {
     }
     deinit {
         task?.cancel(); preload?.cancel(); stalledRecovery?.cancel(); network.cancel()
+        streamTimer?.cancel(); stream?.dispose(); preparedStream?.entry.dispose()
         if let timeObserver { player.removeTimeObserver(timeObserver) }
         observers.forEach { NotificationCenter.default.removeObserver($0) }
         remoteTargets.forEach { $0.0.removeTarget($0.1) }

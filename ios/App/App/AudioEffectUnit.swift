@@ -24,6 +24,7 @@ final class AudioEffectUnit: AUAudioUnit {
     private var outputs: AUAudioUnitBusArray!
     private let renderState = EffectRenderState()
     var meter: AudioMeter { renderState.meter }
+    func requestDiscontinuity() { renderState.requestReset() }
     override var inputBusses: AUAudioUnitBusArray { inputs }
     override var outputBusses: AUAudioUnitBusArray { outputs }
 
@@ -34,7 +35,7 @@ final class AudioEffectUnit: AUAudioUnit {
         try super.init(componentDescription: componentDescription, options: options)
         inputs = AUAudioUnitBusArray(audioUnit: self, busType: .input, busses: [input])
         outputs = AUAudioUnitBusArray(audioUnit: self, busType: .output, busses: [output])
-        maximumFramesToRender = 4096
+        maximumFramesToRender = 8192
     }
 
     override func allocateRenderResources() throws {
@@ -79,6 +80,9 @@ private final class EffectRenderState {
     var storage: AVAudioPCMBuffer?
     var needsReset = true
     var endSample: Double?
+    private let resetLock = NSLock()
+    private var requestedReset = false
+    func requestReset() { resetLock.lock(); requestedReset = true; resetLock.unlock() }
 
     func render(_ flags: UnsafeMutablePointer<AudioUnitRenderActionFlags>, _ timestamp: UnsafePointer<AudioTimeStamp>,
                 _ frames: AUAudioFrameCount, _ bus: Int, _ output: UnsafeMutablePointer<AudioBufferList>,
@@ -108,6 +112,10 @@ private final class EffectRenderState {
         }
         let time = timestamp.pointee
         let validTime = time.mFlags.contains(.sampleTimeValid) && time.mSampleTime.isFinite
+        if resetLock.try() {
+            if requestedReset { needsReset = true; requestedReset = false }
+            resetLock.unlock()
+        }
         let discontinuity = needsReset || (validTime && endSample.map { abs($0 - time.mSampleTime) > 0.5 } == true)
         meter.process(output, frames: Int(frames), discontinuity: discontinuity)
         needsReset = false

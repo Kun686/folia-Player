@@ -1,10 +1,39 @@
 # 原生双声道输出路线与已批准依赖
 
-日期：2026-10-10。基线：efecc8e，已交付App仍为mobile.6。
-状态：用户已于本会话明确批准固定依赖及验证后接入，已安装并验证实际双声道音效链；
-队列取消存在已复现的接入阻塞，尚未替换实际播放器，也未更新已安装的mobile.6。
+日期：2026-10-10。用户已明确批准固定依赖及验证后接入。
+当前源码已接入独立双声道流式输出，候选目标为mobile.7；已交付mobile.6仍是AVQueuePlayer路线，
+实际安装包身份以BUILD_RECORD.json为准，不把后续源码测试当成旧包能力。
 
-## 2026-10-10 安装与验证结果
+## 当前接入结果
+
+复用已批准的AudioStreaming 1.4.5解码／网络实现、Apple音频图及现有Folia DSP，不新增依赖版本。
+Folia持有歌曲身份和队列版本，每个播放项使用独立解码器，只保留当前与下一项。
+删除待播项会释放其解码器，不经过存在缺陷的上游URL队列，也不会重启当前歌曲。
+
+为支持不消耗歌曲开头的静默预加载，把固定提交`e28a74b7b8632fc14312b7a79dcd82fa302779af`
+的59个源文件纳入`ios/Vendor/AudioStreaming`，原始总计291,190字节；仅两个文件有适配：
+AudioPlayer添加延迟启动输出及缓冲／seek状态读取，Package.swift去除未复制的上游测试target。
+原解码、网络和音效算法不变，Ogg／Vorbis继续精确锁定0.1.2；原版权和MIT／BSD声明保留。
+`AUDIO_STREAMING_VENDOR.json`保存原始及当前逐文件SHA256，完整差异在同名`.patch`中。
+
+```sh
+python3 dev/mobile/verify-audio-vendor.py
+# 本机保留原checkout时，可同时核对原始源码及完整补丁：
+python3 dev/mobile/verify-audio-vendor.py --upstream-root ios/DerivedData/SourcePackages/checkouts/AudioStreaming
+```
+
+两种校验均已通过；CI执行离线校验。当前与下一首独立预加载、删除缓冲项、同URL不同身份、快速切歌、
+地址刷新一次、三首失败停止、账户退出取消、暂停拖动、中断恢复均有真实解码的原生测试。
+最终音量／静音在效果链之后应用，避免噪声／混响在静音后仍发声。
+完整Release原生回归89项通过（`stereo-output-full`）；WAV和AAC/M4A Mono已验证真实双声道音效。
+iPad实际App从验收音1自动推进到4并结束，原音效面板正常打开，截图保存在本地证据目录。
+
+Ogg拖动仍受上游限制；真机30分钟锁屏、蓝牙、温升、内存、歌词延迟和量化无缝切歌仍为NOT_RUN。
+暂停／中断无音频回调时，已关闭效果分支可能保留到恢复或曲目释放，尚未作资源回收验收。
+旧AVQueuePlayer路径保留，回退应使用上一版完整安装包；不在用户界面增加后端选择。
+
+## 首次安装与能力探针（历史记录，实际App接入前）
+
 
 - SwiftPM解析成功，版本及提交锁定在`Package.resolved`。两个下载文件逐字节SHA256校验通过；
   MIT／BSD完整声明进入`ios/App/App/AUDIO_STREAMING_LICENSES.txt`及App资源阶段。

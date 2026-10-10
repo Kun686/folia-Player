@@ -17,7 +17,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     private var requests: [String: Task<Void, Never>] = [:]
     public override func load() {
         DispatchQueue.main.async {
-            self.engine = PlaybackEngine(gateway: self.gateway)
+            self.engine = PlaybackEngine(gateway: self.gateway, usesStereoOutput: true)
             self.engine.emit = { [weak self] state in self?.notifyListeners("playback", data: state) }
         }
     }

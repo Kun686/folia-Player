@@ -1,0 +1,244 @@
+{
+  "repository": "https://github.com/dimitris-c/AudioStreaming",
+  "version": "1.4.5",
+  "revision": "e28a74b7b8632fc14312b7a79dcd82fa302779af",
+  "license": "MIT",
+  "files": {
+    "AudioCodecs/VorbisFileBridge.c": {
+      "upstreamSHA256": "1b70f20db923ac5ed2cef614a5ff3683cd8ff36ba7b12c4aa42a53ca0ac64bd5",
+      "vendoredSHA256": "1b70f20db923ac5ed2cef614a5ff3683cd8ff36ba7b12c4aa42a53ca0ac64bd5"
+    },
+    "AudioCodecs/include/AudioCodecs.h": {
+      "upstreamSHA256": "6a17dde118e5dd5bebde436b15556d2766a9019d1a30c57ed4ca229d5833bc1b",
+      "vendoredSHA256": "6a17dde118e5dd5bebde436b15556d2766a9019d1a30c57ed4ca229d5833bc1b"
+    },
+    "AudioCodecs/include/VorbisFileBridge.h": {
+      "upstreamSHA256": "4d82ad2839fb42d7b295ac32264ce65dd76372605d08ad1a1ee9ae5febed2b9b",
+      "vendoredSHA256": "4d82ad2839fb42d7b295ac32264ce65dd76372605d08ad1a1ee9ae5febed2b9b"
+    },
+    "AudioCodecs/include/module.modulemap": {
+      "upstreamSHA256": "e468a11b7cc4183de5617ea7d6a1bbf75d16f7c3888ee68e7016b9423678e0ed",
+      "vendoredSHA256": "e468a11b7cc4183de5617ea7d6a1bbf75d16f7c3888ee68e7016b9423678e0ed"
+    },
+    "AudioStreaming/AudioStreaming.h": {
+      "upstreamSHA256": "6d70d3d6413ecc3849f2d8cabc422a392ca4cc347a77adfdba8d6e0a3a53b9f6",
+      "vendoredSHA256": "6d70d3d6413ecc3849f2d8cabc422a392ca4cc347a77adfdba8d6e0a3a53b9f6"
+    },
+    "AudioStreaming/Core/Extensions/AVAudioFormat+Convenience.swift": {
+      "upstreamSHA256": "0d642094c180943b88efdeb3286bc380135d5493afdacc62b3838d1da01cc762",
+      "vendoredSHA256": "0d642094c180943b88efdeb3286bc380135d5493afdacc62b3838d1da01cc762"
+    },
+    "AudioStreaming/Core/Extensions/AVAudioUnit+Convenience.swift": {
+      "upstreamSHA256": "71cbcf3c55c7e32aaae653472a30637f8b7d43a91fd26ab2c17015230fee17b1",
+      "vendoredSHA256": "71cbcf3c55c7e32aaae653472a30637f8b7d43a91fd26ab2c17015230fee17b1"
+    },
+    "AudioStreaming/Core/Extensions/AudioConverter+Helpers.swift": {
+      "upstreamSHA256": "da706f5add4383e56840a87ac7e7e10c073de63dbbf72845d54b6710809a5496",
+      "vendoredSHA256": "da706f5add4383e56840a87ac7e7e10c073de63dbbf72845d54b6710809a5496"
+    },
+    "AudioStreaming/Core/Extensions/AudioFileStream+Helpers.swift": {
+      "upstreamSHA256": "398f54ee69dbcd6ca3f0ef889865761aca875e85767648c266b7dbb9e65379b6",
+      "vendoredSHA256": "398f54ee69dbcd6ca3f0ef889865761aca875e85767648c266b7dbb9e65379b6"
+    },
+    "AudioStreaming/Core/Extensions/DispatchQueue+Helpers.swift": {
+      "upstreamSHA256": "fe33874df1b11dbcf27f38550f9b3972cec68171561e7dec7f6d91973d68cdd4",
+      "vendoredSHA256": "fe33874df1b11dbcf27f38550f9b3972cec68171561e7dec7f6d91973d68cdd4"
+    },
+    "AudioStreaming/Core/Extensions/UnsafeMutablePointer+Helpers.swift": {
+      "upstreamSHA256": "f028c3b16e9202927932f5a01f7b20b5d6080b41bf8e2caee59ac5ef3ba2ad29",
+      "vendoredSHA256": "f028c3b16e9202927932f5a01f7b20b5d6080b41bf8e2caee59ac5ef3ba2ad29"
+    },
+    "AudioStreaming/Core/Helpers/Atomic.swift": {
+      "upstreamSHA256": "bfaf902394b6363de8007f7d5cf457f71c88c93d50d9fb87cb571a8223e7474c",
+      "vendoredSHA256": "bfaf902394b6363de8007f7d5cf457f71c88c93d50d9fb87cb571a8223e7474c"
+    },
+    "AudioStreaming/Core/Helpers/ByteBuffer.swift": {
+      "upstreamSHA256": "f80988a1ae4fb3b6491393f1b65fb321f9529c33b98c60aceccf0e1b1fc427b9",
+      "vendoredSHA256": "f80988a1ae4fb3b6491393f1b65fb321f9529c33b98c60aceccf0e1b1fc427b9"
+    },
+    "AudioStreaming/Core/Helpers/DispatchTimerSource.swift": {
+      "upstreamSHA256": "378e8a68a71e3c3b8ff0d060e06f540050aacc5f8d04fc591da8037706545551",
+      "vendoredSHA256": "378e8a68a71e3c3b8ff0d060e06f540050aacc5f8d04fc591da8037706545551"
+    },
+    "AudioStreaming/Core/Helpers/Lock.swift": {
+      "upstreamSHA256": "d74b61c6080fccc27aec12da63e74f21cb62f6f015e11bd6e241b37c32f96e51",
+      "vendoredSHA256": "d74b61c6080fccc27aec12da63e74f21cb62f6f015e11bd6e241b37c32f96e51"
+    },
+    "AudioStreaming/Core/Helpers/Logger.swift": {
+      "upstreamSHA256": "ba3adb722b19f899a13a01552cec93c959772e015794dac46af0a8cab8f7ce7a",
+      "vendoredSHA256": "ba3adb722b19f899a13a01552cec93c959772e015794dac46af0a8cab8f7ce7a"
+    },
+    "AudioStreaming/Core/Helpers/Retrier.swift": {
+      "upstreamSHA256": "c5715422116da426e681f9cc6ad079ba213adf056d751047cbaf687f764686d6",
+      "vendoredSHA256": "c5715422116da426e681f9cc6ad079ba213adf056d751047cbaf687f764686d6"
+    },
+    "AudioStreaming/Core/Network/NetStatusService.swift": {
+      "upstreamSHA256": "0a8958f20435df09aa7db4181262d6d7977cae555ce220bfeecb31ee4c9bdb2d",
+      "vendoredSHA256": "0a8958f20435df09aa7db4181262d6d7977cae555ce220bfeecb31ee4c9bdb2d"
+    },
+    "AudioStreaming/Core/Network/NetworkDataStream.swift": {
+      "upstreamSHA256": "51b024424e2db9d93add15736d1caa836e2b0071641fc5d8f2acafddcc5c8b04",
+      "vendoredSHA256": "51b024424e2db9d93add15736d1caa836e2b0071641fc5d8f2acafddcc5c8b04"
+    },
+    "AudioStreaming/Core/Network/NetworkSessionDelegate.swift": {
+      "upstreamSHA256": "7161be855b115acb445ddb2233d9f8ceafbe7a2a0d0fe9b02a6fb5608de40f12",
+      "vendoredSHA256": "7161be855b115acb445ddb2233d9f8ceafbe7a2a0d0fe9b02a6fb5608de40f12"
+    },
+    "AudioStreaming/Core/Network/NetworkingClient.swift": {
+      "upstreamSHA256": "c4b205a077af3e2b1dda4edccb21826db38e72876d6f4717cd4ce801e20a9f46",
+      "vendoredSHA256": "c4b205a077af3e2b1dda4edccb21826db38e72876d6f4717cd4ce801e20a9f46"
+    },
+    "AudioStreaming/Core/Structures/BiMap.swift": {
+      "upstreamSHA256": "f7b55d0ce8e3808dc1a55155984db32e130f6f6fdf4a7155f739d8b310cf2a9b",
+      "vendoredSHA256": "f7b55d0ce8e3808dc1a55155984db32e130f6f6fdf4a7155f739d8b310cf2a9b"
+    },
+    "AudioStreaming/Core/Structures/Queue.swift": {
+      "upstreamSHA256": "f875492a2231c8a3bfc8acc4906835d81363f37345158404dfda9589d45fc275",
+      "vendoredSHA256": "f875492a2231c8a3bfc8acc4906835d81363f37345158404dfda9589d45fc275"
+    },
+    "AudioStreaming/Info.plist": {
+      "upstreamSHA256": "589e4fa626f86be54b527f48f85239e067a5669f6ec8013a7f18777f059ebf62",
+      "vendoredSHA256": "589e4fa626f86be54b527f48f85239e067a5669f6ec8013a7f18777f059ebf62"
+    },
+    "AudioStreaming/OggVorbis/VorbisFileDecoder.swift": {
+      "upstreamSHA256": "a45627b1a753795daf46e552397b56187b77656f66f44d943dcc738579390f60",
+      "vendoredSHA256": "a45627b1a753795daf46e552397b56187b77656f66f44d943dcc738579390f60"
+    },
+    "AudioStreaming/Streaming/Audio Entry/AudioEntry.swift": {
+      "upstreamSHA256": "41ff4c389f3e2cc1bef9578a36fd63a7e65e05ce36e8f52e819b1388edf9fe80",
+      "vendoredSHA256": "41ff4c389f3e2cc1bef9578a36fd63a7e65e05ce36e8f52e819b1388edf9fe80"
+    },
+    "AudioStreaming/Streaming/Audio Entry/AudioEntryProvider.swift": {
+      "upstreamSHA256": "3c9075601424e4c21e1a3dd1caed4046f226a436b382efc3d812370eb4c6c174",
+      "vendoredSHA256": "3c9075601424e4c21e1a3dd1caed4046f226a436b382efc3d812370eb4c6c174"
+    },
+    "AudioStreaming/Streaming/Audio Entry/Models/AudioStreamState.swift": {
+      "upstreamSHA256": "5777ddc734ca9f0845b6c7f6a827047106bc82c50ceff26c205338e7ff21bedb",
+      "vendoredSHA256": "5777ddc734ca9f0845b6c7f6a827047106bc82c50ceff26c205338e7ff21bedb"
+    },
+    "AudioStreaming/Streaming/Audio Entry/Models/EntryFrames.swift": {
+      "upstreamSHA256": "a47e6e32011743853e8fa2dda7517f9d7db2ac7cc95de0097a92f2613c987f47",
+      "vendoredSHA256": "a47e6e32011743853e8fa2dda7517f9d7db2ac7cc95de0097a92f2613c987f47"
+    },
+    "AudioStreaming/Streaming/Audio Entry/Models/ProcessedPackets.swift": {
+      "upstreamSHA256": "2b004ee431c702fed5448b7880011af8f99a6ceb16b288a100d6f7c6f85f9029",
+      "vendoredSHA256": "2b004ee431c702fed5448b7880011af8f99a6ceb16b288a100d6f7c6f85f9029"
+    },
+    "AudioStreaming/Streaming/Audio Entry/Models/SeekRequest.swift": {
+      "upstreamSHA256": "cfe229fd50e97a75116d3e4e7556365871fbf4e65241483d09afc9ec8bd3979c",
+      "vendoredSHA256": "cfe229fd50e97a75116d3e4e7556365871fbf4e65241483d09afc9ec8bd3979c"
+    },
+    "AudioStreaming/Streaming/Audio Source/AudioStreamSource.swift": {
+      "upstreamSHA256": "0e462db0eeeea1c62538575bb8f47ce742f7b557bcdd1b1a2f61ccfee2652f70",
+      "vendoredSHA256": "0e462db0eeeea1c62538575bb8f47ce742f7b557bcdd1b1a2f61ccfee2652f70"
+    },
+    "AudioStreaming/Streaming/Audio Source/FileAudioSource.swift": {
+      "upstreamSHA256": "68656144c1a28412e29c01586a00bbe28038ee378697b49ebeab9afaf872f541",
+      "vendoredSHA256": "68656144c1a28412e29c01586a00bbe28038ee378697b49ebeab9afaf872f541"
+    },
+    "AudioStreaming/Streaming/Audio Source/Mp4/Mp4Restructure.swift": {
+      "upstreamSHA256": "3726d152ae5c41f0375ad38c7c988c9b3cac82af22818c6cde54efe41beafa4b",
+      "vendoredSHA256": "3726d152ae5c41f0375ad38c7c988c9b3cac82af22818c6cde54efe41beafa4b"
+    },
+    "AudioStreaming/Streaming/Audio Source/Mp4/RemoteMp4Restructure.swift": {
+      "upstreamSHA256": "18c0c7a901e40d2be5031ea32c9f379d5edad1e95aa9cdd6d8a701f52135c062",
+      "vendoredSHA256": "18c0c7a901e40d2be5031ea32c9f379d5edad1e95aa9cdd6d8a701f52135c062"
+    },
+    "AudioStreaming/Streaming/Audio Source/RemoteAudioSource.swift": {
+      "upstreamSHA256": "9a196d4c43d739120669bade9e479f126e13b7d15b329b60465b31fe27f75574",
+      "vendoredSHA256": "9a196d4c43d739120669bade9e479f126e13b7d15b329b60465b31fe27f75574"
+    },
+    "AudioStreaming/Streaming/AudioPlayer/AudioPlayer.swift": {
+      "upstreamSHA256": "c857fd7e6ed1309a7f2de0894b516025f5ab3308f52c781d0412d16afd87582a",
+      "vendoredSHA256": "44b5be92d050dc3f4e778f30f79f44100ba07adeb451dbb8feb39784eba3519b"
+    },
+    "AudioStreaming/Streaming/AudioPlayer/AudioPlayerConfiguration.swift": {
+      "upstreamSHA256": "394fafec21c26fc0f61dc6c35d87bbfb274ab1dbe3de8948378dd98a13247b4b",
+      "vendoredSHA256": "394fafec21c26fc0f61dc6c35d87bbfb274ab1dbe3de8948378dd98a13247b4b"
+    },
+    "AudioStreaming/Streaming/AudioPlayer/AudioPlayerContext.swift": {
+      "upstreamSHA256": "ab1f083da56e03a16d456fae5d45bdc937a5f55c2a847a74743c98b7b43185b1",
+      "vendoredSHA256": "ab1f083da56e03a16d456fae5d45bdc937a5f55c2a847a74743c98b7b43185b1"
+    },
+    "AudioStreaming/Streaming/AudioPlayer/AudioPlayerDelegate.swift": {
+      "upstreamSHA256": "51f339588abe24bb5709d3676100442ec6c1d54a31766d8bb55bb733d22ce202",
+      "vendoredSHA256": "51f339588abe24bb5709d3676100442ec6c1d54a31766d8bb55bb733d22ce202"
+    },
+    "AudioStreaming/Streaming/AudioPlayer/AudioPlayerLoopMode.swift": {
+      "upstreamSHA256": "e83d8155f49d0233112e5e9b5ad1f099d0e9bda085ad6d63eb1e8f63f6f7f27c",
+      "vendoredSHA256": "e83d8155f49d0233112e5e9b5ad1f099d0e9bda085ad6d63eb1e8f63f6f7f27c"
+    },
+    "AudioStreaming/Streaming/AudioPlayer/AudioPlayerState.swift": {
+      "upstreamSHA256": "c2a24b8c8322fd98449686bf2d8ea0712aca2219528da18700aa5de15786cac8",
+      "vendoredSHA256": "c2a24b8c8322fd98449686bf2d8ea0712aca2219528da18700aa5de15786cac8"
+    },
+    "AudioStreaming/Streaming/AudioPlayer/AudioRendererContext.swift": {
+      "upstreamSHA256": "26ae7bdca07077932ac5790f5043fc6c5a9399bb251a56eea63700b28aa69e99",
+      "vendoredSHA256": "26ae7bdca07077932ac5790f5043fc6c5a9399bb251a56eea63700b28aa69e99"
+    },
+    "AudioStreaming/Streaming/AudioPlayer/Processors/AudioFileStreamProcessor.swift": {
+      "upstreamSHA256": "cb4bdd4d459f88205b951ca16b23c6eb603d070b21b32df294057dafa8c20a7c",
+      "vendoredSHA256": "cb4bdd4d459f88205b951ca16b23c6eb603d070b21b32df294057dafa8c20a7c"
+    },
+    "AudioStreaming/Streaming/AudioPlayer/Processors/AudioPlayerRenderProcessor.swift": {
+      "upstreamSHA256": "765529109d91e34a281320e7d0a82db60d0c934ad94f281a1adce5d0d547ddc8",
+      "vendoredSHA256": "765529109d91e34a281320e7d0a82db60d0c934ad94f281a1adce5d0d547ddc8"
+    },
+    "AudioStreaming/Streaming/AudioPlayer/Processors/FrameFilterProcessor.swift": {
+      "upstreamSHA256": "176a28eb002a64351b90293be6011b3189ee602540018092207038550f317cda",
+      "vendoredSHA256": "176a28eb002a64351b90293be6011b3189ee602540018092207038550f317cda"
+    },
+    "AudioStreaming/Streaming/AudioPlayer/Processors/IcycastHeadersProcessor.swift": {
+      "upstreamSHA256": "dfa63339d9005331e0185d7114ff5cfd167569e649594d536e1c72382fa888c2",
+      "vendoredSHA256": "dfa63339d9005331e0185d7114ff5cfd167569e649594d536e1c72382fa888c2"
+    },
+    "AudioStreaming/Streaming/AudioPlayer/Processors/MetadataStreamProcessor.swift": {
+      "upstreamSHA256": "3aa2259177645c9c38ad0a4b0aece4234f4d69e1b4afc3c631963fbb5d2df027",
+      "vendoredSHA256": "3aa2259177645c9c38ad0a4b0aece4234f4d69e1b4afc3c631963fbb5d2df027"
+    },
+    "AudioStreaming/Streaming/AudioPlayer/Processors/OggVorbisStreamProcessor.swift": {
+      "upstreamSHA256": "f6f1692b9e15d2f178e328ab805a8e0062ad7ce99a79169ab59c7e9976432fd8",
+      "vendoredSHA256": "f6f1692b9e15d2f178e328ab805a8e0062ad7ce99a79169ab59c7e9976432fd8"
+    },
+    "AudioStreaming/Streaming/AudioPlayer/UnitDescriptions.swift": {
+      "upstreamSHA256": "bc349418e5b426c922f67cfc935d84a87f231ed104a592aee3ead8c80314040e",
+      "vendoredSHA256": "bc349418e5b426c922f67cfc935d84a87f231ed104a592aee3ead8c80314040e"
+    },
+    "AudioStreaming/Streaming/Helpers/AudioFileType.swift": {
+      "upstreamSHA256": "1e9b59c5694fe82d4d16af818aaf72404268d283367d3b38e8e5f6f605b50dc1",
+      "vendoredSHA256": "1e9b59c5694fe82d4d16af818aaf72404268d283367d3b38e8e5f6f605b50dc1"
+    },
+    "AudioStreaming/Streaming/Helpers/BufferContext.swift": {
+      "upstreamSHA256": "3c943edecdc995a4dfef5903691d819d7781308ed5a196d2824de239c89f5921",
+      "vendoredSHA256": "3c943edecdc995a4dfef5903691d819d7781308ed5a196d2824de239c89f5921"
+    },
+    "AudioStreaming/Streaming/Helpers/PlayerQueueEntries.swift": {
+      "upstreamSHA256": "c59fa9296190cad465d993f0fadfd7997051316d543d4d74d66a9b6c8226bf46",
+      "vendoredSHA256": "c59fa9296190cad465d993f0fadfd7997051316d543d4d74d66a9b6c8226bf46"
+    },
+    "AudioStreaming/Streaming/Parsers/HTTPHeaderParser.swift": {
+      "upstreamSHA256": "b57ed55da85c163598740d90ee78c48e8a74bfa3d3b339a4ac1d3b507f26c9d9",
+      "vendoredSHA256": "b57ed55da85c163598740d90ee78c48e8a74bfa3d3b339a4ac1d3b507f26c9d9"
+    },
+    "AudioStreaming/Streaming/Parsers/IcycastHeaderParser.swift": {
+      "upstreamSHA256": "e9eee4dd4dbc0d47faff210bb4fb650751df607c4f6e4c7065297b7bdc74bf7f",
+      "vendoredSHA256": "e9eee4dd4dbc0d47faff210bb4fb650751df607c4f6e4c7065297b7bdc74bf7f"
+    },
+    "AudioStreaming/Streaming/Parsers/MetadataParser.swift": {
+      "upstreamSHA256": "5c162bb57cde32b3be06a1c1d95b1f0111c65fdc889326d4db63e8fed1da9c00",
+      "vendoredSHA256": "5c162bb57cde32b3be06a1c1d95b1f0111c65fdc889326d4db63e8fed1da9c00"
+    },
+    "AudioStreaming/Streaming/Parsers/Parser.swift": {
+      "upstreamSHA256": "d461c8e001493a991236ca6f9efd33492d5b91b53553844a239b64428a6167bb",
+      "vendoredSHA256": "d461c8e001493a991236ca6f9efd33492d5b91b53553844a239b64428a6167bb"
+    },
+    "LICENSE": {
+      "upstreamSHA256": "5e8d0ddf08e26606e97679e6bf6b783adcba6288d531c4f5e4e5a51b7216ea8d",
+      "vendoredSHA256": "5e8d0ddf08e26606e97679e6bf6b783adcba6288d531c4f5e4e5a51b7216ea8d"
+    },
+    "Package.swift": {
+      "upstreamSHA256": "68edf8cb05464ad5cb63fbf7d9ab8c54c5bfd1afcf71a774b97ff4f35f7e3fd1",
+      "vendoredSHA256": "c58eae62a614212ae5d5779b50547f65c0f4e8bf2b76ef0be5ebbf6ee61bb00d"
+    }
+  }
+}

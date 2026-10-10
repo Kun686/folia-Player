@@ -1,0 +1,91 @@
+--- a/AudioStreaming/Streaming/AudioPlayer/AudioPlayer.swift
++++ b/AudioStreaming/Streaming/AudioPlayer/AudioPlayer.swift
+@@ -152,6 +152,9 @@
+     private var stateBeforePaused: InternalState = .initial
+ 
+     /// The underlying `AVAudioEngine` object
++    // Folia: a prepared occurrence buffers independently without owning audible hardware.
++    private let automaticallyStartsOutput: Bool
++    private let preparedOutputStarted = Atomic<Bool>(false)
+     private let audioEngine: AVAudioEngine
+     /// An `AVAudioUnit` object that represents the audio player
+     private(set) var player = AVAudioUnit()
+@@ -184,7 +187,9 @@
+     private var currentLoopIteration: Int = 0
+ 
+     public init(configuration: AudioPlayerConfiguration = .default,
+-                clientCertificateProvider: ClientCertificateProvider? = nil) {
++                clientCertificateProvider: ClientCertificateProvider? = nil,
++                automaticallyStartsOutput: Bool = true) {
++        self.automaticallyStartsOutput = automaticallyStartsOutput
+         self.configuration = configuration.normalizeValues()
+         let engine = AVAudioEngine()
+         audioEngine = engine
+@@ -231,6 +236,39 @@
+     }
+ 
+     // MARK: Public
++
++    /// Seconds of decoded stereo PCM currently retained, including a silently prepared occurrence.
++    /// Folia owns song identities and one player per occurrence, not this library's URL queue.
++    public var bufferedDuration: Double {
++        rendererContext.lock.lock(); defer { rendererContext.lock.unlock() }
++        return Double(rendererContext.bufferContext.frameUsedCount) / outputAudioFormat.sampleRate
++    }
++
++    /// Whether a native seek still has to be applied by the source processor.
++    public var isSeeking: Bool {
++        playerContext.entriesLock.lock()
++        let entry = playerContext.audioPlayingEntry
++        playerContext.entriesLock.unlock()
++        guard let entry else { return false }
++        entry.seekRequest.lock.lock(); defer { entry.seekRequest.lock.unlock() }
++        return entry.seekRequest.requested
++    }
++
++    /// Start an occurrence constructed with automaticallyStartsOutput: false without decoding again.
++    /// Returns false until the initial source setup has buffered PCM. All calls are on the owner queue.
++    @discardableResult public func startPreparedPlayback() -> Bool {
++        guard !automaticallyStartsOutput else { return false }
++        // Nonzero PCM proves setCurrentReading/startPlayer finished on sourceQueue, avoiding
++        // a concurrent initial AudioUnit allocation. A cancelled/error occurrence cannot restart.
++        guard bufferedDuration > 0, playerContext.internalState.contains(.running),
++              playerContext.internalState != .paused else { return false }
++        var start = false
++        preparedOutputStarted.write { enabled in
++            if !enabled { enabled = true; start = true }
++        }
++        if start { serializationQueue.sync { startPlayer(resetBuffers: false) } }
++        return playerContext.internalState != .error
++    }
+ 
+     /// Starts the audio playback for the given URL
+     ///
+@@ -700,6 +738,7 @@
+         if resetBuffers {
+             rendererContext.resetBuffers()
+         }
++        guard automaticallyStartsOutput || preparedOutputStarted.value else { return }
+         do {
+             try startEngineIfNeeded()
+             try player.auAudioUnit.allocateRenderResources()
+--- a/Package.swift
++++ b/Package.swift
+@@ -51,17 +51,5 @@
+             exclude: ["AudioStreaming.h", "Streaming/OggVorbis", "Info.plist"],
+             swiftSettings: []
+         ),
+-        .testTarget(
+-            name: "AudioStreamingTests",
+-            dependencies: [
+-                "AudioStreaming"
+-            ],
+-            path: "AudioStreamingTests",
+-            exclude: ["Info.plist", "Streaming/output"],
+-            resources: [
+-                // Test resources for metadata stream processor tests
+-                .copy("Streaming/Metadata Stream Processor/raw-audio-streams")
+-            ]
+-        )
+     ]
+ )

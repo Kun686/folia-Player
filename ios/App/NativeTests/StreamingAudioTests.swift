@@ -18,7 +18,7 @@ private final class StreamEvents: AudioPlayerDelegate {
     func audioPlayerDidReadMetadata(player: AudioPlayer, metadata: [String: String]) {}
 }
 
-private final class OutputMeasurement {
+final class OutputMeasurement {
     private let lock = NSLock()
     private var frames = 0, channels = 0
     private var energy = 0.0, difference = 0.0
@@ -100,17 +100,111 @@ private final class OutputMeasurement {
     }
 
     func testLocalMonoStreamingHasAudibleStereoEffectsAndSeek() async throws {
-        let source = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
+        let source = try streamingTone()
         defer { try? FileManager.default.removeItem(at: source) }
+        try await verifyStreamingEffects(source)
+    }
+
+    func testAACMonoStreamingHasAudibleStereoEffectsAndSeek() async throws {
+        let wave = try streamingTone()
+        let encoded = wave.deletingPathExtension().appendingPathExtension("m4a")
+        defer { try? FileManager.default.removeItem(at: wave); try? FileManager.default.removeItem(at: encoded) }
+        let input = try AVAudioFile(forReading: wave)
+        let pcm = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: input.processingFormat, frameCapacity: AVAudioFrameCount(input.length)))
+        try input.read(into: pcm)
+        do {
+            let output = try AVAudioFile(forWriting: encoded, settings: [AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVSampleRateKey: 44100, AVNumberOfChannelsKey: 1, AVEncoderBitRateKey: 128000])
+            try output.write(from: pcm)
+        }
+        try await verifyStreamingEffects(encoded)
+    }
+
+    func streamingTone() throws -> URL {
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
         let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)!
         let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 44100 * 20)!
         buffer.frameLength = buffer.frameCapacity
         for i in 0..<Int(buffer.frameLength) { buffer.floatChannelData![0][i] = Float(sin(Double(i) * 2 * .pi * 2000 / 44100) * 1000 / 32768) }
         do { let file = try AVAudioFile(forWriting: source, settings: format.settings); try file.write(from: buffer) }
-        try await verifyStreamingEffects(source)
+        return source
+    }
+
+    func testIndependentPreloadIsSilentAndCancellationPreservesCurrentPCM() async throws {
+        let source = try streamingTone()
+        defer { try? FileManager.default.removeItem(at: source) }
+        try await verifyIndependentPreload(source)
+    }
+
+    private func verifyIndependentPreload(_ url: URL) async throws {
+        try AVAudioSession.sharedInstance().setCategory(.playback)
+        try AVAudioSession.sharedInstance().setActive(true)
+        let source = try streamingTone()
+        defer { try? FileManager.default.removeItem(at: source) }
+        let configuration = AudioPlayerConfiguration(bufferSizeInSeconds: 2, enableLogs: false)
+        let current = AudioPlayer(configuration: configuration)
+        let measured = OutputMeasurement()
+        current.frameFiltering.add(entry: "current") { buffer, _ in measured.consume(buffer) }
+        current.play(url: source)
+        defer { current.stop(); current.frameFiltering.removeAll() }
+        for _ in 0..<100 {
+            if current.progress > 0.2 { break }
+            try await Task.sleep(nanoseconds: 25_000_000)
+        }
+        XCTAssertGreaterThan(current.progress, 0.2)
+        let before = current.progress
+        var pending: AudioPlayer? = AudioPlayer(configuration: configuration, automaticallyStartsOutput: false)
+        weak var cancelled = pending
+        let silent = OutputMeasurement()
+        pending!.frameFiltering.add(entry: "pending") { buffer, _ in silent.consume(buffer) }
+        pending!.play(url: url)
+        for _ in 0..<160 {
+            if pending!.bufferedDuration >= 1.5 { break }
+            try await Task.sleep(nanoseconds: 25_000_000)
+        }
+        XCTAssertGreaterThanOrEqual(pending!.bufferedDuration, 1.5)
+        try await Task.sleep(nanoseconds: 200_000_000)
+        XCTAssertEqual(pending!.framesPlayed, 0); XCTAssertEqual(pending!.progress, 0)
+        XCTAssertEqual(silent.read().frames, 0, "Prepared output must never start hardware or silently consume the start of a song")
+        let cancelledBuffered = pending!.bufferedDuration
+        pending!.stop(); pending!.frameFiltering.removeAll(); pending = nil
+        for _ in 0..<80 {
+            if cancelled == nil { break }
+            try await Task.sleep(nanoseconds: 25_000_000)
+        }
+        XCTAssertNil(cancelled, "Cancellation releases a decoder even while its bounded PCM buffer is full")
+        XCTAssertEqual(current.state, .playing)
+        XCTAssertGreaterThan(current.progress, before + 0.15)
+        XCTAssertGreaterThan(measured.read().rms, 0.005)
+
+        // The same URL is a new occurrence; no library URL queue or URL-based cancellation is involved.
+        let replacement = AudioPlayer(configuration: configuration, automaticallyStartsOutput: false)
+        defer { replacement.stop(); replacement.frameFiltering.removeAll() }
+        let nextOutput = OutputMeasurement()
+        replacement.frameFiltering.add(entry: "next") { buffer, _ in nextOutput.consume(buffer) }
+        replacement.play(url: url)
+        for _ in 0..<160 {
+            if replacement.bufferedDuration >= 1.5 { break }
+            try await Task.sleep(nanoseconds: 25_000_000)
+        }
+        XCTAssertEqual(replacement.framesPlayed, 0)
+        current.pause()
+        XCTAssertTrue(replacement.startPreparedPlayback())
+        for _ in 0..<80 {
+            if replacement.progress > 0.2 && nextOutput.read().rms > 0.005 { break }
+            try await Task.sleep(nanoseconds: 25_000_000)
+        }
+        XCTAssertEqual(replacement.state, .playing)
+        XCTAssertGreaterThan(replacement.progress, 0.2)
+        XCTAssertGreaterThan(nextOutput.read().rms, 0.005)
+        XCTAssertEqual(silent.read().frames, 0)
+        print("FOLIA_INDEPENDENT_PRELOAD remote=\(!url.isFileURL) cancelledBufferedSeconds=\(cancelledBuffered) silentFrames=\(silent.read().frames) currentPreserved=PASS replacement=PASS")
     }
 
     #if FOLIA_AUDIO_OUTPUT_PROBE
+    func testIndependentHTTPPreloadIsSilentAndCancellable() async throws {
+        try await verifyIndependentPreload(URL(string: "http://127.0.0.1:18779/mono.wav")!)
+    }
     // A capability diagnostic for pinned 1.4.5, not acceptance of Folia's queue semantics.
     func testBufferedRemovalCapabilityProbe() async throws {
         try AVAudioSession.sharedInstance().setCategory(.playback)

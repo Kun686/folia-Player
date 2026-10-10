@@ -13,18 +13,27 @@ extension PlaybackEngine {
                 return
             }
             intentToPlay = true
+            if usesStereoOutput {
+                if let stream, !stream.hasEnded, !stream.hasFailed, error == nil {
+                    observeStream(stream, epoch: generation)
+                    try activate(); try stream.play()
+                } else { select(index, position: restoredPosition) }
+                break
+            }
             if player.currentItem == nil || player.currentItem?.status == .failed || error != nil { select(index, position: restoredPosition) }
             else {
                 if let item = player.currentItem { observeStatus(item, epoch: generation) }
                 try activate(); player.play()
             }
-        case "pause": intentToPlay = false; resumeAfterInterruption = false; networkResume = nil; player.pause()
+        case "pause": intentToPlay = false; resumeAfterInterruption = false; networkResume = nil; pauseOutput()
         case "next": failures = 0; move(1)
         case "previous": failures = 0; move(-1)
         case "seek":
             guard let position, position.isFinite, position >= 0 else { throw MobileFailure("invalid-position") }
             let duration = playbackDuration, target = duration > 0 ? min(position, duration) : position
-            if player.currentItem == nil { restoredPosition = target }
+            if usesStereoOutput {
+                if let stream { try stream.seek(to: target) } else { restoredPosition = target }
+            } else if player.currentItem == nil { restoredPosition = target }
             else {
                 player.seek(to: CMTime(seconds: target, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) {
                     [weak self] _ in DispatchQueue.main.async { self?.publish() }
@@ -66,7 +75,7 @@ extension PlaybackEngine {
             guard let self, let type = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt else { return }
             if type == AVAudioSession.InterruptionType.began.rawValue {
                 self.resumeAfterInterruption = self.intentToPlay
-                self.intentToPlay = false; self.player.pause(); self.publish()
+                self.intentToPlay = false; self.pauseOutput(); self.publish()
             } else {
                 let options = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
                 if self.resumeAfterInterruption && AVAudioSession.InterruptionOptions(rawValue: options).contains(.shouldResume) {
@@ -115,7 +124,7 @@ extension PlaybackEngine {
     }
     func networkChanged(connected: Bool) {
         if !connected && intentToPlay && !currentIsLocal {
-            let pending = finiteTime(player.currentTime())
+            let pending = playbackPosition
             stop("network"); networkResume = pending
         } else if connected, let pending = networkResume {
             networkResume = nil; intentToPlay = true
@@ -128,9 +137,9 @@ extension PlaybackEngine {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = [
             MPMediaItemPropertyTitle: song["name"] as? String ?? "Folia",
             MPMediaItemPropertyArtist: artists,
-            MPNowPlayingInfoPropertyElapsedPlaybackTime: finiteTime(player.currentTime()),
+            MPNowPlayingInfoPropertyElapsedPlaybackTime: playbackPosition,
             MPMediaItemPropertyPlaybackDuration: playbackDuration,
-            MPNowPlayingInfoPropertyPlaybackRate: player.rate,
+            MPNowPlayingInfoPropertyPlaybackRate: usesStereoOutput ? (outputIsPlaying ? 1.0 : 0.0) : Double(player.rate),
             MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue]
     }
 }

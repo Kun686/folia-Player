@@ -1,6 +1,6 @@
 import AVFoundation
 
-// PlaybackQueue.swift — preloaded AVQueuePlayer items advance even without JavaScript.
+// PlaybackQueue.swift — native identity queue and cancellable preloads advance without JavaScript.
 extension PlaybackEngine {
     static func sanitizedSong(_ song: [String: Any]) throws -> [String: Any] {
         guard let raw = song["sourceRef"] as? [String: Any], let id = raw["mediaId"] as? String,
@@ -47,7 +47,7 @@ extension PlaybackEngine {
         let song = currentSong
         let removesCurrent = song.map(matches) ?? false
         let removedBefore = queue.prefix(max(0, index)).filter(matches).count
-        if removesCurrent { stop(); player.removeAllItems() } else { discardPrepared() }
+        if removesCurrent { stop(); clearOutput() } else { discardPrepared() }
         queue.removeAll(where: matches)
         detachedSong = removesCurrent ? nil : song
         index = removesCurrent ? -1 : index - removedBefore
@@ -82,6 +82,7 @@ extension PlaybackEngine {
 
     func discardPrepared() {
         preload?.cancel()
+        preparedStream?.entry.dispose(); preparedStream = nil
         if let pending = prepared?.item, pending !== player.currentItem { player.remove(pending) }
         prepared = nil
     }
@@ -95,6 +96,7 @@ extension PlaybackEngine {
         }
     }
     func promotePreparedItem() {
+        guard !usesStereoOutput else { return }
         guard let next = prepared, player.currentItem === next.item else { return }
         generation += 1; task?.cancel(); preload?.cancel(); stalledRecovery?.cancel()
         index = next.index; prepared = nil; retried = false; failures = 0; error = nil

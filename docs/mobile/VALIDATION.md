@@ -1,11 +1,37 @@
 # 移动候选验证记录
 
+## mobile.7 双声道输出接入（当前源码）
+
+已按用户批准接入固定AudioStreaming 1.4.5及Ogg／Vorbis 0.1.2，保留原界面、音效预设和DSP参数。
+上游队列不适合原删除语义，改为当前／下一项独立解码器；固定源码、两文件补丁与校验清单见
+[AUDIO_OUTPUT_DECISION.md](AUDIO_OUTPUT_DECISION.md)。本节优先于下面的历史状态。
+
+- `stereo-output-full.{log,xcresult}`：iPhone 17 Pro / iOS26.5 Simulator / Release，89项完整原生回归通过。
+  包含WAV、AAC/M4A单声道的实际双声道音效，队列删除、相同URL不同播放项、快速切歌、静音、
+  刷新／网络恢复、中断／暂停拖动、账户退出与既有DSP数值参考。未放宽原一致性阈值。
+- `independent-preload-first`：本地及HTTP静默预加载、取消释放、保留当前播放通过；预加载输出帧数为0。
+- `stereo-native-queue-closure`：5项通过；初次测试helper捕获非escaping闭包的编译错误已修复，
+  失败记录`stereo-native-queue-first`保留。`stereo-recovery-first`新增2项通过。
+- iPad Pro 11-inch (M5) / iOS26.5实际App播放验收音1后自动推进到4并结束；原音效面板可打开。
+  截图`stereo-ipad-effects.png`、`stereo-ipad-queue-completed.png`。该次容器仍带旧前端版本标签，
+  仅作为新后端的运行证据；新候选将从Xcode版本及当前Git身份生成标签。
+- vendor原始59文件、当前哈希、两文件完整补丁校验通过；CI加入离线校验。
+- `stereo-http-native-queue.{log,xcresult}`：3项通过。受控HTTP单声道实际音效、静默预载取消、
+  完整PlaybackEngine删除缓冲曲目并独立切至下一首；没有WebView或真实平台参与。
+  5,292,044字节音频在只读取部分字节时已播放，seek产生Range请求；测试服务结束后关闭。
+- 包体、签名、安装记录在候选生成后追加；BUILD_RECORD.json在此之前仍标识已交付mobile.6。
+
+真实QQ／网易App在线验收、真机锁屏／蓝牙／性能、歌词≤150ms、无缝间隔定量测量仍为NOT_RUN。
+暂停时关闭效果分支的立即回收待测，Ogg不支持拖动；Automix及完整编辑工具仍未移植。
+
+## mobile.6及其后续历史记录
+
 mobile.5之后的附加音效开发单独记录在 [EFFECT_PARITY.md](EFFECT_PARITY.md)：32项相关原生测试通过，
 包含固定WebKit过采样、压缩器、噪声／混响、组合链、线程交接及tap格式探测；Debug全部70项、Release相关8项回归通过。
 随后实际tap接线9项、iPad Release内部链路14项通过；公开设置接入后的7项原生测试及6项界面测试通过。
 当前mobile.6已开放立体声音效，Mono暂仅EQ并提示。
 
-## 已批准的双声道流式输出验证（尚未接入播放器）
+## 已批准的双声道流式输出首次验证（接入前历史）
 
 AudioStreaming 1.4.5及Ogg／Vorbis 0.1.2已固定安装、校验并保留许可证。
 新增AU音效适配复用现有DSP：本地／HTTP Mono实际双声道、可听滤波、左右噪声／混响差异、

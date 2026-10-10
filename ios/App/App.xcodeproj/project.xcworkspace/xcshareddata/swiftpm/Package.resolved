@@ -1,15 +1,6 @@
 {
-  "originHash" : "ff74d139c0b0d693b99b1e2edac3f1240f0b7591f52cb3a3572bf66648ce6f63",
+  "originHash" : "c5490e0bfca74aee30a2732eb9a9a67c7c73c739780f3882ae2197dfa6f53ffc",
   "pins" : [
-    {
-      "identity" : "audiostreaming",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/dimitris-c/AudioStreaming.git",
-      "state" : {
-        "revision" : "e28a74b7b8632fc14312b7a79dcd82fa302779af",
-        "version" : "1.4.5"
-      }
-    },
     {
       "identity" : "capacitor-swift-pm",
       "kind" : "remoteSourceControl",

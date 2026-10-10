@@ -9,9 +9,11 @@ d824c0b854e54d5411cb072092999823e9bd7071；移动分支发布到 Kun686/folia-Pl
 组合阶段Debug全部70项、Release相关8项回归通过，随后实际tap接线9项通过。
 开发源码已接回原复合预设、自定义栏位、持久化和当前／预加载曲目的立体声音效；公开设置7项原生测试、6项界面测试通过。
 mobile.6已通过开发签名安装并启动于iPhone XS Max / iOS 18.7.10，设备回读确认build 6；不等于真机播放验收。
-WebKit源码复用已获用户批准；单声道输出、暂停资源释放及真机性能仍待完成。
+WebKit源码复用已获用户批准；暂停资源释放及真机性能仍待验收。
 mobile.6之后的源码已优化连续调参的素材复用和播放中的分支回收，74项Release原生测试通过；
-此修复尚未打入mobile.6交付包，详见VALIDATION.md。
+此修复未打入mobile.6交付包。当前mobile.7源码已接入获批的AudioStreaming 1.4.5独立双声道输出，
+完整Release原生回归89项及HTTP实际队列3项通过，支持WAV／AAC Mono的原版完整音效。
+本次iPad实际容器完成四曲顺序播放及音效面板检查；包体、签名与安装结果见VALIDATION.md。
 
 ## 已实现
 
@@ -24,11 +26,11 @@ mobile.6之后的源码已优化连续调参的素材复用和播放中的分支
   AVFoundation 读取曲名、歌手、专辑、时长、封面和内嵌歌词；支持单独导入 UTF-8／UTF-16 文本歌词。
   文本歌词通过原 LocalFileLyricAdapter／worker 解析。支持本地搜索、移除副本和队列混合。
   无服务器时默认打开本地库；断网或退出在线账户不会暂停其他本地歌曲。
-- AVQueuePlayer 管理队列、当前与下一首的解析和预加载。下一首直接进入原生播放器队列；
+- Folia原生层管理身份队列，AudioStreaming独立解码当前与下一首，待播项静默缓冲、可独立取消；
   原生网络请求不需要 JavaScript。URL 播放失败重新解析一次，连续失败三首停止，认证／限流错误直接停止。
 - 队列触摸菜单：下一首播放、移到队尾、移除、打乱与清空。复用原版去重、插入与打乱规则，
   Native 原子校验队列版本；锁屏切歌后的过期行操作会明确失败，按歌曲身份加入可重取状态一次。
-  调整队列保留当前 AVPlayerItem、进度和暂停状态；移除当前项／清空只修改队列，当前歌曲继续播放，
+  调整队列保留当前解码器、进度和暂停状态；移除当前项／清空只修改队列，当前歌曲继续播放，
   也能以暂停状态恢复。退出账户或删除媒体则同时清除队列外仍在播放的对应歌曲。
   手动上一首直接切歌，队列边界不意外暂停；从暂停状态手动切歌会开始播放，与原版一致。
 - 原生锁屏／耳机命令、音频中断、旧输出设备断开、网络不可用与恢复、代次保护、暂停恢复和身份队列持久化。
@@ -36,7 +38,7 @@ mobile.6之后的源码已优化连续调参的素材复用和播放中的分支
 - 原生快照驱动前台 MotionValue 歌词时钟；隐藏／后台不挂载歌词视觉层，回前台读取原生状态。
   默认 Classic；复用原 VisualizerRenderer、14 模式注册表、背景注册表、参数面板和资产恢复。
   使用现有外观短码／JSON 编解码器导入、导出和应用自定义主题，不需要配置同步服务器。
-  MTAudioProcessingTap + Accelerate 分析真实解码 PCM，向原渲染器提供 5 个频段和频谱。
+  AUAudioUnit + Accelerate处理双声道解码PCM，向原渲染器提供5个频段和频谱；旧AVQueuePlayer/tap路径保留作回退。
   频谱沿用原版2048点Blackman窗、0.6幅值平滑、−100至−30dB量程和声道下混规则；
   按原生音量／静音修正分析副本，不重复衰减实际音频。FFT仅在界面请求新数据时运行，
   停止读取400ms后连PCM采集也停止；恢复、跳转或采集中断清除旧窗口。
@@ -44,8 +46,8 @@ mobile.6之后的源码已优化连续调参的素材复用和播放中的分支
   原版五频段响应与暂停呼吸逻辑提取为两端共用，保持桌面频段边界及所有模式参数。
   无法读取 PCM 的流格式保留歌词时钟，不能宣称音频响应等价。
   修复 Partita 在暂停时挂载／切到新歌词行后不显示的问题：初始离散状态读取当前时钟，原动画参数不变。
-  Automix、单声道附加音效、原桌面全部编辑工具尚未完成移植；所有复杂动画的真机性能也未验收。
-- 音量／静音使用 AVPlayer 标准属性，修改音量保持静音；复用原 useAudioSettingsStore 及已有命令动作。
+  Automix、原桌面全部编辑工具尚未完成移植；所有复杂动画的真机性能也未验收。
+- 音量／静音在最终混音节点应用，修改音量保持静音；复用原 useAudioSettingsStore 及已有命令动作。
   十段均衡器复用原对话框、频段、±12 dB 范围、两个自定义栏位和重置操作。
   原生 Accelerate biquad 按原 Web Audio 低架／峰值 Q=1.4／高架滤波计算，频率同样限于采样率的0.475倍。
   参数采用15ms时间常数、每32帧更新，稳态与原 WebKit输出作数值对照；不声称动态自动化逐采样完全相同。
@@ -53,8 +55,8 @@ mobile.6之后的源码已优化连续调参的素材复用和播放中的分支
   声音设置保存到原生 UserDefaults，启动回填原 store；快速操作串行合并，失败回到最后确认值。
   移动触摸从实际input事件提交，避免WKWebView的最终值晚于pointerup而丢失；桌面保持原提交时机。
   当前开发源码开放原版六种音色预设、两个自定义栏位及全套效果推子，立体声通过原生组合链播放。
-  Mono暂只应用EQ并明确提示；效果准备失败／准备中状态由原生发布。mobile.5旧安装包仍只有EQ。
-  不支持tap／32位浮点PCM的流格式提示无法均衡，继续原始播放；全部在线编码和真机音质尚未验收。
+  新输出链将Mono转换到双声道后处理，效果准备失败／准备中状态由原生发布。mobile.6旧安装包Mono仍只有EQ。
+  WAV／AAC和受控HTTP已测，全部在线编码、Ogg拖动及真机音质尚未验收；Ogg当前不支持拖动。
 - 独立认证网关 /mobile/request、/mobile/resolve、/mobile/health，接口和歌词目标白名单，
   禁止任意代理、重定向、平台写操作；有认证、并发上限、请求大小／响应大小／超时限制。
 - 精简 Docker Compose 默认只启用移动后端、网易云和 QQ API，监听宿主机回环地址。HTTPS 网关和酷狗为可选配置；不启动同步或 AI。
@@ -69,7 +71,7 @@ mobile.6之后的源码已优化连续调参的素材复用和播放中的分支
 | 可注入移动传输 | src/services/mobileRuntime.ts、providerStorage.ts |
 | 共享播放规则 | shared/mobile/ |
 | 原生桥与 Keychain | ios/App/App/FoliaNativePlugin.swift、SecureStore.swift、GatewayClient.swift |
-| 原生播放 | PlaybackEngine.swift、PlaybackQueue.swift、PlaybackSystem.swift |
+| 原生播放 | PlaybackEngine.swift、PlaybackQueue.swift、PlaybackSystem.swift、PlaybackStreaming.swift、StreamOccurrence.swift |
 | 本地媒体与音频分析 | LocalMediaLibrary.swift、LocalImportPicker.swift、AudioMeter.swift、AudioSpectrum.swift |
 | 网关与部署 | deploy/mobile/ |
 | 自动测试 | test/unit/mobile/、test/mobile-ui/、ios/App/NativeTests/ |
@@ -79,10 +81,13 @@ mobile.6之后的源码已优化连续调参的素材复用和播放中的分支
 ## 复用与依赖决定
 
 复用 React、Omni/provider、登录状态机、歌词解析器、完整视觉注册表、现有主题、react-window、Vitest、
-Playwright、Express 和各 API 服务。播放／凭据使用 Apple 标准框架，不引入解码、歌词、音频插件或新的 UI 库。
-仅增加已批准的 Capacitor core/ios/cli 8.5.3（MIT）；core 依赖 tslib，ios 原生部分由 SPM 精确锁定
+Playwright、Express 和各 API 服务。凭据使用Apple标准框架，歌词与UI不新增库。
+已批准的 Capacitor core/ios/cli 8.5.3（MIT）；core 依赖 tslib，ios 原生部分由 SPM 精确锁定
 8.5.3，revision 4c7f346d16196e21fbe23d4a7a6fc7af62af6742。CLI 仅开发使用。
-本次扩展不新增 npm 生产依赖。所有渲染器与资源随 App 打包；最终资源大小以本次构建记录为准。
+音频新增用户已批准的AudioStreaming 1.4.5（MIT）、Ogg／Vorbis 0.1.2（BSD）。AudioStreaming固定源码
+及最小适配随仓库保存于ios/Vendor；其余SwiftPM提交仍由Package.resolved精确锁定。
+构建前执行`python3 dev/mobile/verify-audio-vendor.py`核对源码清单；补丁、来源及许可见AUDIO_OUTPUT_DECISION.md。
+不新增npm生产依赖。所有渲染器与资源随App打包；最终资源大小以构建记录为准。
 
 选择 Capacitor 是为了复用现有界面与歌词；Swift 桥仅实现现有项目缺少的后台播放、Keychain、原生请求和系统分享。
 全原生重写会重复平台业务与歌词视觉系统，首版不采用。Capacitor 8.5.3 不在已核查

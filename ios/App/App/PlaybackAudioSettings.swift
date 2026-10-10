@@ -63,6 +63,7 @@ extension PlaybackEngine {
     }
     func applyAudioSettings() {
         player.volume = Float(audioSettings.volume); player.isMuted = audioSettings.isMuted
+        stream?.apply(audioSettings); preparedStream?.entry.apply(audioSettings)
         configureMeter(meter); configureMeter(prepared?.meter)
     }
     func configureMeter(_ meter: AudioMeter?) {

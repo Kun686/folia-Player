@@ -1,0 +1,100 @@
+import AVFoundation
+import AudioStreaming
+
+// StreamOccurrence.swift — one cancellable decoder/output per native queue occurrence; URLs never identify songs.
+final class StreamOccurrence: AudioPlayerDelegate {
+    let audio: AudioPlayer
+    let node: AVAudioUnit
+    let unit: AudioEffectUnit
+    var meter: AudioMeter { unit.meter }
+    var changed: (() -> Void)?
+    var ended: (() -> Void)?
+    var failed: (() -> Void)?
+    private(set) var hasEnded = false
+    private(set) var hasFailed = false
+    private var disposed = false
+    private var started = false
+    private var endPosition: Double = 0
+    var position: Double { hasEnded ? endPosition : Self.finite(audio.progress) }
+    var duration: Double { Self.finite(audio.duration) }
+    var playing: Bool { started && !disposed && !hasEnded && audio.state == .playing }
+
+    private init(node: AVAudioUnit, unit: AudioEffectUnit) {
+        self.node = node; self.unit = unit
+        audio = AudioPlayer(configuration: AudioPlayerConfiguration(flushQueueOnSeek: false, enableLogs: false),
+                            automaticallyStartsOutput: false)
+        audio.attach(node: node)
+        audio.delegate = self
+    }
+
+    @MainActor static func prepare(url: URL, position: Double = 0) async throws -> StreamOccurrence {
+        let node = try await AudioEffectUnit.makeNode()
+        guard let unit = node.auAudioUnit as? AudioEffectUnit else { throw MobileFailure("audio-failed") }
+        let entry = StreamOccurrence(node: node, unit: unit)
+        entry.audio.play(url: url)
+        do {
+            try await entry.waitForPCM()
+            if position > 0 {
+                guard entry.audio.isSeekable else { throw MobileFailure("unsupported-seek") }
+                entry.audio.seek(to: position)
+                try await entry.waitForPCM()
+            }
+            return entry
+        } catch { entry.dispose(); throw error }
+    }
+
+    @MainActor private func waitForPCM() async throws {
+        let deadline = Date().addingTimeInterval(20)
+        while Date() < deadline {
+            try Task.checkCancellation()
+            if hasFailed || disposed || hasEnded { throw MobileFailure("audio-failed") }
+            if !audio.isSeeking && audio.bufferedDuration > 0 { return }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        throw MobileFailure("network-timeout")
+    }
+
+    func play() throws {
+        guard !disposed, !hasFailed, !hasEnded else { throw MobileFailure("audio-failed") }
+        if started { audio.resume() }
+        else {
+            guard audio.startPreparedPlayback() else { throw MobileFailure("audio-failed") }
+            started = true
+        }
+    }
+    func pause() { if started && !disposed { audio.pause() } }
+    func seek(to position: Double) throws {
+        guard !disposed, position.isFinite, position >= 0 else { throw MobileFailure("invalid-position") }
+        guard audio.isSeekable else { throw MobileFailure("unsupported-seek") }
+        unit.requestDiscontinuity()
+        audio.seek(to: position)
+    }
+    func apply(_ settings: NativeAudioSettings) {
+        // Upstream muted silences its INPUT, before noise/reverb. Master gain must silence all effects.
+        audio.volume = settings.isMuted ? 0 : Float(settings.volume)
+        meter.setOutputGain(volume: settings.volume, muted: settings.isMuted)
+        meter.equalizer.configure(enabled: settings.equalizer.enabled, gains: settings.equalizer.gains)
+        meter.effects.configure(settings.equalizer.enabled ? settings.equalizer.effects : NativeEqualizerSettings.neutral)
+    }
+    func clearEvents() { changed = nil; ended = nil; failed = nil }
+    func dispose() {
+        guard !disposed else { return }
+        disposed = true; clearEvents(); audio.delegate = nil; audio.stop()
+    }
+    deinit { audio.delegate = nil; audio.stop() }
+    private static func finite(_ value: Double) -> Double { value.isFinite ? max(0, value) : 0 }
+
+    // AudioStreaming delivers all delegate events on main; callers never retain the decoder's source queue.
+    func audioPlayerDidStartPlaying(player: AudioPlayer, with entryId: AudioEntryId) { changed?() }
+    func audioPlayerDidFinishBuffering(player: AudioPlayer, with entryId: AudioEntryId) { changed?() }
+    func audioPlayerStateChanged(player: AudioPlayer, with newState: AudioPlayerState, previous: AudioPlayerState) { changed?() }
+    func audioPlayerDidFinishPlaying(player: AudioPlayer, entryId: AudioEntryId, stopReason: AudioPlayerStopReason, progress: Double, duration: Double) {
+        guard !disposed, started, stopReason == .eof else { return }
+        endPosition = Self.finite(progress); hasEnded = true; ended?()
+    }
+    func audioPlayerUnexpectedError(player: AudioPlayer, error: AudioPlayerError) {
+        guard !disposed else { return }; hasFailed = true; failed?()
+    }
+    func audioPlayerDidCancel(player: AudioPlayer, queuedItems: [AudioEntryId]) {}
+    func audioPlayerDidReadMetadata(player: AudioPlayer, metadata: [String: String]) {}
+}
