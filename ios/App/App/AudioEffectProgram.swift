@@ -2,6 +2,10 @@ import Foundation
 
 // AudioEffectProgram.swift — validated, prebuilt effect changes transferred from the control owner to the render owner.
 final class AudioEffectProgram {
+    struct Reuse {
+        let curves: AudioEffectProgram?
+        let noise: AudioNoiseBuffer?, reverb: AudioReverbKernel?
+    }
     let rate: Double
     let values: [String: Double]
     let drive: [Float], crush: [Float]
@@ -11,13 +15,14 @@ final class AudioEffectProgram {
     private(set) var retainedReverb: AudioReverbKernel?
 
     init?(rate: Double, values: [String: Double], noise: AudioNoiseBuffer? = nil, reverb: AudioReverbKernel? = nil,
+          reusingCurves previous: AudioEffectProgram? = nil,
           random: () -> Double = { Double.random(in: 0..<1) }) {
         var settings = NativeEqualizerSettings(); settings.effects = values
         guard AudioEffectSources.validRate(rate), (try? settings.validate()) != nil,
               noise == nil || noise?.rate == rate, reverb == nil || reverb?.rate == rate else { return nil }
         self.rate = rate; self.values = values
-        drive = AudioEffectSources.saturation(values["drive"]!) ?? []
-        crush = AudioEffectSources.bitCrush(values["crush"]!) ?? []
+        drive = previous?.values["drive"] == values["drive"] ? previous!.drive : AudioEffectSources.saturation(values["drive"]!) ?? []
+        crush = previous?.values["crush"] == values["crush"] ? previous!.crush : AudioEffectSources.bitCrush(values["crush"]!) ?? []
         // Match effectChain.ts: the noise branch is created before the reverb branch.
         if values["noise"]! > 0 {
             guard let source = noise ?? AudioNoiseBuffer(rate: rate, samples: AudioEffectSources.vinylNoise(rate: rate, random: random)) else { return nil }

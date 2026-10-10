@@ -6,6 +6,7 @@
 单声道暂保留EQ，界面显示附加音效不可用；单声道转立体声支持仍未完成。
 mobile.6使用Release构建，已开发签名安装并启动于iPhone XS Max / iOS 18.7.10；设备确认build 6。
 源码身份与交付包校验见BUILD_RECORD.json和相邻交付元数据；旧mobile.5包保留以便回退。
+下述资源复用／主动回收修复晚于mobile.6，尚未包含在已安装的build 6或其构建指纹中。
 原Web／Electron效果参数、默认值、预设和主题未更改，没有新增生产依赖。
 
 ## 已实现并验证的模块
@@ -39,9 +40,13 @@ mobile.6使用Release构建，已开发签名安装并启动于iPhone XS Max / i
 
 控制器用格式代次和设置版本丢弃旧准备结果；ready/active/retired槽位有固定上限，另有一个正在构造的候选。
 切换时保留活跃滤波历史，当前program持有淡出中的分支资源。回收由控制线程执行，无常驻轮询计时器。
-关闭效果后，即使淡出已完成，最后一个program仍可能持有分支资源至下次设置更新或unprepare；
-已验证这两个出口都可安全释放资源，但尚未实现暂停／长期关闭时的主动回收。
-正值调参目前仍会预建新的随机素材／卷积候选，活跃分支继续使用旧素材以保持相位和尾音；准备成本仍待优化。
+mobile.6之后的源码复用活跃噪声／混响和未改变的波形曲线；尚未播放的ready图也复用素材，
+连续调参不再重复生成随机素材或卷积历史。生成器只借用资源引用，不修改活跃卷积状态。
+渲染确认分支已退役时使旧准备版本失效，避免迟到结果重新启用已经过期的混响历史。
+预建的DispatchSource合并交接通知，控制线程准备不含过期资源的program，后续音频回调接收后在控制线程回收；
+不再需要另一次界面设置或快照。相同参数的清理交接不重新启动渐变。
+本项目回调路径不为通知新建async闭包／work item；这不等于证明系统调度器内部无分配或硬实时。
+暂停而无音频回调时，活跃图仍保留素材。原版800ms墙钟释放尚未移植，不能把播放中的释放测试视为暂停验收。
 
 AudioMeter按需启用附加链：未请求非中性效果时不分配组合图，PCM保持既有EQ路径，
 首次效果请求由控制线程准备并在回调中接收。关闭后渐变回中性，保留既有图与尾音；
@@ -132,6 +137,8 @@ Float32融合乘加以及新事件起点的`target + Float32(value - target)`舍
 | mobile.6界面完整回归 | 20/21首次通过；剩余1项调整等待后复测通过 | mobile6-ui.log、mobile6-ui-retry.log；iPad暂停检查在歌词加载期间未通过，等待加载完成后单项复测；初始失败保留 |
 | mobile.6资源与设备构建 | PASS | effect-settings-sync.log、mobile6-device-build.log；98个前端文件及完整DSP许可证逐字节核对，codesign严格校验通过 |
 | mobile.6 iPhone安装／启动／身份 | PASS | mobile6-device-install.json、mobile6-device-launch.json、mobile6-device-app.json；build 6；不是听感或持续播放验收 |
+| mobile.6之后资源复用／退役定向回归 | PASS | effect-resource-ready.{log,xcresult}；8项；连续40次调参、未播放图20次调参、晚到构造结果、无需UI更新的回收及实际PCM |
+| 资源修复后iPhone模拟器Release完整套件 | PASS | effect-resource-final.{log,xcresult}；74项；连续调参新增独立图PCM对照，绝对误差低于0.000001，噪声／混响各仅构造一次 |
 | 固定源码哈希与App内完整许可证 | PASS | 按WEBKIT_DSP_SOURCES.json逐项校验；Debug模拟器包与源码许可证逐字节一致 |
 | 真机听感／性能、单独DSP二进制增量 | NOT_RUN | 模拟器与界面样本不等于真机音效验收；mobile.5是Debug而mobile.6是Release，不用两者差值声称纯DSP增量 |
 
@@ -145,6 +152,9 @@ Float32融合乘加以及新事件起点的`target + Float32(value - target)`舍
 最终修正前另有一次Swift `exp` 重载编译失败，改为明确的常数表示后编译和测试通过。
 未删除原始失败日志：modulation-primitives、effect-primitives-linked、effect-primitives-convergence。
 压缩器初始两轮自动化数值失败保留在compressor-native和compressor-k-rate；静态包络两轮均通过。
+资源修复首轮effect-resource-reuse有1项失败：实际tap测试把AVPlayer启动时的静音缓冲当成基准，
+before=0、滤波后75、恢复162。测试现在先等播放时钟至少0.2秒，并明确要求基准峰值>100；
+原衰减和恢复容差未改变。原始失败保留，修正后定向8项及完整74项通过。
 
 ## 复用与待办边界
 
@@ -153,7 +163,6 @@ Float32融合乘加以及新事件起点的`target + Float32(value - target)`舍
 已适配UpSampler、DownSampler、WaveShaperDSPKernel、DynamicsCompressorKernel；完整许可证保留在Swift源文件及
 App资源WEBKIT_DSP_LICENSES.txt中。
 
-目前累计32项音效模块／组合／控制器／tap原生测试通过。仍需完成单声道立体声输出方案、
-后台与暂停时的分支释放、连续调参的资源准备优化、完整真机听感／性能。
+仍需完成单声道立体声输出方案、暂停期间的墙钟分支释放、真实后台运行和完整真机听感／性能。
 单声道输入需要验证真实原生tap格式及显式立体声处理能力，不能默认具备双声道噪声／混响输出。
 后续交付时更新构建指纹并测量设备二进制增量；本记录不替代整体移植验收表。

@@ -26,7 +26,14 @@ import AVFoundation
             }
             XCTFail("No stereo PCM from the actual AVPlayer tap"); return 0
         }
+        // AVPlayer can deliver an initial silent buffer while its playback clock is still starting.
+        // Establish the fixture's real tone before measuring attenuation; zero is not a valid baseline.
+        for _ in 0..<40 {
+            if tested.finiteTime(tested.player.currentTime()) >= 0.2 { break }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
         let before = try await peak(), meter = try XCTUnwrap(tested.meter)
+        XCTAssertGreaterThan(before, 100, "The reference tone must be audible before applying the effect")
         XCTAssertFalse(meter.effects.status.available, "The existing neutral player path must not activate effects")
         try await Task.sleep(nanoseconds: 500_000_000)
         var settings = NativeAudioSettings(); settings.equalizer.enabled = true

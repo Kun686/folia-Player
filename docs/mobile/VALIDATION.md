@@ -5,6 +5,19 @@ mobile.5之后的附加音效开发单独记录在 [EFFECT_PARITY.md](EFFECT_PAR
 随后实际tap接线9项、iPad Release内部链路14项通过；公开设置接入后的7项原生测试及6项界面测试通过。
 当前mobile.6已开放立体声音效，Mono暂仅EQ并提示。
 
+## mobile.6之后的音效资源修复（仅源码）
+
+- 噪声、混响与未改变的波形曲线复用；已准备但尚未播放的图同样复用素材。
+- 分支淡出结束后由后续音频回调交接到控制线程释放，无需再次操作界面；
+  失效分支会使借用旧素材的构造结果过期，避免重新启用旧卷积历史。
+- iPhone 17 Pro / iOS 26.5 Simulator / Release：74项原生测试全部通过，
+  证据effect-resource-final.{log,xcresult}。连续40次调参输出与独立参考图对照通过，
+  噪声和混响各只构造一次；未播放图20次调参也只各构造一次。
+- 首轮实际PCM测试把启动静音误当作音量基准而失败；加入播放时钟就绪条件和基准非静音断言后通过，
+  原衰减／恢复断言未放宽。失败日志effect-resource-reuse保留，定向复测effect-resource-ready为8项通过。
+- 暂停后无回调的墙钟资源释放仍未完成。本轮没有前端修改，不重复运行界面套件；真机性能仍为NOT_RUN。
+- 此源码修复尚未打入交付IPA或安装至iPhone。BUILD_RECORD.json继续标识已交付的mobile.6，不代表修复后的源码。
+
 ## mobile.6 原音效与原生播放链
 
 2026-10-10，0.7.16 / build 6，Release开发签名；源码身份见BUILD_RECORD.json。

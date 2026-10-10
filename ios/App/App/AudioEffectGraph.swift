@@ -9,6 +9,9 @@ final class AudioEffectGraph {
     private let scratch: AVAudioPCMBuffer
     private var program: AudioEffectProgram
     private var noiseSource: AudioNoiseBuffer?, reverbKernel: AudioReverbKernel?
+    private var configured = false
+    var hasNoise: Bool { noise.active }
+    var hasReverb: Bool { reverb.active }
     var latencyFrames: Int { WebAudioOversampling.latencyFrames + punch.latencyFrames }
     #if DEBUG
     var trace: ((String, UnsafeMutablePointer<AudioBufferList>, Int) -> Void)?
@@ -30,13 +33,19 @@ final class AudioEffectGraph {
         guard next.rate == rate, next.values["noise"]! == 0 || noise.active || next.noise != nil,
               next.values["space"]! == 0 || reverb.active || next.reverb != nil else { return false }
         let values = next.values
+        // A resource-retirement handoff must not restart any parameter ramps or filter history.
+        if configured && values == program.values {
+            next.retainActiveBranches(noise: noiseSource, reverb: reverbKernel)
+            program = next
+            return true
+        }
         cutoff.set(highpass: values["highpass"]!, lowpass: values["lowpass"]!)
         wow.set(values["wow"]!); width.set(values["width"]!); punch.set(values["punch"]!)
         if !noise.active { noiseSource = values["noise"]! > 0 ? next.noise : nil }
         if !reverb.active { reverbKernel = values["space"]! > 0 ? next.reverb : nil }
         noise.set(values["noise"]!, source: noiseSource); reverb.set(values["space"]!, kernel: reverbKernel)
         next.retainActiveBranches(noise: noiseSource, reverb: reverbKernel)
-        program = next
+        program = next; configured = true
         return true
     }
     func process(_ buffers: UnsafeMutablePointer<AudioBufferList>, frames: Int, discontinuity: Bool = false) {

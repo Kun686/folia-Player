@@ -8,21 +8,30 @@ private final class EffectBuildProbe {
     var blockedRate: Double?, blockedHighpass: Double?
     private let lock = NSLock()
     private var builds = 0
+    private var noiseBuilds = 0, reverbBuilds = 0, didBlock = false
     private weak var first: AudioEffectProgram?
     private weak var latest: AudioEffectProgram?
     private weak var firstNoise: AudioNoiseBuffer?
     private weak var firstReverb: AudioReverbKernel?
     var count: Int { lock.lock(); defer { lock.unlock() }; return builds }
+    var resourceCounts: (noise: Int, reverb: Int) { lock.lock(); defer { lock.unlock() }; return (noiseBuilds, reverbBuilds) }
     var firstReleased: Bool { lock.lock(); defer { lock.unlock() }; return first == nil }
     var latestReleased: Bool { lock.lock(); defer { lock.unlock() }; return latest == nil }
     var branchesReleased: Bool { lock.lock(); defer { lock.unlock() }; return firstNoise == nil && firstReverb == nil }
-    func build(rate: Double, values: [String: Double]) -> AudioEffectProgram? {
-        if rate == blockedRate || values["highpass"] == blockedHighpass {
+    func build(rate: Double, values: [String: Double], reuse: AudioEffectProgram.Reuse) -> AudioEffectProgram? {
+        lock.lock()
+        let shouldBlock = !didBlock && (rate == blockedRate || values["highpass"] == blockedHighpass)
+        if shouldBlock { didBlock = true }
+        lock.unlock()
+        if shouldBlock {
             entered.signal()
             guard release.wait(timeout: .now() + 3) == .success else { return nil }
         }
-        let result = AudioEffectProgram(rate: rate, values: values, random: { 0.6 })
+        let result = AudioEffectProgram(rate: rate, values: values, noise: reuse.noise, reverb: reuse.reverb,
+                                        reusingCurves: reuse.curves, random: { 0.6 })
         lock.lock(); builds += 1
+        if result?.noise != nil && reuse.noise == nil { noiseBuilds += 1 }
+        if result?.reverb != nil && reuse.reverb == nil { reverbBuilds += 1 }
         if builds == 1 { first = result; firstNoise = result?.noise; firstReverb = result?.reverb }; latest = result
         lock.unlock(); return result
     }
@@ -127,7 +136,7 @@ private final class EffectBuildProbe {
         XCTAssertFalse(control.process(buffer.mutableAudioBufferList, frames: 128))
     }
     func testEffectControllerReportsPreparationFailureAndRejectsMono() async throws {
-        let control = AudioEffectController(build: { _, _ in nil })
+        let control = AudioEffectController(build: { _, _, _ in nil })
         defer { control.unprepare() }
         control.prepare(rate: 44100, channels: 1)
         XCTAssertEqual(control.status.error, "unsupported-effect-format")
@@ -139,7 +148,7 @@ private final class EffectBuildProbe {
         control.unprepare(); XCTAssertNil(control.status.error)
     }
     func testEffectControllerRetainsFadingBranchesUntilSafeRetirement() async throws {
-        let probe = EffectBuildProbe(), control = AudioEffectController(build: { rate, values in probe.build(rate: rate, values: values) })
+        let probe = EffectBuildProbe(), control = AudioEffectController(build: probe.build)
         defer { control.unprepare() }
         var values = NativeEqualizerSettings.neutral; values["noise"] = 0.4; values["space"] = 0.2
         XCTAssertTrue(control.configure(values)); control.prepare(rate: 8000, channels: 2)
@@ -157,11 +166,98 @@ private final class EffectBuildProbe {
         try await waitForEffects { probe.firstReleased }
         XCTAssertFalse(probe.branchesReleased, "The adopted neutral program must retain resources while the original branches fade")
         render(8192) // More than 800 ms; graph no longer reads these resources.
-        values = NativeEqualizerSettings.neutral; values["highpass"] = 200
-        XCTAssertTrue(control.configure(values))
         try await waitForEffects { control.status.prepared == control.status.requested }
+        // Ongoing audio callbacks finish reclamation without another setting, UI snapshot or timer.
         render(128)
         try await waitForEffects { probe.branchesReleased }
         control.unprepare(); try await waitForEffects { probe.latestReleased }
+    }
+    func testContinuousEffectEditsReuseLiveNoiseAndConvolutionHistory() async throws {
+        let probe = EffectBuildProbe(), control = AudioEffectController(build: probe.build)
+        defer { control.unprepare() }
+        var values = NativeEqualizerSettings.neutral; values["noise"] = 0.4; values["space"] = 0.2
+        XCTAssertTrue(control.configure(values)); control.prepare(rate: 8000, channels: 2)
+        let buffer = AVAudioPCMBuffer(pcmFormat: AVAudioFormat(standardFormatWithSampleRate: 8000, channels: 2)!, frameCapacity: 128)!
+        let expected = AVAudioPCMBuffer(pcmFormat: buffer.format, frameCapacity: 128)!
+        let reference = try XCTUnwrap(AudioEffectGraph(program: try XCTUnwrap(
+            AudioEffectProgram(rate: 8000, values: values, random: { 0.6 }))))
+        buffer.frameLength = 128
+        expected.frameLength = 128
+        var frame = 0
+        func renderAndCompare() {
+            for channel in 0..<2 {
+                for i in 0..<128 {
+                    let value = Float(sin(Double(frame + i) * 0.17) * (channel == 0 ? 0.2 : -0.1))
+                    buffer.floatChannelData![channel][i] = value
+                    expected.floatChannelData![channel][i] = value
+                }
+            }
+            XCTAssertTrue(control.process(buffer.mutableAudioBufferList, frames: 128))
+            reference.process(expected.mutableAudioBufferList, frames: 128)
+            for channel in 0..<2 {
+                let actual = buffer.floatChannelData![channel], wanted = expected.floatChannelData![channel]
+                XCTAssertLessThan((0..<128).map { abs(actual[$0] - wanted[$0]) }.max() ?? 1, 0.000001)
+            }
+            frame += 128
+        }
+        try await waitForEffects { control.status.prepared == control.status.requested }
+        renderAndCompare()
+        for i in 0..<40 {
+            values["highpass"] = Double(100 + i)
+            values["noise"] = Double(20 + i) / 100; values["space"] = Double(60 - i) / 100
+            XCTAssertTrue(control.configure(values))
+            try await waitForEffects { control.status.prepared == control.status.requested }
+            XCTAssertTrue(reference.apply(try XCTUnwrap(AudioEffectProgram(rate: 8000, values: values, random: { 0.6 }))))
+            renderAndCompare()
+            try await waitForEffects { control.status.applied == control.status.requested }
+        }
+        XCTAssertEqual(probe.resourceCounts.noise, 1, "Amount/filter changes must not regenerate vinyl material")
+        XCTAssertEqual(probe.resourceCounts.reverb, 1, "Amount/filter changes must not build new convolution histories")
+        XCTAssertFalse(probe.branchesReleased)
+        control.unprepare(); try await waitForEffects { probe.branchesReleased }
+    }
+    func testUnplayedPreparedEffectsReuseMaterialAcrossPausedEdits() async throws {
+        let probe = EffectBuildProbe(), control = AudioEffectController(build: probe.build)
+        defer { control.unprepare() }
+        var values = NativeEqualizerSettings.neutral; values["noise"] = 0.4; values["space"] = 0.2
+        XCTAssertTrue(control.configure(values)); control.prepare(rate: 8000, channels: 2)
+        try await waitForEffects { control.status.prepared == control.status.requested }
+        for i in 0..<20 {
+            values["noise"] = Double(20 + i) / 100; values["space"] = Double(60 - i) / 100
+            XCTAssertTrue(control.configure(values))
+            try await waitForEffects { control.status.prepared == control.status.requested }
+        }
+        XCTAssertEqual(control.status.applied, 0, "No render callback has adopted a graph yet")
+        XCTAssertEqual(probe.resourceCounts.noise, 1)
+        XCTAssertEqual(probe.resourceCounts.reverb, 1)
+        control.unprepare(); try await waitForEffects { probe.branchesReleased }
+    }
+    func testEffectBuildCannotReuseABranchThatExpiredDuringPreparation() async throws {
+        let probe = EffectBuildProbe(); probe.blockedHighpass = 90
+        let control = AudioEffectController(build: probe.build)
+        defer { probe.release.signal(); control.unprepare() }
+        var values = NativeEqualizerSettings.neutral; values["noise"] = 0.4; values["space"] = 0.2
+        XCTAssertTrue(control.configure(values)); control.prepare(rate: 8000, channels: 2)
+        let buffer = AVAudioPCMBuffer(pcmFormat: AVAudioFormat(standardFormatWithSampleRate: 8000, channels: 2)!, frameCapacity: 8192)!
+        buffer.frameLength = buffer.frameCapacity
+        func render(_ frames: Int) {
+            for channel in 0..<2 { buffer.floatChannelData![channel].update(repeating: 0, count: 8192) }
+            XCTAssertTrue(control.process(buffer.mutableAudioBufferList, frames: frames))
+        }
+        try await waitForEffects { control.status.prepared == control.status.requested }; render(128)
+        XCTAssertTrue(control.configure(NativeEqualizerSettings.neutral))
+        try await waitForEffects { control.status.prepared == control.status.requested }; render(128)
+        values["highpass"] = 90; XCTAssertTrue(control.configure(values))
+        try await waitForEffects { probe.entered.wait(timeout: .now()) == .success }
+        let stale = control.status.requested
+        render(8192) // The audio owner retires both branches while their reuse candidate is still blocked.
+        XCTAssertGreaterThan(control.status.requested, stale)
+        probe.release.signal()
+        try await waitForEffects { control.status.prepared == control.status.requested }; render(128)
+        XCTAssertEqual(control.status.applied, control.status.requested)
+        XCTAssertEqual(probe.resourceCounts.noise, 2)
+        XCTAssertEqual(probe.resourceCounts.reverb, 2)
+        try await waitForEffects { probe.branchesReleased }
+        XCTAssertEqual(control.configuredValues, values)
     }
 }
