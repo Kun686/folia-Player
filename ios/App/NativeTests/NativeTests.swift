@@ -19,6 +19,16 @@ final class AudioFixtureGateway: GatewayClient {
         return url
     }
 }
+final class RefreshingAudioGateway: GatewayClient {
+    let validURL: URL
+    let missingURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
+    var count = 0
+    init(validURL: URL) { self.validURL = validURL }
+    override func resolve(_ song: [String: Any]) async throws -> URL {
+        count += 1
+        return count == 1 ? missingURL : validURL
+    }
+}
 @MainActor final class NativeTests: XCTestCase {
     func song(_ provider: String, _ id: String) -> [String: Any] {
         ["name": id, "sourceRef": ["kind": "online", "providerId": provider, "mediaId": id]]
@@ -27,6 +37,16 @@ final class AudioFixtureGateway: GatewayClient {
         let storage = UserDefaults(suiteName: "folia.native-tests")!
         storage.removePersistentDomain(forName: "folia.native-tests")
         return PlaybackEngine(gateway: gateway, storage: storage)
+    }
+    func silentAudio() throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
+        let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)!
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 44100)!
+        buffer.frameLength = 44100
+        buffer.floatChannelData?.pointee.update(repeating: 0, count: 44100)
+        let file = try AVAudioFile(forWriting: url, settings: format.settings)
+        try file.write(from: buffer)
+        return url
     }
     func testHTTPSOriginValidation() throws {
         XCTAssertEqual(try GatewayClient.validatedServer("https://music.example.com/"), "https://music.example.com")
@@ -95,16 +115,8 @@ final class AudioFixtureGateway: GatewayClient {
         XCTAssertTrue(try SecureStore.read(key).isEmpty)
     }
     func testNativeQueueAdvancesWithoutAnyWebViewCalls() async throws {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
+        let url = try silentAudio()
         defer { try? FileManager.default.removeItem(at: url) }
-        let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)!
-        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 44100)!
-        buffer.frameLength = 44100
-        buffer.floatChannelData?.pointee.update(repeating: 0, count: 44100)
-        do {
-            let file = try AVAudioFile(forWriting: url, settings: format.settings)
-            try file.write(from: buffer)
-        }
         let gateway = AudioFixtureGateway(url: url), player = engine()
         let tested = PlaybackEngine(gateway: gateway, storage: player.storage); tested.network.cancel()
         let advanced = expectation(description: "native queue advances")
@@ -119,6 +131,77 @@ final class AudioFixtureGateway: GatewayClient {
         XCTAssertEqual(tested.player.currentItem?.status, .readyToPlay)
         XCTAssertEqual(tested.player.currentItem?.duration.seconds ?? 0, 1, accuracy: 0.1)
         tested.stop()
+    }
+    func testUnplayableAddressRefreshesOnceWithoutWebView() async throws {
+        let url = try silentAudio()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let gateway = RefreshingAudioGateway(validURL: url), player = engine(gateway)
+        player.network.cancel()
+        defer { player.emit = nil; player.stop() }
+        let recovered = expectation(description: "refreshed audio actually plays")
+        var signaled = false
+        player.emit = { state in
+            if !signaled && state["playing"] as? Bool == true && (state["position"] as? Double ?? 0) > 0 {
+                signaled = true; recovered.fulfill()
+            }
+        }
+        try player.setQueue([song("qq", "1")], at: 0)
+        await fulfillment(of: [recovered], timeout: 10)
+        XCTAssertEqual(gateway.count, 2)
+        XCTAssertEqual(player.index, 0)
+        XCTAssertEqual(player.failures, 0)
+        XCTAssertNil(player.error)
+        XCTAssertEqual(player.player.currentItem?.status, .readyToPlay)
+    }
+    func testObsoleteEndEventCannotOverrideNewSelection() throws {
+        let gateway = AudioFixtureGateway(url: URL(fileURLWithPath: "/nonexistent-fixture.wav"))
+        let player = engine(gateway); player.network.cancel()
+        defer { player.stop() }
+        player.queue = [song("netease", "old"), song("qq", "slow"), song("netease", "last")]
+        player.index = 0
+        let oldItem = AVPlayerItem(url: gateway.url)
+        player.player.insert(oldItem, after: nil)
+        player.observeStatus(oldItem, epoch: player.generation)
+        player.select(1)
+        let selectedGeneration = player.generation
+        NotificationCenter.default.post(name: .AVPlayerItemDidPlayToEndTime, object: oldItem)
+        XCTAssertEqual(player.index, 1, "A queued completion from the previous song must not skip the selected song")
+        XCTAssertEqual(player.generation, selectedGeneration)
+    }
+    func testStoppedEngineIgnoresPendingAudioEvents() {
+        let player = engine(); player.network.cancel()
+        defer { player.stop() }
+        player.queue = [song("qq", "old"), song("netease", "next")]
+        player.index = 0
+        let oldItem = AVPlayerItem(url: URL(fileURLWithPath: "/nonexistent-fixture.wav"))
+        player.player.insert(oldItem, after: nil)
+        player.observeStatus(oldItem, epoch: player.generation)
+        player.stop("auth-required")
+        let stoppedGeneration = player.generation
+        NotificationCenter.default.post(name: .AVPlayerItemFailedToPlayToEndTime, object: oldItem)
+        NotificationCenter.default.post(name: .AVPlayerItemDidPlayToEndTime, object: oldItem)
+        XCTAssertEqual(player.index, 0)
+        XCTAssertEqual(player.generation, stoppedGeneration)
+        XCTAssertEqual(player.error, "auth-required")
+        XCTAssertFalse(player.intentToPlay)
+    }
+    func testPlayAfterStopReattachesCurrentItemObservation() throws {
+        let player = engine(); player.network.cancel()
+        defer { player.stop() }
+        let url = try silentAudio()
+        defer { try? FileManager.default.removeItem(at: url) }
+        player.queue = [song("qq", "1")]; player.index = 0
+        let item = AVPlayerItem(url: url)
+        player.player.insert(item, after: nil)
+        player.observeStatus(item, epoch: player.generation)
+        player.stop()
+        XCTAssertNil(player.observedItem)
+        try player.command("play")
+        XCTAssertTrue(player.observedItem === item)
+        let resumedGeneration = player.generation
+        NotificationCenter.default.post(name: .AVPlayerItemFailedToPlayToEndTime, object: item)
+        XCTAssertTrue(player.retried)
+        XCTAssertEqual(player.generation, resumedGeneration + 1)
     }
     func testSlowOldResolveCannotReplaceNewSelection() async throws {
         let gateway = AudioFixtureGateway(url: URL(fileURLWithPath: "/nonexistent-fixture.wav"))

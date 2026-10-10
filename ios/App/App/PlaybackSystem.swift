@@ -11,7 +11,10 @@ extension PlaybackEngine {
             guard queue.indices.contains(index) else { return }
             intentToPlay = true
             if player.currentItem == nil || player.currentItem?.status == .failed || error != nil { select(index, position: restoredPosition); restoredPosition = 0 }
-            else { try activate(); player.play() }
+            else {
+                if let item = player.currentItem { observeStatus(item, epoch: generation) }
+                try activate(); player.play()
+            }
         case "pause": intentToPlay = false; resumeAfterInterruption = false; networkResume = nil; player.pause()
         case "next": failures = 0; move(1)
         case "previous":
@@ -33,7 +36,8 @@ extension PlaybackEngine {
     func setupSystem() {
         let center = NotificationCenter.default
         observers.append(center.addObserver(forName: .AVPlayerItemPlaybackStalled, object: nil, queue: .main) { [weak self] note in
-            guard let self, let item = note.object as? AVPlayerItem, item === self.player.currentItem else { return }
+            guard let self, let item = note.object as? AVPlayerItem,
+                  item === self.observedItem, item === self.player.currentItem else { return }
             let epoch = self.generation
             self.stalledRecovery?.cancel()
             let work = DispatchWorkItem { [weak self] in
@@ -50,7 +54,8 @@ extension PlaybackEngine {
             if self.prepared == nil { self.move(1, automatic: true) }
         })
         observers.append(center.addObserver(forName: .AVPlayerItemFailedToPlayToEndTime, object: nil, queue: .main) { [weak self] note in
-            guard let self, let item = note.object as? AVPlayerItem, item === self.player.currentItem else { return }
+            guard let self, let item = note.object as? AVPlayerItem,
+                  item === self.observedItem, item === self.player.currentItem else { return }
             self.failed(MobileFailure("audio-failed"), epoch: self.generation)
         })
         observers.append(center.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in

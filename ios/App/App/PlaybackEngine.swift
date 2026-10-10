@@ -80,7 +80,8 @@ final class PlaybackEngine {
         guard queue.indices.contains(target) else { return }
         generation += 1; let epoch = generation
         task?.cancel(); preload?.cancel(); stalledRecovery?.cancel(); networkResume = nil
-        player.pause(); statusObservation = nil; player.removeAllItems()
+        // Detach before removing items: their queued completion events belong to the old intent.
+        player.pause(); statusObservation = nil; observedItem = nil; player.removeAllItems()
         index = target; error = nil
         if !refresh { retried = false }
         let cached = !refresh && prepared?.index == target && Date().timeIntervalSince(prepared!.at) < 120 ? prepared?.item : nil
@@ -139,6 +140,7 @@ final class PlaybackEngine {
     }
     func stop(_ code: String? = nil) {
         generation += 1; task?.cancel(); discardPrepared(); stalledRecovery?.cancel(); networkResume = nil
+        statusObservation = nil; observedItem = nil
         intentToPlay = false; player.pause(); error = code; persist(); publish()
     }
     func invalidateProvider(_ provider: String) {

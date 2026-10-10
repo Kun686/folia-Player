@@ -71,3 +71,19 @@ ios:sync PASS，原生XCTest11项 PASS（native-deploy.xcresult）。当前部�
 不把首次错误未经证实归因于某个证书问题。legacy idevicescreenshot 服务不可用，因此没有此次真机截图证据。
 签名IPA仅保存在用户本地“移动端交付”目录，未上传到公开仓库；SHA256为
 021c414b16a82bf5c19efb7fbd1318ed85b46ccf13f30651208fcbe6bd085f7e。
+
+## 原生播放事件回归增量
+
+2026-10-10：补测移植新增的原生播放层，修复切歌／停止后旧 AVPlayerItem 通知仍被处理的问题。
+修复前，上一首延迟结束通知会跳过新选曲目；停止后的旧失败／结束通知会清除认证错误并推进队列。
+对应测试已分别复现失败。修复在切歌与停止时清除曲目监听归属，恢复播放时重新监听，
+停顿与失败通知也必须属于当前仍被监听的曲目。未修改前端、provider、播放解析规则或服务器部署。
+
+原生 XCTest **15 项 PASS**，包括全部既有用例和四个新增用例：旧结束通知隔离、停止状态保持、
+恢复播放的监听重建、不可播放地址重新解析后实际播放。地址恢复测试使用缺失文件与一秒静音 WAV，
+断言只解析两次且播放位置前进；没有 WebView 调用，也没有真实平台或远程 CDN。
+它证明原生错误恢复路径，不能替代真机 WebView 挂起、远程 URL 过期或 30 分钟锁屏验收。
+
+本地证据：.mobile-test-results/native-recovery-red.{log,xcresult}、native-stop-red.{log,xcresult}、
+native-recovery-green.{log,xcresult}。执行命令为有时限的 xcodebuild test，使用同一 App scheme 和
+iPhone 17 Pro / iOS 26.5 Simulator。此前服务器部署与手机安装仍对应 a367f22；本节是后续源码修复证据。
