@@ -2,7 +2,7 @@
 
 日期：2026-10-10。用户已明确批准固定依赖及验证后接入。
 mobile.7已接入独立双声道流式输出并安装到iPhone；保留的mobile.6旧包仍是AVQueuePlayer路线。
-实际安装包身份以BUILD_RECORD.json为准，不把后续源码测试当成旧包能力。
+当前 mobile.9 已包含原 Crossfade、设置与歌曲分析并安装到 iPhone；实际包身份以 BUILD_RECORD.json 为准。
 
 ## 当前接入结果
 
@@ -17,7 +17,7 @@ vendor 文件。100 项完整原生回归、受控 HTTP 队列及 7 项真机关
 认证隔离、取消、缓存清理及原分析有受控测试，iPad 模拟器完整 130 项原生回归通过。
 显式网络配置已补齐在线数据经真实解码队列／Crossfade／音频输出的受控测试，并修复拖动导致的重复分析下载。
 生产网络策略未变；真实平台／CDN 尚未验收，完整媒体缓存、完整 Automix 与动画事件仍未接完。
-这一变化尚未发布到 mobile.8，详见 AUTOMIX_PORT.md 的开发阶段记录。
+这些变化已随 mobile.9 安装；mobile.8 原包保留回退，详见 AUTOMIX_PORT.md 与 VALIDATION.md。
 
 复用已批准的AudioStreaming 1.4.5解码／网络实现、Apple音频图及现有Folia DSP，不新增依赖版本。
 Folia持有歌曲身份和队列版本，每个播放项使用独立解码器，只保留当前与下一项。

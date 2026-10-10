@@ -1,16 +1,21 @@
 # 真实服务与真机验收表
 
-当前候选为 0.7.16-mobile.7（build 7）。按用户最新要求，先保持原播放器和动效，支持本地导入与网易云／QQ；
+当前候选为 0.7.16-mobile.9（build 9）。按用户最新要求，先保持原播放器和动效，支持本地导入与网易云／QQ；
 本地使用不以域名、HTTPS 或同步服务为前提。服务端已执行项见 SERVER_VALIDATION.md，属于 mobile.1 的历史证据。
 本表的真机播放部分仍为待执行清单。测试日期、构建指纹、镜像 digest、设备型号／系统版本必须随结果记录。
 账号、Cookie、访问令牌、签名音频 URL 不进入证据文件。
 
 2026-10-10后续源码已接入获批的AudioStreaming 1.4.5与Ogg／Vorbis 0.1.2，
-使用当前／下一项独立解码器保持原队列删除语义；固定源码只有延迟输出和Package测试target适配。
+使用当前／下一项独立解码器保持原队列删除语义；固定源码适配限制在 AudioPlayer 和 Package 两个文件。
 完整Release原生回归89项通过；WAV、AAC/M4A Mono→双声道及原音效有实际PCM证据。
 mobile.7已安装启动，iPhone XS Max / iOS18.7.10关键原生测试6项通过；结果见BUILD_RECORD.json和VALIDATION.md，
 不代表真机30分钟锁屏、听感或歌词延迟验收。
 详见[AUDIO_OUTPUT_DECISION.md](AUDIO_OUTPUT_DECISION.md)。
+
+后续 mobile.9 已安装启动并回读 build 9；原 Crossfade 设置、本地完整／在线前缀分析已随包接入。
+130 项模拟器原生回归和 12 项真机专项通过，包含受控 HTTP 响应下的实际流式解码、分析、过渡与双声道输出。
+这些新证据仍不包含真实平台 App 在线链路、完整媒体缓存、完整 Automix 或长时间物理设备验收。
+历史服务与 UI 项不因本轮源码测试自动升级为当前版本的完整验收。
 
 ## 本地播放器与原有动效
 

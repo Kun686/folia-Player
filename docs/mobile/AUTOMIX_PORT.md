@@ -57,18 +57,18 @@
 | --- | --- |
 | 原规划与曲线计算 | PASS；Crossfade 原生队列测试已调用，完整 Automix 尚未接入 |
 | 两个解码器汇入同一混音与整体 DSP 输出 | PASS；mobile.8 源码已接入 App 默认原生队列 |
-| 按采样时钟调度原增益曲线 | PASS，执行层、Crossfade 原生队列与原设置已接入开发源码；未替换 mobile.8 |
+| 按采样时钟调度原增益曲线 | PASS，执行层、Crossfade 原生队列与原设置已随 mobile.9 安装 |
 | 频带交接、回声、伸缩 | NOT_IMPLEMENTED |
-| 本地 profile 获取与分析缓存 | PASS，原分析无模型分支、原生静音边界接线；仅开发源码，见文末 |
+| 本地 profile 获取与分析缓存 | PASS，原分析无模型分支、原生静音边界接线；已随 mobile.9 安装，见文末 |
 | 在线 profile（关闭媒体缓存时） | 已接入原 1.5MiB 前缀策略；受控传输、分析、真实解码队列及输出已通过，真实平台／CDN 未验收，见文末 |
 | 完整媒体缓存、Beat This! / htdemucs 模型与表演手势 | NOT_IMPLEMENTED |
-| Crossfade 队列、暂停、拖动、手动选曲与尾曲清理 | PASS，原生测试及设置接线；默认关闭，尚未生成新交付包 |
-| 原开关、模式、时长设置 | PASS，原面板／store／桥接／原生持久化；开发源码 |
-| 分析证据、完整 Automix、动画事件接线 | NOT_IMPLEMENTED |
+| Crossfade 队列、暂停、拖动、手动选曲与尾曲清理 | PASS，原生测试及设置接线；默认关闭，已随 mobile.9 安装 |
+| 原开关、模式、时长设置 | PASS，原面板／store／桥接／原生持久化；已随 mobile.9 安装 |
+| 逐路实时分析、完整 Automix、动画事件接线 | NOT_IMPLEMENTED |
 | 真机连续混音、听感、功耗与歌词时序验收 | NOT_RUN |
 
 下一步补完整媒体缓存、在线链路验收与完整 Automix。mobile.7 每个播放项独立处理音效并输出；mobile.8 已改为共用整体音效和最终音量，
-但尚未进行音乐性过渡，所以不能据此宣称 Automix 等价。
+mobile.9 已增加原 Crossfade，但尚不具备完整 Automix 的音乐性过渡，不能据此宣称 Automix 等价。
 原版 `connectStemBus` 的软限幅仅用于分离音轨的过渡总线，普通 crossfade 不经过它；
 后续按原分支接入，不把限幅永久加到单曲或普通淡化路径。
 

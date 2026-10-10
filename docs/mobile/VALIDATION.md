@@ -1,6 +1,6 @@
 # 移动候选验证记录
 
-## mobile.9 源码验证（准备安装）
+## mobile.9：原 Crossfade、设置与歌曲分析（当前开发候选）
 
 本轮候选包含原 Crossfade 队列、原过渡设置、本地完整／在线前缀分析与启动延迟修正；
 默认仍关闭过渡，完整 Automix 未完成。源代码增加可选网络配置以验证流式解码与分析的完整链路，
@@ -19,9 +19,28 @@
 
 下列 mobile.8 及之前记录保留其历史验证范围。安装包身份仍以 BUILD_RECORD.json 为准。
 
+2026-10-11 已完成 clean Release 开发签名构建、安装与启动，iPhone 回读 build 9。
+源码提交 `32fd1a4a708118a9cf05b2e564050bed32d87db3`，295 个输入文件，指纹
+`888524df32249442af603a1f48ad011cf7d90a5cb5273cd1fd1f7e30f00b8277`。
+安装包 `Folia-0.7.16-mobile.9-888524df-development.ipa`，7,502,788 字节，SHA256
+`9f003ec73b65b0a1d099bbdb38b375c33f761950b37e75950ec531cd452e36d5`。
+App 普通文件合计 15,553,121 字节，比 mobile.8 增加 424,318 字节；IPA 增加 148,082 字节，
+包含代码、资源、签名与归档元数据变化，不作为依赖单独增量结论。未新增依赖，mobile.8 包哈希复核未变。
+
+- `mobile9-sync.log`、`mobile9-device-build.log`：资源构建／同步和干净 Release 签名构建通过。
+  102 个前端／原生 JS 资源及两份许可证逐字节核对；版本／提交／仓库身份一致，无 XCTest 插件或链接。
+- `mobile9-package-check.json`：严格签名、目标设备 provisioning、源码文件与 IPA 全部内容核对通过。
+  首次 ditto 归档包含额外 AppleDouble 元数据条目，清单检查拒绝；改为只归档已签名普通文件后通过，
+  签名 App 本体不变，原失败包仅保留在忽略的证据目录。
+- `mobile9-device-install.json`、`mobile9-device-launch.json`、`mobile9-device-app.json`：安装、启动及 build 9 回读成功。
+- `BUILD_RECORD.json` 与本机 `移动端交付/Folia-mobile9-build.json`、`Folia-mobile9-source.json` 对应该安装包；
+  mobile.8 IPA 和元数据保留。安装启动不等于完整界面、物理听感或真实平台验收。
+- 源码 [CI 38078062107](https://github.com/Kun686/folia-Player/actions/runs/38078062107) 通过：vendor 完整性、
+  锁定依赖安装、TypeScript、移动逻辑及移动资源构建。
+
 ## 先前开发源码：在线歌曲前缀分析
 
-本阶段未发布新 IPA；个人 iPhone 仍为 mobile.8。沿用原版关闭媒体缓存时的策略，在线分析仅请求
+当时未发布新 IPA；个人 iPhone 为 mobile.8。沿用原版关闭媒体缓存时的策略，在线分析仅请求
 当前／待播地址的前 1,572,864 字节，要求 206，拒绝完整响应；原分析得到 `partial: true`，不推测未读尾部。
 歌曲来源标识参与缓存键，临时播放 URL 不落盘；退出该平台后取消分析并清理其记录。
 
@@ -39,7 +58,7 @@
 
 ## 先前开发源码：Crossfade、原设置与本地歌曲分析
 
-本阶段没有发布新 IPA，当前个人 iPhone 仍为下述 mobile.8。开发源码已修正外部解码输出的 TimePitch
+当时没有发布新 IPA，个人 iPhone 为下述 mobile.8。开发源码已修正外部解码输出的 TimePitch
 启动延迟和末尾丢帧，并将原 Crossfade 规则、原设置面板／store 接入原生队列；默认仍关闭。
 本地导入歌曲现可通过原版无模型分析得到首尾静音边界，进入原生 Crossfade；具备版本缓存和任务取消。
 当时在线分析、完整 Automix 与原过渡动画接线未完成；后续前缀分析进展见上节。
@@ -53,7 +72,7 @@
 
 完整证据、失败修正与尚未实现的边界见 [AUTOMIX_PORT.md](AUTOMIX_PORT.md) 的开发阶段记录。
 
-## mobile.8：共享输出接入（当前开发候选）
+## mobile.8：共享输出接入（上一版开发候选）
 
 原生队列已接到同一个系统混音／整体音效输出。待播只缓冲；删除、自动切歌、暂停、拖动、配置变化
 与资源释放均保持原队列语义。未新增依赖或改变主题、动效、音效参数。
