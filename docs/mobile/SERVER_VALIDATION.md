@@ -56,3 +56,21 @@ WebView 挂起期间下一首解析与 URL 失效恢复、耳机／蓝牙／网�
 
 GitHub Mobile checks 已通过： https://github.com/Kun686/folia-Player/actions/runs/38040181997 。
 最终服务器构建输入已与 BUILD_RECORD.json 按 SHA256 比对一致；两个测试账户临时文件剩余数量为 0。
+
+## 内部重启与回滚材料验证
+
+2026-10-10 09:36 UTC：仅对 folia-mobile 的 backend、netease-api、qq-api 执行一次 compose restart。
+当前运行源码仍为 a367f22；未更新配置、镜像版本、域名或其他应用。
+
+- 重启后容器 ID、镜像 ID、端口绑定不变；后台网关健康状态恢复为 healthy。
+- 认证 /mobile/health 返回 protocol=1、netease/qq；无令牌访问仍为401。
+- QQ 命名卷挂载与持久文件字节摘要不变，shared/mobile.env 摘要不变。
+- 首次五秒接口探针失败；稍后改用十秒超时、手动处理重定向的只读探针，两平台内部根路径均返回200。
+  没有再次重启；未确定第一次失败的具体原因，根路径响应不替代真实账户接口验收。
+- 现有两个站点均返回200，原有 worker 保持运行，其启动时间早于此次 Folia 重启。
+- 上一版 Compose 配置校验通过。发现旧后端镜像不在 Docker 镜像列表后，校验
+  before-final-images.tar.gz 的已存 SHA256 并执行 docker image load；旧配置引用的三个精确镜像 ID
+  随后均可查询。加载归档前后，运行容器 ID、镜像与启动时间不变，没有切换到旧版本。
+
+脱敏证据位于服务器 /opt/folia-player/evidence/20261010-restart-validation.json。
+真实账户会话跨重启、实际运行版本回滚、证书更新仍为 NOT_RUN；本次验证不能把这些项目改为 PASS。
