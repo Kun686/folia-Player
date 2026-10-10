@@ -1,6 +1,6 @@
 # 移动候选验证记录
 
-## mobile.10 源码：原版音频缓存
+## mobile.10：原版音频缓存（当前开发候选）
 
 沿用原开关（默认关闭）、5GB 默认上限、0 无上限及 LRU。原生自然 EOF 或完成交叉淡化后缓存，
 手动跳过不缓存；启用时原过渡分析可以提前下载完整音频。完整缓存优先于网关解析，缓存与
@@ -24,7 +24,19 @@
 - 边界：下载／HTTP 用范围受限的 URLProtocol 样本，实际走 URLSessionDownloadTask 和原生解码，
   不等于真实 QQ／网易 API、CDN 或 TLS 验收。音频之外的封面／歌词缓存移植、完整 Automix、长时间锁屏、
   物理耳机／蓝牙、歌词精度与性能仍未完成。详见 [MEDIA_CACHE.md](MEDIA_CACHE.md)。
-- 本节为源码验证；是否已安装以 BUILD_RECORD.json 与后续安装记录为准。
+- 2026-10-11 已完成干净 Release 开发签名构建、安装和启动，iPhone 回读 build 10。
+  源码 `6bfd8ca9e1588e0d5af0d1d42b00442176eb748d`，309 个输入，指纹
+  `369906aed00305f0834fa37c74ac9fd2c3b17cfe706329b5d67fa31e4bb38723`。
+  包 `Folia-0.7.16-mobile.10-369906ae-development.ipa`，7,588,534 字节，SHA256
+  `090b8b16a9ab814db977210e3c5e5f971b54dfcf641e93f69bd11130b59ea60a`。
+  App 普通文件 15,828,781 字节，比 mobile.9 增加 275,660；IPA 增加 85,746 字节，包含代码、资源与签名变化。
+  `mobile10-package-check.json` 核对签名、设备授权、102 个资源、全部源码输入与 ZIP 字节一致；不含 XCTest。
+  校验脚本最初错误假设 profile 必须精确授权及前端版本等于营销版本；实际为通配符 profile，
+  App 签名 entitlement 精确为个人 Bundle ID，前端身份为 0.7.16-mobile.10，修正核对依据后全部通过。
+  `mobile10-device-{install,launch,app}.json` 为设备证据；BUILD_RECORD.json 与交付目录两份 sidecar 绑定源码。
+  mobile.9 IPA 哈希复核未变，保留用于回退。
+- [源码 CI 38081687736](https://github.com/Kun686/folia-Player/actions/runs/38081687736) PASS：
+  vendor 完整性、固定依赖安装、TypeScript、移动逻辑、前端构建。后续文档提交不改变已安装 App 的源码提交。
 
 ## mobile.9：原 Crossfade、设置与歌曲分析（已安装的上一候选）
 
