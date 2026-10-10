@@ -43,7 +43,10 @@ describe('native original track profiles', () => {
     }
     const fixture = { version: 1, sampleRate, profileVersion, rows };
     if (process.env.FOLIA_PROFILE_REFERENCE === '1') writeFileSync(fixtureURL, JSON.stringify(fixture) + '\n');
-    expect(JSON.parse(readFileSync(fixtureURL, 'utf8'))).toEqual(fixture);
+    // Linux/macOS results differ by a few final bits. Keep every field and integer exact, with 12 decimal places for floats.
+    const fixtureMatchers = JSON.parse(JSON.stringify(fixture), (_key, value) =>
+      typeof value === 'number' && !Number.isInteger(value) ? expect.closeTo(value, 12) : value);
+    expect(JSON.parse(readFileSync(fixtureURL, 'utf8'))).toEqual(fixtureMatchers);
     expect(rows.some(row => row.expected?.bpm !== null && row.expected?.bpm !== undefined)).toBe(true);
     expect(rows.find(row => row.name === 'edges' && row.partial)?.expected?.leadOut).toBeNull();
   });
