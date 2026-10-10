@@ -8,6 +8,7 @@ final class PlaybackEngine {
     let player = AVQueuePlayer()
     // Keep the AVQueuePlayer path as the verified fallback while the stereo output is integrated.
     let usesStereoOutput: Bool
+    var streamOutput: StreamMixOutput?
     var stream: StreamOccurrence?
     var preparedStream: (index: Int, entry: StreamOccurrence, at: Date)?
     var streamTimer: DispatchSourceTimer?
@@ -187,9 +188,9 @@ final class PlaybackEngine {
     }
     func finiteTime(_ time: CMTime) -> Double { let value = time.seconds; return value.isFinite ? max(0, value) : 0 }
     var hasCurrentOutput: Bool { usesStereoOutput ? stream != nil : player.currentItem != nil }
-    var outputIsPlaying: Bool { usesStereoOutput ? stream?.playing == true : player.timeControlStatus == .playing }
+    var outputIsPlaying: Bool { usesStereoOutput ? stream?.playing == true && streamOutput?.running == true : player.timeControlStatus == .playing }
     var playbackPosition: Double { usesStereoOutput ? (stream?.position ?? restoredPosition) : (player.currentItem == nil ? restoredPosition : finiteTime(player.currentTime())) }
-    func pauseOutput() { if usesStereoOutput { stream?.pause() } else { player.pause() } }
+    func pauseOutput() { if usesStereoOutput { stream?.pause(); streamOutput?.pause() } else { player.pause() } }
     func clearOutput() {
         if usesStereoOutput { stream?.dispose(); stream = nil; meter = nil }
         else { player.removeAllItems() }
@@ -237,6 +238,7 @@ final class PlaybackEngine {
     deinit {
         task?.cancel(); preload?.cancel(); stalledRecovery?.cancel(); network.cancel()
         streamTimer?.cancel(); stream?.dispose(); preparedStream?.entry.dispose()
+        streamOutput?.close()
         if let timeObserver { player.removeTimeObserver(timeObserver) }
         observers.forEach { NotificationCenter.default.removeObserver($0) }
         remoteTargets.forEach { $0.0.removeTarget($0.1) }

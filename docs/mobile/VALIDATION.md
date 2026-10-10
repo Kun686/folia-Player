@@ -1,5 +1,19 @@
 # 移动候选验证记录
 
+## mobile.8：共享输出接入（最终签名安装准备中）
+
+原生队列已接到同一个系统混音／整体音效输出。待播只缓冲；删除、自动切歌、暂停、拖动、配置变化
+与资源释放均保持原队列语义。未新增依赖或改变主题、动效、音效参数。
+
+- `shared-queue-first`：7 项专项通过。
+- `shared-queue-full`：iPad / iOS26.5 / Release 完整 100 项通过，43.681 秒。
+- `shared-queue-http`：1 项受控 HTTP Range 队列测试通过；边下载边播放、取消缓冲和自动切歌；服务已关闭。
+- `shared-queue-device`：iPhone XS Max / iOS18.7.10 / Release 7 项关键测试通过，8.906 秒。
+
+以上证据均位于 `.mobile-test-results/`，保留 `.log` 和 `.xcresult`。配置变化与中断采用通知注入，
+不代表真实蓝牙／耳机操作通过。完整 Automix、真实 QQ／网易 App 在线验收、30 分钟锁屏、性能与歌词
+精度仍未完成。详见 [AUTOMIX_PORT.md](AUTOMIX_PORT.md)。最终签名安装结果随后记录；BUILD_RECORD.json 暂仍指向 mobile.7。
+
 ## mobile.7 之后：原版过渡规划（仅源码）
 
 原版 Automix／crossfade 规则已能在系统 JavaScriptCore 中执行，无 WKWebView 参与。

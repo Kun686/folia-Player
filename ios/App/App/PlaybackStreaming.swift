@@ -1,6 +1,6 @@
 import UIKit
 
-// PlaybackStreaming.swift — keep Folia's identity queue while each stereo stream owns cancellable buffers.
+// PlaybackStreaming.swift — Folia's identity queue, independently cancellable buffers and one shared audio output.
 extension PlaybackEngine {
     func selectStream(_ target: Int, refresh: Bool, position: Double) {
         guard let song = queue.indices.contains(target) ? queue[target] : (target == -1 ? detachedSong : nil) else { return }
@@ -23,9 +23,22 @@ extension PlaybackEngine {
             }
             defer { if background != .invalid { UIApplication.shared.endBackgroundTask(background) } }
             do {
+                let output: StreamMixOutput
+                if let existing = self.streamOutput { output = existing }
+                else { output = try await StreamMixOutput.make() }
+                guard epoch == self.generation, !Task.isCancelled else { cached?.dispose(); return }
+                self.streamOutput = output
+                output.configurationChanged = { [weak self, weak output] in
+                    guard let self, let output, self.streamOutput === output else { return }
+                    if self.intentToPlay && self.stream != nil {
+                        do { try self.activate(); try output.start() }
+                        catch { self.stop("audio-session") }
+                    }
+                    self.publish()
+                }
                 let entry: StreamOccurrence
                 if let cached { entry = cached }
-                else { entry = try await StreamOccurrence.prepare(url: self.resolve(song), position: position) }
+                else { entry = try await StreamOccurrence.prepare(url: self.resolve(song), position: position, output: output) }
                 guard epoch == self.generation, !Task.isCancelled else { entry.dispose(); return }
                 self.stream = entry; self.meter = entry.meter
                 entry.apply(self.audioSettings)
@@ -40,16 +53,15 @@ extension PlaybackEngine {
     }
 
     func prefetchStream() {
-        guard stream != nil, let next = nextIndex(automatic: true), let song = queue.indices.contains(next) ? queue[next] : detachedSong else { return }
+        guard stream != nil, let output = streamOutput, let next = nextIndex(automatic: true), let song = queue.indices.contains(next) ? queue[next] : detachedSong else { return }
         preload?.cancel()
         let epoch = generation
         preload = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                let entry = try await StreamOccurrence.prepare(url: self.resolve(song))
+                let entry = try await StreamOccurrence.prepare(url: self.resolve(song), output: output)
                 guard epoch == self.generation, !Task.isCancelled else { entry.dispose(); return }
                 self.preparedStream?.entry.dispose()
-                entry.apply(self.audioSettings)
                 self.preparedStream = (next, entry, Date())
             } catch { /* Active audio is preserved. Selecting this identity resolves it afresh. */ }
         }

@@ -28,6 +28,9 @@ import AVFoundation
         try tested.setQueue([first, removedSong, next], at: 0)
         try await waitForStream { tested.outputIsPlaying && (tested.preparedStream?.entry.audio.bufferedDuration ?? 0) > 0.5 }
         let current = try XCTUnwrap(tested.stream)
+        let sharedOutput = try XCTUnwrap(tested.streamOutput)
+        XCTAssertTrue(current.meter === tested.preparedStream?.entry.meter)
+        XCTAssertEqual(sharedOutput.attachedCount, 1, "A prepared deck must not join the hardware graph")
         let before = tested.playbackPosition
         weak var removed = tested.preparedStream?.entry
         let oldGeneration = tested.generation
@@ -40,6 +43,9 @@ import AVFoundation
         try tested.command("seek", position: 19.8)
         try await waitForStream { tested.index == 1 && tested.outputIsPlaying }
         XCTAssertEqual(tested.currentSong?["name"] as? String, "next")
+        XCTAssertTrue(tested.streamOutput === sharedOutput)
+        XCTAssertTrue(tested.stream?.meter === current.meter, "Queue changes reuse one overall effect chain")
+        XCTAssertEqual(sharedOutput.attachedCount, 1)
         XCTAssertNil(tested.error)
     }
 
@@ -90,8 +96,9 @@ import AVFoundation
         try tested.setQueue([song("qq", "mono")], at: 0)
         try await waitForStream { tested.outputIsPlaying && tested.meter?.effects.status.available == true }
         let entry = try XCTUnwrap(tested.stream), measured = OutputMeasurement()
-        entry.audio.frameFiltering.add(entry: "mute-output") { buffer, _ in measured.consume(buffer) }
-        defer { entry.audio.frameFiltering.removeAll() }
+        let output = try XCTUnwrap(tested.streamOutput)
+        output.engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, _ in measured.consume(buffer) }
+        defer { output.engine.mainMixerNode.removeTap(onBus: 0) }
         try await waitForStream { measured.read().rms > 0.005 }
         settings.isMuted = true; _ = try tested.setAudioSettings(settings.dictionary)
         try await Task.sleep(nanoseconds: 200_000_000)
@@ -154,6 +161,7 @@ import AVFoundation
         XCTAssertTrue(tested.stream === current); XCTAssertTrue(tested.outputIsPlaying)
         try tested.command("pause"); try tested.command("seek", position: 10)
         XCTAssertFalse(tested.outputIsPlaying); XCTAssertEqual(tested.playbackPosition, 10, accuracy: 0.05)
+        XCTAssertFalse(tested.streamOutput?.running ?? true, "Pause must stop the shared output, including noise/reverb")
         try tested.command("play")
         try await waitForStream { tested.outputIsPlaying && tested.playbackPosition > 10.1 }
         NotificationCenter.default.post(name: AVAudioSession.interruptionNotification, object: nil,
@@ -165,6 +173,37 @@ import AVFoundation
         try await waitForStream { tested.outputIsPlaying }
         tested.invalidateProvider("qq")
         XCTAssertNil(tested.stream); XCTAssertNil(tested.currentSong); XCTAssertFalse(tested.intentToPlay)
+        XCTAssertEqual(tested.streamOutput?.attachedCount, 0)
+        XCTAssertFalse(tested.streamOutput?.running ?? true)
+    }
+
+    func testSharedQueueRebuildsHardwareRouteWithoutReplacingIdentityOrResumingPause() async throws {
+        let source = try streamingTone(); defer { try? FileManager.default.removeItem(at: source) }
+        let tested = stereoEngine(AudioFixtureGateway(url: source)); defer { tested.stop(); tested.clearOutput() }
+        try tested.setQueue([song("qq", "route")], at: 0)
+        try await waitForStream { tested.outputIsPlaying && tested.playbackPosition > 0.2 }
+        let entry = try XCTUnwrap(tested.stream), output = try XCTUnwrap(tested.streamOutput)
+        let before = tested.playbackPosition, epoch = tested.generation
+        output.engine.pause()
+        NotificationCenter.default.post(name: .AVAudioEngineConfigurationChange, object: output.engine)
+        try await waitForStream { tested.outputIsPlaying && tested.playbackPosition > before }
+        XCTAssertTrue(tested.stream === entry); XCTAssertEqual(tested.generation, epoch)
+        try tested.command("pause")
+        let paused = tested.playbackPosition
+        NotificationCenter.default.post(name: .AVAudioEngineConfigurationChange, object: output.engine)
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertFalse(tested.outputIsPlaying); XCTAssertFalse(output.running)
+        XCTAssertEqual(tested.playbackPosition, paused, accuracy: 0.005)
+    }
+
+    func testSharedQueueGraphAndDecodersReleaseWithPlaybackOwner() async throws {
+        let source = try streamingTone(); defer { try? FileManager.default.removeItem(at: source) }
+        var tested: PlaybackEngine? = stereoEngine(AudioFixtureGateway(url: source))
+        try tested!.setQueue([song("qq", "current"), song("netease", "pending")], at: 0)
+        try await waitForStream { tested?.outputIsPlaying == true && tested?.preparedStream != nil }
+        weak var owner = tested, output = tested?.streamOutput, current = tested?.stream, pending = tested?.preparedStream?.entry
+        tested = nil
+        try await waitForStream { owner == nil && output == nil && current == nil && pending == nil }
     }
 
     #if FOLIA_AUDIO_OUTPUT_PROBE

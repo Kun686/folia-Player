@@ -1,11 +1,12 @@
 import AVFoundation
 import AudioStreaming
 
-// StreamOccurrence.swift — one cancellable decoder/output per native queue occurrence; URLs never identify songs.
+// StreamOccurrence.swift — one cancellable decoder per native queue occurrence; URLs never identify songs.
 final class StreamOccurrence: AudioPlayerDelegate {
     let audio: AudioPlayer
     let node: AVAudioUnit
     let unit: AudioEffectUnit
+    private let output: StreamMixOutput?
     var meter: AudioMeter { unit.meter }
     var changed: (() -> Void)?
     var ended: (() -> Void)?
@@ -19,18 +20,19 @@ final class StreamOccurrence: AudioPlayerDelegate {
     var duration: Double { Self.finite(audio.duration) }
     var playing: Bool { started && !disposed && !hasEnded && audio.state == .playing }
 
-    private init(node: AVAudioUnit, unit: AudioEffectUnit) {
-        self.node = node; self.unit = unit
+    private init(node: AVAudioUnit, unit: AudioEffectUnit, output: StreamMixOutput?) {
+        self.node = node; self.unit = unit; self.output = output
         audio = AudioPlayer(configuration: AudioPlayerConfiguration(flushQueueOnSeek: false, enableLogs: false),
-                            automaticallyStartsOutput: false)
-        audio.attach(node: node)
+                            automaticallyStartsOutput: false, externallyRendered: output != nil)
+        if output == nil { audio.attach(node: node) }
         audio.delegate = self
     }
 
-    @MainActor static func prepare(url: URL, position: Double = 0) async throws -> StreamOccurrence {
-        let node = try await AudioEffectUnit.makeNode()
+    @MainActor static func prepare(url: URL, position: Double = 0, output: StreamMixOutput? = nil) async throws -> StreamOccurrence {
+        let node: AVAudioUnit
+        if let output { node = output.node } else { node = try await AudioEffectUnit.makeNode() }
         guard let unit = node.auAudioUnit as? AudioEffectUnit else { throw MobileFailure("audio-failed") }
-        let entry = StreamOccurrence(node: node, unit: unit)
+        let entry = StreamOccurrence(node: node, unit: unit, output: output)
         entry.audio.play(url: url)
         do {
             try await entry.waitForPCM()
@@ -56,11 +58,14 @@ final class StreamOccurrence: AudioPlayerDelegate {
 
     func play() throws {
         guard !disposed, !hasFailed, !hasEnded else { throw MobileFailure("audio-failed") }
+        try output?.attach(audio)
         if started { audio.resume() }
         else {
             guard audio.startPreparedPlayback() else { throw MobileFailure("audio-failed") }
             started = true
         }
+        do { try output?.start() }
+        catch { audio.pause(); throw error }
     }
     func pause() { if started && !disposed { audio.pause() } }
     func seek(to position: Double) throws {
@@ -70,6 +75,7 @@ final class StreamOccurrence: AudioPlayerDelegate {
         audio.seek(to: position)
     }
     func apply(_ settings: NativeAudioSettings) {
+        if let output { output.apply(settings); return }
         // Upstream muted silences its INPUT, before noise/reverb. Master gain must silence all effects.
         audio.volume = settings.isMuted ? 0 : Float(settings.volume)
         meter.setOutputGain(volume: settings.volume, muted: settings.isMuted)
@@ -79,9 +85,10 @@ final class StreamOccurrence: AudioPlayerDelegate {
     func clearEvents() { changed = nil; ended = nil; failed = nil }
     func dispose() {
         guard !disposed else { return }
-        disposed = true; clearEvents(); audio.delegate = nil; audio.stop()
+        disposed = true; clearEvents(); audio.delegate = nil
+        output?.remove(audio); audio.stop()
     }
-    deinit { audio.delegate = nil; audio.stop() }
+    deinit { audio.delegate = nil; output?.remove(audio); audio.stop() }
     private static func finite(_ value: Double) -> Double { value.isFinite ? max(0, value) : 0 }
 
     // AudioStreaming delivers all delegate events on main; callers never retain the decoder's source queue.
