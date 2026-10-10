@@ -1,7 +1,8 @@
 # 移动候选验证记录
 
-mobile.5之后的附加音效模块验证单独记录在 [EFFECT_PARITY.md](EFFECT_PARITY.md)：新增21项原生测试通过，
-包含固定WebKit过采样、压缩器适配、噪声／混响及tap格式探测；尚未接入播放链，以下mobile.5证据和交付指纹保持对应原安装包。
+mobile.5之后的附加音效开发单独记录在 [EFFECT_PARITY.md](EFFECT_PARITY.md)：30项相关原生测试通过，
+包含固定WebKit过采样、压缩器、噪声／混响、组合链、线程交接及tap格式探测；Debug全部70项、Release相关8项回归通过。
+尚未接入播放链，以下mobile.5证据和交付指纹保持对应原安装包。
 
 日期：2026-10-10。当前候选 **0.7.16-mobile.5 / build 5**，基于 mobile-main 的 4bfa668 继续移植。
 当前源码指纹见 BUILD_RECORD.json。上游基线 d824c0b854e54d5411cb072092999823e9bd7071。

@@ -18,10 +18,12 @@
 | WebAudioCompressor / AudioPunch | 固定WebKit DynamicsCompressorKernel + effectNodes.ts | 6ms前瞻、32帧包络、双声道联动、原版punch参数与增益；静态及动态调节对照通过 |
 | AudioNoise | noiseBranch.ts / effectSources.ts | 原版3秒双声道循环、2600Hz/Q0.5带通、0.12秒增益渐变；循环边界及开关对照通过 |
 | AudioConvolution / AudioReverb | reverbBranch.ts / effectSources.ts + Accelerate | 原版2.2秒双声道脉冲、0.08秒湿干增益渐变；完整尾音、直接卷积对照及分段边界通过 |
+| AudioEffectGraph / AudioEffectProgram | effectChain.ts / audioPresets.ts | 原顺序组合截止滤波、4倍过采样饱和、低位深、抖晃、宽度、压缩、混响和噪声；设置预建、跳转清除历史 |
+| AudioEffectController | 原生控制／渲染交接 | 快速调参合并、旧采样格式请求失效、准备失败反馈；渲染侧只尝试锁，准备与大对象回收在串行控制线程 |
 
 渲染用历史缓冲预分配；参数和DSP历史由单一渲染调用方拥有。
-曲线／随机素材应在控制线程生成。后续整合需要提供可靠的控制线程交接与回收，
-不能直接让界面线程并发修改这些模块，也不能在实时音频回调里生成素材。
+曲线／随机素材在控制线程生成。AudioEffectController已实现控制／渲染交接与回收，
+目前仍需接入真实音频tap；不能直接让界面线程并发修改这些模块。
 波形整形的升／降采样即使曲线为空也保留，与原版相同，基础采样率延迟为192帧。
 分块长度不增加额外延迟，回调切分不会改变滤波历史。
 
@@ -31,6 +33,12 @@
 所有FFT设置和缓冲在构造时分配；分支渲染不生成随机素材或分配FFT缓冲。
 素材和卷积对象由控制侧预建并保留至渲染侧退役，接入时必须实现控制侧回收，不能让大对象在回调中析构。
 噪声／混响关闭后保留800ms的渲染帧数再退役，快速重新开启保留相位／尾音；暂停期间的墙钟退役由后续控制层处理。
+
+控制器用格式代次和设置版本丢弃旧准备结果；ready/active/retired槽位有固定上限，另有一个正在构造的候选。
+切换时保留活跃滤波历史，当前program持有淡出中的分支资源。回收由控制线程执行，无常驻轮询计时器。
+关闭效果后，即使淡出已完成，最后一个program仍可能持有分支资源至下次设置更新或unprepare；
+已验证这两个出口都可安全释放资源，但尚未实现暂停／长期关闭时的主动回收。
+正值调参目前仍会预建新的随机素材／卷积候选，活跃分支继续使用旧素材以保持相位和尾音；准备成本仍待优化。
 
 ## 已查明的WebKit差异
 
@@ -44,9 +52,21 @@
 另有原生回归断言两个相同声道在开关和重启调制后始终相等。
 **不能声称与该WebKit立体声缺陷逐采样相同。** 旧立体声参考和失败日志保留在本地证据目录。
 
+截止滤波也复现同类问题：相同双声道输入在截止频率自动化期间产生最大0.00939790的左右差值；
+独立检查饱和、压缩器没有该差值。固定BiquadDSPKernel源码显示逐声道读取共享AudioParam。
+组合参考继续运行原版effectChain和预设，仅把两个截止滤波节点拆成显式单声道节点后合成立体声；
+抖晃在组合参考中设为0，另外的单声道抖晃参考和双声道联动测试负责覆盖它。
+这20组组合参考覆盖五种采样率及flat/lofi/hall/bass起点，并在播放中切换lofi、关闭、vocal。
+它证明其余组合链与原版规则一致，不代表包含上游缺陷的原始立体声图逐样本等价。
+
 另一个差异来自渐变收尾：Web Audio在128帧边界检查接近目标的程度，
 约e^-10的绝对／相对剩余值或十个时间常数后收敛；更换目标前也需结算旧渐变。
 原生补齐该行为，避免小幅残余LFO继续改变延迟。没有提高测试误差阈值。
+
+音频速率渐变使用Float32四样本递推，45组独立GainNode参考以2 ULP容差验证。
+截止滤波自动化时反馈历史必须舍入到Float32；常量系数时在128帧边界保存Float32输出历史。
+此前Double反馈造成约7e-6的滤波误差，被低位深放大到约1e-4；修正后组合测试通过原定阈值。
+分阶段断言可定位误差，Release优化编译也通过；没有扩大PCM或能量阈值。
 
 压缩器的threshold/knee/ratio为128帧更新一次的k-rate参数。逐量子记录原版参数后查明：
 Float32融合乘加以及新事件起点的`target + Float32(value - target)`舍入必须保留。
@@ -84,6 +104,12 @@ Float32融合乘加以及新事件起点的`target + Float32(value - target)`舍
 | 分段卷积与混响 | PASS | reverb-native.{log,xcresult}；4项；含全尾音、直接求和独立参考、DC/Nyquist、无额外延迟、重置 |
 | 噪声／混响最终回归 | PASS | effect-branches-final.{log,xcresult}；4项；补充单声道拒绝和非有限／极大输入检查 |
 | TypeScript | PASS | effect-branches-typecheck.log |
+| 原版组合链／逐阶段参考生成 | PASS | effect-graph-stage-reference.log；EffectGraphReference.json；20组，含一组逐阶段采样 |
+| WebKit多声道截止滤波诊断 | 已复现上游差异 | effect-channel-diagnostic.{log,json}；原始立体声参考另存EffectGraphRawStereoWebKitReference.json |
+| 音频速率渐变参考 | PASS | EffectRampReference.json；45组；五采样率、三时间常数、频率及增益目标切换 |
+| 原生完整回归（Debug） | PASS | effect-control-final.{log,xcresult}；70项，其中30项音效模块／组合／控制器／tap格式测试 |
+| 优化编译下组合链与线程交接（Release） | PASS | effect-control-release.{log,xcresult}；8项；没有DEBUG阶段探针 |
+| 最新TypeScript | PASS | effect-control-final-typecheck.log |
 | 固定源码哈希与App内完整许可证 | PASS | 按WEBKIT_DSP_SOURCES.json逐项校验；Debug模拟器包与源码许可证逐字节一致 |
 | 实际音效链、真机听感／性能、二进制增量 | NOT_RUN | 未接入播放器；不是音效交付验收 |
 
@@ -105,7 +131,7 @@ Float32融合乘加以及新事件起点的`target + Float32(value - target)`舍
 已适配UpSampler、DownSampler、WaveShaperDSPKernel、DynamicsCompressorKernel；完整许可证保留在Swift源文件及
 App资源WEBKIT_DSP_LICENSES.txt中。
 
-目前累计21项音效模块／格式探测原生测试通过。仍需完成控制线程交接、单声道立体声输出方案、
+目前累计30项音效模块／组合／控制器／格式探测原生测试通过。仍需完成单声道立体声输出方案、
 当前和预加载曲目的完整效果链、后台与暂停时的分支释放、持久化与复合预设接入。
 单声道输入需要验证真实原生tap格式及显式立体声处理能力，不能默认具备双声道噪声／混响输出。
 后续交付时更新构建指纹并测量设备二进制增量；本记录不替代整体移植验收表。

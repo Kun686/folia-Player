@@ -1,0 +1,127 @@
+import Foundation
+import AVFoundation
+
+// AudioEffectController.swift — bounded control/render handoff; slow preparation and retirement never run in process().
+final class AudioEffectController {
+    struct Status {
+        let requested: UInt64, prepared: UInt64, applied: UInt64
+        let available: Bool
+        let error: String?
+    }
+    private struct Request {
+        let generation: UInt64, revision: UInt64, rate: Double, values: [String: Double], needsGraph: Bool
+    }
+    private final class Update {
+        let request: Request, program: AudioEffectProgram, graph: AudioEffectGraph?
+        init(request: Request, program: AudioEffectProgram, graph: AudioEffectGraph?) {
+            self.request = request; self.program = program; self.graph = graph
+        }
+    }
+    private let lock = NSLock()
+    private let control = DispatchQueue(label: "app.folia.effects.control", qos: .userInitiated)
+    private let build: (Double, [String: Double]) -> AudioEffectProgram?
+    private var values = NativeEqualizerSettings.neutral
+    private var rate: Double?
+    private var generation: UInt64 = 0, revision: UInt64 = 0, built: UInt64 = 0, applied: UInt64 = 0
+    private var activeGeneration: UInt64?
+    private var scheduled = false
+    private var error: String?
+    private var ready: Update?, active: Update?, retired: Update?
+    // prepare/unprepare/process are serialized by the tap host. Only process mutates a live graph.
+    private var renderGraph: AudioEffectGraph?
+
+    init(build: @escaping (Double, [String: Double]) -> AudioEffectProgram? = { AudioEffectProgram(rate: $0, values: $1) }) {
+        self.build = build
+    }
+    var status: Status {
+        lock.lock(); defer { lock.unlock() }
+        return Status(requested: revision, prepared: built, applied: applied,
+                      available: activeGeneration == generation && activeGeneration != nil, error: error)
+    }
+    @discardableResult func configure(_ values: [String: Double]) -> Bool {
+        var settings = NativeEqualizerSettings(); settings.effects = values
+        guard (try? settings.validate()) != nil else { return false }
+        lock.lock()
+        if values != self.values {
+            self.values = values; revision &+= 1; error = nil
+            scheduleLocked()
+        }
+        lock.unlock()
+        return true
+    }
+    func prepare(rate: Double, channels: Int) {
+        replaceFormat(rate: AudioEffectSources.validRate(rate) && channels == 2 ? rate : nil,
+                      error: AudioEffectSources.validRate(rate) && channels == 2 ? nil : "unsupported-effect-format")
+    }
+    func unprepare() { replaceFormat(rate: nil, error: nil) }
+    private func replaceFormat(rate: Double?, error: String?) {
+        lock.lock()
+        let previous = (renderGraph, ready, active, retired)
+        renderGraph = nil; ready = nil; active = nil; retired = nil
+        generation &+= 1; revision &+= 1; applied = 0; activeGeneration = nil
+        self.rate = rate; self.error = error
+        scheduleLocked()
+        lock.unlock()
+        // Hold the final references until this block executes on the control queue.
+        control.async { withExtendedLifetime(previous) {} }
+    }
+    private func scheduleLocked() {
+        guard rate != nil, !scheduled else { return }
+        scheduled = true
+        control.async { [weak self] in self?.prepareLatest() }
+    }
+    private func prepareLatest() {
+        while true {
+            lock.lock()
+            let garbage = retired; retired = nil
+            guard let rate, revision != built else {
+                scheduled = false; lock.unlock(); withExtendedLifetime(garbage) {}; return
+            }
+            let request = Request(generation: generation, revision: revision, rate: rate, values: values,
+                                  needsGraph: activeGeneration != generation)
+            lock.unlock()
+            withExtendedLifetime(garbage) {}
+            let candidate = build(request.rate, request.values)
+            let program = candidate.flatMap { $0.rate == request.rate && $0.values == request.values ? $0 : nil }
+            let graph = request.needsGraph ? program.flatMap(AudioEffectGraph.init) : nil
+            let update: Update? = program.flatMap { request.needsGraph && graph == nil ? nil : Update(request: request, program: $0, graph: graph) }
+            lock.lock()
+            if request.generation == generation && request.revision == revision {
+                ready = update; built = revision
+                error = update == nil ? "audio-effect-preparation-failed" : nil
+            }
+            lock.unlock()
+            // One delayed collection bounds retained updates even when no new UI request follows an adoption.
+            // Paused playback may retain one retired update until the next request/unprepare; there is no polling timer.
+            control.asyncAfter(deadline: .now() + 0.05) { [weak self] in self?.collectRetired() }
+        }
+    }
+    private func collectRetired() {
+        lock.lock(); let garbage = retired; retired = nil; lock.unlock()
+        withExtendedLifetime(garbage) {}
+    }
+    @discardableResult func process(_ buffers: UnsafeMutablePointer<AudioBufferList>, frames: Int, discontinuity: Bool = false) -> Bool {
+        // Reject incomplete/mono buffers before advancing automation or adopting a request.
+        guard AudioCutoffFilters.valid(UnsafeMutableAudioBufferListPointer(buffers), frames: frames, channels: 2) else { return false }
+        if lock.try() {
+            if let next = ready, next.request.generation == generation, next.request.revision == revision, retired == nil {
+                if let graph = renderGraph {
+                    guard graph.apply(next.program) else {
+                        error = "audio-effect-preparation-failed"
+                        lock.unlock()
+                        graph.process(buffers, frames: frames, discontinuity: discontinuity)
+                        return true
+                    }
+                } else { renderGraph = next.graph }
+                if renderGraph != nil {
+                    retired = active; active = next; ready = nil
+                    applied = next.request.revision; activeGeneration = generation
+                }
+            }
+            lock.unlock()
+        }
+        guard let graph = renderGraph else { return false }
+        graph.process(buffers, frames: frames, discontinuity: discontinuity)
+        return true
+    }
+}

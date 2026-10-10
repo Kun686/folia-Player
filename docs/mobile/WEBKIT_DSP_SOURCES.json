@@ -78,6 +78,42 @@
       "bytes": 10179,
       "sha256": "ead1671dce73c783893ded67a3194306d535d6a0b2e4ecf972cd04efd71a8fec",
       "purpose": "Verify original ConvolverNode normalization constants; convolution uses system Accelerate"
+    },
+    {
+      "path": "Modules/webaudio/AudioParamTimeline.cpp",
+      "bytes": 49379,
+      "sha256": "725426f6c7b9aeff99d43b5bbe66b4ca85e7a8739ca21acb7ee5703438c4d820",
+      "purpose": "Verify Float32 audio-rate recurrence and convergence boundaries; no new runtime dependency"
+    },
+    {
+      "path": "Modules/webaudio/AudioParam.cpp",
+      "bytes": 13619,
+      "sha256": "75ad9e301496ebc8d31e228de1347374e410c83433099f989f0ad3a676f90d17",
+      "purpose": "Verify shared AudioParam evaluation and Float32 parameter coercion"
+    },
+    {
+      "path": "Modules/webaudio/BiquadDSPKernel.cpp",
+      "bytes": 10509,
+      "sha256": "be06dee3909e27ef71a612d0ede09d1284d2c495429269d4cf407356921b974c",
+      "purpose": "Diagnose per-channel evaluation of shared cutoff automation"
+    },
+    {
+      "path": "Modules/webaudio/BiquadProcessor.cpp",
+      "bytes": 6534,
+      "sha256": "bc7f2e7e1884f9f184b212d23ae0bc022c82c231be1312bc0eae093c1065671a",
+      "purpose": "Verify shared cutoff parameter processing"
+    },
+    {
+      "path": "platform/audio/Biquad.cpp",
+      "bytes": 31399,
+      "sha256": "33cb5d4d845603d19bc853a02ecfcd35b30336515c560752dc75118391b6d5b2",
+      "purpose": "Verify sample-accurate feedback rounding versus constant-coefficient quantum history"
+    },
+    {
+      "path": "Modules/webaudio/DelayDSPKernel.cpp",
+      "bytes": 10362,
+      "sha256": "39bc1247c944f82d58b1ba4236df1caefaf3c36cb0f4e2b9d52c42e34fa2600d",
+      "purpose": "Diagnose per-channel evaluation of shared delay automation"
     }
   ]
 }
