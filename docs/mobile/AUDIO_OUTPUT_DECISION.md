@@ -33,6 +33,10 @@ AudioFileStreamProcessor在真实EOF后排空系统AudioConverter，修复测试
 EOF修复与系统保音高变速执行层的证据见 [TEMPO_EXECUTION.md](TEMPO_EXECUTION.md)：模拟器166项、
 受控HTTP三项、iPhone十二项通过。变速尚未接入App队列，这些开发变化尚未生成新安装包。
 
+后续开发已增加同步媒体帧／EOF观察、变速媒体时间估计及输出排空，并修复完整缓冲歌曲暂停后seek可能挂起。
+模拟器171项最终回归、受控HTTP三项和iPhone十项通过；首轮旧AVPlayer探针超时与后续验证分别保留，
+详见 [TEMPO_STREAM_CLOCK.md](TEMPO_STREAM_CLOCK.md)。预热交接和变速队列仍未接线。
+
 ```sh
 python3 dev/mobile/verify-audio-vendor.py
 # 本机保留原checkout时，可同时核对原始源码及完整补丁：

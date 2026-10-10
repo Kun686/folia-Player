@@ -3,6 +3,8 @@
 2026-10-11。开发源码验证记录；未生成新 IPA，iPhone 日常安装仍为 `app.folia.personal` / mobile.10。
 完整 Automix 尚未启用，本阶段不改变界面、主题、动画、原规划规则或默认设置。
 
+后续输入观察、媒体时间估计、尾部排空及暂停 seek 修复见 [TEMPO_STREAM_CLOCK.md](TEMPO_STREAM_CLOCK.md)。
+
 ## 复用与实现范围
 
 原版 `musicalTime.ts` 的 `tempoMatch` 使用 ±12% 范围，`automixSession.ts` 按规划设置出场曲速率，

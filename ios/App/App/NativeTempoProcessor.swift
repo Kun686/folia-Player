@@ -13,6 +13,8 @@ final class NativeTempoProcessor {
     private let lock = NSLock()
     private var pendingRate: Float?
     private var closed = false
+    // Render-owner only: the rate actually adopted, not a still-pending control request.
+    private(set) var appliedRate: Double
     // Query on the control side. Latency is deliberately NOT discarded PCM: all startup and tail
     // samples are returned. The caller must map the rendered output clock to the decoder's media time.
     var latency: TimeInterval { pitch.auAudioUnit.latency }
@@ -27,6 +29,7 @@ final class NativeTempoProcessor {
         }
         let state = TempoInput(format: sourceFormat, render: input)
         self.input = state
+        appliedRate = Double(Float(rate))
         // Like StreamRenderSource, AVAudioSourceNode converts the decoder's interleaved layout.
         let source = AVAudioSourceNode(format: sourceFormat) { silence, time, frames, output in
             var flags: AudioUnitRenderActionFlags = []
@@ -66,6 +69,7 @@ final class NativeTempoProcessor {
             if let rate = pendingRate {
                 schedule(AUEventSampleTimeImmediate, 0, AUParameterAddress(kNewTimePitchParam_Pitch), 0)
                 schedule(AUEventSampleTimeImmediate, 0, AUParameterAddress(kNewTimePitchParam_Rate), rate)
+                appliedRate = Double(rate)
                 pendingRate = nil
             }
             lock.unlock()
@@ -86,6 +90,7 @@ final class NativeTempoProcessor {
         guard !closed else { throw MobileFailure("tempo-unavailable") }
         engine.stop(); engine.reset(); pendingRate = nil
         pitch.pitch = 0; pitch.rate = Float(rate)
+        appliedRate = Double(Float(rate))
         engine.prepare(); try engine.start()
         renderBlock = engine.manualRenderingBlock
     }

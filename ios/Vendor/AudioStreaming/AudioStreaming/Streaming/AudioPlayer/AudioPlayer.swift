@@ -254,13 +254,24 @@ open class AudioPlayer {
     /// Format required by renderExternalAudio: the existing decoder's stereo Float32 PCM.
     public var externalOutputFormat: AVAudioFormat { outputAudioFormat }
 
+    /// One external pull's media frames, excluding any silence added for buffering or EOF.
+    public struct ExternalAudioRead {
+        public var frames: AVAudioFrameCount = 0
+        public var position: Double = 0
+        public var endOfStream = false
+        public var discontinuity = false
+        public init() {}
+    }
+
     /// Render decoded PCM on exactly one external audio thread. Never use alongside hardware output.
     /// The owner must retain this player until its source node is detached and rendering has stopped.
     /// Prepared, paused and ended entries emit silence without advancing their media clock.
     /// The external host owns effects, gain and time stretching. Do not pass through this player's
     /// manual engine: even a bypassed TimePitch delays its output by 4096 frames and can truncate EOF.
     public func renderExternalAudio(frames: AVAudioFrameCount,
-                                    output: UnsafeMutablePointer<AudioBufferList>) -> OSStatus {
+                                    output: UnsafeMutablePointer<AudioBufferList>,
+                                    observation: UnsafeMutablePointer<ExternalAudioRead>? = nil) -> OSStatus {
+        observation?.pointee = ExternalAudioRead()
         guard externallyRendered else { return kAudioUnitErr_InvalidProperty }
         guard frames <= maxFramesPerSlice else { return kAudioUnitErr_TooManyFramesToProcess }
         let buffers = UnsafeMutableAudioBufferListPointer(output)
@@ -275,8 +286,28 @@ open class AudioPlayer {
               playerContext.internalState != .paused, audioEngine.isRunning else { return noErr }
         // Reuse the library's existing ring-buffer consumption, seek, rebuffering and EOF handling.
         // It writes directly into the validated host buffer and pads a short final read with silence.
+        // Retain the occurrence across its final pull: inRender can detach it before a caller can
+        // query progress. Observe copied media frames, not padded silence or async delegate timing.
+        var observedEntry: AudioEntry?
+        if observation != nil {
+            playerContext.entriesLock.lock()
+            observedEntry = playerContext.audioPlayingEntry
+            playerContext.entriesLock.unlock()
+        }
+        var before = 0, seekTime = 0.0
+        if let entry = observedEntry {
+            entry.lock.lock(); before = entry.framesState.played; seekTime = entry.seekTime; entry.lock.unlock()
+        }
         rendererContext.inOutAudioBufferList[0].mBuffers = buffers[0]
         _ = playerRenderProcessor.inRender(inNumberFrames: frames)
+        if let entry = observedEntry, let observation {
+            entry.lock.lock(); defer { entry.lock.unlock() }
+            let played = entry.framesState.played, copied = played - before
+            observation.pointee.discontinuity = copied < 0 || copied > Int(frames) || seekTime != entry.seekTime
+            observation.pointee.frames = AVAudioFrameCount(max(0, min(Int(frames), copied)))
+            observation.pointee.position = entry.seekTime + Double(played) / outputAudioFormat.sampleRate
+            observation.pointee.endOfStream = entry.framesState.lastFrameQueued >= 0 && played == entry.framesState.lastFrameQueued
+        }
         return noErr
     }
 
@@ -534,6 +565,12 @@ open class AudioPlayer {
                 playingEntry.resume()
             }
             startPlayer(resetBuffers: false)
+        }
+        // A seek queued while paused can already have returned from processSource. A fully read
+        // file has no more network/file callbacks to retry it; explicitly resume that pending work.
+        if isSeeking {
+            checkRenderWaitingAndNotifyIfNeeded()
+            sourceQueue.async { [weak self] in self?.processSource() }
         }
     }
 
