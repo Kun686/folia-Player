@@ -1,0 +1,8 @@
+*
+!deploy/
+!deploy/docker/
+!deploy/docker/netease-api/
+!deploy/docker/netease-api/package.json
+!deploy/docker/netease-api/package-lock.json
+!deploy/docker/scripts/
+!deploy/docker/scripts/patch-music-api-client-ip.mjs

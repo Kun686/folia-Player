@@ -1,0 +1,15 @@
+*
+!LICENSE
+!deploy/
+!deploy/mobile/
+!deploy/mobile/*.mjs
+!deploy/docker/
+!deploy/docker/backend/
+!deploy/docker/backend/package.json
+!deploy/docker/backend/package-lock.json
+!shared/
+!shared/mobile/
+!shared/mobile/*.ts
+!src/
+!src/utils/
+!src/utils/replayGain.ts

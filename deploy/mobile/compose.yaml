@@ -1,0 +1,57 @@
+name: folia-mobile
+services:
+  backend:
+    image: ${MOBILE_BACKEND_IMAGE:?Set a fixed mobile backend image digest}
+    environment:
+      MOBILE_ACCESS_TOKEN: ${MOBILE_ACCESS_TOKEN:?Set a random token of at least 32 characters}
+      MOBILE_PROVIDERS: ${MOBILE_PROVIDERS:-netease,qq}
+    ports: ["127.0.0.1:${MOBILE_HTTP_PORT:-17863}:3000"]
+    restart: unless-stopped
+    networks: [edge, providers, egress]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  netease-api:
+    image: ${MOBILE_NETEASE_IMAGE:?Set a fixed folia-netease-api image digest}
+    environment: {HOST: 0.0.0.0, PORT: "3000", ENABLE_GENERAL_UNBLOCK: "false", FOLIA_FORWARD_CLIENT_IP: "false"}
+    networks: [providers, egress]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    logging: {driver: none}
+    security_opt: [no-new-privileges:true]
+  qq-api:
+    image: ${MOBILE_QQ_IMAGE:?Set a fixed folia-qq-api image digest}
+    environment:
+      PORT: "3000"
+      QQ_AUTH_STATE_PATH: /app/.auth-state/qq-device.json
+      QQ_AUTH_SESSION_PATH: /app/.auth-state/qq-session.json
+      QQ_SESSION_SECRET: ${MOBILE_QQ_SECRET:?Set a separate QQ session secret}
+    volumes: [qq-state:/app/.auth-state]
+    networks: [providers, egress]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    logging: {driver: none}
+    security_opt: [no-new-privileges:true]
+  kugou-api:
+    profiles: [kugou]
+    image: ${MOBILE_KUGOU_IMAGE:-folia-kugou-api:disabled}
+    environment: {HOST: 0.0.0.0, PORT: "3000", FOLIA_FORWARD_CLIENT_IP: "false"}
+    networks: [providers, egress]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    logging: {driver: none}
+    security_opt: [no-new-privileges:true]
+networks:
+  edge: {}
+  providers: {internal: true}
+  egress: {}
+volumes:
+  qq-state: {}

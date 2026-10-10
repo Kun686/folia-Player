@@ -1,0 +1,63 @@
+# 移动候选验证记录
+
+日期：2026-10-10。源码基线 d824c0b854e54d5411cb072092999823e9bd7071，移动候选源码及服务器内部验证见 SERVER_VALIDATION.md。
+当前代码指纹见 BUILD_RECORD.json。**本地工程验证通过，不代表真实三平台／真机首版已验收。**
+
+| 层级 | 结果 | 证据与边界 |
+|---|---|---|
+| TypeScript | PASS | npm run typecheck |
+| 定向逻辑回归 | PASS | 36 个文件、477 项测试；provider、transport、歌词、扫码状态机、移动网关与安全存储 |
+| 最近会话取消改动 | PASS | 扫码与移动专项 73 项；包含前台立即轮询、不过期复活、Keychain 写失败后仍能清除 |
+| Web 构建 | PASS | npm run ios:sync，产物约 11 MiB，资源打包在 App 内 |
+| UI | PASS | Playwright WebKit 26.6，6 项，390×844／1194×834／600×834 |
+| 模拟器编译 | PASS | Xcode 26.6，iOS 26.5 Simulator，Bundle ID app.folia.personal，最低系统17 |
+| 设备架构编译 | PASS | generic iOS / iphoneos；未签名，不是可安装 IPA |
+| 原生 XCTest | PASS | 11 项：HTTPS校验、Keychain、队列身份、跨平台循环、凭据清除、失败上限、认证停止、持久化、快速切歌和自动换曲 |
+| 加强自动换曲断言 | PASS | 单独复测，实际封闭的1秒静音WAV；要求下一首 readyToPlay、failures=0、时长正确，避免“失败跳歌”假阳性 |
+| 实际模拟器启动 | PASS | 本地签名包安装并启动，原生 bootstrap／Keychain 读取后展示服务器设置页 |
+| Compose 结构 | PASS | 实际服务器 compose config --quiet；默认3个服务，仅回环地址17863 |
+| Docker构建与内部服务 | PASS | 三镜像已构建部署并固定不可变ID；HTTPS按用户选择暂缓 |
+| QQ／网易真实账户 | PASS | 用户扫码后验证登录、个人歌单和带账户解析；CDN有限Range请求；详见服务器记录 |
+| 酷狗账户 | NOT_RUN | 按最新范围延后 |
+| 真机安装与30分钟锁屏 | BLOCKED | 无签名身份及iPhone/iPad验收设备 |
+| 真实远程控制／蓝牙／网络切换 | NOT_RUN | 已实现系统通知／命令处理，但没有外设或真机证据 |
+| WebView挂起时远程地址刷新 | NOT_RUN | 原生自动换曲与共享解析已有自动测试，未在真机挂起场景验证 |
+| 歌词≤150ms／温升／长期内存 | NOT_RUN | 未做固定音频的仪器化测量或长期真机测试 |
+
+## UI 检查
+
+Browser插件未提供，使用已安装Playwright；测试地址 http://127.0.0.1:4179/mobile.html。
+测试流程：启动 → 扫码确认 → 个人歌单 → 搜索 → 加入队列／播放 → 暂停 → 返回音乐库 → 退出；
+另覆盖服务器设置和网络错误。响应和原生桥均为测试fixture，生产代码没有模拟音乐兜底。
+
+三尺寸页面标题与首屏内容正常，无框架错误遮罩、无横向溢出，正常流程未发生pageerror。
+故障注入场景有预期的“匿名Cookie请求失败”警告，界面展示错误，未将其当作真实服务结果。
+截图均已人工查看，位于工作区上级“移动端验证”目录；名称含fixture的图片不是真实账号数据。
+
+## 原生证据与修正
+
+日志保存在本地忽略目录 .mobile-test-results：
+native-final.log / native-final.xcresult、native-auto-advance.log、
+simulator-build.log、device-build.log、mobile-build.log。不要把包含设备标识的完整Xcode日志直接公开。
+
+初次未签名Keychain用例失败，改为模拟器本地签名后通过。
+异步失败链最初使用固定短等待，随后改为观察明确停止状态；重复满足expectation的问题已修正。
+短音频用例最初断言不足，最终关闭音频文件后再播放，并要求正常完成而非失败跳歌。
+这些测试没有证明30分钟锁屏播放或线上URL有效性。
+
+## 依赖审计
+
+npm audit --omit=dev 返回6项High（包含传递依赖记录），0 Critical；
+node-forge GHSA-86w9-cpqp-85rv、basic-ftp GHSA-c475-qrg2-pj4r，以及网易／酷狗和代理依赖链。
+这些是继承的音源依赖风险，未执行不受控的audit fix。具体部署风险见 deploy/mobile/DEPLOYMENT.md。
+Capacitor 8.5.3 未出现在本次production审计报告中；已核查的
+GHSA-rvm3-566m-v7fv 不覆盖8.5.3，这不是全面安全认证。
+
+## 交付条件
+
+当前交付源码、Xcode工程、配置模板、构建说明与分层证据。QQ／网易内部服务与真实账户接口已验证，
+未签名导出IPA，未做真机后台验收。按 ACCEPTANCE.md 补齐 HTTPS 和设备条件后继续。
+
+2026-10-10 部署阶段增量复测：TypeScript PASS，移动逻辑19项 PASS，三种窗口UI共6项 PASS，
+ios:sync PASS，原生XCTest11项 PASS（native-deploy.xcresult）。当前部署锁审计见 SERVER_VALIDATION.md。
+这些新增证据不把既往模拟器编译等同于真实设备安装。

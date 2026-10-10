@@ -1,0 +1,40 @@
+// src/mobile/locale.ts
+export const mobileEn = {
+  library: 'Library', search: 'Search songs', playlists: 'My playlists', login: 'Sign in',
+  logout: 'Sign out', settings: 'Server & appearance', save: 'Save connection', server: 'HTTPS server origin',
+  token: 'Access token', connect: 'Configure your server to begin', nativeOnly: 'Install the iOS app to connect securely.',
+  play: 'Play', pause: 'Pause', next: 'Next', previous: 'Previous', queue: 'Queue', add: 'Add to queue',
+  close: 'Close', share: 'Share QR code', qrHelp: 'Share this code to another screen, then scan it with the official music app.',
+  refresh: 'New QR code', waiting: 'Waiting for scan', scanned: 'Confirm in the music app', confirmed: 'Signed in',
+  expired: 'Code expired', error: 'Request failed. Check the connection or sign in again.', loading: 'Loading…',
+  noSongs: 'Search for a song or open a playlist', more: 'Load more', dark: 'Midnight', light: 'Daylight',
+  theme: 'Theme', limited: 'Classic lyrics enabled. Spectrum, EQ, Automix and complex visualizers are unavailable in this version.',
+  noLyrics: 'No lyrics available', repeat: 'Repeat', off: 'Off', all: 'All', one: 'One', cancel: 'Cancel',
+  position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
+};
+export const mobileZh: typeof mobileEn = {
+  library: '音乐库', search: '搜索歌曲', playlists: '我的歌单', login: '扫码登录', logout: '退出登录',
+  settings: '服务器与外观', save: '保存连接', server: 'HTTPS 服务器地址', token: '访问凭据',
+  connect: '先配置你的音乐服务器', nativeOnly: '请安装 iOS App 后安全连接服务器。',
+  play: '播放', pause: '暂停', next: '下一首', previous: '上一首', queue: '播放队列', add: '加入队列',
+  close: '关闭', share: '分享二维码', qrHelp: '将二维码分享到另一块屏幕，再用对应音乐平台的官方 App 扫码。',
+  refresh: '重新生成二维码', waiting: '等待扫码', scanned: '请在音乐 App 中确认', confirmed: '已登录',
+  expired: '二维码已过期', error: '请求失败，请检查连接或重新登录。', loading: '正在加载…',
+  noSongs: '搜索一首歌，或打开你的歌单', more: '加载更多', dark: '午夜墨染', light: '日光素白',
+  theme: '主题', limited: '已启用 Classic 歌词。首版暂不支持频谱、均衡器、自动混音和复杂视觉主题。',
+  noLyrics: '暂无歌词', repeat: '循环', off: '关闭', all: '列表循环', one: '单曲循环', cancel: '取消',
+  position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
+};
+export const mobileIn: typeof mobileEn = {
+  library: 'Pustaka', search: 'Cari lagu', playlists: 'Playlist saya', login: 'Masuk', logout: 'Keluar',
+  settings: 'Server & tampilan', save: 'Simpan koneksi', server: 'Alamat server HTTPS', token: 'Token akses',
+  connect: 'Atur server musik terlebih dahulu', nativeOnly: 'Pasang aplikasi iOS untuk koneksi aman.',
+  play: 'Putar', pause: 'Jeda', next: 'Berikutnya', previous: 'Sebelumnya', queue: 'Antrean', add: 'Tambah ke antrean',
+  close: 'Tutup', share: 'Bagikan kode QR', qrHelp: 'Bagikan kode ke layar lain, lalu pindai dengan aplikasi musik resmi.',
+  refresh: 'Kode QR baru', waiting: 'Menunggu pemindaian', scanned: 'Konfirmasi di aplikasi musik', confirmed: 'Berhasil masuk',
+  expired: 'Kode kedaluwarsa', error: 'Permintaan gagal. Periksa koneksi atau masuk kembali.', loading: 'Memuat…',
+  noSongs: 'Cari lagu atau buka playlist', more: 'Muat lagi', dark: 'Tengah malam', light: 'Siang',
+  theme: 'Tema', limited: 'Lirik Classic aktif. Spektrum, EQ, Automix dan visualisasi kompleks belum tersedia.',
+  noLyrics: 'Lirik tidak tersedia', repeat: 'Ulangi', off: 'Mati', all: 'Semua', one: 'Satu', cancel: 'Batal',
+  position: 'Posisi pemutaran', back: 'Kembali ke pustaka', empty: 'Tidak ada hasil', saved: 'Koneksi disimpan',
+};

@@ -1,0 +1,25 @@
+name: Mobile checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.17.0
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
+      - run: npm run typecheck
+      - run: npm run test:mobile
+      - run: npm run build:mobile
