@@ -2,6 +2,7 @@
 
 2026-10-11。开发源码验证；接续 [TEMPO_STREAM_CLOCK.md](TEMPO_STREAM_CLOCK.md)。
 `StreamMixOutput` 已有显式选择的交接路径，默认队列尚未使用，完整 Automix 仍未启用。
+后续播放项时钟、拖动、结束与原生事件接线见 [TEMPO_OCCURRENCE.md](TEMPO_OCCURRENCE.md)。
 本阶段没有新 IPA，个人 iPhone 仍为 mobile.10；未改原版界面、动画、模式规则或依赖版本。
 
 ## 复用与行为
@@ -75,8 +76,8 @@ EOF 后仍有输出峰值 0.13246904，不能在解码器 EOF 时立即丢弃变
 
 ## 接入边界与清理
 
-下一阶段须将 `StreamOccurrence.position` 改为采用变速后的媒体位置，并协调真实输出结束，
-不能继续用预读后的 `audio.progress` 或解码器 EOF 结束播放项。
+后续 [TEMPO_OCCURRENCE.md](TEMPO_OCCURRENCE.md) 已将播放项接入变速媒体位置、输出结束通知与拖动生命周期。
+完整模式的协调器仍待接入，不能用预读后的 `audio.progress` 或解码器 EOF 结束播放项。
 原 `NativeTempoStream.drained` 的一秒精确零条件只用于资源回收，**不能作为下一首启动时机**。
 然后才能连接原 Automix 的各分支、过渡时间换算与动画事件；此阶段不能启用完整能力标记。
 

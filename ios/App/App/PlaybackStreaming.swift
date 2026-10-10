@@ -34,7 +34,7 @@ extension PlaybackEngine {
                 output.configurationChanged = { [weak self, weak output] in
                     guard let self, let output, self.streamOutput === output else { return }
                     self.crossfade?.cancel()
-                    if self.intentToPlay && self.stream != nil {
+                    if self.intentToPlay && self.stream != nil && self.stream?.preparingOutput != true {
                         do {
                             try self.activate(); try output.start()
                             if self.preparedStream == nil { self.prefetch() }
@@ -79,11 +79,11 @@ extension PlaybackEngine {
     func observeStream(_ entry: StreamOccurrence, epoch: Int) {
         entry.changed = { [weak self, weak entry] in
             guard let self, let entry, epoch == self.generation, self.stream === entry else { return }
-            if self.intentToPlay && !entry.playing && !entry.hasEnded && !entry.hasFailed {
+            if self.intentToPlay && !entry.playing && !entry.preparingOutput && !entry.hasEnded && !entry.hasFailed {
                 if self.stalledRecovery == nil {
                     let recovery = DispatchWorkItem { [weak self, weak entry] in
                         guard let self, let entry, epoch == self.generation, self.stream === entry,
-                              self.intentToPlay, !entry.playing else { return }
+                              self.intentToPlay, !entry.playing, !entry.preparingOutput else { return }
                         self.stalledRecovery = nil
                         self.failed(MobileFailure("network"), epoch: epoch)
                     }

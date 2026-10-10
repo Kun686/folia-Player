@@ -84,6 +84,10 @@ final class StreamMixOutput {
         try tempo.request(rate: rate)
     }
     func tempoState(_ player: AudioPlayer) -> NativeTempoHandover.State? { sources[ObjectIdentifier(player)]?.source.tempo?.snapshot() }
+    func observeTempo(_ player: AudioPlayer, changed: @escaping (Bool) -> Void) throws {
+        guard !closed, let tempo = sources[ObjectIdentifier(player)]?.source.tempo else { throw MobileFailure("tempo-unavailable") }
+        tempo.changed = changed
+    }
     func resetTempo(_ player: AudioPlayer) throws {
         guard !closed, !engine.isRunning, let source = sources[ObjectIdentifier(player)]?.source,
               let tempo = source.tempo else { throw MobileFailure("tempo-unavailable") }

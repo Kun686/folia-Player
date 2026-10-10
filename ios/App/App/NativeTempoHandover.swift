@@ -18,6 +18,11 @@ final class NativeTempoHandover {
     private let lock = NSLock()
     private var pendingRate: Double?, closed = false
     private var published: State
+    // Main-control callbacks use pre-created coalescing sources, as AudioEffectController does.
+    // A reset invalidates queued notices; render never allocates a dispatch closure or waits for main.
+    var changed: ((Bool) -> Void)?
+    private var wake: DispatchSourceUserDataAdd?, fault: DispatchSourceUserDataAdd?
+    private var noticeGeneration: UInt64 = 0
 
     convenience init(player: AudioPlayer) throws { try self.init(source: DecoderTempoFeed(player: player)) }
     init(source: NativeTempoFeed) throws {
@@ -33,6 +38,7 @@ final class NativeTempoHandover {
         latencyFrames = Int(latency.rounded()); historyFrames = latencyFrames * 2
         self.scratch = scratch
         published = State(phase: .raw, position: source.position, rate: 1, decoderEnded: false, drained: false)
+        prepareNotices()
     }
     func request(rate: Double) throws {
         guard rate.isFinite, (0.88...1.12).contains(rate) else { throw MobileFailure("invalid-tempo-rate") }
@@ -78,7 +84,7 @@ final class NativeTempoHandover {
                 let count = AVAudioFrameCount(min(Int(frames) - offset, Int(NativeTempoProcessor.maximumFrames)))
                 scratch.frameLength = count
                 let status = stream.render(scratch.mutableAudioBufferList, frames: count, rate: justWarmed ? 1 : desiredRate)
-                guard status == noErr else { memset(destination, 0, Int(frames) * 8); return status }
+                guard status == noErr else { memset(destination, 0, Int(frames) * 8); fault?.add(data: 1); return status }
                 var channels = DSPSplitComplex(realp: scratch.floatChannelData![0], imagp: scratch.floatChannelData![1])
                 (destination + offset * 8).assumingMemoryBound(to: Float.self).withMemoryRebound(to: DSPComplex.self, capacity: Int(count)) {
                     vDSP_ztoc(&channels, 1, $0, 2, vDSP_Length(count))
@@ -88,15 +94,19 @@ final class NativeTempoHandover {
         } else {
             var read = AudioPlayer.ExternalAudioRead()
             let status = window.read(cursor: &cursor, frames: frames, output: output, observation: &read)
-            guard status == noErr else { memset(destination, 0, Int(frames) * 8); return status }
+            guard status == noErr else { memset(destination, 0, Int(frames) * 8); fault?.add(data: 1); return status }
             rawEnded = read.endOfStream
         }
         if lock.try() {
             let state = stream.renderState
-            published = State(phase: phase, position: phase == .active ? state.position : window.position(cursor),
+            let next = State(phase: phase, position: phase == .active ? state.position : window.position(cursor),
                 rate: phase == .active ? state.rate : 1, decoderEnded: phase == .active ? state.decoderEnded : rawEnded,
                 drained: phase == .active ? state.drained : rawEnded)
+            let notify = next.phase != published.phase || next.rate != published.rate
+                || next.decoderEnded != published.decoderEnded || next.drained != published.drained
+            published = next
             lock.unlock()
+            if notify { wake?.add(data: 1) }
         }
         return noErr
     }
@@ -106,6 +116,7 @@ final class NativeTempoHandover {
         lock.lock(); defer { lock.unlock() }
         guard !closed else { throw MobileFailure("tempo-unavailable") }
         guard !window.source.isSeeking else { throw MobileFailure("invalid-position") }
+        prepareNotices()
         window.reset(); cursor = 0; feed.cursor = 0; feed.underflow = false
         pendingRate = nil; desiredRate = 1; rawEnded = false; phase = .raw
         do { try stream.reset() }
@@ -119,7 +130,26 @@ final class NativeTempoHandover {
     func close() {
         lock.lock(); defer { lock.unlock() }
         guard !closed else { return }; closed = true; pendingRate = nil
+        noticeGeneration &+= 1; wake?.cancel(); fault?.cancel(); changed = nil
         stream.close(); window.close()
+    }
+    // Only control calls this while pulls are stopped, including construction and seek/reset.
+    private func prepareNotices() {
+        noticeGeneration &+= 1
+        let stamp = noticeGeneration
+        wake?.cancel(); fault?.cancel()
+        let wake = DispatchSource.makeUserDataAddSource(queue: .main)
+        let fault = DispatchSource.makeUserDataAddSource(queue: .main)
+        wake.setEventHandler { [weak self] in
+            guard let self, !self.closed, self.noticeGeneration == stamp else { return }
+            self.changed?(false)
+        }
+        fault.setEventHandler { [weak self] in
+            guard let self, !self.closed, self.noticeGeneration == stamp else { return }
+            self.changed?(true)
+        }
+        self.wake = wake; self.fault = fault
+        wake.resume(); fault.resume()
     }
     deinit { close() }
 }

@@ -84,7 +84,7 @@ final class NativeCrossfade {
         guard enabled, owner.usesStereoOutput, owner.intentToPlay, owner.outputIsPlaying,
               owner.repeatMode != "one", owner.queue.count >= 2,
               owner.queue.indices.contains(owner.index) || owner.repeatMode == "all",
-              let outgoing = owner.stream, !outgoing.audio.isSeeking, !outgoing.hasEnded,
+              let outgoing = owner.stream, !outgoing.seeking, !outgoing.hasEnded,
               let pending = owner.preparedStream, !pending.entry.hasFailed, !pending.entry.hasEnded,
               owner.nextIndex(automatic: true) == pending.index,
               let currentSong = owner.currentSong,
@@ -195,7 +195,7 @@ final class NativeCrossfade {
                       let pending = owner.preparedStream, let song = owner.currentSong else { return }
                 // Attach an unstarted decoder (silence), schedule its gain, then release consumption.
                 // This order prevents an incoming track from punching in at full volume before the curve.
-                try output.attach(pending.entry.audio)
+                try pending.entry.attachOutput()
                 let gainGeneration = output.transitionGain.cancel()
                 do {
                     guard try output.scheduleGain(outgoing: outgoing.audio, incoming: pending.entry.audio,

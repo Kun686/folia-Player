@@ -74,6 +74,29 @@ private final class LimitedTempoFeed: NativeTempoFeed {
 }
 
 @MainActor extension NativeTests {
+    func testTempoRenderFailureNoticesAreCoalescedAndOldSeekNoticesExpire() async throws {
+        let input = LimitedTempoFeed()
+        let tested = try NativeTempoHandover(source: input)
+        defer { tested.close() }
+        let pcm = AVAudioPCMBuffer(pcmFormat: input.format, frameCapacity: 512)!
+        pcm.frameLength = 512
+        var failures = 0, changes = 0
+        tested.changed = { failed in if failed { failures += 1 } else { changes += 1 } }
+        input.isSeeking = true
+        XCTAssertNotEqual(tested.render(pcm.mutableAudioBufferList, frames: 512), noErr)
+        input.isSeeking = false; try tested.reset()
+        try await Task.sleep(nanoseconds: 10_000_000)
+        XCTAssertEqual(failures, 0, "The reset invalidates a queued failure from the old source state")
+        input.isSeeking = true
+        for _ in 0..<8 { XCTAssertNotEqual(tested.render(pcm.mutableAudioBufferList, frames: 512), noErr) }
+        try await waitForStream { failures > 0 }
+        XCTAssertEqual(failures, 1); XCTAssertEqual(changes, 0)
+        XCTAssertNotEqual(tested.render(pcm.mutableAudioBufferList, frames: 512), noErr)
+        tested.close()
+        try await Task.sleep(nanoseconds: 10_000_000)
+        XCTAssertEqual(failures, 1)
+    }
+
     func testWarmTempoHandoverPreservesRawHistoryAndMatchesSystemAtFirstActiveBlock() async throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
         defer { try? FileManager.default.removeItem(at: url) }

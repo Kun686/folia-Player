@@ -144,7 +144,7 @@ extension PlaybackEngine {
             MPMediaItemPropertyArtist: artists,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: playbackPosition,
             MPMediaItemPropertyPlaybackDuration: playbackDuration,
-            MPNowPlayingInfoPropertyPlaybackRate: usesStereoOutput ? (outputIsPlaying ? 1.0 : 0.0) : Double(player.rate),
+            MPNowPlayingInfoPropertyPlaybackRate: usesStereoOutput ? (outputIsPlaying ? (stream?.rate ?? 1) : 0.0) : Double(player.rate),
             MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue]
     }
 }
