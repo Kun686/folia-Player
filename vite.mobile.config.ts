@@ -21,7 +21,14 @@ function git(...args: string[]): string {
 const commit = normalizeBuildCommit(process.env.GITHUB_SHA || git('rev-parse', 'HEAD'));
 const repository = resolveBuildRepo(process.env, () => git('remote', 'get-url', 'origin'));
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), {
+    name: 'folia-mobile-build-identity',
+    generateBundle() {
+      // Keep provenance even when the optimizer removes all consumers of a build constant.
+      this.emitFile({ type: 'asset', fileName: 'build-identity.json',
+        source: JSON.stringify({ version, commit, repository }) + '\n' });
+    },
+  }],
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   server: { watch: { ignored: ['**/ios/**', '**/dist-mobile/**', '**/.mobile-test-results/**'] } },
   define: { __APP_VERSION__: JSON.stringify(version), __APP_VERSION_LABEL__: JSON.stringify(version),
