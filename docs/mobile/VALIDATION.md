@@ -1,6 +1,14 @@
 # 移动候选验证记录
 
-## mobile.7 双声道输出接入（当前源码）
+## mobile.7 双声道输出接入（当前开发候选）
+
+已安装iPhone XS Max / iOS18.7.10并启动，设备回读build 7；开发候选仍不代表完整移植验收通过。
+源码`f303ada6bae36e1547f2d9d19e384cc0887d5e05`，258个输入文件指纹
+`ab2cb085e8eec2f1aff19ca6a4991b0a349d0bc79ee016ee4713e94355befd44`。
+安装包`Folia-0.7.16-mobile.7-ab2cb085-development.ipa`，7,375,321字节，
+SHA256 `0daab3726abe21c8f88d9bd4009e0e43f7a8e0524df49dc5f52455e032b285bb`。
+较同为Release的mobile.6增加484,525字节（约473KiB）；这是完整集成差值，不是单独依赖开销。
+App普通文件合计14,994,037字节。mobile.6旧包及其元数据保持原样用于回退。
 
 已按用户批准接入固定AudioStreaming 1.4.5及Ogg／Vorbis 0.1.2，保留原界面、音效预设和DSP参数。
 上游队列不适合原删除语义，改为当前／下一项独立解码器；固定源码、两文件补丁与校验清单见
@@ -19,7 +27,11 @@
 - `stereo-http-native-queue.{log,xcresult}`：3项通过。受控HTTP单声道实际音效、静默预载取消、
   完整PlaybackEngine删除缓冲曲目并独立切至下一首；没有WebView或真实平台参与。
   5,292,044字节音频在只读取部分字节时已播放，seek产生Range请求；测试服务结束后关闭。
-- 包体、签名、安装记录在候选生成后追加；BUILD_RECORD.json在此之前仍标识已交付mobile.6。
+- `mobile7-final-device-build.log`：clean Release构建通过；严格codesign校验、99个前端资源、
+  两份完整许可证、随包版本／仓库／提交来源核对通过，最终包无测试插件。
+  `mobile7-device-install.json`、`mobile7-device-launch.json`、`mobile7-device-app.json`确认安装启动及build 7。
+- 最终源码的GitHub CI [38064957037](https://github.com/Kun686/folia-Player/actions/runs/38064957037)通过：
+  vendor清单、依赖安装、TypeScript、移动逻辑和前端构建。
 - `mobile7-device-native.{log,xcresult}`：iPhone XS Max / iOS18.7.10 / Release，6项真机原生测试全部通过。
   WAV／AAC真实Mono双声道PCM、低通衰减、左右噪声／混响差异、seek／暂停恢复、最终静音、
   中断恢复／账户退出、四曲自动推进及删除已缓冲下一首；16.498秒测试，不等于30分钟锁屏或听感验收。

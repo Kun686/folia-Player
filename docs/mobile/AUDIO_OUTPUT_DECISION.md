@@ -1,7 +1,7 @@
 # 原生双声道输出路线与已批准依赖
 
 日期：2026-10-10。用户已明确批准固定依赖及验证后接入。
-当前源码已接入独立双声道流式输出，候选目标为mobile.7；已交付mobile.6仍是AVQueuePlayer路线，
+mobile.7已接入独立双声道流式输出并安装到iPhone；保留的mobile.6旧包仍是AVQueuePlayer路线。
 实际安装包身份以BUILD_RECORD.json为准，不把后续源码测试当成旧包能力。
 
 ## 当前接入结果
