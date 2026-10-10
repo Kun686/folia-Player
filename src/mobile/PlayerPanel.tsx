@@ -15,6 +15,7 @@ import { useMobileLyrics } from './useMobileLyrics';
 import { useNativeAudio } from './useNativeAudio';
 import VisualSettings from './VisualSettings';
 import AudioControls from './AudioControls';
+import TransitionControls from './TransitionControls';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useVisualizerAssetStore } from '../stores/useVisualizerAssetStore';
@@ -28,6 +29,7 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
 }) {
   const { t } = useTranslation();
   const [visualSettings, setVisualSettings] = useState(false);
+  const [transitionSettings, setTransitionSettings] = useState(false);
   const audioSettingsOpen = useAudioSettingsStore(s => s.isAudioEqualizerOpen);
   const mode = useVisualizerSettingsStore(s => s.visualizerMode);
   const appearance = useMobileTheme();
@@ -65,7 +67,7 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
   }, []);
   const song = state.currentSong;
   const { lyrics, cover, error: lyricsError, refresh } = useMobileLyrics(song ?? undefined);
-  const rendering = visible && (expanded || wide) && !visualSettings && !audioSettingsOpen;
+  const rendering = visible && (expanded || wide) && !visualSettings && !audioSettingsOpen && !transitionSettings;
   const audio = useNativeAudio(rendering, state.playing);
   const importLyrics = async () => {
     if (song?.sourceRef?.kind !== 'local') return;
@@ -112,10 +114,13 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
       <AudioControls light={light} theme={light ? appearance.theme.light : appearance.theme.dark}
         unavailable={state.playing && state.audioProcessingAvailable === false} effects={state.audioEffects} />
       <div className="player-options"><button onClick={() => setVisualSettings(true)}>{t('mobile.visuals')}</button>
+        <button onClick={() => setTransitionSettings(true)}>{t('options.transitionSettings')}</button>
         {song?.sourceRef?.kind === 'local' && <button onClick={() => void importLyrics()}>{t('mobile.importLyrics')}</button>}</div>
       {song && !lyrics?.lines.length && <p className="muted">{t('mobile.noLyrics')}</p>}
       {(state.error || error || lyricsError) && <p role="alert">{t('mobile.error')} {state.error}</p>}
     </div>
+    <TransitionControls light={light} theme={light ? appearance.theme.light : appearance.theme.dark}
+      open={transitionSettings} setOpen={setTransitionSettings} />
     {visualSettings && <VisualSettings light={light} appearance={appearance} close={() => setVisualSettings(false)} />}
   </section>;
 }

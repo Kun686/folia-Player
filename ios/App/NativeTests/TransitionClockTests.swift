@@ -17,6 +17,66 @@ private final class RenderClockProbe {
 }
 
 @MainActor extension NativeTests {
+    func testIsolateDecoderAndSystemTimePitchStartupLatency() async throws {
+        let rate = 44100.0
+        let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: rate, channels: 2, interleaved: true)!
+        // Match the dependency's input-node/manual-render graph; only the system TimePitch differs.
+        func systemLatency(withTimePitch: Bool) throws -> Int {
+            let engine = AVAudioEngine(), pitch = AVAudioUnitTimePitch()
+            let input = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 512)!
+            input.frameLength = 512; input.floatChannelData![0].update(repeating: 0.125, count: 1024)
+            try engine.enableManualRenderingMode(.realtime, format: format, maximumFrameCount: 512)
+            XCTAssertTrue(engine.inputNode.setManualRenderingInputPCMFormat(format) { _ in input.audioBufferList })
+            if withTimePitch {
+                pitch.overlap = 4; pitch.pitch = 0; pitch.bypass = true
+                engine.attach(pitch)
+                engine.connect(engine.inputNode, to: pitch, format: nil)
+                engine.connect(pitch, to: engine.mainMixerNode, format: nil)
+            } else { engine.connect(engine.inputNode, to: engine.mainMixerNode, format: nil) }
+            engine.prepare(); try engine.start()
+            defer { engine.stop() }
+            let render = engine.manualRenderingBlock
+            let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 512)!
+            for block in 0..<32 {
+                output.frameLength = 512
+                var error: OSStatus = noErr
+                XCTAssertEqual(render(512, output.mutableAudioBufferList, &error), .success)
+                XCTAssertEqual(error, noErr)
+                for frame in 0..<512 where abs(output.floatChannelData![0][frame * 2]) > 0.01 {
+                    return block * 512 + frame
+                }
+            }
+            XCTFail("System graph did not produce PCM"); return -1
+        }
+        let plain = try systemLatency(withTimePitch: false), bypass = try systemLatency(withTimePitch: true)
+        let url = try sharedConstantFile(seconds: 4)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let decoder = try await preparedExternalPlayer(url)
+        defer { decoder.stop() }
+        for _ in 0..<100 {
+            if decoder.bufferedDuration > 3.9 { break }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertGreaterThan(decoder.bufferedDuration, 3.9)
+        XCTAssertTrue(decoder.startPreparedPlayback())
+        let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 512)!
+        var first = -1, last = -1, audible = 0
+        for block in 0..<360 {
+            output.frameLength = 512
+            XCTAssertEqual(decoder.renderExternalAudio(frames: 512, output: output.mutableAudioBufferList), noErr)
+            for frame in 0..<512 where abs(output.floatChannelData![0][frame * 2]) > 0.01 {
+                let at = block * 512 + frame
+                if first < 0 { first = at }; last = at; audible += 1
+            }
+        }
+        XCTAssertEqual(plain, 0)
+        XCTAssertGreaterThan(bypass, 0, "Bypass retains the system TimePitch latency")
+        XCTAssertEqual(first, 0, "External PCM must not inherit TimePitch startup silence")
+        XCTAssertEqual(audible, 176400, "The last partial buffer must retain every decoded frame")
+        XCTAssertEqual(last, 176399)
+        print("FOLIA_STARTUP_LATENCY plain=\(plain) bypassedTimePitch=\(bypass) decoderFirst=\(first) decoderLast=\(last) audibleFrames=\(audible) consumedFrames=\(decoder.framesPlayed)")
+    }
+
     func testNativeSourceClockAcrossLateAttachPauseAndRestart() async throws {
         try AVAudioSession.sharedInstance().setCategory(.playback)
         try AVAudioSession.sharedInstance().setActive(true)

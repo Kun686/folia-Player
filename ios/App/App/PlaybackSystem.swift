@@ -17,6 +17,7 @@ extension PlaybackEngine {
                 if let stream, !stream.hasEnded, !stream.hasFailed, error == nil {
                     observeStream(stream, epoch: generation)
                     try activate(); try stream.play()
+                    if preparedStream == nil { prefetch() }
                 } else { select(index, position: restoredPosition) }
                 break
             }
@@ -32,7 +33,11 @@ extension PlaybackEngine {
             guard let position, position.isFinite, position >= 0 else { throw MobileFailure("invalid-position") }
             let duration = playbackDuration, target = duration > 0 ? min(position, duration) : position
             if usesStereoOutput {
-                if let stream { try stream.seek(to: target) } else { restoredPosition = target }
+                if let stream {
+                    guard stream.audio.isSeekable else { throw MobileFailure("unsupported-seek") }
+                    crossfade?.cancel(); try stream.seek(to: target)
+                    if preparedStream == nil { prefetch() }
+                } else { restoredPosition = target }
             } else if player.currentItem == nil { restoredPosition = target }
             else {
                 player.seek(to: CMTime(seconds: target, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) {

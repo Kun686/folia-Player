@@ -40,12 +40,16 @@ type TransitionSettingsSectionProps = {
     isDaylight: boolean;
     settingsCardClass: string;
     theme?: Theme;
+    analysisAvailable?: boolean;
+    analysisUnavailableMessage?: string;
 };
 
 const TransitionSettingsSection: React.FC<TransitionSettingsSectionProps> = ({
     isDaylight,
     settingsCardClass,
     theme,
+    analysisAvailable,
+    analysisUnavailableMessage,
 }) => {
     const { t } = useTranslation();
     const {
@@ -107,7 +111,7 @@ const TransitionSettingsSection: React.FC<TransitionSettingsSectionProps> = ({
     const rangeInputClass = `w-full accent-current ${isDaylight ? 'text-zinc-900' : 'text-white'}`;
     // Asked on every render rather than cached: it is a property lookup, and a cached answer would
     // be a second source of truth for a question whose whole job is to be the current one.
-    const analysable = canAnalyseTracks();
+    const analysable = analysisAvailable ?? canAnalyseTracks();
     // Subscribed purely to re-render: whether the weights are on disk is answered over IPC and can
     // change while this page is open, and a badge that settled on its first render would go on
     // saying "compatible" after the model it was waiting for arrived.
@@ -166,7 +170,7 @@ const TransitionSettingsSection: React.FC<TransitionSettingsSectionProps> = ({
     // caching one is a switch on another page, and a warning that only names the page is a warning
     // most people close.
     const notice: { text: string; fix: (() => void) | null } | null = !analysable
-        ? { text: t('options.transitionAutomixUnavailable'), fix: null }
+        ? { text: analysisUnavailableMessage ?? t('options.transitionAutomixUnavailable'), fix: null }
         : !enableMediaCache
             ? { text: t('options.transitionAutomixNeedsCache'), fix: () => onToggleMediaCache(true) }
             : null;

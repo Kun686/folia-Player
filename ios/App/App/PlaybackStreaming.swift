@@ -4,6 +4,7 @@ import UIKit
 extension PlaybackEngine {
     func selectStream(_ target: Int, refresh: Bool, position: Double) {
         guard let song = queue.indices.contains(target) ? queue[target] : (target == -1 ? detachedSong : nil) else { return }
+        crossfade?.cancel()
         generation += 1; let epoch = generation
         task?.cancel(); preload?.cancel(); stalledRecovery?.cancel(); stalledRecovery = nil; networkResume = nil
         let cache = preparedStream
@@ -30,8 +31,12 @@ extension PlaybackEngine {
                 self.streamOutput = output
                 output.configurationChanged = { [weak self, weak output] in
                     guard let self, let output, self.streamOutput === output else { return }
+                    self.crossfade?.cancel()
                     if self.intentToPlay && self.stream != nil {
-                        do { try self.activate(); try output.start() }
+                        do {
+                            try self.activate(); try output.start()
+                            if self.preparedStream == nil { self.prefetch() }
+                        }
                         catch { self.stop("audio-session") }
                     }
                     self.publish()
@@ -53,7 +58,8 @@ extension PlaybackEngine {
     }
 
     func prefetchStream() {
-        guard stream != nil, let output = streamOutput, let next = nextIndex(automatic: true), let song = queue.indices.contains(next) ? queue[next] : detachedSong else { return }
+        guard crossfade?.isFading != true, stream != nil, let output = streamOutput,
+              let next = nextIndex(automatic: true), let song = queue.indices.contains(next) ? queue[next] : detachedSong else { return }
         preload?.cancel()
         let epoch = generation
         preload = Task { @MainActor [weak self] in
@@ -63,6 +69,7 @@ extension PlaybackEngine {
                 guard epoch == self.generation, !Task.isCancelled else { entry.dispose(); return }
                 self.preparedStream?.entry.dispose()
                 self.preparedStream = (next, entry, Date())
+                self.crossfade?.tick()
             } catch { /* Active audio is preserved. Selecting this identity resolves it afresh. */ }
         }
     }

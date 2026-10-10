@@ -1,5 +1,7 @@
 // src/mobile/locale.ts
 export const mobileEn = {
+  transitionSettingsError: 'Transition settings could not be applied. The last confirmed settings have been kept.',
+  transitionAnalysisUnavailable: 'Automix is not available in this version. Song changes use crossfade.',
   retry: 'Retry', audioSettingsError: 'Audio settings could not be applied. The last confirmed settings have been kept.',
   equalizerOnly: 'Ten-band equalizer · native playback',
   effectsPending: 'Reverb, saturation and other effects are still being ported. Presets that require them are unavailable.',
@@ -31,6 +33,8 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  transitionSettingsError: '过渡设置未能应用，已保留上次确认的设置。',
+  transitionAnalysisUnavailable: '此版本暂不支持 Automix，换歌使用交叉淡化。',
   retry: '重试', audioSettingsError: '声音设置未能应用，已保留上次确认的设置。',
   equalizerOnly: '十段均衡器 · 原生播放',
   effectsPending: '混响、饱和等音效仍在移植中，依赖这些音效的预设暂不可用。',
@@ -62,6 +66,8 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  transitionSettingsError: 'Pengaturan transisi gagal diterapkan. Pengaturan terakhir tetap dipakai.',
+  transitionAnalysisUnavailable: 'Automix belum tersedia pada versi ini. Transisi memakai crossfade.',
   retry: 'Coba lagi', audioSettingsError: 'Pengaturan audio gagal diterapkan. Pengaturan terakhir tetap dipakai.',
   equalizerOnly: 'Equalizer sepuluh band · pemutaran native',
   effectsPending: 'Reverb, saturasi, dan efek lain masih dipindahkan. Preset yang memerlukannya belum tersedia.',

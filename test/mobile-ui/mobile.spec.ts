@@ -8,6 +8,7 @@ test.beforeEach(async ({ page }) => {
     let subscriber: (state: unknown) => void;
     let cookie = false;
     const effects = { highpass: 20, lowpass: 20000, drive: 0, crush: 0, wow: 0, noise: 0, width: 1, space: 0, punch: 0 };
+    win.fixtureTransition = { enabled: false, mode: 'automix', crossfadeMaxSec: 5 };
     win.fixtureAudio = { volume: 1, isMuted: false, equalizer: { enabled: false, gains: Array(10).fill(0), preset: 'flat', effects,
       customSlots: [1, 2].map(() => ({ gains: Array(10).fill(0), effects })) } };
     const song = { id: 42, name: '测试歌曲', ar: [{ id: 1, name: '测试歌手' }], al: { id: 1, name: '专辑' }, dt: 180000 };
@@ -20,13 +21,18 @@ test.beforeEach(async ({ page }) => {
     win.fixturePlayback = state;
     const emit = () => { state.revision++; subscriber?.({ ...state }); };
     const methods = ['bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR',
-      'localCatalog', 'importAudio', 'localDetails', 'importLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings'];
+      'localCatalog', 'importAudio', 'localDetails', 'importLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings'];
     win.Capacitor = {
       PluginHeaders: [{ name: 'FoliaNative', methods: [...methods.map(name => ({ name, rtype: 'promise' })), { name: 'addListener' }, { name: 'removeListener' }] }],
       nativeCallback: (_plugin: string, method: string, _options: unknown, cb: (state: unknown) => void) => {
         if (method === 'addListener') subscriber = cb; return 'callback-1';
       },
       nativePromise: async (_plugin: string, method: string, options: any) => {
+        if (method === 'getTransitionSettings') return structuredClone(win.fixtureTransition);
+        if (method === 'setTransitionSettings') {
+          if (win.fixtureTransitionFailure) throw new Error('transition-settings-failed');
+          win.fixtureTransition = structuredClone(options.settings); return structuredClone(win.fixtureTransition);
+        }
         if (method === 'getAudioSettings') return structuredClone(win.fixtureAudio);
         if (method === 'setAudioSettings') {
           if (win.fixtureAudioFailure) throw new Error('audio-settings-failed');
@@ -84,6 +90,32 @@ test.beforeEach(async ({ page }) => {
       },
     };
   });
+});
+test('original transition settings reach native state and recover from failed edits', async ({ page }, info) => {
+  await page.addInitScript(() => { (window as any).fixtureNoServer = true; });
+  await page.goto('/mobile.html');
+  await page.getByRole('button', { name: '导入音乐', exact: true }).click();
+  await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
+  await page.getByRole('button', { name: 'Folia 智能过渡', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Folia 智能过渡' });
+  const toggle = dialog.getByRole('button', { name: '过渡', exact: true });
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await toggle.click();
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureTransition.enabled)).toBe(true);
+  await expect(dialog.getByText('此版本暂不支持 Automix，换歌使用交叉淡化。')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: /Folia Automix/ })).toBeDisabled();
+  await dialog.getByRole('button', { name: /Folia Crossfade/ }).click();
+  const duration = dialog.getByRole('slider', { name: '过渡最长时长' });
+  await duration.fill('12');
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureTransition)).toEqual({ enabled: true, mode: 'crossfade', crossfadeMaxSec: 12 });
+  await page.screenshot({ path: `.mobile-test-results/transition-settings-${info.project.name}.png` });
+  await page.evaluate(() => { (window as any).fixtureTransitionFailure = true; });
+  await toggle.click();
+  await expect(dialog.getByRole('alert')).toContainText('过渡设置未能应用');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await dialog.getByRole('button', { name: '关闭', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
 });
 test('login, catalog, queue, controls and responsive layout', async ({ page }, info) => {
   const errors: string[] = [];
@@ -213,7 +245,7 @@ test('unsupported audio effects are explained without losing the selected origin
   await page.getByRole('button', { name: '音频效果器', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '音频效果器' });
   await dialog.getByRole('button', { name: 'Lo-Fi', exact: true }).click();
-  await expect(dialog.getByRole('alert')).toHaveText('附加音效目前需要立体声音源，当前歌曲继续使用均衡器。');
+  await expect(dialog.getByRole('alert')).toHaveText('当前音频格式不支持附加音效，将继续使用均衡器。');
   expect(await page.evaluate(() => (window as any).fixtureAudio.equalizer.effects.wow)).toBe(0.32);
   await page.evaluate(() => { (window as any).fixtureEffectError = ''; });
   await dialog.getByRole('button', { name: '音频处理已开启', exact: true }).click();

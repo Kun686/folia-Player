@@ -33,12 +33,14 @@ struct TransitionGainCurve {
 }
 
 final class TransitionGain {
-    struct Clock { let renderedEnd: Double?; let curveStart: Double? }
+    struct Clock { let renderedEnd: Double?; let curveStart: Double?; let generation: UInt64? }
     private final class Command {
         let curve: TransitionGainCurve?
         let restoreSeconds: Double
         let cancelledAt: Double?
-        init(curve: TransitionGainCurve? = nil, restoreSeconds: Double = 0.03, cancelledAt: Double? = nil) {
+        let generation: UInt64
+        init(generation: UInt64, curve: TransitionGainCurve? = nil, restoreSeconds: Double = 0.03, cancelledAt: Double? = nil) {
+            self.generation = generation
             self.curve = curve; self.restoreSeconds = restoreSeconds; self.cancelledAt = cancelledAt
         }
     }
@@ -47,9 +49,10 @@ final class TransitionGain {
     private var ready: Command?, retired: Command?
     private var renderedEnd: Double?
     private var curveStart: Double?
+    private var appliedGeneration: UInt64?
     var clock: Clock {
         lock.lock(); defer { lock.unlock() }
-        return Clock(renderedEnd: renderedEnd, curveStart: curveStart)
+        return Clock(renderedEnd: renderedEnd, curveStart: curveStart, generation: appliedGeneration)
     }
     // AVAudioEngine pulls this graph serially. Render owns these fields, including both decks' quantum.
     private var active: Command?
@@ -63,11 +66,12 @@ final class TransitionGain {
         lock.lock(); defer { lock.unlock() }
         generation &+= 1
         // Original rampGain explicitly sets AudioParam.value: WebKit exposes the last rendered sample.
-        ready = Command(restoreSeconds: immediate ? 0 : 0.03, cancelledAt: renderedEnd.map { $0 - 1 }); retired = nil
+        ready = Command(generation: generation, restoreSeconds: immediate ? 0 : 0.03,
+                        cancelledAt: renderedEnd.map { $0 - 1 }); retired = nil
         return generation
     }
     @discardableResult func schedule(_ curve: TransitionGainCurve, generation expected: UInt64) -> Bool {
-        let command = Command(curve: curve)
+        let command = Command(generation: expected, curve: curve)
         lock.lock(); defer { lock.unlock() }
         guard expected == generation else { return false }
         retired = nil; ready = command
@@ -91,6 +95,7 @@ final class TransitionGain {
                 let heldAt = next.cancelledAt ?? frame
                 outFrom = value(incoming: false, at: heldAt); inFrom = value(incoming: true, at: heldAt)
                 retired = active; active = next; ready = nil
+                appliedGeneration = next.generation
                 if let curve = next.curve {
                     outID = curve.outgoing; inID = curve.incoming
                     start = frame + curve.hold * rate

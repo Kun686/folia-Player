@@ -43,6 +43,7 @@ extension PlaybackEngine {
     }
     // Removing another provider must not interrupt a local track or an unrelated account.
     func removeSongs(where matches: ([String: Any]) -> Bool) {
+        crossfade?.removeTail(where: matches)
         promotePreparedItem()
         let song = currentSong
         let removesCurrent = song.map(matches) ?? false
@@ -81,6 +82,7 @@ extension PlaybackEngine {
     }
 
     func discardPrepared() {
+        crossfade?.invalidatePlan()
         preload?.cancel()
         preparedStream?.entry.dispose(); preparedStream = nil
         if let pending = prepared?.item, pending !== player.currentItem { player.remove(pending) }

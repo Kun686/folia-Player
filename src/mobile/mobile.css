@@ -51,7 +51,7 @@ h1, h2, p { margin: 0; } h1 { font-size: 32px; letter-spacing: -.04em; } h2 { fo
 .empty-lyrics p { color: var(--muted); font-size: 13px; }
 .player-controls { padding: 20px 24px; } .player-controls h2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .player-controls p { color: var(--muted); font-size: 13px; margin: 8px 0; } input[type=range] { width: 100%; padding: 0; accent-color: var(--text); }
-.player-options { display: flex; justify-content: center; gap: 8px; margin-top: 12px; }
+.player-options { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 12px; }
 .player-options button { font-size: 12px; }
 .volume-controls { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
 .volume-controls input { flex: 1; min-width: 0; }
@@ -71,6 +71,9 @@ h1, h2, p { margin: 0; } h1 { font-size: 32px; letter-spacing: -.04em; } h2 { fo
 .check-label { flex-direction: row !important; align-items: center; }
 .check-label input { width: 22px; min-height: 22px; }
 .visual-settings { text-align: left; }
+.transition-settings button { touch-action: manipulation; }
+.transition-settings button.h-6 { position: relative; }
+.transition-settings button.h-6::before { content: ''; position: absolute; inset: -10px 0; }
 .visual-settings input[type=range] { touch-action: pan-y; }
 .visual-settings > details, .appearance-transfer { margin-block: 20px; }
 .visual-settings summary { cursor: pointer; min-height: 44px; padding-block: 12px; }

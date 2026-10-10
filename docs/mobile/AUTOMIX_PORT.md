@@ -55,15 +55,17 @@
 
 | 部分 | 状态 |
 | --- | --- |
-| 原规划与曲线计算 | PASS，尚未接入 PlaybackEngine |
+| 原规划与曲线计算 | PASS；Crossfade 原生队列测试已调用，完整 Automix 尚未接入 |
 | 两个解码器汇入同一混音与整体 DSP 输出 | PASS；mobile.8 源码已接入 App 默认原生队列 |
-| 按采样时钟调度原增益曲线 | PASS，执行层与共享输出已验证；尚未由真实队列触发 |
+| 按采样时钟调度原增益曲线 | PASS，执行层、Crossfade 原生队列与原设置已接入开发源码；未替换 mobile.8 |
 | 频带交接、回声、伸缩 | NOT_IMPLEMENTED |
 | profile 获取、分析缓存、Beat This! / htdemucs 模型与表演手势 | NOT_IMPLEMENTED |
-| 原设置与队列、暂停、拖动、失败、后台状态接线 | NOT_IMPLEMENTED |
+| Crossfade 队列、暂停、拖动、手动选曲与尾曲清理 | PASS，原生测试及设置接线；默认关闭，尚未生成新交付包 |
+| 原开关、模式、时长设置 | PASS，原面板／store／桥接／原生持久化；开发源码 |
+| 分析证据、完整 Automix、动画事件接线 | NOT_IMPLEMENTED |
 | 真机连续混音、听感、功耗与歌词时序验收 | NOT_RUN |
 
-下一步接原过渡调度。mobile.7 每个播放项独立处理音效并输出；mobile.8 已改为共用整体音效和最终音量，
+下一步接原分析输入与完整 Automix。mobile.7 每个播放项独立处理音效并输出；mobile.8 已改为共用整体音效和最终音量，
 但尚未进行音乐性过渡，所以不能据此宣称 Automix 等价。
 原版 `connectStemBus` 的软限幅仅用于分离音轨的过渡总线，普通 crossfade 不经过它；
 后续按原分支接入，不把限幅永久加到单曲或普通淡化路径。
@@ -139,6 +141,104 @@ WebKit 实测表明，原 `rampGain` 读取的是最后渲染样本的 `AudioPar
 最终测试先要求两个连续缓冲的左右声道达到已知 PCM 基线，随后逐样本检查全部曲线，容差未放宽。
 失败日志 `transition-gain-output*`、`transition-gain-buffer-contract` 均保留。
 
-**待查清启动静音的具体来源及延迟，并据此校准入场曲准备与歌词时钟。** 当前测试证明稳定出声后的曲线执行，
+**当时待查清的启动静音已在下一阶段定位并修正，见下文。** 上述测试证明稳定出声后的曲线执行，
 不证明启动无延迟、真实队列已经无缝过渡、150ms 歌词目标、物理设备听感、后台连续混音或功耗通过。
 下一阶段仍需接原队列与设置生命周期、频带／回声／伸缩、分析缓存及原过渡动画事件。
+
+## 开发阶段：消除 TimePitch 延迟并接入原生 Crossfade 队列
+
+### 根因与修正
+
+`transition-startup-isolate.{log,xcresult}` 在同一模拟器、同一 44.1kHz 交错 PCM 格式下比较：
+系统 input→mixer 首帧在 0；增加已 bypass 的 AVAudioUnitTimePitch 后，首帧变为 4096；
+原外部解码输出同样在 4096 才出声。约 92.88ms 的延迟来自旁路的 TimePitch，非供数不足或曲线调度。
+
+外部渲染现直接调用依赖已有 `inRender`，将已校验的宿主缓冲交给其原 PCM 环形缓冲读取，
+继续复用缓冲等待、seek、补零和 EOF 处理。不新增解码、复制算法或依赖，也不修改原非外部输出路线。
+此接口明确返回原始 PCM；外部宿主拥有整体音量、DSP 以及后续待接入的时间伸缩，不再经过库内 TimePitch。
+vendor 仍为同一固定提交的 59 文件、仅两文件有差异，完整补丁和逐文件哈希同步更新并核对原 checkout 通过。
+
+修正后首个非零帧为 0；四秒输入的全部 176,400 帧均保留，最后非零帧为 176,399，包含末尾不满一个回调的 272 帧。
+原包络经两路实际解码器和共享音效图的对照最大样本误差为 0。
+这不是物理扬声器端到端零延迟或歌词同步验收；系统 I/O 延迟仍需实测。
+
+### 原生队列闭环
+
+- `NativeCrossfade` 直接调用已打包的原 `planForMode(mode: crossfade)` 和原包络函数，
+  使用实际解码时长，保留原最大时长、短曲四分之一上限及不足空间时自然结束的规则。
+  当前尚无原离线 profile 与逐 deck 实时分析，相关输入显式为 null；不宣称已达到完整原版效果。
+- 先连接仍静默的待播解码器、提交成对增益，再释放其 PCM 读取，避免下一首先以满音量闯入。
+  原生队列切为入场曲，旧曲保留到音频时钟确认淡出结束；尾曲提前 EOF 只释放尾曲，不重置入场曲曲线。
+- 按歌曲时间预约原生启动回调，不把过渡起点量化到 250ms 快照轮询。回调再次读取实际媒体位置；
+  暂停、拖动、队列变更和新播放意图会取消旧预约及旧规划。音频时钟的代次也参与收尾检查。
+- 暂停／中断、拖动、选曲、关闭过渡和删除尾曲所属账号会清理旧过渡。恢复播放或拖动后继续预备下一首。
+  只编辑后续队列保留正在发声的两曲。按原 `resolveNextQueueSong`，单曲循环与同歌曲身份之间不做过渡。
+- 仍最多两路发声；过渡中不额外预加载第三路，结束后再准备后续曲目。曲目仍按原身份和代次解析，
+  没有复制 provider 规则、转发额外认证信息或改动界面与动画。
+
+**此控制器默认关闭；设置接线在下节完成，profile、实时分析、动态响度平衡和动画事件尚未接入。**
+它不是已交付的完整 Automix；mobile.8 安装记录未改。
+
+### 本轮证据与失败记录
+
+- `transition-startup-raw-pcm`：首帧、末尾完整性、seek、外部缓冲校验通过；旧测试要求进度大于 50ms
+  而新链路仅 23.22ms 就已输出两个完整非零缓冲，导致两条过时断言失败。改为要求实际两个 PCM 缓冲及相应进度，
+  并保留原逐样本误差断言。
+- `transition-queue-first`：六项中五项通过。账号退出测试在“过渡状态已建立、入场解码器尚未报告 playing”
+  时断言正在播放而失败；辅助函数改为等待真实 outputIsPlaying 后执行用户动作。`transition-queue-retry` 四项通过。
+- `transition-queue-full`：111 项全部通过，52.647 秒。
+- `transition-queue-deadline-full`：包含按媒体时间预约后的最终完整 Release 回归，**111 项全部通过，51.032 秒**。
+  设备为 iPad Pro 11-inch (M5) / iOS 26.5 模拟器；除既有测试外，覆盖真实双解码器队列交接、尾曲清理、
+  后续预备、暂停恢复、拖动、快速选曲、关闭过渡、原子拒绝非法设置、队列编辑、尾曲账号退出、单曲循环和重复身份。
+  不依赖 WKWebView 执行规划或调度，但仍不等于 30 分钟真机锁屏／耳机／网络切换验收。
+
+上一阶段源码 `7b92c1c` 的 [CI 38070318733](https://github.com/Kun686/folia-Player/actions/runs/38070318733)
+已确认成功；本阶段远端 CI 以新提交对应 run 为准。
+
+
+### iPhone 队列验证与测试宿主修正
+
+`transition-queue-device` 首次构建／签名／安装成功，但 Xcode 普通 `test` 启动了仍安装的个人 App，
+从个人包路径查找不存在的 XCTest 插件，测试未运行。独立 QA 包使用 `app.folia.validation.App`，
+个人包仍为 `app.folia.personal` / build 8；没有覆盖或卸载个人 App。
+
+改用 `build-for-testing` 后，核对生成 `.xctestrun` 的 `TestHostBundleIdentifier` 与实际签名包的
+`CFBundleIdentifier` 均为 QA 身份，再执行 `test-without-building -xctestrun …`。
+`transition-queue-device-explicit`：iPhone XS Max / iOS18.7.10 / Release，7 项通过，6.786 秒。
+真机也测得 TimePitch 4096 帧延迟、修正后原始 PCM 首帧 0／末帧 176399／176400 帧完整，原曲线混音最大误差 0。
+仍是音频回调中的受控样本验证，不是扬声器听感或长时间锁屏验收。
+
+## 开发阶段：原设置面板接回原生队列
+
+- 复用 `TransitionSettingsSection`、`useAutomixSettingsStore` 及其原操作，不新建另一套模式或时长规则。
+  桌面／Web 的能力判断与行为默认不变；移动容器显式提供当前分析能力，并清楚显示 Automix 暂不可用、
+  实际使用 Crossfade。保留原默认关、默认所选模式和 1–25 秒范围，不将 Crossfade 标称为完整 Automix。
+- 开关、所选模式、时长由原生验证后保存到 UserDefaults；启动时恢复到原生控制器与前端原 store。
+  这是不含秘密的功能配置，平台凭据继续由原 Keychain 路径保存。非法参数不会部分修改播放或持久化。
+- 沿用原音量设置的串行写入／快速编辑合并／失败回退逻辑，提取为两者共用的 `connectNativeSettings`。
+  初始化失败时禁用编辑；关闭面板保留同步订阅，销毁播放器时取消订阅，迟到结果不更新已卸载界面。
+- 设置面板隔离移动播放器的通用按钮样式，保留原版开关外形并扩大触摸区域。设置打开时暂停视觉渲染，
+  音频继续由原生拥有。原过渡动画仅画 Automix，不能借 Crossfade 假造动画事件；本轮没有改动该规则。
+
+证据均位于 `.mobile-test-results/`：
+
+| 验证 | 结果 |
+| --- | --- |
+| `transition-settings-unit.log` | PASS，移动逻辑 46 项，含真实 store 的恢复、并发编辑、回退与卸载竞态 |
+| `transition-settings-typecheck.log` | PASS，TypeScript |
+| `transition-settings-ui-retry.log` | PASS，手机／iPad／窄窗口的过渡、音量与音效错误路径，共 9 项 |
+| `transition-settings-ui-final.log` | PASS，隔离按钮样式后过渡设置三尺寸 3 项；已检查截图 |
+| `transition-settings-native-signed.{log,xcresult}` | PASS，iPad 模拟器 Release 全量 112 项，51.365 秒 |
+| `transition-settings-sync.log` | PASS，移动生产资源打包及 Capacitor 同步；保留既有大 chunk 警告 |
+| `transition-settings-device-build.log` | PASS，独立 QA App 开发签名构建 |
+| `transition-settings-device.{log,xcresult}` | PASS，iPhone XS Max / iOS18.7.10 / Release，8 项，6.856 秒；含设置保存恢复与队列闭环 |
+| vendor 核对 | PASS，固定上游 59 文件、2 处修改、逐文件哈希及完整补丁 |
+
+失败记录：首轮 UI 音效断言仍使用历史“仅立体声”文案，三个尺寸均因文案不同失败；当前实现已支持单声道，
+按现有格式不支持提示修正断言后通过，没有改产品文案迁就测试。原生首轮 `CODE_SIGNING_ALLOWED=NO` 导致
+Keychain 测试失败，其余 111 项通过；恢复此前使用的 `CODE_SIGN_IDENTITY=-` 后全部 112 项通过，未改 Keychain 实现。
+
+QA App 已移除，个人 mobile.8 保留，未生成新 IPA、未改 BUILD_RECORD.json。
+未完成：原 profile／实时分析输入、动态响度平衡、频带／回声／伸缩、完整 Automix 和原过渡动画接线；
+三平台真实账户／流媒体、30 分钟锁屏、物理耳机／蓝牙／网络切换、150ms 歌词同步与功耗验收仍分别保留原状态，
+本轮短样本和模拟界面测试不替代这些证据。

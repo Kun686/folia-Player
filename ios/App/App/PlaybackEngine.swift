@@ -12,7 +12,9 @@ final class PlaybackEngine {
     var stream: StreamOccurrence?
     var preparedStream: (index: Int, entry: StreamOccurrence, at: Date)?
     var streamTimer: DispatchSourceTimer?
+    var crossfade: NativeCrossfade?
     var audioSettings = NativeAudioSettings()
+    var transitionSettings = NativeTransitionSettings()
     let gateway: GatewayClient
     let storage: UserDefaults
     let local: LocalMediaLibrary
@@ -57,6 +59,8 @@ final class PlaybackEngine {
         player.automaticallyWaitsToMinimizeStalling = true
         restore()
         restoreAudioSettings()
+        crossfade = NativeCrossfade(owner: self)
+        restoreTransitionSettings()
         setupSystem()
         setupNetwork()
         if usesStereoOutput {
@@ -64,6 +68,7 @@ final class PlaybackEngine {
             timer.schedule(deadline: .now(), repeating: 0.25, leeway: .milliseconds(20))
             timer.setEventHandler { [weak self] in
                 guard let self, self.intentToPlay else { return }
+                self.crossfade?.tick()
                 self.publish()
             }
             streamTimer = timer; timer.resume()
@@ -173,6 +178,7 @@ final class PlaybackEngine {
         if let next = nextIndex() { select(next) }
     }
     func stop(_ code: String? = nil) {
+        crossfade?.cancel()
         generation += 1; task?.cancel(); discardPrepared(); stalledRecovery?.cancel(); stalledRecovery = nil; networkResume = nil
         statusObservation = nil; observedItem = nil
         stream?.clearEvents()
@@ -190,8 +196,12 @@ final class PlaybackEngine {
     var hasCurrentOutput: Bool { usesStereoOutput ? stream != nil : player.currentItem != nil }
     var outputIsPlaying: Bool { usesStereoOutput ? stream?.playing == true && streamOutput?.running == true : player.timeControlStatus == .playing }
     var playbackPosition: Double { usesStereoOutput ? (stream?.position ?? restoredPosition) : (player.currentItem == nil ? restoredPosition : finiteTime(player.currentTime())) }
-    func pauseOutput() { if usesStereoOutput { stream?.pause(); streamOutput?.pause() } else { player.pause() } }
+    func pauseOutput() {
+        crossfade?.cancel()
+        if usesStereoOutput { stream?.pause(); streamOutput?.pause() } else { player.pause() }
+    }
     func clearOutput() {
+        crossfade?.cancel()
         if usesStereoOutput { stream?.dispose(); stream = nil; meter = nil }
         else { player.removeAllItems() }
     }
@@ -236,6 +246,7 @@ final class PlaybackEngine {
         // Restore paused; no network traffic or unexpected audio until the user presses play.
     }
     deinit {
+        crossfade?.cancel()
         task?.cancel(); preload?.cancel(); stalledRecovery?.cancel(); network.cancel()
         streamTimer?.cancel(); stream?.dispose(); preparedStream?.entry.dispose()
         streamOutput?.close()

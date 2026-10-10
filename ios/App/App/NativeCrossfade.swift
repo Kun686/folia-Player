@@ -1,0 +1,197 @@
+import Foundation
+
+// NativeCrossfade.swift — original crossfade plans on the native identity queue, independent of WebView timers.
+final class NativeCrossfade {
+    private struct Key: Equatable {
+        let epoch: Int, queueRevision: Int
+        let outgoing: ObjectIdentifier, incoming: ObjectIdentifier
+        let fromDuration: Double, toDuration: Double
+    }
+    private struct Fade {
+        var tail: StreamOccurrence?
+        let tailSong: [String: Any]
+        let epoch: Int, gainGeneration: UInt64
+        let seconds: Double
+    }
+    private weak var owner: PlaybackEngine?
+    private let planner = NativeTransitionPlanner()
+    private var work: Task<Void, Never>?
+    private var release: DispatchWorkItem?
+    private var revision: UInt64 = 0
+    private var key: Key?
+    private var plan: NativeTransitionPlan?
+    private var fade: Fade?
+    private(set) var enabled = false
+    private(set) var maximumSeconds = 5.0
+    var isFading: Bool { fade != nil }
+
+    init(owner: PlaybackEngine) { self.owner = owner }
+    deinit { work?.cancel(); release?.cancel(); fade?.tail?.dispose() }
+
+    // Only the original crossfade mode is executed here. Full Automix requires its separate measured inputs.
+    func configure(enabled: Bool, maximumSeconds: Double) throws {
+        guard maximumSeconds.isFinite, (1...25).contains(maximumSeconds) else {
+            throw MobileFailure("invalid-transition-settings")
+        }
+        guard self.enabled != enabled || self.maximumSeconds != maximumSeconds else { return }
+        self.enabled = enabled; self.maximumSeconds = maximumSeconds
+        if !enabled { cancel(); owner?.prefetch() } else { invalidatePlan() }
+        tick()
+    }
+    func invalidatePlan() {
+        revision &+= 1
+        work?.cancel(); work = nil; release?.cancel(); release = nil; key = nil; plan = nil
+    }
+    func cancel() {
+        invalidatePlan()
+        fade?.tail?.dispose(); fade = nil
+        owner?.streamOutput?.transitionGain.cancel()
+    }
+    func removeTail(where matches: ([String: Any]) -> Bool) {
+        if let fade, matches(fade.tailSong) { cancel() }
+    }
+
+    // Native media time decides readiness; the shared render clock decides when a scheduled fade is over.
+    func tick() {
+        guard let owner else { return }
+        if let fade {
+            guard fade.epoch == owner.generation else { cancel(); return }
+            let clock = owner.streamOutput?.transitionGain.clock
+            if clock?.generation == fade.gainGeneration, let start = clock?.curveStart, let end = clock?.renderedEnd,
+               end >= start + (fade.seconds + 0.15) * 44100 {
+                cancel(); owner.prefetch(); owner.publish()
+            }
+            return
+        }
+        guard enabled, owner.usesStereoOutput, owner.intentToPlay, owner.outputIsPlaying,
+              owner.repeatMode != "one", owner.queue.count >= 2,
+              owner.queue.indices.contains(owner.index) || owner.repeatMode == "all",
+              let outgoing = owner.stream, !outgoing.audio.isSeeking, !outgoing.hasEnded,
+              let pending = owner.preparedStream, !pending.entry.hasFailed, !pending.entry.hasEnded,
+              owner.nextIndex(automatic: true) == pending.index,
+              let currentSong = owner.currentSong,
+              differentSongs(currentSong, owner.queue[pending.index]) else { return }
+        if Date().timeIntervalSince(pending.at) >= 120 {
+            owner.discardPrepared(); owner.prefetch(); return
+        }
+        let fromDuration = owner.playbackDuration
+        let toDuration = pending.entry.duration > 0 ? pending.entry.duration
+            : (owner.queue[pending.index]["durationMs"] as? Double ?? 0) / 1000
+        let current = Key(epoch: owner.generation, queueRevision: owner.queueRevision,
+                          outgoing: ObjectIdentifier(outgoing), incoming: ObjectIdentifier(pending.entry),
+                          fromDuration: fromDuration, toDuration: toDuration)
+        if key != current {
+            invalidatePlan(); key = current
+            let position = owner.playbackPosition, maximum = maximumSeconds
+            work = Task { @MainActor [weak self] in
+                guard let self else { return }
+                do {
+                    let request: [String: Any] = ["version": 1,
+                        "settings": ["mode": "crossfade", "crossfadeMaxSec": maximum, "performance": false],
+                        "from": ["duration": fromDuration, "lines": NSNull()],
+                        "to": ["duration": toDuration, "lines": NSNull()], "bpm": NSNull(), "at": position]
+                    let result = try await self.planner.plan(JSONSerialization.data(withJSONObject: request))
+                    guard !Task.isCancelled else { return }
+                    guard self.matches(current) else { self.discardStale(current); return }
+                    self.work = nil; self.plan = result; self.tick()
+                } catch { if !Task.isCancelled, self.key == current { self.work = nil } }
+            }
+            return
+        }
+        guard work == nil, let plan, plan.kind == "fade" else { return }
+        let delay = plan.outStart - owner.playbackPosition
+        if delay > 0 {
+            if release == nil {
+                let stamp = revision
+                let release = DispatchWorkItem { [weak self] in
+                    guard let self, self.revision == stamp else { return }
+                    self.release = nil; self.tick()
+                }
+                self.release = release
+                // A native deadline avoids quantizing the fade start to the 250ms UI snapshot timer.
+                // tick rechecks media time after stalls; seek/pause/queue changes invalidate this deadline.
+                DispatchQueue.main.asyncAfter(deadline: .now() + max(0.005, delay), execute: release)
+            }
+            return
+        }
+        release?.cancel(); release = nil
+        begin(plan, key: current)
+    }
+
+    private func matches(_ expected: Key) -> Bool {
+        guard let owner, enabled, owner.intentToPlay, owner.outputIsPlaying, key == expected,
+              owner.generation == expected.epoch, owner.queueRevision == expected.queueRevision,
+              let current = owner.stream, let next = owner.preparedStream,
+              ObjectIdentifier(current) == expected.outgoing, ObjectIdentifier(next.entry) == expected.incoming,
+              owner.nextIndex(automatic: true) == next.index else { return false }
+        return true
+    }
+    private func discardStale(_ expected: Key) {
+        if key == expected { invalidatePlan() }
+    }
+    private func differentSongs(_ first: [String: Any], _ second: [String: Any]) -> Bool {
+        guard let a = first["sourceRef"] as? [String: Any], let b = second["sourceRef"] as? [String: Any] else { return false }
+        // Same identity contract as getPlaybackSongKey: provider metadata and URL are not song identity.
+        return a["kind"] as? String != b["kind"] as? String
+            || a["providerId"] as? String != b["providerId"] as? String
+            || a["mediaId"] as? String != b["mediaId"] as? String
+    }
+
+    // Validate the awaited envelope against queue intent, then hand over ownership without replacing the output graph.
+    private func begin(_ plan: NativeTransitionPlan, key expected: Key) {
+        guard let owner else { return }
+        let remaining = min(owner.playbackDuration, plan.outStart + plan.overlap) - owner.playbackPosition
+        guard remaining > 0 else { self.plan = nil; return }
+        work = Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let request: [String: Any] = ["version": 1,
+                    "plan": ["style": plan.style, "minOverlap": plan.minOverlap, "tiltDb": plan.tiltDb],
+                    "timing": ["overlap": min(plan.overlap, remaining), "remaining": remaining,
+                        "outgoingDb": NSNull(), "nextBeatIn": NSNull(), "periodSec": NSNull(), "incomingLeadIn": NSNull()]]
+                let envelope = try await self.planner.envelope(JSONSerialization.data(withJSONObject: request))
+                guard !Task.isCancelled else { return }
+                guard self.matches(expected) else { self.discardStale(expected); return }
+                guard let owner = self.owner,
+                      let output = owner.streamOutput, let outgoing = owner.stream,
+                      let pending = owner.preparedStream, let song = owner.currentSong else { return }
+                // Attach an unstarted decoder (silence), schedule its gain, then release consumption.
+                // This order prevents an incoming track from punching in at full volume before the curve.
+                try output.attach(pending.entry.audio)
+                let gainGeneration = output.transitionGain.cancel()
+                do {
+                    guard try output.scheduleGain(outgoing: outgoing.audio, incoming: pending.entry.audio,
+                                                  envelope: envelope, generation: gainGeneration) else {
+                        throw MobileFailure("transition-cancelled")
+                    }
+                    try pending.entry.play()
+                } catch {
+                    output.remove(pending.entry.audio); output.transitionGain.cancel()
+                    throw error
+                }
+                outgoing.clearEvents()
+                owner.task?.cancel(); owner.preload?.cancel(); owner.stalledRecovery?.cancel(); owner.stalledRecovery = nil
+                owner.generation += 1; owner.preparedStream = nil
+                owner.stream = pending.entry; owner.meter = pending.entry.meter
+                owner.index = pending.index; owner.detachedSong = owner.queue[pending.index]
+                owner.restoredPosition = pending.entry.position
+                owner.error = nil; owner.retried = false; owner.failures = 0
+                self.fade = Fade(tail: outgoing, tailSong: song, epoch: owner.generation,
+                                 gainGeneration: gainGeneration, seconds: envelope.overlap)
+                // Early tail EOF does not truncate the incoming gain curve.
+                outgoing.ended = { [weak self, weak outgoing] in self?.releaseTail(outgoing) }
+                outgoing.failed = { [weak self, weak outgoing] in self?.releaseTail(outgoing) }
+                owner.observeStream(pending.entry, epoch: owner.generation)
+                self.work = nil; self.plan = nil
+                owner.persist(); owner.publish()
+            } catch {
+                // Optional transition failure leaves the current song playing; normal EOF resolves next afresh.
+                if !Task.isCancelled, self.key == expected { self.work = nil; self.plan = nil }
+            }
+        }
+    }
+    private func releaseTail(_ entry: StreamOccurrence?) {
+        guard let entry, fade?.tail === entry else { return }
+        entry.dispose(); fade?.tail = nil
+    }
+}

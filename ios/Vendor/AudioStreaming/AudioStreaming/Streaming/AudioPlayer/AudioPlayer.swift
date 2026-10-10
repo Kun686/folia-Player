@@ -251,9 +251,11 @@ open class AudioPlayer {
     /// Format required by renderExternalAudio: the existing decoder's stereo Float32 PCM.
     public var externalOutputFormat: AVAudioFormat { outputAudioFormat }
 
-    /// Render on exactly one external audio thread. Never use alongside this player's hardware output.
+    /// Render decoded PCM on exactly one external audio thread. Never use alongside hardware output.
     /// The owner must retain this player until its source node is detached and rendering has stopped.
     /// Prepared, paused and ended entries emit silence without advancing their media clock.
+    /// The external host owns effects, gain and time stretching. Do not pass through this player's
+    /// manual engine: even a bypassed TimePitch delays its output by 4096 frames and can truncate EOF.
     public func renderExternalAudio(frames: AVAudioFrameCount,
                                     output: UnsafeMutablePointer<AudioBufferList>) -> OSStatus {
         guard externallyRendered else { return kAudioUnitErr_InvalidProperty }
@@ -268,10 +270,11 @@ open class AudioPlayer {
         buffers[0].mDataByteSize = bytes
         guard preparedOutputStarted.value, playerContext.internalState.contains(.running),
               playerContext.internalState != .paused, audioEngine.isRunning else { return noErr }
-        var flags = AudioUnitRenderActionFlags()
-        let status = playerRenderProcessor.render(inNumberFrames: frames, ioData: output, flags: &flags)
-        if status != noErr { memset(data, 0, Int(bytes)) }
-        return status
+        // Reuse the library's existing ring-buffer consumption, seek, rebuffering and EOF handling.
+        // It writes directly into the validated host buffer and pads a short final read with silence.
+        rendererContext.inOutAudioBufferList[0].mBuffers = buffers[0]
+        _ = playerRenderProcessor.inRender(inNumberFrames: frames)
+        return noErr
     }
 
     /// Whether a native seek still has to be applied by the source processor.

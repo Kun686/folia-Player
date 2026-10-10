@@ -11,6 +11,7 @@ export interface PlaybackSnapshot {
   audioEffects?: { available: boolean; pending: boolean; error?: string };
 }
 export interface NativeAudioSettings { volume: number; isMuted: boolean; equalizer: AudioEqualizerSettings }
+export interface NativeTransitionSettings { enabled: boolean; mode: 'crossfade' | 'automix'; crossfadeMaxSec: number }
 export type PlaybackEvent = Omit<PlaybackSnapshot, 'queue' | 'currentSong'> & Partial<Pick<PlaybackSnapshot, 'queue' | 'currentSong'>>;
 export interface FoliaNativePlugin {
   localCatalog(): Promise<{ songs: SongResult[] }>;
@@ -21,6 +22,8 @@ export interface FoliaNativePlugin {
   audioLevels(): Promise<{ available: boolean; spectrum: number[]; sampleRate: number }>;
   getAudioSettings(): Promise<NativeAudioSettings>;
   setAudioSettings(options: { settings: NativeAudioSettings }): Promise<NativeAudioSettings>;
+  getTransitionSettings(): Promise<NativeTransitionSettings>;
+  setTransitionSettings(options: { settings: NativeTransitionSettings }): Promise<NativeTransitionSettings>;
   bootstrap(): Promise<{ server: string; sessions: Record<string, Record<string, string>> }>;
   configure(options: { server: string; token: string }): Promise<void>;
   health(): Promise<{ protocol: number; providers: string[] }>;

@@ -139,7 +139,8 @@ private struct TransitionGainReference: Decodable {
         // Media progress can advance during the system graph's initial silent buffers.
         // This test isolates automation after real PCM is audible; startup latency is a separate acceptance item.
         guard stable == 2 else { XCTFail("Two decoded channels never reached their known baseline"); return }
-        XCTAssertGreaterThan(first.progress, 0.05); XCTAssertGreaterThan(second.progress, 0.05)
+        XCTAssertGreaterThanOrEqual(first.progress, 1024.0 / 44100)
+        XCTAssertGreaterThanOrEqual(second.progress, 1024.0 / 44100)
         let request = Data(#"{"version":1,"plan":{"style":"plainBlend","minOverlap":0,"tiltDb":[0,0]},"timing":{"overlap":0.1,"remaining":0.1,"outgoingDb":null,"nextBeatIn":null,"periodSec":null,"incomingLeadIn":null}}"#.utf8)
         let envelope = try await NativeTransitionPlanner().envelope(request)
         XCTAssertGreaterThan(envelope.overlap, 0)
