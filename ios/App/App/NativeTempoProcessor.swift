@@ -60,8 +60,9 @@ final class NativeTempoProcessor {
 
     // No read-ahead is hidden or trimmed here. Supply zeros after EOF to drain the system converter.
     // This graph owns its local output clock; the enclosing graph still owns the common deck clock.
-    func render(_ output: UnsafeMutablePointer<AudioBufferList>, frames: AVAudioFrameCount) -> OSStatus {
+    func render(_ output: UnsafeMutablePointer<AudioBufferList>, frames: AVAudioFrameCount, rate: Double? = nil) -> OSStatus {
         guard !closed, frames > 0, frames <= Self.maximumFrames else { return kAudioUnitErr_InvalidParameter }
+        if let rate, !Self.valid(rate) { return kAudioUnitErr_InvalidParameter }
         let buffers = UnsafeMutableAudioBufferListPointer(output)
         guard buffers.count == 2, buffers.allSatisfy({ $0.mNumberChannels == 1 && $0.mData != nil
             && $0.mDataByteSize >= frames * UInt32(MemoryLayout<Float>.size) }) else { return kAudioUnitErr_FormatNotSupported }
@@ -73,6 +74,12 @@ final class NativeTempoProcessor {
                 pendingRate = nil
             }
             lock.unlock()
+        }
+        // A containing renderer may already own its control mailbox. Applying its adopted value
+        // here avoids taking a blocking control-side lock from that renderer's audio callback.
+        if let rate, Double(Float(rate)) != appliedRate {
+            schedule(AUEventSampleTimeImmediate, 0, AUParameterAddress(kNewTimePitchParam_Rate), Float(rate))
+            appliedRate = Double(Float(rate))
         }
         input.error = noErr
         var error: OSStatus = noErr

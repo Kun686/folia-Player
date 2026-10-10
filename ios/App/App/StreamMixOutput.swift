@@ -60,21 +60,34 @@ final class StreamMixOutput {
     }
 
     // Only sounding decks join the graph. Prepared/cancelled network work never changes audible routing.
-    func attach(_ player: AudioPlayer) throws {
+    func attach(_ player: AudioPlayer, allowsTempo: Bool = false) throws {
         guard !closed else { throw MobileFailure("audio-failed") }
         let identity = ObjectIdentifier(player)
-        if sources[identity] != nil { return }
+        if let entry = sources[identity] {
+            guard !allowsTempo || entry.source.tempo != nil else { throw MobileFailure("tempo-unavailable") }
+            return
+        }
         let occupied = Set(sources.values.map(\.bus))
         guard let bus = (0..<2).map({ AVAudioNodeBus($0) }).first(where: { !occupied.contains($0) }) else {
             throw MobileFailure("audio-decks-full")
         }
-        let source = try StreamRenderSource(player: player)
+        let source = try StreamRenderSource(player: player, allowsTempo: allowsTempo)
         let deck = decks[Int(bus)]
         deck.processor.source(source.identity)
         engine.attach(source.node)
         engine.connect(source.node, to: deck.input, fromBus: 0, toBus: 0, format: source.format)
         sources[identity] = (bus, source)
         analysis.add(source.capture)
+    }
+    func requestTempo(_ player: AudioPlayer, rate: Double) throws {
+        guard !closed, let tempo = sources[ObjectIdentifier(player)]?.source.tempo else { throw MobileFailure("tempo-unavailable") }
+        try tempo.request(rate: rate)
+    }
+    func tempoState(_ player: AudioPlayer) -> NativeTempoHandover.State? { sources[ObjectIdentifier(player)]?.source.tempo?.snapshot() }
+    func resetTempo(_ player: AudioPlayer) throws {
+        guard !closed, !engine.isRunning, let source = sources[ObjectIdentifier(player)]?.source,
+              let tempo = source.tempo else { throw MobileFailure("tempo-unavailable") }
+        try tempo.reset(); source.capture.reset()
     }
 
     func start() throws {
@@ -112,6 +125,7 @@ final class StreamMixOutput {
         analysis.remove(entry.source.capture)
         engine.disconnectNodeOutput(entry.source.node)
         engine.detach(entry.source.node)
+        entry.source.close()
         if sources.isEmpty { engine.pause(); analysis.configure(running: false); unit.requestDiscontinuity() }
     }
     func apply(_ settings: NativeAudioSettings) {
@@ -125,7 +139,7 @@ final class StreamMixOutput {
         closed = true; configurationChanged = nil
         if let observer { NotificationCenter.default.removeObserver(observer) }; observer = nil
         engine.stop(); analysis.close()
-        for entry in sources.values { engine.detach(entry.source.node) }
+        for entry in sources.values { engine.detach(entry.source.node); entry.source.close() }
         sources.removeAll()
     }
     deinit { close() }

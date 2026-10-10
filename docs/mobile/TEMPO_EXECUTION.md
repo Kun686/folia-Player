@@ -4,6 +4,7 @@
 完整 Automix 尚未启用，本阶段不改变界面、主题、动画、原规划规则或默认设置。
 
 后续输入观察、媒体时间估计、尾部排空及暂停 seek 修复见 [TEMPO_STREAM_CLOCK.md](TEMPO_STREAM_CLOCK.md)。
+共享输出的可选预热交接及真机系统参考验证见 [TEMPO_HANDOVER.md](TEMPO_HANDOVER.md)。
 
 ## 复用与实现范围
 
@@ -22,7 +23,7 @@
 - 宿主必须串行执行 render／reset／close，并在重置、关闭前停止拉取；reset 清除旧音频和待执行速率，
   close 清除输入闭包，使解码器不必等处理器析构才释放。
 
-**尚未接入 StreamMixOutput 或 PlaybackEngine 队列。** 普通播放继续使用原始 PCM 路径，
+**本执行器阶段尚未接入共享输出或队列；后续共享输出接线见上述交接记录。** 普通播放继续使用原始 PCM 路径，
 避免给不需要变速的歌曲加入系统 TimePitch 的启动延迟。
 
 ## 同时修复：解码器 EOF 丢失末尾

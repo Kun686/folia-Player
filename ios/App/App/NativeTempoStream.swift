@@ -20,24 +20,35 @@ final class NativeTempoStream {
     private var drainingFrames = 0, silentFrames = 0
     private var drained = false, closed = false, failed = false
 
-    init(player: AudioPlayer, rate: Double = 1) throws {
-        let state = TempoStreamInput(player: player)
-        input = state; sampleRate = player.externalOutputFormat.sampleRate
-        position = player.progress
+    convenience init(player: AudioPlayer, rate: Double = 1) throws {
+        try self.init(feed: DecoderTempoFeed(player: player), rate: rate)
+    }
+    init(feed: NativeTempoFeed, rate: Double = 1) throws {
+        let state = TempoStreamInput(feed: feed)
+        input = state; sampleRate = feed.format.sampleRate
+        position = feed.position
         published = Snapshot(position: position, decoderEnded: false, drained: false, rate: rate)
-        processor = try NativeTempoProcessor(format: player.externalOutputFormat, rate: rate) { [state] flags, _, frames, _, output in
+        processor = try NativeTempoProcessor(format: feed.format, rate: rate) { [state] flags, _, frames, _, output in
             state.render(flags, frames, output)
         }
         initialLatency = processor.latency
     }
     func request(rate: Double) throws { try processor.request(rate: rate) }
     func snapshot() -> Snapshot { lock.lock(); defer { lock.unlock() }; return published }
+    var startupFrames: Double { initialLatency * sampleRate }
+    // Only the render owner may use these two entry points, before rendering / between its pulls.
+    var renderState: Snapshot { Snapshot(position: position, decoderEnded: input.ended, drained: drained, rate: processor.appliedRate) }
+    func primeOrigin() -> Bool {
+        guard !closed, processor.renderedFrames == 0, let feed = input.feed else { return false }
+        position = feed.position; input.reset(position: position)
+        return true
+    }
 
     // Estimate media time from input history and initial system latency. This is not a speaker
     // timestamp; changes in the system's latency after a rate change still need measured validation.
-    func render(_ output: UnsafeMutablePointer<AudioBufferList>, frames: AVAudioFrameCount) -> OSStatus {
+    func render(_ output: UnsafeMutablePointer<AudioBufferList>, frames: AVAudioFrameCount, rate: Double? = nil) -> OSStatus {
         guard !closed, !failed else { return kAudioUnitErr_Uninitialized }
-        let status = processor.render(output, frames: frames)
+        let status = processor.render(output, frames: frames, rate: rate)
         guard status == noErr else { return status }
         let coordinate = Double(input.timeline.frames) - initialLatency * sampleRate * processor.appliedRate
         if let media = input.timeline.media(at: coordinate) { position = max(position, media / sampleRate) }
@@ -68,38 +79,38 @@ final class NativeTempoStream {
 
     // Call only after the decoder completes its seek; old PCM, EOF and timing cannot cross a reset.
     func reset(rate: Double = 1) throws {
-        guard !closed, let player = input.player else { throw MobileFailure("tempo-unavailable") }
-        guard !player.isSeeking else { throw MobileFailure("invalid-position") }
+        guard !closed, let feed = input.feed else { throw MobileFailure("tempo-unavailable") }
+        guard !feed.isSeeking else { throw MobileFailure("invalid-position") }
         try processor.reset(rate: rate)
-        position = player.progress; input.reset(position: position)
+        position = feed.position; input.reset(position: position)
         initialLatency = processor.latency
         drainingFrames = 0; silentFrames = 0; drained = false; failed = false
         lock.lock(); published = Snapshot(position: position, decoderEnded: false, drained: false, rate: rate); lock.unlock()
     }
-    func close() { guard !closed else { return }; closed = true; processor.close(); input.player = nil }
+    func close() { guard !closed else { return }; closed = true; processor.close(); input.feed?.close(); input.feed = nil }
     deinit { close() }
 }
 
 private final class TempoStreamInput {
-    var player: AudioPlayer?
+    var feed: NativeTempoFeed?
     let timeline = TempoInputTimeline()
     private let sampleRate: Double
     var ended = false
-    init(player: AudioPlayer) {
-        self.player = player; sampleRate = player.externalOutputFormat.sampleRate
-        reset(position: player.progress)
+    init(feed: NativeTempoFeed) {
+        self.feed = feed; sampleRate = feed.format.sampleRate
+        reset(position: feed.position)
     }
     func reset(position: Double) { timeline.reset(origin: position * sampleRate); ended = false }
     func render(_ flags: UnsafeMutablePointer<AudioUnitRenderActionFlags>, _ frames: AVAudioFrameCount,
                 _ output: UnsafeMutablePointer<AudioBufferList>) -> OSStatus {
-        guard let player else { return kAudioUnitErr_Uninitialized }
+        guard let feed else { return kAudioUnitErr_Uninitialized }
         if ended {
             flags.pointee.insert(.unitRenderAction_OutputIsSilence)
             timeline.silence(frames: Int(frames))
             return noErr
         }
         var read = AudioPlayer.ExternalAudioRead()
-        let status = player.renderExternalAudio(frames: frames, output: output, observation: &read)
+        let status = feed.read(frames: frames, output: output, observation: &read)
         guard status == noErr else { return status }
         guard !read.discontinuity, timeline.append(requested: Int(frames), copied: Int(read.frames),
             end: read.position * sampleRate) else { return kAudioUnitErr_CannotDoInCurrentContext }

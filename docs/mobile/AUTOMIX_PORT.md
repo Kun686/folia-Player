@@ -61,7 +61,7 @@
 | 频带交接 | 开发源码已接入执行层，原 WebKit 数值对照与双解码器测试 PASS；见 TRANSITION_TONE_BALANCE.md |
 | 过渡响度平衡 | 开发源码复用原规则，原生 Crossfade 已接线；见 TRANSITION_TONE_BALANCE.md |
 | 回声执行与双路复用 | 开发源码已接入共享输出；原 WebKit 对照、解码器释放后的尾音、新歌复用 PASS；模拟器 159 项、iPhone 12 项回归通过，完整模式仍未启用，见 TRANSITION_ECHO.md |
-| 伸缩 | 系统执行器、媒体时间标记、EOF 后尾音及重置验证 PASS；预热交接及队列尚未接入，见 [TEMPO_EXECUTION.md](TEMPO_EXECUTION.md) 与 [TEMPO_STREAM_CLOCK.md](TEMPO_STREAM_CLOCK.md) |
+| 伸缩 | 系统执行器、媒体时间标记、EOF 后尾音及重置验证 PASS；共享输出已接可选预热交接，iPhone 系统参考逐样本差异 0；默认队列尚未接入，见 [TEMPO_HANDOVER.md](TEMPO_HANDOVER.md) |
 | 本地 profile 获取与分析缓存 | PASS，原分析无模型分支、原生静音边界接线；已随 mobile.9 安装，见文末 |
 | 在线 profile（关闭媒体缓存时） | 已接入原 1.5MiB 前缀策略；受控传输、分析、真实解码队列及输出已通过，真实平台／CDN 未验收，见文末 |
 | 完整音频媒体缓存与离线播放 | PASS，已随 mobile.10 安装，见 MEDIA_CACHE.md；封面／歌词持久缓存仍待移植 |
