@@ -1,5 +1,12 @@
 # 移动候选验证记录
 
+## mobile.7 之后：原版过渡规划（仅源码）
+
+原版 Automix／crossfade 规则已能在系统 JavaScriptCore 中执行，无 WKWebView 参与。
+相关 Vitest 78 项、iPad Release 原生 4 项通过，覆盖 80 方案、36 曲线及取消／并发／错误恢复。
+这部分尚未接入实际过渡播放，完整 Automix 未完成；详情和证据见 [AUTOMIX_PORT.md](AUTOMIX_PORT.md)。
+另修正三种语言中已过时的“附加音效需要立体声音源”提示。已安装 mobile.7 和 BUILD_RECORD.json 不变。
+
 ## mobile.7 双声道输出接入（当前开发候选）
 
 已安装iPhone XS Max / iOS18.7.10并启动，设备回读build 7；开发候选仍不代表完整移植验收通过。

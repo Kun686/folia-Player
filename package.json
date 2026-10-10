@@ -57,7 +57,7 @@
     "contributors:generate": "npx all-contributors-cli generate",
     "models:fetch": "node build/fetchModels.mjs",
     "manual:ai-probe": "node test/manual/ai_probe.mjs",
-    "build:mobile": "vite build -c vite.mobile.config.ts && node dev/mobile/finalize.mjs",
+    "build:mobile": "vite build -c vite.mobile.config.ts && node dev/mobile/build-transitions.mjs && node dev/mobile/finalize.mjs",
     "ios:sync": "npm run build:mobile && cap sync ios",
     "test:mobile": "vitest run -c vitest.config.ts test/unit/mobile",
     "test:mobile:ui": "playwright test -c playwright.mobile.config.ts"
