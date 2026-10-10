@@ -190,7 +190,8 @@ open class AudioPlayer {
     public init(configuration: AudioPlayerConfiguration = .default,
                 clientCertificateProvider: ClientCertificateProvider? = nil,
                 automaticallyStartsOutput: Bool = true,
-                externallyRendered: Bool = false) {
+                externallyRendered: Bool = false,
+                networkConfiguration: URLSessionConfiguration? = nil) {
         // Folia: an external mixer explicitly starts consumption; no per-deck hardware is created.
         self.externallyRendered = externallyRendered
         self.automaticallyStartsOutput = automaticallyStartsOutput && !externallyRendered
@@ -205,7 +206,9 @@ open class AudioPlayer {
         sourceQueue = DispatchQueue(label: "source.queue", qos: .default)
 
         entryProvider = AudioEntryProvider(
-            networkingClient: NetworkingClient(clientCertificateProvider: clientCertificateProvider),
+            // Folia: explicit session configuration supports scoped transports; nil retains the upstream policy.
+            networkingClient: NetworkingClient(configuration: networkConfiguration ?? .networkingConfiguration,
+                                               clientCertificateProvider: clientCertificateProvider),
             underlyingQueue: sourceQueue,
             outputAudioFormat: outputAudioFormat
         )

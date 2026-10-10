@@ -19,7 +19,10 @@ final class ProfileHTTPFixture: @unchecked Sendable {
     var stats: (requests: Int, sent: Int, stopped: Int, first: URLRequest?) {
         lock.lock(); defer { lock.unlock() }; return (requests.count, sent, stopped, requests.first)
     }
-
+    var prefixRequests: Int {
+        lock.lock(); defer { lock.unlock() }
+        return requests.filter { $0.value(forHTTPHeaderField: "Range") == "bytes=0-1572863" }.count
+    }
 }
 final class ProfileHTTPProtocol: URLProtocol, @unchecked Sendable {
     private static let lock = NSLock()
@@ -214,5 +217,38 @@ final class ProfileHTTPProtocol: URLProtocol, @unchecked Sendable {
         try await waitForStream { profiles.value(netease) != nil && slow.stats.stopped > 0 }
         XCTAssertNil(profiles.value(qq)); XCTAssertEqual(profiles.value(netease)?["partial"] as? Bool, true)
         XCTAssertLessThan(slow.stats.sent, slow.bytes.count)
+    }
+    func testOnlinePrefixProfilesReachTheDecodedQueueWithoutResolvingAgain() async throws {
+        let file = try profileAudio(seconds: 10, head: 2)
+        defer { try? FileManager.default.removeItem(at: file) }
+        let fixture = ProfileHTTPFixture(try Data(contentsOf: file)), url = ProfileHTTPProtocol.add(fixture)
+        defer { ProfileHTTPProtocol.remove(url) }
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [ProfileHTTPProtocol.self]
+        let storage = UserDefaults(suiteName: "folia.online-profile-queue")!
+        storage.removePersistentDomain(forName: "folia.online-profile-queue")
+        let gateway = AudioFixtureGateway(url: url)
+        let tested = PlaybackEngine(gateway: gateway, storage: storage, usesStereoOutput: true, mediaNetworkConfiguration: config)
+        tested.network.cancel()
+        defer { tested.stop(); tested.clearOutput(); storage.removePersistentDomain(forName: "folia.online-profile-queue") }
+        defer { print("FOLIA_PROFILE_TRANSPORT requests=\(fixture.stats.requests) prefixes=\(fixture.prefixRequests) resolves=\(gateway.resolved.count) playing=\(tested.outputIsPlaying) error=\(tested.error ?? "none")") }
+        _ = try tested.setTransitionSettings(["enabled": true, "mode": "crossfade", "crossfadeMaxSec": 1.0])
+        try tested.setQueue([song("qq", UUID().uuidString), song("netease", UUID().uuidString)], at: 0)
+        try await waitForStream { tested.outputIsPlaying && (tested.preparedStream?.entry.preparedPosition ?? 0) > 1 }
+        let output = try XCTUnwrap(tested.streamOutput), measurement = OutputMeasurement()
+        output.engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, _ in measurement.consume(buffer) }
+        defer { output.engine.mainMixerNode.removeTap(onBus: 0) }
+        try tested.command("seek", position: 7.5)
+        try await waitForStream { tested.index == 1 && tested.crossfade?.isFading == true && tested.outputIsPlaying }
+        XCTAssertGreaterThan(tested.playbackPosition, 1)
+        XCTAssertEqual(gateway.resolved.count, 2, "Analysis must use the playing representations without resolving another URL")
+        XCTAssertEqual(fixture.prefixRequests, 2)
+        try await waitForStream { tested.crossfade?.isFading == false && output.attachedCount == 1 }
+        measurement.reset()
+        try await waitForStream { measurement.read().frames > 4096 }
+        let pcm = measurement.read()
+        XCTAssertEqual(pcm.channels, 2); XCTAssertGreaterThan(pcm.rms, 0.01)
+        XCTAssertEqual(fixture.prefixRequests, 2)
+        XCTAssertEqual(gateway.resolved.count, 2)
+        print("FOLIA_ONLINE_PROFILE_QUEUE partialProfiles=\(fixture.prefixRequests) resolves=\(gateway.resolved.count) remainingDecks=\(output.attachedCount) channels=\(pcm.channels) rms=\(pcm.rms)")
     }
 }

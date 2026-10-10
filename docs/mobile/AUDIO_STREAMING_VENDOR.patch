@@ -11,21 +11,33 @@
      private let audioEngine: AVAudioEngine
      /// An `AVAudioUnit` object that represents the audio player
      private(set) var player = AVAudioUnit()
-@@ -184,7 +188,12 @@
+@@ -184,7 +188,13 @@
      private var currentLoopIteration: Int = 0
  
      public init(configuration: AudioPlayerConfiguration = .default,
 -                clientCertificateProvider: ClientCertificateProvider? = nil) {
 +                clientCertificateProvider: ClientCertificateProvider? = nil,
 +                automaticallyStartsOutput: Bool = true,
-+                externallyRendered: Bool = false) {
++                externallyRendered: Bool = false,
++                networkConfiguration: URLSessionConfiguration? = nil) {
 +        // Folia: an external mixer explicitly starts consumption; no per-deck hardware is created.
 +        self.externallyRendered = externallyRendered
 +        self.automaticallyStartsOutput = automaticallyStartsOutput && !externallyRendered
          self.configuration = configuration.normalizeValues()
          let engine = AVAudioEngine()
          audioEngine = engine
-@@ -219,7 +228,7 @@
+@@ -196,7 +206,9 @@
+         sourceQueue = DispatchQueue(label: "source.queue", qos: .default)
+ 
+         entryProvider = AudioEntryProvider(
+-            networkingClient: NetworkingClient(clientCertificateProvider: clientCertificateProvider),
++            // Folia: explicit session configuration supports scoped transports; nil retains the upstream policy.
++            networkingClient: NetworkingClient(configuration: networkConfiguration ?? .networkingConfiguration,
++                                               clientCertificateProvider: clientCertificateProvider),
+             underlyingQueue: sourceQueue,
+             outputAudioFormat: outputAudioFormat
+         )
+@@ -219,7 +231,7 @@
              }
          )
          configPlayerContext()
@@ -34,7 +46,7 @@
          configureRateNode()
          setupEngine()
      }
-@@ -231,6 +240,68 @@
+@@ -231,6 +243,68 @@
      }
  
      // MARK: Public
@@ -103,7 +115,7 @@
  
      /// Starts the audio playback for the given URL
      ///
-@@ -677,7 +748,7 @@
+@@ -677,7 +751,7 @@
          guard isEngineRunning else { return }
          audioEngine.reset()
          audioEngine.pause()
@@ -112,7 +124,7 @@
          Logger.debug("engine paused ⏸", category: .generic)
      }
  
-@@ -686,7 +757,7 @@
+@@ -686,7 +760,7 @@
      /// - parameter reason: A value of `AudioPlayerStopReason` indicating the reason the engine stopped.
      private func stopEngine(reason: AudioPlayerStopReason) {
          audioEngine.stop()
@@ -121,7 +133,7 @@
          rendererContext.resetBuffers()
          playerContext.setInternalState(to: .stopped)
          playerContext.stopReason.write { $0 = reason }
-@@ -700,8 +771,10 @@
+@@ -700,8 +774,10 @@
          if resetBuffers {
              rendererContext.resetBuffers()
          }

@@ -28,7 +28,7 @@ final class NativeCrossfade {
 
     init(owner: PlaybackEngine) {
         self.owner = owner
-        profiles = NativeTrackProfiles(local: owner.local)
+        profiles = NativeTrackProfiles(local: owner.local, configuration: owner.mediaNetworkConfiguration ?? .ephemeral)
         profiles.changed = { [weak self] in self?.tick() }
     }
     deinit { work?.cancel(); release?.cancel(); fade?.tail?.dispose() }
@@ -47,9 +47,10 @@ final class NativeCrossfade {
         revision &+= 1
         work?.cancel(); work = nil; release?.cancel(); release = nil; key = nil; plan = nil
     }
-    func cancel() {
+    func cancel(preservingAnalysis: Bool = false) {
         invalidatePlan()
-        profiles.cancel()
+        // Seeking unchanged decks invalidates timing, not their measured bytes. A fading tail is obsolete.
+        if !preservingAnalysis || fade != nil { profiles.cancel() }
         fade?.tail?.dispose(); fade = nil
         owner?.streamOutput?.transitionGain.cancel()
     }

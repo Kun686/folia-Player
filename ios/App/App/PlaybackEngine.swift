@@ -18,6 +18,7 @@ final class PlaybackEngine {
     let gateway: GatewayClient
     let storage: UserDefaults
     let local: LocalMediaLibrary
+    let mediaNetworkConfiguration: URLSessionConfiguration?
     let network = NWPathMonitor()
     var networkResume: Double?
     var stalledRecovery: DispatchWorkItem?
@@ -50,8 +51,10 @@ final class PlaybackEngine {
     var resumeAfterInterruption = false
     var restoredPosition: Double = 0
 
-    init(gateway: GatewayClient, storage: UserDefaults = .standard, local: LocalMediaLibrary = LocalMediaLibrary(), usesStereoOutput: Bool = false) {
+    init(gateway: GatewayClient, storage: UserDefaults = .standard, local: LocalMediaLibrary = LocalMediaLibrary(),
+         usesStereoOutput: Bool = false, mediaNetworkConfiguration: URLSessionConfiguration? = nil) {
         self.usesStereoOutput = usesStereoOutput
+        self.mediaNetworkConfiguration = mediaNetworkConfiguration?.copy() as? URLSessionConfiguration
         self.gateway = gateway
         self.storage = storage
         self.local = local

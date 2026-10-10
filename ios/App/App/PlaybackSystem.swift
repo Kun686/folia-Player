@@ -35,7 +35,7 @@ extension PlaybackEngine {
             if usesStereoOutput {
                 if let stream {
                     guard stream.audio.isSeekable else { throw MobileFailure("unsupported-seek") }
-                    crossfade?.cancel(); try stream.seek(to: target)
+                    crossfade?.cancel(preservingAnalysis: true); try stream.seek(to: target)
                     if preparedStream == nil { prefetch() }
                 } else { restoredPosition = target }
             } else if player.currentItem == nil { restoredPosition = target }

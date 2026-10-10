@@ -22,20 +22,22 @@ final class StreamOccurrence: AudioPlayerDelegate {
     var duration: Double { Self.finite(audio.duration) }
     var playing: Bool { started && !disposed && !hasEnded && audio.state == .playing }
 
-    private init(url: URL, node: AVAudioUnit, unit: AudioEffectUnit, output: StreamMixOutput?) {
+    private init(url: URL, node: AVAudioUnit, unit: AudioEffectUnit, output: StreamMixOutput?, networkConfiguration: URLSessionConfiguration?) {
         sourceURL = url
         self.node = node; self.unit = unit; self.output = output
         audio = AudioPlayer(configuration: AudioPlayerConfiguration(flushQueueOnSeek: false, enableLogs: false),
-                            automaticallyStartsOutput: false, externallyRendered: output != nil)
+                            automaticallyStartsOutput: false, externallyRendered: output != nil,
+                            networkConfiguration: networkConfiguration)
         if output == nil { audio.attach(node: node) }
         audio.delegate = self
     }
 
-    @MainActor static func prepare(url: URL, position: Double = 0, output: StreamMixOutput? = nil) async throws -> StreamOccurrence {
+    @MainActor static func prepare(url: URL, position: Double = 0, output: StreamMixOutput? = nil,
+                                   networkConfiguration: URLSessionConfiguration? = nil) async throws -> StreamOccurrence {
         let node: AVAudioUnit
         if let output { node = output.node } else { node = try await AudioEffectUnit.makeNode() }
         guard let unit = node.auAudioUnit as? AudioEffectUnit else { throw MobileFailure("audio-failed") }
-        let entry = StreamOccurrence(url: url, node: node, unit: unit, output: output)
+        let entry = StreamOccurrence(url: url, node: node, unit: unit, output: output, networkConfiguration: networkConfiguration)
         entry.audio.play(url: url)
         do {
             try await entry.waitForPCM()
