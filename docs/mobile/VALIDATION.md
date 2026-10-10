@@ -7,6 +7,10 @@
 这部分尚未接入实际过渡播放，完整 Automix 未完成；详情和证据见 [AUTOMIX_PORT.md](AUTOMIX_PORT.md)。
 另修正三种语言中已过时的“附加音效需要立体声音源”提示。已安装 mobile.7 和 BUILD_RECORD.json 不变。
 
+随后验证两个获批解码器汇入同一系统混音／音效输出。iPad Release 最终完整 98 项原生测试通过，
+证据 `shared-output-system-conversion.{log,xcresult}`；包含实际音频回调、声道、暂停拖动和最终静音。
+此新输出能力尚未切换为 App 默认，也未安装至真机；原失败及修复见上述 Automix 记录。
+
 ## mobile.7 双声道输出接入（当前开发候选）
 
 已安装iPhone XS Max / iOS18.7.10并启动，设备回读build 7；开发候选仍不代表完整移植验收通过。

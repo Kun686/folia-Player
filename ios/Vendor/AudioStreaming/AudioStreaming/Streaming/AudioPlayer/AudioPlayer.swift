@@ -154,6 +154,7 @@ open class AudioPlayer {
     /// The underlying `AVAudioEngine` object
     // Folia: a prepared occurrence buffers independently without owning audible hardware.
     private let automaticallyStartsOutput: Bool
+    private let externallyRendered: Bool
     private let preparedOutputStarted = Atomic<Bool>(false)
     private let audioEngine: AVAudioEngine
     /// An `AVAudioUnit` object that represents the audio player
@@ -188,8 +189,11 @@ open class AudioPlayer {
 
     public init(configuration: AudioPlayerConfiguration = .default,
                 clientCertificateProvider: ClientCertificateProvider? = nil,
-                automaticallyStartsOutput: Bool = true) {
-        self.automaticallyStartsOutput = automaticallyStartsOutput
+                automaticallyStartsOutput: Bool = true,
+                externallyRendered: Bool = false) {
+        // Folia: an external mixer explicitly starts consumption; no per-deck hardware is created.
+        self.externallyRendered = externallyRendered
+        self.automaticallyStartsOutput = automaticallyStartsOutput && !externallyRendered
         self.configuration = configuration.normalizeValues()
         let engine = AVAudioEngine()
         audioEngine = engine
@@ -224,7 +228,7 @@ open class AudioPlayer {
             }
         )
         configPlayerContext()
-        configPlayerNode()
+        if !externallyRendered { configPlayerNode() }
         configureRateNode()
         setupEngine()
     }
@@ -242,6 +246,32 @@ open class AudioPlayer {
     public var bufferedDuration: Double {
         rendererContext.lock.lock(); defer { rendererContext.lock.unlock() }
         return Double(rendererContext.bufferContext.frameUsedCount) / outputAudioFormat.sampleRate
+    }
+
+    /// Format required by renderExternalAudio: the existing decoder's stereo Float32 PCM.
+    public var externalOutputFormat: AVAudioFormat { outputAudioFormat }
+
+    /// Render on exactly one external audio thread. Never use alongside this player's hardware output.
+    /// The owner must retain this player until its source node is detached and rendering has stopped.
+    /// Prepared, paused and ended entries emit silence without advancing their media clock.
+    public func renderExternalAudio(frames: AVAudioFrameCount,
+                                    output: UnsafeMutablePointer<AudioBufferList>) -> OSStatus {
+        guard externallyRendered else { return kAudioUnitErr_InvalidProperty }
+        guard frames <= maxFramesPerSlice else { return kAudioUnitErr_TooManyFramesToProcess }
+        let buffers = UnsafeMutableAudioBufferListPointer(output)
+        let bytes = frames * outputAudioFormat.streamDescription.pointee.mBytesPerFrame
+        guard buffers.count == 1, buffers[0].mNumberChannels == 2,
+              buffers[0].mDataByteSize >= bytes, let data = buffers[0].mData else {
+            return kAudioUnitErr_FormatNotSupported
+        }
+        memset(data, 0, Int(bytes))
+        buffers[0].mDataByteSize = bytes
+        guard preparedOutputStarted.value, playerContext.internalState.contains(.running),
+              playerContext.internalState != .paused, audioEngine.isRunning else { return noErr }
+        var flags = AudioUnitRenderActionFlags()
+        let status = playerRenderProcessor.render(inNumberFrames: frames, ioData: output, flags: &flags)
+        if status != noErr { memset(data, 0, Int(bytes)) }
+        return status
     }
 
     /// Whether a native seek still has to be applied by the source processor.
@@ -715,7 +745,7 @@ open class AudioPlayer {
         guard isEngineRunning else { return }
         audioEngine.reset()
         audioEngine.pause()
-        player.auAudioUnit.stopHardware()
+        if !externallyRendered { player.auAudioUnit.stopHardware() }
         Logger.debug("engine paused ⏸", category: .generic)
     }
 
@@ -724,7 +754,7 @@ open class AudioPlayer {
     /// - parameter reason: A value of `AudioPlayerStopReason` indicating the reason the engine stopped.
     private func stopEngine(reason: AudioPlayerStopReason) {
         audioEngine.stop()
-        player.auAudioUnit.stopHardware()
+        if !externallyRendered { player.auAudioUnit.stopHardware() }
         rendererContext.resetBuffers()
         playerContext.setInternalState(to: .stopped)
         playerContext.stopReason.write { $0 = reason }
@@ -741,6 +771,7 @@ open class AudioPlayer {
         guard automaticallyStartsOutput || preparedOutputStarted.value else { return }
         do {
             try startEngineIfNeeded()
+            if externallyRendered { return }
             try player.auAudioUnit.allocateRenderResources()
             try player.auAudioUnit.startHardware()
         } catch {
