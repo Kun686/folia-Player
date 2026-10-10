@@ -93,6 +93,7 @@ final class StreamOccurrence: AudioPlayerDelegate {
         guard !disposed, position.isFinite, position >= 0 else { throw MobileFailure("invalid-position") }
         guard audio.isSeekable else { throw MobileFailure("unsupported-seek") }
         unit.requestDiscontinuity()
+        output?.resetAnalysis(audio)
         audio.seek(to: position)
     }
     func apply(_ settings: NativeAudioSettings) {

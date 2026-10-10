@@ -88,13 +88,18 @@ struct AudioEffectBiquadState {
 
 struct AudioEffectBiquadCoefficients {
     var b0 = 1.0, b1 = 0.0, b2 = 0.0, a1 = 0.0, a2 = 0.0
-    init(frequency: Double, rate: Double, highpass: Bool) {
+    init(frequency: Double, rate: Double, highpass: Bool, q: Double = 0.7) {
         // W3C Web Audio biquad formulas. HP/LP Q is dB; peaking/bandpass Q uses a linear value.
         let angle = Double.pi * (frequency / (rate * 0.5)), cosine = cos(angle)
-        let alpha = sin(angle) / (2 * pow(10, Double(Float(0.7)) * 0.05)), denominator = 1 + alpha
+        let alpha = sin(angle) / (2 * pow(10, Double(Float(q)) * 0.05)), denominator = 1 + alpha
         let beta = (highpass ? 1 + cosine : 1 - cosine) / 2
         b0 = beta / denominator; b1 = (highpass ? -2 * beta : 2 * beta) / denominator
         b2 = b0; a1 = -2 * cosine / denominator; a2 = (1 - alpha) / denominator
+    }
+    init(values: ArraySlice<Double>) {
+        precondition(values.count == 5)
+        let i = values.startIndex
+        b0 = values[i]; b1 = values[i + 1]; b2 = values[i + 2]; a1 = values[i + 3]; a2 = values[i + 4]
     }
     init(bandpassFrequency: Double, rate: Double, q: Double) {
         // W3C bandpass uses linear Q and a constant 0 dB peak gain.

@@ -8,6 +8,7 @@ final class StreamMixOutput {
     let node: AVAudioUnit
     let unit: AudioEffectUnit
     let transitionGain = TransitionGain()
+    private let analysis = NativeDeckAnalysis()
     var meter: AudioMeter { unit.meter }
     var configurationChanged: (() -> Void)?
     private var sources: [ObjectIdentifier: (bus: AVAudioNodeBus, source: StreamRenderSource)] = [:]
@@ -26,6 +27,8 @@ final class StreamMixOutput {
             object: engine, queue: .main) { [weak self] _ in
                 guard let self, !self.closed else { return }
                 self.transitionGain.cancel()
+                self.analysis.configure(running: false)
+                for entry in self.sources.values { entry.source.capture.reset() }
                 self.configurationChanged?()
             }
     }
@@ -50,13 +53,25 @@ final class StreamMixOutput {
         engine.attach(source.node)
         engine.connect(source.node, to: mixer, fromBus: 0, toBus: bus, format: source.format)
         sources[identity] = (bus, source)
+        analysis.add(source.capture)
     }
 
     func start() throws {
         guard !closed, !sources.isEmpty else { throw MobileFailure("audio-failed") }
         if !engine.isRunning { engine.prepare(); try engine.start() }
+        analysis.configure(running: true)
     }
-    func pause() { transitionGain.cancel(); engine.pause() }
+    func pause() { transitionGain.cancel(); engine.pause(); analysis.configure(running: false) }
+    func setAnalysisEnabled(_ enabled: Bool) { analysis.configure(enabled: enabled) }
+    func resetAnalysis(_ player: AudioPlayer) { sources[ObjectIdentifier(player)]?.source.capture.reset() }
+    @MainActor func deckState(_ player: AudioPlayer, history: Bool = false) async -> NativeDeckState? {
+        guard let capture = sources[ObjectIdentifier(player)]?.source.capture else { return nil }
+        let epoch = capture.currentEpoch()
+        let state = await analysis.snapshot(capture, history: history)
+        guard sources[ObjectIdentifier(player)]?.source.capture === capture,
+              capture.currentEpoch() == epoch else { return nil }
+        return state
+    }
     // Original envelopes are supplied by NativeTransitionPlanner; no platform rules live in this graph.
     func scheduleGain(outgoing: AudioPlayer, incoming: AudioPlayer, envelope: NativeTransitionEnvelope,
                       generation: UInt64) throws -> Bool {
@@ -69,9 +84,10 @@ final class StreamMixOutput {
     }
     func remove(_ player: AudioPlayer) {
         guard let entry = sources.removeValue(forKey: ObjectIdentifier(player)) else { return }
+        analysis.remove(entry.source.capture)
         engine.disconnectNodeOutput(entry.source.node)
         engine.detach(entry.source.node)
-        if sources.isEmpty { engine.pause(); unit.requestDiscontinuity() }
+        if sources.isEmpty { engine.pause(); analysis.configure(running: false); unit.requestDiscontinuity() }
     }
     func apply(_ settings: NativeAudioSettings) {
         engine.mainMixerNode.outputVolume = settings.isMuted ? 0 : Float(settings.volume)
@@ -83,7 +99,7 @@ final class StreamMixOutput {
         guard !closed else { return }
         closed = true; configurationChanged = nil
         if let observer { NotificationCenter.default.removeObserver(observer) }; observer = nil
-        engine.stop()
+        engine.stop(); analysis.close()
         for entry in sources.values { engine.detach(entry.source.node) }
         sources.removeAll()
     }

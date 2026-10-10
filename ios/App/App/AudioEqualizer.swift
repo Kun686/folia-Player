@@ -43,14 +43,14 @@ final class AudioEqualizer {
 
     // Cookbook coefficients match audioEqualizerGraph.ts: shelves at the ends, peaking Q=1.4 inside.
     // https://www.w3.org/TR/audio-eq-cookbook/ (shelf slope S=1).
-    static func writeCoefficients(band: Int, gain: Double, rate: Double, into values: inout [Double]) {
+    static func writeCoefficients(band: Int, gain: Double, rate: Double, frequency: Double? = nil, into values: inout [Double]) {
         let offset = band * 5
         if gain == 0 {
             values[offset] = 1
             for i in 1..<5 { values[offset + i] = 0 }
             return
         }
-        let a = pow(10, gain / 40), omega = 2 * Double.pi * min(frequencies[band], rate * 0.475) / rate
+        let a = pow(10, gain / 40), omega = 2 * Double.pi * min(frequency ?? frequencies[band], rate * 0.475) / rate
         let c = cos(omega), s = sin(omega)
         let b0: Double, b1: Double, b2: Double, a0: Double, a1: Double, a2: Double
         if band == 0 || band == 9 {

@@ -30,6 +30,7 @@ extension PlaybackEngine {
                 else { output = try await StreamMixOutput.make() }
                 guard epoch == self.generation, !Task.isCancelled else { cached?.dispose(); return }
                 self.streamOutput = output
+                output.setAnalysisEnabled(self.crossfade?.enabled == true)
                 output.configurationChanged = { [weak self, weak output] in
                     guard let self, let output, self.streamOutput === output else { return }
                     self.crossfade?.cancel()

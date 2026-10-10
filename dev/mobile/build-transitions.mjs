@@ -17,3 +17,10 @@ await build({
     lib: { entry: 'src/services/automix/nativeProfileRuntime.ts', name: 'FoliaProfiles', formats: ['iife'], fileName: () => 'profiles.js' },
   },
 });
+await build({
+  configFile: false, root, publicDir: false,
+  build: {
+    target: 'safari17', outDir: 'dist-mobile/native', emptyOutDir: false,
+    lib: { entry: 'src/services/automix/nativeDeckRuntime.ts', name: 'FoliaDeck', formats: ['iife'], fileName: () => 'deck.js' },
+  },
+});

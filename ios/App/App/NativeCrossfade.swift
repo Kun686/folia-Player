@@ -1,4 +1,5 @@
 import Foundation
+import QuartzCore
 
 // NativeCrossfade.swift — original crossfade plans on the native identity queue, independent of WebView timers.
 final class NativeCrossfade {
@@ -42,6 +43,7 @@ final class NativeCrossfade {
         }
         guard self.enabled != enabled || self.maximumSeconds != maximumSeconds else { return }
         self.enabled = enabled; self.maximumSeconds = maximumSeconds
+        owner?.streamOutput?.setAnalysisEnabled(enabled)
         if !enabled { cancel(); owner?.prefetch() } else { invalidatePlan() }
         tick()
     }
@@ -171,10 +173,18 @@ final class NativeCrossfade {
         work = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
+                guard let output = self.owner?.streamOutput, let outgoing = self.owner?.stream else { return }
+                let measured = await output.deckState(outgoing.audio)
+                guard !Task.isCancelled else { return }
+                guard self.matches(expected) else { self.discardStale(expected); return }
+                let live = measured.flatMap { value in
+                    value.time.map { CACurrentMediaTime() - $0 < 0.25 ? value : nil } ?? nil
+                }
                 let request: [String: Any] = ["version": 1,
                     "plan": ["style": plan.style, "minOverlap": plan.minOverlap, "tiltDb": plan.tiltDb],
                     "timing": ["overlap": min(plan.overlap, remaining), "remaining": remaining,
-                        "outgoingDb": NSNull(), "nextBeatIn": NSNull(), "periodSec": NSNull(), "incomingLeadIn": NSNull()]]
+                        "outgoingDb": live?.loudnessDb as Any? ?? NSNull(), "nextBeatIn": live?.nextBeatIn as Any? ?? NSNull(),
+                        "periodSec": live?.tempo?.periodSec as Any? ?? NSNull(), "incomingLeadIn": NSNull()]]
                 let envelope = try await self.planner.envelope(JSONSerialization.data(withJSONObject: request))
                 guard !Task.isCancelled else { return }
                 guard self.matches(expected) else { self.discardStale(expected); return }
