@@ -1,26 +1,30 @@
 # Folia iPhone / iPad 实现与安装
 
-当前交付是 **0.7.16-mobile.7 开发候选**，支持 iOS/iPadOS 17+。源码基线为
+当前交付是 **0.7.16-mobile.8 开发候选**，支持 iOS/iPadOS 17+。源码基线为
 d824c0b854e54d5411cb072092999823e9bd7071；移动分支发布到 Kun686/folia-Player，服务器内部部署记录见 SERVER_VALIDATION.md。
 按用户最新要求优先移植原播放器、歌词和动效，同时支持本地导入与网易云／QQ。
 服务器配置不再是使用 App 的前提。真实平台与真机完整验收尚未完成，不能作为已验收安装包发布。
 
-后续附加音效开发见 [EFFECT_PARITY.md](EFFECT_PARITY.md)：DSP、组合链、线程交接和tap共32项测试通过；
+mobile.8 已安装并启动于 iPhone XS Max / iOS18.7.10，设备回读 build 8。当前原生队列使用一个共享系统输出，
+整体音效和最终音量只处理一次，待播仍独立解析／缓冲。100 项模拟器原生回归、1 项受控 HTTP 队列测试、
+7 项真机关键测试通过；源码指纹、包体、签名和安装证据见 VALIDATION.md。
+完整 Automix 的规划规则已可独立执行，但过渡调度、分析与前台设置仍待接入。
+
+此前附加音效开发见 [EFFECT_PARITY.md](EFFECT_PARITY.md)：DSP、组合链、线程交接和tap共32项测试通过；
 组合阶段Debug全部70项、Release相关8项回归通过，随后实际tap接线9项通过。
 开发源码已接回原复合预设、自定义栏位、持久化和当前／预加载曲目的立体声音效；公开设置7项原生测试、6项界面测试通过。
 mobile.7已通过开发签名安装并启动于iPhone XS Max / iOS18.7.10，设备回读确认build 7；
 6项真机原生关键测试通过，30分钟锁屏与听感验收仍未完成。
 WebKit源码复用已获用户批准；暂停资源释放及真机性能仍待验收。
 mobile.6之后的源码已优化连续调参的素材复用和播放中的分支回收，74项Release原生测试通过；
-此修复未打入mobile.6交付包。当前mobile.7源码已接入获批的AudioStreaming 1.4.5独立双声道输出，
+此修复未打入mobile.6交付包。mobile.7源码已接入获批的AudioStreaming 1.4.5独立双声道输出，
 完整Release原生回归89项及HTTP实际队列3项通过，支持WAV／AAC Mono的原版完整音效。
 本次iPad实际容器完成四曲顺序播放及音效面板检查；包体、签名与安装结果见VALIDATION.md。
 
 ## 已实现
 
-mobile.7 之后的原版 Automix 移植进度独立记录于 [AUTOMIX_PORT.md](AUTOMIX_PORT.md)：
-原规划和曲线的 JavaScriptCore 执行、单一系统图中的双解码器共享输出已验证，完整 98 项原生回归通过。
-过渡调度、实际播放器和前台设置仍待接入，不计为已交付 Automix 功能。
+原版 Automix 移植进度独立记录于 [AUTOMIX_PORT.md](AUTOMIX_PORT.md)：原规划和曲线的 JavaScriptCore 执行
+以及共享输出已验证，共享输出也已接入实际播放器；过渡调度和前台设置仍待接入，不计为已交付 Automix 功能。
 
 - 独立 React 移动入口，手机音乐库／底部播放条／展开歌词，850px 起使用 iPad 双栏，窄窗口回到手机布局。
 - 通过 Omni 复用网易云、QQ、酷狗登录、搜索、歌单和歌词；列表采用现有 react-window。

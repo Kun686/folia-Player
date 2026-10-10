@@ -30,7 +30,8 @@
 - `StreamRenderSource` 用系统 AVAudioSourceNode 将交错 PCM 转为标准格式，输出接入同一
   AVAudioMixerNode，再经过一份既有 AudioEffectUnit 和最终音量。没有自研格式转换或解码算法。
   引用随音源节点存活，宿主停止渲染并拆除节点后才能释放；回调校验容量、声道和工作模式。
-- 静默准备、暂停和结束不推进歌曲时钟；取消某路不停止另一条解码器。此能力尚未接入 App 默认链路。
+- 静默准备、暂停和结束不推进歌曲时钟；取消某路不停止另一条解码器。本阶段仅验证能力，
+  随后 mobile.8 的默认链路接入见文末。
 - `shared-output-planar.{log,xcresult}`：三个专项测试通过，包含两路各 0.125 的样本相加为 0.25、
   待播开头保持、暂停恢复、独立停止、最终音量、拖动及 EOF。
 - `shared-output-system-conversion.{log,xcresult}`：iPad Pro 11-inch (M5) / iOS 26.5 / Release，

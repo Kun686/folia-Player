@@ -1,6 +1,6 @@
 # 移动候选验证记录
 
-## mobile.8：共享输出接入（最终签名安装准备中）
+## mobile.8：共享输出接入（当前开发候选）
 
 原生队列已接到同一个系统混音／整体音效输出。待播只缓冲；删除、自动切歌、暂停、拖动、配置变化
 与资源释放均保持原队列语义。未新增依赖或改变主题、动效、音效参数。
@@ -12,7 +12,23 @@
 
 以上证据均位于 `.mobile-test-results/`，保留 `.log` 和 `.xcresult`。配置变化与中断采用通知注入，
 不代表真实蓝牙／耳机操作通过。完整 Automix、真实 QQ／网易 App 在线验收、30 分钟锁屏、性能与歌词
-精度仍未完成。详见 [AUTOMIX_PORT.md](AUTOMIX_PORT.md)。最终签名安装结果随后记录；BUILD_RECORD.json 暂仍指向 mobile.7。
+精度仍未完成。详见 [AUTOMIX_PORT.md](AUTOMIX_PORT.md)。
+
+2026-10-11 已完成 clean Release 开发签名包安装并启动，设备回读 build 8。源码
+`47102ed5f431f9ca408aafdeba9af4ceab895b3b`，268 个输入文件指纹
+`b064167b5ba521558880971cc39f8351ef5c4702efe72d88f4229951a057ec67`。
+安装包 `Folia-0.7.16-mobile.8-b064167b-development.ipa`，7,354,706 字节，SHA256
+`57540cfa750ae5c415597acc43028e50685012c438c3e79338e356b1f9f94515`。
+App 普通文件合计 15,128,803 字节，比 mobile.7 增加 134,766 字节；压缩包小 20,615 字节，
+受压缩／签名影响，不能解释为功能或依赖体积减少。没有新增依赖。mobile.7 包及旁置元数据原样保留。
+
+- `mobile8-sync.log`：移动资源与 iOS 同步通过，随包版本、仓库与提交身份一致。
+- `mobile8-device-build.log`：clean Release 构建通过，严格 codesign 校验通过；100 个前端资源、
+  两份完整许可证与源码输出逐字节一致，IPA 内容也与签名 App 逐字节核对，无测试插件。
+- `mobile8-device-install.json`、`mobile8-device-launch.json`、`mobile8-device-app.json`：安装、启动、build 8 回读成功。
+- `BUILD_RECORD.json` 和本机 `移动端交付/Folia-mobile8-build.json` 标识此包；安装启动不是完整界面或听感验收。
+- 源码提交的 [CI 38068139710](https://github.com/Kun686/folia-Player/actions/runs/38068139710) 通过：
+  固定 vendor 清单、npm 锁定安装、TypeScript、移动逻辑与移动构建。
 
 ## mobile.7 之后：原版过渡规划（仅源码）
 
@@ -25,7 +41,7 @@
 证据 `shared-output-system-conversion.{log,xcresult}`；包含实际音频回调、声道、暂停拖动和最终静音。
 此新输出能力尚未切换为 App 默认，也未安装至真机；原失败及修复见上述 Automix 记录。
 
-## mobile.7 双声道输出接入（当前开发候选）
+## mobile.7 双声道输出接入（上一版开发候选）
 
 已安装iPhone XS Max / iOS18.7.10并启动，设备回读build 7；开发候选仍不代表完整移植验收通过。
 源码`f303ada6bae36e1547f2d9d19e384cc0887d5e05`，258个输入文件指纹

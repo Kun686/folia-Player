@@ -6,9 +6,10 @@ mobile.7已接入独立双声道流式输出并安装到iPhone；保留的mobile
 
 ## 当前接入结果
 
-mobile.7 之后的源码另增加可选外部渲染接口，为原版 Automix 的共享混音输出做准备；默认关闭，
-当前已安装包不受影响。固定版本未变，无新增依赖，仍只修改两个 vendor 文件。
-98 项完整原生回归及失败记录见 [AUTOMIX_PORT.md](AUTOMIX_PORT.md)。
+mobile.8 已将原生队列接入共享混音／整体音效输出，并安装到 iPhone。使用 mobile.7 之后增加的
+外部渲染接口；依赖本身仍默认关闭此选项，由 App 明确启用。固定版本未变，无新增依赖，仍只修改两个
+vendor 文件。100 项完整原生回归、受控 HTTP 队列及 7 项真机关键测试通过；完整 Automix 未完成。
+各阶段证据和失败记录见 [AUTOMIX_PORT.md](AUTOMIX_PORT.md)，当前包见 VALIDATION.md。
 
 复用已批准的AudioStreaming 1.4.5解码／网络实现、Apple音频图及现有Folia DSP，不新增依赖版本。
 Folia持有歌曲身份和队列版本，每个播放项使用独立解码器，只保留当前与下一项。
