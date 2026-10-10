@@ -1,3 +1,4 @@
+import { VISUALIZER_FFT_SIZE, VISUALIZER_SMOOTHING } from '../utils/visualizerAudio';
 import { useCallback, useEffect, useRef } from 'react';
 import type { MutableRefObject, RefObject } from 'react';
 import { PlayerState } from '../types';
@@ -141,8 +142,8 @@ export function usePlaybackAudioBridge({
             audioContextRef.current = ctx;
 
             const analyser = ctx.createAnalyser();
-            analyser.fftSize = 2048;
-            analyser.smoothingTimeConstant = 0.6;
+            analyser.fftSize = VISUALIZER_FFT_SIZE;
+            analyser.smoothingTimeConstant = VISUALIZER_SMOOTHING;
             analyserRef.current = analyser;
 
             const { gainNode, fadeNode, effectChain, decksConnected } = buildPlaybackGraph({

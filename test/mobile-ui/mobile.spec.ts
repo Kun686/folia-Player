@@ -43,7 +43,7 @@ test.beforeEach(async ({ page }) => {
         if (method === 'localDetails') return { content: lyric };
         if (method === 'importLyrics') { win.fixtureLyricImports = (win.fixtureLyricImports ?? 0) + 1; lyric = '[00:00.00]新导入的歌词\n[00:08.00]下一句'; return { content: lyric }; }
         if (method === 'removeLocal') { localSongs = []; return {}; }
-        if (method === 'audioLevels') return { available: true, spectrum: Array(512).fill(140), sampleRate: 44100 };
+        if (method === 'audioLevels') return { available: true, spectrum: Array(1024).fill(140), sampleRate: 44100 };
         if (method === 'getState') return { ...state };
         if (method === 'clearSession') { cookie = false; return {}; }
         if (method === 'setQueue' || method === 'selectQueue') {

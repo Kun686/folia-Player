@@ -15,6 +15,9 @@ F01200000000000000000012 = {isa = PBXContainerItemProxy; containerPortal = 504EC
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXBuildFile section */
+F019B0000000000000000003 = {isa = PBXBuildFile; fileRef = F019A0000000000000000003; };
+F019B0000000000000000002 = {isa = PBXBuildFile; fileRef = F019A0000000000000000002; };
+F019B0000000000000000001 = {isa = PBXBuildFile; fileRef = F019A0000000000000000001; };
 F018B0000000000000000002 = {isa = PBXBuildFile; fileRef = F018A0000000000000000002; };
 F018B0000000000000000001 = {isa = PBXBuildFile; fileRef = F018A0000000000000000001; };
 F017B0000000000000000002 = {isa = PBXBuildFile; fileRef = F017A0000000000000000002; };
@@ -43,6 +46,9 @@ F01200000000000000000001 /* NativeTests.swift in Sources */ = {isa = PBXBuildFil
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+F019A0000000000000000003 = {isa = PBXFileReference; lastKnownFileType = text.json; path = SpectrumReference.json; sourceTree = "<group>"; };
+F019A0000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrumTests.swift; sourceTree = "<group>"; };
+F019A0000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSpectrum.swift; sourceTree = "<group>"; };
 F018A0000000000000000002 = {isa = PBXFileReference; lastKnownFileType = text.json; path = EqualizerReference.json; sourceTree = "<group>"; };
 F018A0000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSettingsTests.swift; sourceTree = "<group>"; };
 F017A0000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackAudioSettings.swift; sourceTree = "<group>"; };
@@ -86,7 +92,7 @@ F01200000000000000000008 = {isa = PBXFrameworksBuildPhase; buildActionMask = 214
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-F01200000000000000000004 = {isa = PBXGroup; children = (F01200000000000000000002,F015A0000000000000000001,F016A0000000000000000001,F018A0000000000000000002,F018A0000000000000000001,); path = NativeTests; sourceTree = "<group>"; };
+F01200000000000000000004 = {isa = PBXGroup; children = (F01200000000000000000002,F015A0000000000000000001,F016A0000000000000000001,F018A0000000000000000002,F018A0000000000000000001,F019A0000000000000000003,F019A0000000000000000002,); path = NativeTests; sourceTree = "<group>"; };
 		504EC2FB1FED79650016851F = {
 			isa = PBXGroup;
 			children = (
@@ -116,6 +122,7 @@ F01300000000000000000001,
 F014A0000000000000000003,
 F017A0000000000000000002,
 F017A0000000000000000001,
+F019A0000000000000000001,
 F014A0000000000000000002,
 F014A0000000000000000001,
 				F011A0000000000000000004 /* FoliaNativePlugin.swift */,
@@ -198,7 +205,7 @@ name = FoliaNativeTests; productName = FoliaNativeTests; productReference = F012
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-F01800000000000000000001 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (F018B0000000000000000002,); runOnlyForDeploymentPostprocessing = 0; };
+F01800000000000000000001 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (F018B0000000000000000002,F019B0000000000000000003,); runOnlyForDeploymentPostprocessing = 0; };
 		504EC3021FED79650016851F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -215,7 +222,7 @@ F01800000000000000000001 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-F01200000000000000000007 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (F01200000000000000000001,F015B0000000000000000001,F016B0000000000000000001,F018B0000000000000000001,); runOnlyForDeploymentPostprocessing = 0; };
+F01200000000000000000007 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (F01200000000000000000001,F015B0000000000000000001,F016B0000000000000000001,F018B0000000000000000001,F019B0000000000000000002,); runOnlyForDeploymentPostprocessing = 0; };
 		504EC3001FED79650016851F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -225,6 +232,7 @@ F01300000000000000000002,
 F014B0000000000000000003,
 F017B0000000000000000002,
 F017B0000000000000000001,
+F019B0000000000000000001,
 F014B0000000000000000002,
 F014B0000000000000000001,
 				F011B0000000000000000004 /* FoliaNativePlugin.swift in Sources */,
@@ -377,7 +385,7 @@ GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -399,7 +407,7 @@ GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; PRODUCT_BUNDLE
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (

@@ -66,7 +66,7 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
   const song = state.currentSong;
   const { lyrics, cover, error: lyricsError, refresh } = useMobileLyrics(song ?? undefined);
   const rendering = visible && (expanded || wide) && !visualSettings && !audioSettingsOpen;
-  const audio = useNativeAudio(rendering && state.playing);
+  const audio = useNativeAudio(rendering, state.playing);
   const importLyrics = async () => {
     if (song?.sourceRef?.kind !== 'local') return;
     setError(false);

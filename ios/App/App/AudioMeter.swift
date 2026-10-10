@@ -3,72 +3,104 @@ import MediaToolbox
 import Accelerate
 import QuartzCore
 
-// AudioMeter.swift — native EQ precedes spectrum analysis; only FFT depends on UI polling.
+// AudioMeter.swift — native EQ precedes capture; Web Audio-compatible analysis runs only when visible UI reads it.
 final class AudioMeter {
     let equalizer = AudioEqualizer()
     private let lock = NSLock()
     private var requestedAt = -Double.infinity
     private var sampledAt = -Double.infinity
-    private var values = [Float](repeating: 0, count: 512)
+    private let spectrum = AudioSpectrum()
+    private var ring = [Float](repeating: 0, count: AudioSpectrum.size)
+    private var samples = [Float](repeating: 0, count: AudioSpectrum.size)
     private var sampleRate: Double = 44100
-    private var floatPCM = false
+    private var channels = 0
     private var processingReady = false
-    private var samples = [Float](repeating: 0, count: 1024)
-    private var imaginary = [Float](repeating: 0, count: 1024)
-    private var realOutput = [Float](repeating: 0, count: 1024)
-    private var imagOutput = [Float](repeating: 0, count: 1024)
-    private var window = [Float](repeating: 0, count: 1024)
+    private var outputGain: Float = 1
     private var cursor = 0
-    private let fft = vDSP_DFT_zop_CreateSetup(nil, 1024, .FORWARD)
-    init() { vDSP_hann_window(&window, 1024, Int32(vDSP_HANN_NORM)) }
-    deinit { if let fft { vDSP_DFT_DestroySetup(fft) } }
-    func snapshot() -> [String: Any] {
+    private var captureRevision: UInt64 = 0
+    private var analysedRevision: UInt64 = 0
+    private var resetAnalysis = true
+    // Only the serial tap process callback accesses this flag, including when the mailbox is busy.
+    private var captureInterrupted = false
+
+    func setOutputGain(volume: Double, muted: Bool) {
+        guard volume.isFinite, (0...1).contains(volume) else { return }
         lock.lock(); defer { lock.unlock() }
-        requestedAt = CACurrentMediaTime()
-        return ["available": requestedAt - sampledAt < 0.4, "spectrum": values.map { Int($0) }, "sampleRate": sampleRate]
+        outputGain = muted ? 0 : Float(volume)
+    }
+    func snapshot() -> [String: Any] {
+        // The audio callback only tries this lock: bridge/FFT work can never block audible PCM.
+        lock.lock(); defer { lock.unlock() }
+        let now = CACurrentMediaTime()
+        // Capture may outlive the last UI read by 400 ms. Its timestamp alone cannot detect a
+        // suspended consumer: discard the old FFT history/window before restarting demand.
+        if now - requestedAt >= 0.4 { clearCapture() }
+        requestedAt = now
+        let available = requestedAt - sampledAt < 0.4 && spectrum.available
+        if available && analysedRevision != captureRevision {
+            for i in samples.indices { samples[i] = ring[(cursor + i) % AudioSpectrum.size] }
+            if resetAnalysis { spectrum.reset(); resetAnalysis = false }
+            spectrum.analyse(samples)
+            analysedRevision = captureRevision
+        }
+        return ["available": available, "spectrum": spectrum.bytes, "sampleRate": sampleRate]
     }
     func processingAvailable() -> Bool {
         lock.lock(); defer { lock.unlock() }; return processingReady
     }
-    private func prepare(_ format: AudioStreamBasicDescription) {
+    func prepare(_ format: AudioStreamBasicDescription) {
         lock.lock(); defer { lock.unlock() }
-        sampleRate = format.mSampleRate
-        floatPCM = format.mFormatID == kAudioFormatLinearPCM && format.mFormatFlags & kAudioFormatFlagIsFloat != 0 && format.mBitsPerChannel == 32
-        cursor = 0
         equalizer.prepare(format)
+        sampleRate = format.mSampleRate
         processingReady = equalizer.available
+        channels = processingReady ? Int(format.mChannelsPerFrame) : 0
+        clearCapture()
     }
     private func unprepare() {
         lock.lock(); defer { lock.unlock() }
-        equalizer.unprepare(); processingReady = false
+        equalizer.unprepare(); processingReady = false; channels = 0; clearCapture()
     }
-    private func consume(_ buffers: UnsafeMutablePointer<AudioBufferList>, frames: Int) {
+    private func clearCapture() {
+        for i in ring.indices { ring[i] = 0 }
+        cursor = 0; sampledAt = -Double.infinity; resetAnalysis = true
+    }
+    // Capture the most recent complete window, downmixed to mono as specified by Web Audio.
+    // AVPlayer applies volume after its tap, so apply the same gain only to this analysis copy.
+    func consume(_ buffers: UnsafeMutablePointer<AudioBufferList>, frames: Int, discontinuity: Bool = false) {
         let now = CACurrentMediaTime()
-        guard floatPCM, let fft, lock.try() else { return }
-        let wanted = now - requestedAt < 0.4 && now - sampledAt >= 0.04
-        lock.unlock()
-        guard wanted else { return }
+        guard lock.try() else { captureInterrupted = true; return }
+        defer { lock.unlock() }
+        if discontinuity || captureInterrupted { clearCapture(); captureInterrupted = false }
+        guard channels > 0, frames > 0, now - requestedAt < 0.4 else { return }
         let list = UnsafeMutableAudioBufferListPointer(buffers)
-        guard let buffer = list.first, let data = buffer.mData else { return }
-        let channels = max(1, Int(buffer.mNumberChannels)), pcm = data.assumingMemoryBound(to: Float.self)
-        let count = min(frames, Int(buffer.mDataByteSize) / (4 * channels))
-        for frame in 0..<count {
-            samples[cursor] = pcm[frame * channels]; cursor += 1
-            if cursor == 1024 {
-                vDSP_vmul(samples, 1, window, 1, &samples, 1, 1024)
-                vDSP_DFT_Execute(fft, samples, imaginary, &realOutput, &imagOutput)
-                if lock.try() {
-                    for bin in 0..<512 {
-                        let amplitude = hypotf(realOutput[bin], imagOutput[bin]) / 512
-                        let db = 20 * log10f(max(0.00001, amplitude))
-                        values[bin] = min(255, max(0, (db + 100) / 70 * 255))
-                    }
-                    sampledAt = now; lock.unlock()
-                }
-                cursor = 0
-                break
-            }
+        var count = 0
+        for buffer in list {
+            let stride = Int(buffer.mNumberChannels)
+            guard buffer.mData != nil, stride > 0,
+                  Int(buffer.mDataByteSize) / (MemoryLayout<Float>.size * stride) >= frames else { return }
+            count += stride
         }
+        guard count == channels else { return }
+        if now - sampledAt >= 0.4 { clearCapture() }
+        for frame in max(0, frames - AudioSpectrum.size)..<frames {
+            var mono: Float = 0, channel = 0
+            for buffer in list {
+                let stride = Int(buffer.mNumberChannels), data = buffer.mData!.assumingMemoryBound(to: Float.self)
+                for local in 0..<stride {
+                    // Web Audio speaker mixing: mono/stereo/quad/5.1; other counts fall back to discrete.
+                    let weight: Float = channels == 6
+                        ? (channel < 2 ? sqrt(0.5) : channel == 2 ? 1 : channel == 3 ? 0 : 0.5)
+                        : channels == 1 || channels == 2 || channels == 4 ? 1 / Float(channels)
+                        : channel == 0 ? 1 : 0
+                    let value = data[frame * stride + local]
+                    mono += (value.isFinite ? value : 0) * weight
+                    channel += 1
+                }
+            }
+            ring[cursor] = mono * outputGain
+            cursor = (cursor + 1) % AudioSpectrum.size
+        }
+        captureRevision &+= 1; sampledAt = now
     }
     @MainActor static func attach(to item: AVPlayerItem) async -> AudioMeter? {
         guard let track = try? await item.asset.loadTracks(withMediaType: .audio).first else { return nil }
@@ -85,7 +117,8 @@ final class AudioMeter {
                     let meter = Unmanaged<AudioMeter>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
                     meter.equalizer.process(buffers, frames: Int(outputCount.pointee),
                         discontinuity: outputFlags.pointee & kMTAudioProcessingTapFlag_StartOfStream != 0)
-                    meter.consume(buffers, frames: Int(outputCount.pointee))
+                    meter.consume(buffers, frames: Int(outputCount.pointee),
+                        discontinuity: outputFlags.pointee & kMTAudioProcessingTapFlag_StartOfStream != 0)
                 } else { outputCount.pointee = 0 }
             })
         var tap: MTAudioProcessingTap?

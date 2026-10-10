@@ -67,6 +67,7 @@ extension PlaybackEngine {
         configureMeter(meter); configureMeter(prepared?.meter)
     }
     func configureMeter(_ meter: AudioMeter?) {
+        meter?.setOutputGain(volume: audioSettings.volume, muted: audioSettings.isMuted)
         meter?.equalizer.configure(enabled: audioSettings.equalizer.enabled, gains: audioSettings.equalizer.gains)
     }
 }

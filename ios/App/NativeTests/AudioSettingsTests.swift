@@ -149,5 +149,16 @@ private struct EqualizerReference: Decodable {
         let after = try await peak()
         XCTAssertGreaterThan(before - after, 35, "The -12 dB change must reach real decoded PCM even without visualizer polling")
         XCTAssertLessThan(before - after, 55)
+        values.isMuted = true; _ = try tested.setAudioSettings(values.dictionary)
+        // Wait without requesting analysis, so this also checks the cold restart after UI suspension.
+        try await Task.sleep(nanoseconds: 700_000_000)
+        var mutedSpectrum: [Int]?
+        for _ in 0..<20 {
+            let result = tested.meter?.snapshot()
+            if result?["available"] as? Bool == true { mutedSpectrum = result?["spectrum"] as? [Int]; break }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        XCTAssertEqual(mutedSpectrum?.count, 1024)
+        XCTAssertEqual(mutedSpectrum?.max(), 0, "Muted AVPlayer output must not drive visualizer motion")
     }
 }

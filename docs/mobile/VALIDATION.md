@@ -1,9 +1,61 @@
 # 移动候选验证记录
 
-日期：2026-10-10。当前候选 **0.7.16-mobile.4 / build 4**，基于 mobile-main 的 0403abb 继续移植。
+日期：2026-10-10。当前候选 **0.7.16-mobile.5 / build 5**，基于 mobile-main 的 4bfa668 继续移植。
 当前源码指纹见 BUILD_RECORD.json。上游基线 d824c0b854e54d5411cb072092999823e9bd7071。
-本轮补音量／静音／十段EQ，没有更改服务器、平台规则、主题／动效参数或生产依赖。
+本轮校正原生频谱输入、恢复原版暂停呼吸，没有更改服务器、平台规则、主题／动效参数或生产依赖。
 **本地工程验证通过，不代表真实在线账户／两台真机完整功能已验收。**
+
+## mobile.5 原版音频动效输入
+
+| 层级 | 结果 | 证据与边界 |
+|---|---|---|
+| TypeScript | PASS | spectrum-typecheck.log |
+| 移动及声音逻辑 | PASS | 6文件49项，包含6项新增的原频段公式、Nyquist边界、暂停呼吸、并发请求、隐藏清理与错误恢复；npm run test:mobile -- test/unit/utils/audioEqualizer.test.ts |
+| 原生完整回归 | PASS | 40项，spectrum-native-fixed.{log,xcresult}；含真实tap静音恢复及全部队列回归 |
+| 频谱扩展对照 | PASS | 60组 × 3时间点 × 交错／分离格式；spectrum-native-layout-fixed.{log,xcresult} |
+| 最终频谱格式UI回归 | PASS | WebKit手机／宽iPad／窄窗口共18项，spectrum-ui.log |
+
+原生沿用原版2048点Blackman窗、0.6幅值平滑、−100至−30dB字节量程；
+频谱按Web Audio规则下混，音量／静音只作用于分析副本，实际PCM不会被重复衰减。
+FFT从音频回调移到按需快照：没有前台请求便没有FFT，400ms后停止采集。
+音频回调只尝试锁；争用后重新建立完整窗口，不把不连续片段拼成伪频谱。
+模式参数和动画组件未改变；原五频段响应及暂停呼吸提取为共同函数，
+桌面保留原21.5Hz分箱边界，移动使用真实采样率；连续信号仍使用MotionValue。
+
+独立参考由WebKit OfflineAudioContext生成，保存于SpectrumReference.json：
+8／22.05／44.1／48／96kHz，单声道、右声道、反相抵消、四声道、5.1单独声道和离散布局；
+音量1／0.25／0及信号转静音后的衰减。每个字节误差≤1（0–255），同一PCM重复读取不再次平滑。
+此处验证的是分析算法和标准声道顺序，不代表所有文件编码或特殊声道布局已经实机通过。
+重新生成：FOLIA_SPECTRUM_REFERENCE=1 npm run test:mobile:ui -- spectrum-reference.spec.ts --project=phone。
+
+首轮完整回归39/40：静音并停止读取后，恢复第一帧残留99而非0；
+原因是采集时间晚于上次请求，单独检查采集时间漏掉旧平滑历史。
+恢复时按请求间隔清除旧窗口后，原断言和40项回归通过，未放宽静音断言。
+扩展多声道测试首次因AVAudioFormat简便构造器不支持>2声道而退出；
+按SDK要求传入显式声道布局后，60组对照全部通过。
+扩展期间其余4个频谱／实际tap用例通过，证据在spectrum-native-multichannel.log；
+该次整轮结果仍记FAILED，不能用部分成功替代完整结果。
+最初一次测试命令用错target名NativeTests，纠正为scheme中的FoliaNativeTests后执行。
+既有Pixi／Three弃用及React useInsertionEffect警告仍存在；没有把它们当作性能通过。
+
+完整附加音效、Automix和桌面编辑功能仍未全部移植。
+App到网易云／QQ网关真实账户、真机30分钟锁屏、网络／蓝牙切换、
+全部模式性能及歌词≤150ms仍为NOT_RUN；历史平台记录不替代这些验收。
+
+### mobile.5 安装与包校验
+
+- 最终资源、Simulator及开发签名设备构建PASS：mobile5-resources.log、mobile5-sim-build.log、mobile5-device-build.log。
+- codesign --verify --deep --strict PASS。两种App包各98个前端文件逐字节匹配dist-mobile，
+  另有Capacitor自动生成的cordova.js／cordova_plugins.js两个空兼容文件，无XCTest或参考样本。
+  首次校验把这两个生成文件当作差异；核对为空且没有其余额外文件后通过，未修改构建产物。
+  结构化证据：mobile5-package-verification.json。
+- build5已在iPhone XS Max／iOS18.7.10覆盖安装并启动，未卸载原App；
+  mobile5-final-install.json与mobile5-final-launch.json的outcome均为success。
+- 最终包在iPad Pro 11-inch (M5)／iPadOS26.5 Simulator启动，保留4个本地验收音频、
+  队列外当前歌曲、暂停位置、27%音量及静音；展开Partita显示原有歌词。
+  截图mobile5-ipad-paused-partita.png；此项仅证明安装／恢复和界面显示，不是性能或听感验收。
+- 开发IPA、SHA256与私有构建记录在上级「移动端交付」，旧包保留。候选未完成全功能／真机验收。
+- BUILD_RECORD.json的buildNumber同步为5；mobile.4旧记录误留3，不改变其实际App的build4身份。
 
 ## mobile.4 声音控制与均衡器
 

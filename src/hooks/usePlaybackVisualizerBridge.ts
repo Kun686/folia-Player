@@ -1,3 +1,4 @@
+import { applyVisualizerIdle, applyVisualizerSpectrum } from '../utils/visualizerAudio';
 import { useCallback, useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 import type { MotionValue } from 'framer-motion';
@@ -88,46 +89,10 @@ export function usePlaybackVisualizerBridge({
             const bufferLength = analyserRef.current.frequencyBinCount;
             const dataArray = new Uint8Array(bufferLength);
             analyserRef.current.getByteFrequencyData(dataArray);
-            audioBands.spectrum?.set(dataArray);
-
-            const getEnergy = (minHz: number, maxHz: number): number => {
-                const start = Math.floor(minHz / 21.5);
-                const end = Math.floor(maxHz / 21.5);
-                let sum = 0;
-                for (let index = start; index <= end; index += 1) {
-                    sum += dataArray[index];
-                }
-                const count = end - start + 1;
-                return count > 0 ? sum / count : 0;
-            };
-
-            const bass = getEnergy(20, 150);
-            const lowMid = getEnergy(150, 400);
-            const mid = getEnergy(400, 1200);
-            const vocal = getEnergy(1000, 3500);
-            const treble = getEnergy(3500, 12000);
-
-            const process = (value: number, boost = 2) => {
-                const normalized = value / 255;
-                return Math.pow(normalized, boost) * 255;
-            };
-
-            audioPower.set(process((bass + lowMid) / 2, 3));
-            audioBands.bass.set(process(bass, 1.8));
-            audioBands.lowMid.set(process(lowMid, 2));
-            audioBands.mid.set(process(mid, 2));
-            audioBands.vocal.set(process(vocal, 1.5));
-            audioBands.treble.set(process(treble, 2));
+            // Preserve the original desktop band boundaries; native uses its actual sample rate.
+            applyVisualizerSpectrum(dataArray, 21.5, audioPower, audioBands);
         } else {
-            const time = Date.now() / 2000;
-            const breath = (Math.sin(time) + 1) * 20;
-            audioPower.set(breath);
-            audioBands.bass.set(breath);
-            audioBands.lowMid.set(breath);
-            audioBands.mid.set(breath);
-            audioBands.vocal.set(breath);
-            audioBands.treble.set(breath);
-            audioBands.spectrum?.set(new Uint8Array(0));
+            applyVisualizerIdle(audioPower, audioBands, Date.now());
         }
 
         if (isActuallyPlaying && audioElement) {

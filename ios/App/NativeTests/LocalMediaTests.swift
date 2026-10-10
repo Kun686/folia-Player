@@ -105,10 +105,10 @@ import AVFoundation
             }
             try await Task.sleep(nanoseconds: 50_000_000)
         }
-        XCTAssertEqual(captured.count, 512)
+        XCTAssertEqual(captured.count, 1024)
         XCTAssertGreaterThan(captured.max() ?? 0, 100)
         let peak = captured.indices.max(by: { captured[$0] < captured[$1] }) ?? -100
-        XCTAssertLessThanOrEqual(abs(peak - 10), 1, "440Hz should peak near FFT bin 10")
+        XCTAssertLessThanOrEqual(abs(peak - 20), 1, "440Hz should peak near FFT bin 20")
         try await Task.sleep(nanoseconds: 900_000_000)
         XCTAssertEqual(tested.meter?.snapshot()["available"] as? Bool, false)
     }

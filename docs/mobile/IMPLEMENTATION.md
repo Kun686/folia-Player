@@ -1,6 +1,6 @@
 # Folia iPhone / iPad 实现与安装
 
-当前交付是 **0.7.16-mobile.4 开发候选**，支持 iOS/iPadOS 17+。源码基线为
+当前交付是 **0.7.16-mobile.5 开发候选**，支持 iOS/iPadOS 17+。源码基线为
 d824c0b854e54d5411cb072092999823e9bd7071；移动分支发布到 Kun686/folia-Player，服务器内部部署记录见 SERVER_VALIDATION.md。
 按用户最新要求优先移植原播放器、歌词和动效，同时支持本地导入与网易云／QQ。
 服务器配置不再是使用 App 的前提。真实平台与真机完整验收尚未完成，不能作为已验收安装包发布。
@@ -29,7 +29,12 @@ d824c0b854e54d5411cb072092999823e9bd7071；移动分支发布到 Kun686/folia-Pl
   默认 Classic；复用原 VisualizerRenderer、14 模式注册表、背景注册表、参数面板和资产恢复。
   使用现有外观短码／JSON 编解码器导入、导出和应用自定义主题，不需要配置同步服务器。
   MTAudioProcessingTap + Accelerate 分析真实解码 PCM，向原渲染器提供 5 个频段和频谱。
-  前台按需读取；停止读取 400ms 后停止 FFT。无法读取 PCM 的流格式保留歌词时钟，不能宣称音频响应等价。
+  频谱沿用原版2048点Blackman窗、0.6幅值平滑、−100至−30dB量程和声道下混规则；
+  按原生音量／静音修正分析副本，不重复衰减实际音频。FFT仅在界面请求新数据时运行，
+  停止读取400ms后连PCM采集也停止；恢复、跳转或采集中断清除旧窗口。
+  前台通过RAF读取，最多一个请求在途；隐藏后停止，旧响应不得恢复动画。
+  原版五频段响应与暂停呼吸逻辑提取为两端共用，保持桌面频段边界及所有模式参数。
+  无法读取 PCM 的流格式保留歌词时钟，不能宣称音频响应等价。
   修复 Partita 在暂停时挂载／切到新歌词行后不显示的问题：初始离散状态读取当前时钟，原动画参数不变。
   Automix、附加音效链、原桌面全部编辑工具尚未完成移植；所有复杂动画的真机性能也未验收。
 - 音量／静音使用 AVPlayer 标准属性，修改音量保持静音；复用原 useAudioSettingsStore 及已有命令动作。
@@ -56,7 +61,7 @@ d824c0b854e54d5411cb072092999823e9bd7071；移动分支发布到 Kun686/folia-Pl
 | 共享播放规则 | shared/mobile/ |
 | 原生桥与 Keychain | ios/App/App/FoliaNativePlugin.swift、SecureStore.swift、GatewayClient.swift |
 | 原生播放 | PlaybackEngine.swift、PlaybackQueue.swift、PlaybackSystem.swift |
-| 本地媒体与音频分析 | LocalMediaLibrary.swift、LocalImportPicker.swift、AudioMeter.swift |
+| 本地媒体与音频分析 | LocalMediaLibrary.swift、LocalImportPicker.swift、AudioMeter.swift、AudioSpectrum.swift |
 | 网关与部署 | deploy/mobile/ |
 | 自动测试 | test/unit/mobile/、test/mobile-ui/、ios/App/NativeTests/ |
 
