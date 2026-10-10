@@ -27,6 +27,8 @@ python3 dev/mobile/verify-audio-vendor.py --upstream-root ios/DerivedData/Source
 最终音量／静音在效果链之后应用，避免噪声／混响在静音后仍发声。
 完整Release原生回归89项通过（`stereo-output-full`）；WAV和AAC/M4A Mono已验证真实双声道音效。
 iPad实际App从验收音1自动推进到4并结束，原音效面板正常打开，截图保存在本地证据目录。
+完整原生HTTP队列补测3项通过；iPhone XS Max / iOS18.7.10的6项关键原生测试也通过，
+包含真实WAV／AAC Mono音效与连续四曲、取消已预载下一首，详细边界见VALIDATION.md。
 
 Ogg拖动仍受上游限制；真机30分钟锁屏、蓝牙、温升、内存、歌词延迟和量化无缝切歌仍为NOT_RUN。
 暂停／中断无音频回调时，已关闭效果分支可能保留到恢复或曲目释放，尚未作资源回收验收。
@@ -56,7 +58,7 @@ Ogg拖动仍受上游限制；真机30分钟锁屏、蓝牙、温升、内存、
   同轮复核远端AVAssetReader仍为-11838、composition音乐tap仍为1声道、已缓冲队列删除仍无效。
 - 解压的iOS arm64动态库实测：Ogg 69,920字节，Vorbis 865,888字节，合计935,808字节；
   **这不是完整App增量**，不含AudioStreaming静态链接代码、签名及打包压缩。最终App／IPA增量
-  必须在后端接入并生成新候选后测量，当前为NOT_RUN。
+  必须在后端接入并生成新候选后测量；此处是接入前记录，最新整包测量见VALIDATION.md及旁置包体元数据。
 
 ### 必须解决的队列限制
 
