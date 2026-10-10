@@ -27,13 +27,14 @@ type AudioEqualizerDialogProps = {
     isDaylight: boolean;
     theme: Theme;
     equalizerOnly?: boolean;
+    mobileLayout?: boolean;
     commitOnInput?: boolean;
     statusMessage?: string;
 };
 
 const PRESET_IDS: AudioEqualizerModeId[] = [...AUDIO_SOUND_PRESET_IDS, ...AUDIO_EQUALIZER_CUSTOM_SLOT_IDS];
 
-const AudioEqualizerDialog: React.FC<AudioEqualizerDialogProps> = ({ isDaylight, theme, equalizerOnly = false, commitOnInput = false, statusMessage }) => {
+const AudioEqualizerDialog: React.FC<AudioEqualizerDialogProps> = ({ isDaylight, theme, equalizerOnly = false, mobileLayout = false, commitOnInput = false, statusMessage }) => {
     const { t } = useTranslation();
     const settings = useAudioSettingsStore(state => state.audioEqualizerSettings);
     const isOpen = useAudioSettingsStore(state => state.isAudioEqualizerOpen);
@@ -155,7 +156,7 @@ const AudioEqualizerDialog: React.FC<AudioEqualizerDialogProps> = ({ isDaylight,
             isDaylight={isDaylight}
             title={t('ui.equalizerTitle')}
             description={t(equalizerOnly ? 'mobile.equalizerOnly' : 'ui.equalizerDescription')}
-            footer={equalizerOnly ? <button onClick={close}>{t('mobile.close')}</button> : undefined}
+            footer={mobileLayout || equalizerOnly ? <button onClick={close}>{t('mobile.close')}</button> : undefined}
             maxWidthClass="max-w-2xl"
         >
             {/* display:contents，布局一如从前；在的意义只是让这扇对话框自己也能被思索命中。 */}
@@ -224,7 +225,7 @@ const AudioEqualizerDialog: React.FC<AudioEqualizerDialogProps> = ({ isDaylight,
             </div>
         </ThemedDialog>
     );
-    return createPortal(equalizerOnly ? <div className="mobile-audio-dialog" data-daylight={isDaylight} role={isOpen ? 'dialog' : undefined}
+    return createPortal(mobileLayout || equalizerOnly ? <div className="mobile-audio-dialog" data-daylight={isDaylight} role={isOpen ? 'dialog' : undefined}
         aria-label={t('ui.equalizerTitle')} aria-modal={isOpen ? true : undefined}>{dialog}</div> : dialog, document.body);
 };
 

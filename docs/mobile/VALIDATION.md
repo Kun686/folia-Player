@@ -1,8 +1,27 @@
 # 移动候选验证记录
 
-mobile.5之后的附加音效开发单独记录在 [EFFECT_PARITY.md](EFFECT_PARITY.md)：30项相关原生测试通过，
+mobile.5之后的附加音效开发单独记录在 [EFFECT_PARITY.md](EFFECT_PARITY.md)：32项相关原生测试通过，
 包含固定WebKit过采样、压缩器、噪声／混响、组合链、线程交接及tap格式探测；Debug全部70项、Release相关8项回归通过。
-尚未接入播放链，以下mobile.5证据和交付指纹保持对应原安装包。
+随后实际tap接线9项、iPad Release内部链路14项通过；公开设置接入后的7项原生测试及6项界面测试通过。
+当前mobile.6已开放立体声音效，Mono暂仅EQ并提示。
+
+## mobile.6 原音效与原生播放链
+
+2026-10-10，0.7.16 / build 6，Release开发签名；源码身份见BUILD_RECORD.json。
+复用原音效面板、六个音色预设、两个自定义栏位；非中性效果按需准备，原生EQ之后处理PCM，独立于WebView和FFT读取。
+单声道附加音效尚未支持，继续EQ并明确提示。参数、主题和动效设计未更改，无新增生产依赖。
+
+- TypeScript通过，移动逻辑38项通过；针对音效的三种尺寸WebKit界面6项通过。
+- iPad模拟器Release全部71项原生测试通过，包含公开设置→实际PCM、预加载、持久化、Mono格式提示和既有队列／会话回归。
+- 完整界面首轮20/21通过，iPad暂停检查失败；等待歌词加载完成以稳定控件布局后，失败单项复测通过。
+  原始失败保留在mobile6-ui.log，复测与trace保存在mobile6-ui-retry.log及同名目录；没有提高断言容差。
+- 原有Lumiere/Pixi滤镜诊断、Three弃用和React更新警告仍出现；模式可选择和挂载不等于所有动画已完整验收。
+- mobile6-device-build.log构建通过，codesign严格校验通过；98个前端文件和完整DSP许可证与构建输入相同。
+- iPhone XS Max / iOS 18.7.10安装、进程启动通过，设备回读为build 6。
+  证据：mobile6-device-install.json、mobile6-device-launch.json、mobile6-device-app.json。
+- 真机听感、30分钟锁屏、温升／内存、暂停资源释放、单声道立体声输出与App→网关真实在线验收仍未完成。
+
+以下为mobile.5历史证据，其旧交付包与旁置元数据保持不变。
 
 日期：2026-10-10。当前候选 **0.7.16-mobile.5 / build 5**，基于 mobile-main 的 4bfa668 继续移植。
 当前源码指纹见 BUILD_RECORD.json。上游基线 d824c0b854e54d5411cb072092999823e9bd7071。

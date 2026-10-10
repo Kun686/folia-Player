@@ -5,7 +5,7 @@ import AVFoundation
 final class AudioEffectController {
     struct Status {
         let requested: UInt64, prepared: UInt64, applied: UInt64
-        let available: Bool
+        let available: Bool, pending: Bool
         let error: String?
     }
     private struct Request {
@@ -20,6 +20,8 @@ final class AudioEffectController {
     private let lock = NSLock()
     private let control = DispatchQueue(label: "app.folia.effects.control", qos: .userInitiated)
     private let build: (Double, [String: Double]) -> AudioEffectProgram?
+    private let prepareOnDemand: Bool
+    private var activated: Bool
     private var values = NativeEqualizerSettings.neutral
     private var rate: Double?
     private var generation: UInt64 = 0, revision: UInt64 = 0, built: UInt64 = 0, applied: UInt64 = 0
@@ -30,20 +32,26 @@ final class AudioEffectController {
     // prepare/unprepare/process are serialized by the tap host. Only process mutates a live graph.
     private var renderGraph: AudioEffectGraph?
 
-    init(build: @escaping (Double, [String: Double]) -> AudioEffectProgram? = { AudioEffectProgram(rate: $0, values: $1) }) {
-        self.build = build
+    init(prepareOnDemand: Bool = false, build: @escaping (Double, [String: Double]) -> AudioEffectProgram? = { AudioEffectProgram(rate: $0, values: $1) }) {
+        self.build = build; self.prepareOnDemand = prepareOnDemand; activated = !prepareOnDemand
     }
     var status: Status {
         lock.lock(); defer { lock.unlock() }
         return Status(requested: revision, prepared: built, applied: applied,
-                      available: activeGeneration == generation && activeGeneration != nil, error: error)
+                      available: activeGeneration == generation && activeGeneration != nil,
+                      pending: activated && rate != nil && applied != revision && error == nil, error: error)
     }
+    var configuredValues: [String: Double] { lock.lock(); defer { lock.unlock() }; return values }
     @discardableResult func configure(_ values: [String: Double]) -> Bool {
         var settings = NativeEqualizerSettings(); settings.effects = values
         guard (try? settings.validate()) != nil else { return false }
         lock.lock()
-        if values != self.values {
-            self.values = values; revision &+= 1; error = nil
+        // Existing EQ-only playback remains an exact bypass until the first non-neutral effect request.
+        // Once activated, neutral settings fade the running graph instead of abruptly discarding its tail.
+        if values != self.values || (!activated && values != NativeEqualizerSettings.neutral) || error == "audio-effect-preparation-failed" {
+            activated = true
+            self.values = values; revision &+= 1
+            if rate != nil { error = nil }
             scheduleLocked()
         }
         lock.unlock()
@@ -59,6 +67,7 @@ final class AudioEffectController {
         let previous = (renderGraph, ready, active, retired)
         renderGraph = nil; ready = nil; active = nil; retired = nil
         generation &+= 1; revision &+= 1; applied = 0; activeGeneration = nil
+        activated = !prepareOnDemand || values != NativeEqualizerSettings.neutral
         self.rate = rate; self.error = error
         scheduleLocked()
         lock.unlock()
@@ -66,7 +75,7 @@ final class AudioEffectController {
         control.async { withExtendedLifetime(previous) {} }
     }
     private func scheduleLocked() {
-        guard rate != nil, !scheduled else { return }
+        guard activated, rate != nil, !scheduled else { return }
         scheduled = true
         control.async { [weak self] in self?.prepareLatest() }
     }
@@ -74,7 +83,7 @@ final class AudioEffectController {
         while true {
             lock.lock()
             let garbage = retired; retired = nil
-            guard let rate, revision != built else {
+            guard activated, let rate, revision != built else {
                 scheduled = false; lock.unlock(); withExtendedLifetime(garbage) {}; return
             }
             let request = Request(generation: generation, revision: revision, rate: rate, values: values,

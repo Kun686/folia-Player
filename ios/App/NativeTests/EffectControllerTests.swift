@@ -36,6 +36,28 @@ private final class EffectBuildProbe {
         XCTFail("Effect control operation did not finish within 3 seconds")
         throw MobileFailure("effect-test-timeout")
     }
+    func testEffectControllerOnDemandKeepsNeutralPCMUntouched() async throws {
+        let control = AudioEffectController(prepareOnDemand: true)
+        defer { control.unprepare() }
+        XCTAssertTrue(control.configure(NativeEqualizerSettings.neutral))
+        control.prepare(rate: 44100, channels: 2)
+        let buffer = AVAudioPCMBuffer(pcmFormat: AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2)!, frameCapacity: 128)!
+        buffer.frameLength = 128
+        for channel in 0..<2 { buffer.floatChannelData![channel].update(repeating: 0.125, count: 128) }
+        XCTAssertFalse(control.process(buffer.mutableAudioBufferList, frames: 128))
+        XCTAssertEqual(control.status.prepared, 0)
+        XCTAssertTrue((0..<128).allSatisfy { buffer.floatChannelData![0][$0] == 0.125 && buffer.floatChannelData![1][$0] == 0.125 })
+        var values = NativeEqualizerSettings.neutral; values["highpass"] = 500
+        XCTAssertTrue(control.configure(values))
+        try await waitForEffects { control.status.prepared == control.status.requested }
+        XCTAssertTrue(control.process(buffer.mutableAudioBufferList, frames: 128))
+        XCTAssertTrue(control.status.available)
+        XCTAssertTrue(control.configure(NativeEqualizerSettings.neutral))
+        try await waitForEffects { control.status.prepared == control.status.requested }
+        XCTAssertTrue(control.process(buffer.mutableAudioBufferList, frames: 128), "Disable must preserve the existing graph for its tail")
+        control.unprepare(); control.prepare(rate: 48000, channels: 2)
+        XCTAssertFalse(control.process(buffer.mutableAudioBufferList, frames: 128), "A new neutral track must not allocate or run effects")
+    }
     func testEffectControllerCoalescesStalePreparationWithoutResettingAudio() async throws {
         let probe = EffectBuildProbe(); probe.blockedHighpass = 90
         let control = AudioEffectController(build: probe.build)

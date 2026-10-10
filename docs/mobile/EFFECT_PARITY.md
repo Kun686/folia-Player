@@ -1,9 +1,12 @@
 # 原版附加音效移植记录
 
 日期：2026-10-10。基于 mobile.5 / 9f9a347 继续开发。
-本文记录音效基础模块，**尚未接入 PlaybackEngine / AudioMeter 的实际播放链**。
-用户已安装的 mobile.5 和 BUILD_RECORD.json 对应的交付包不包含本次变更；没有生成新的 IPA。
-播放器继续只启用已验收的十段 EQ，不提前开放复合音色预设。
+本文记录音效基础模块、组合链、AudioMeter接线和原声音设置入口。
+**当前开发源码已开放立体声音频的原版复合预设与自定义效果**，通过公开setAudioSettings测试实际AVPlayer解码音频。
+单声道暂保留EQ，界面显示附加音效不可用；单声道转立体声支持仍未完成。
+mobile.6使用Release构建，已开发签名安装并启动于iPhone XS Max / iOS 18.7.10；设备确认build 6。
+源码身份与交付包校验见BUILD_RECORD.json和相邻交付元数据；旧mobile.5包保留以便回退。
+原Web／Electron效果参数、默认值、预设和主题未更改，没有新增生产依赖。
 
 ## 已实现并验证的模块
 
@@ -23,7 +26,7 @@
 
 渲染用历史缓冲预分配；参数和DSP历史由单一渲染调用方拥有。
 曲线／随机素材在控制线程生成。AudioEffectController已实现控制／渲染交接与回收，
-目前仍需接入真实音频tap；不能直接让界面线程并发修改这些模块。
+已接入真实音频tap，位于EQ之后、频谱采样之前；不能直接让界面线程并发修改这些模块。
 波形整形的升／降采样即使曲线为空也保留，与原版相同，基础采样率延迟为192帧。
 分块长度不增加额外延迟，回调切分不会改变滤波历史。
 
@@ -39,6 +42,17 @@
 关闭效果后，即使淡出已完成，最后一个program仍可能持有分支资源至下次设置更新或unprepare；
 已验证这两个出口都可安全释放资源，但尚未实现暂停／长期关闭时的主动回收。
 正值调参目前仍会预建新的随机素材／卷积候选，活跃分支继续使用旧素材以保持相位和尾音；准备成本仍待优化。
+
+AudioMeter按需启用附加链：未请求非中性效果时不分配组合图，PCM保持既有EQ路径，
+首次效果请求由控制线程准备并在回调中接收。关闭后渐变回中性，保留既有图与尾音；
+新曲目／新格式若保持中性则恢复无需效果图的路径。效果处理不依赖频谱读取或WebView执行。
+PlaybackEngine当前及预加载meter均接收原设置，UserDefaults持久保存并回填原store。
+只在原值域验证通过后提交设置；非法值不部分应用。控制器发布准备中／格式不支持／准备失败状态，
+准备失败可用关闭再开启重试。Mono格式错误不会被后来的设置请求误清除；EQ仍继续工作。
+
+界面复用原AudioEqualizerDialog、AudioEffectGrid、六组内置音色、两个自定义栏位及既有命令动作。
+移动布局独立于EQ-only能力开关，保持原桌面对话框默认行为；效果推子提供44px触摸区域，
+参数从实际input事件提交，复用串行合并、错误回填与自定义栏位逻辑。
 
 ## 已查明的WebKit差异
 
@@ -110,8 +124,16 @@ Float32融合乘加以及新事件起点的`target + Float32(value - target)`舍
 | 原生完整回归（Debug） | PASS | effect-control-final.{log,xcresult}；70项，其中30项音效模块／组合／控制器／tap格式测试 |
 | 优化编译下组合链与线程交接（Release） | PASS | effect-control-release.{log,xcresult}；8项；没有DEBUG阶段探针 |
 | 最新TypeScript | PASS | effect-control-final-typecheck.log |
+| iPhone模拟器实际音频tap接线 | PASS | effect-tap-native.{log,xcresult}；9项；含停止频谱读取后的实际立体声低通、恢复中性、按需启动及既有EQ／队列／设置拒绝回归 |
+| iPad模拟器Release内部tap与组合链 | PASS | effect-tap-ipad-release.{log,xcresult}；14项；此阶段尚未开放公共设置 |
+| 公开音效设置与实际PCM | PASS | effect-settings-native.{log,xcresult}；7项；含公开设置→真实立体声PCM、关闭恢复、持久化、自定义栏位、预加载继承和Mono状态 |
+| 移动音效设置类型／逻辑／界面 | PASS | effect-settings-web.log；TypeScript、38项逻辑测试、6项WebKit界面测试；覆盖手机、iPad、窄窗口，使用桥接样本而非真机 |
+| mobile.6 iPad Release完整原生套件 | PASS | mobile6-ipad-release.{log,xcresult}；71项（不含DEBUG独有的逐阶段诊断断言） |
+| mobile.6界面完整回归 | 20/21首次通过；剩余1项调整等待后复测通过 | mobile6-ui.log、mobile6-ui-retry.log；iPad暂停检查在歌词加载期间未通过，等待加载完成后单项复测；初始失败保留 |
+| mobile.6资源与设备构建 | PASS | effect-settings-sync.log、mobile6-device-build.log；98个前端文件及完整DSP许可证逐字节核对，codesign严格校验通过 |
+| mobile.6 iPhone安装／启动／身份 | PASS | mobile6-device-install.json、mobile6-device-launch.json、mobile6-device-app.json；build 6；不是听感或持续播放验收 |
 | 固定源码哈希与App内完整许可证 | PASS | 按WEBKIT_DSP_SOURCES.json逐项校验；Debug模拟器包与源码许可证逐字节一致 |
-| 实际音效链、真机听感／性能、二进制增量 | NOT_RUN | 未接入播放器；不是音效交付验收 |
+| 真机听感／性能、单独DSP二进制增量 | NOT_RUN | 模拟器与界面样本不等于真机音效验收；mobile.5是Debug而mobile.6是Release，不用两者差值声称纯DSP增量 |
 
 采样对照阈值为绝对误差0.00002，能量误差为0.02%或0.00001中的较大者。
 截止滤波、宽度与抖晃覆盖8000、22050、44100、48000、96000Hz，且比较左右声道／不同缓冲布局。
@@ -131,7 +153,7 @@ Float32融合乘加以及新事件起点的`target + Float32(value - target)`舍
 已适配UpSampler、DownSampler、WaveShaperDSPKernel、DynamicsCompressorKernel；完整许可证保留在Swift源文件及
 App资源WEBKIT_DSP_LICENSES.txt中。
 
-目前累计30项音效模块／组合／控制器／格式探测原生测试通过。仍需完成单声道立体声输出方案、
-当前和预加载曲目的完整效果链、后台与暂停时的分支释放、持久化与复合预设接入。
+目前累计32项音效模块／组合／控制器／tap原生测试通过。仍需完成单声道立体声输出方案、
+后台与暂停时的分支释放、连续调参的资源准备优化、完整真机听感／性能。
 单声道输入需要验证真实原生tap格式及显式立体声处理能力，不能默认具备双声道噪声／混响输出。
 后续交付时更新构建指纹并测量设备二进制增量；本记录不替代整体移植验收表。

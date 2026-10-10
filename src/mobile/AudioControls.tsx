@@ -6,18 +6,25 @@ import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import AudioEqualizerDialog from '../components/panelTab/AudioEqualizerDialog';
 import { connectAudioSettings } from './audioSettingsSync';
 import type { Theme } from '../types';
+import type { PlaybackSnapshot } from './bridge';
+import { isNeutralAudioEffects } from '../utils/audioEffects';
 
 // src/mobile/AudioControls.tsx — existing store/actions/dialog; AVPlayer owns the audible settings.
-export default function AudioControls({ light, theme, unavailable }: { light: boolean; theme: Theme; unavailable: boolean }) {
+export default function AudioControls({ light, theme, unavailable, effects }: {
+  light: boolean; theme: Theme; unavailable: boolean; effects: PlaybackSnapshot['audioEffects'];
+}) {
   const { t } = useTranslation();
   const [status, setStatus] = useState({ ready: false, error: false });
   const [attempt, setAttempt] = useState(0);
   const audio = useAudioSettingsStore(useShallow(s => ({
     volume: s.volume, isMuted: s.isMuted, enabled: s.audioEqualizerSettings.enabled,
+    effectsRequested: s.audioEqualizerSettings.enabled && !isNeutralAudioEffects(s.audioEqualizerSettings.effects),
     handleSetVolume: s.handleSetVolume, handleToggleMute: s.handleToggleMute, openAudioEqualizer: s.openAudioEqualizer,
   })));
   useEffect(() => connectAudioSettings((ready, error) => setStatus({ ready, error })), [attempt]);
-  const message = status.error ? t('mobile.audioSettingsError') : audio.enabled && unavailable ? t('mobile.equalizerUnavailable') : undefined;
+  const effectMessage = !audio.effectsRequested ? undefined : effects?.error === 'unsupported-effect-format'
+    ? t('mobile.effectsFormatUnavailable') : effects?.error ? t('mobile.effectsFailed') : effects?.pending ? t('mobile.effectsPreparing') : undefined;
+  const message = status.error ? t('mobile.audioSettingsError') : audio.enabled && unavailable ? t('mobile.equalizerUnavailable') : effectMessage;
   return <div className="audio-controls">
     <div className="volume-controls">
       <button disabled={!status.ready} onClick={audio.handleToggleMute} aria-pressed={audio.isMuted} aria-label={t('commandPalette.commands.playback-mute.title')}>
@@ -30,6 +37,6 @@ export default function AudioControls({ light, theme, unavailable }: { light: bo
     </div>
     {message && <p role="alert">{message}</p>}
     {!status.ready && status.error && <button onClick={() => setAttempt(a => a + 1)}>{t('mobile.retry')}</button>}
-    <AudioEqualizerDialog isDaylight={light} theme={theme} equalizerOnly commitOnInput statusMessage={message} />
+    <AudioEqualizerDialog isDaylight={light} theme={theme} mobileLayout commitOnInput statusMessage={message} />
   </div>;
 }

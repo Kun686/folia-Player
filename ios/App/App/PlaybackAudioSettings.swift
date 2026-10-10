@@ -27,7 +27,6 @@ struct NativeEqualizerSettings: Codable {
               ["flat", "lofi", "radio", "hall", "vocal", "bass", "custom1", "custom2"].contains(preset) else {
             throw MobileFailure("invalid-audio-settings")
         }
-        if enabled && effects != Self.neutral { throw MobileFailure("unsupported-audio-effects") }
     }
 }
 struct NativeAudioSettings: Codable {
@@ -69,5 +68,6 @@ extension PlaybackEngine {
     func configureMeter(_ meter: AudioMeter?) {
         meter?.setOutputGain(volume: audioSettings.volume, muted: audioSettings.isMuted)
         meter?.equalizer.configure(enabled: audioSettings.equalizer.enabled, gains: audioSettings.equalizer.gains)
+        meter?.effects.configure(audioSettings.equalizer.enabled ? audioSettings.equalizer.effects : NativeEqualizerSettings.neutral)
     }
 }

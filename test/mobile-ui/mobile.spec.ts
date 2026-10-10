@@ -11,7 +11,8 @@ test.beforeEach(async ({ page }) => {
     win.fixtureAudio = { volume: 1, isMuted: false, equalizer: { enabled: false, gains: Array(10).fill(0), preset: 'flat', effects,
       customSlots: [1, 2].map(() => ({ gains: Array(10).fill(0), effects })) } };
     const song = { id: 42, name: '测试歌曲', ar: [{ id: 1, name: '测试歌手' }], al: { id: 1, name: '专辑' }, dt: 180000 };
-    const state = { queue: [] as any[], index: -1, position: 0, duration: 180, playing: false, repeat: 'off', revision: 0, queueRevision: 0, currentSong: null as any };
+    const state = { queue: [] as any[], index: -1, position: 0, duration: 180, playing: false, repeat: 'off', revision: 0, queueRevision: 0, currentSong: null as any,
+      audioEffects: { available: true, pending: false, error: '' } };
     const localSong = { id: '11111111-1111-4111-8111-111111111111', name: '本地测试音乐', artists: [{ id: '', name: '本地歌手' }], album: { id: '', name: '' }, durationMs: 180000,
       sourceRef: { kind: 'local', mediaId: '11111111-1111-4111-8111-111111111111' } };
     let localSongs: any[] = [];
@@ -29,7 +30,9 @@ test.beforeEach(async ({ page }) => {
         if (method === 'getAudioSettings') return structuredClone(win.fixtureAudio);
         if (method === 'setAudioSettings') {
           if (win.fixtureAudioFailure) throw new Error('audio-settings-failed');
-          win.fixtureAudio = structuredClone(options.settings); return structuredClone(win.fixtureAudio);
+          win.fixtureAudio = structuredClone(options.settings);
+          state.audioEffects = { available: !win.fixtureEffectError, pending: false, error: win.fixtureEffectError || '' };
+          emit(); return structuredClone(win.fixtureAudio);
         }
         if (method === 'health') return { protocol: 1, providers: ['netease', 'qq'] };
         if (method === 'bootstrap') return { server: win.fixtureNoServer ? '' : 'https://fixture.invalid', sessions: {} };
@@ -103,7 +106,10 @@ test('login, catalog, queue, controls and responsive layout', async ({ page }, i
   await page.getByRole('button', { name: '加入队列 测试歌曲' }).click();
   await page.getByRole('button', { name: '播放 测试歌曲', exact: true }).click();
   await expect(page.locator('.player-panel')).toBeVisible();
+  // Lyrics loading removes the temporary message below the controls; wait for the settled playback layout.
+  await expect(page.locator('.player-controls').getByText('暂无歌词', { exact: true })).toHaveCount(0);
   await page.locator('.player-panel').getByRole('button', { name: '暂停', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).fixturePlayback.playing)).toBe(false);
   await expect(page.locator('.player-panel').getByRole('button', { name: '播放', exact: true })).toBeVisible();
   if (info.project.name !== 'ipad') await page.getByRole('button', { name: '返回音乐库' }).click();
   await expect(page.locator('vite-error-overlay')).toHaveCount(0);
@@ -149,7 +155,7 @@ test('touch queue editing preserves current song and rejects stale actions', asy
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('volume, mute and original EQ controls apply and recover from native failure', async ({ page }, info) => {
+test('volume, mute and original sound controls apply and recover from native failure', async ({ page }) => {
   await page.addInitScript(() => { (window as any).fixtureNoServer = true; });
   await page.goto('/mobile.html');
   await page.getByRole('button', { name: '导入音乐', exact: true }).click();
@@ -165,7 +171,10 @@ test('volume, mute and original EQ controls apply and recover from native failur
   await page.getByRole('button', { name: '音频效果器', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '音频效果器' });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Lo-Fi', exact: true })).toBeDisabled();
+  await dialog.getByRole('button', { name: 'Lo-Fi', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureAudio.equalizer.preset)).toBe('lofi');
+  expect(await page.evaluate(() => (window as any).fixtureAudio.equalizer.effects.wow)).toBe(0.32);
+  await page.screenshot({ path: test.info().outputPath('sound-presets.png') });
   const band = dialog.getByRole('slider', { name: '31 Hz', exact: true }), bandBox = (await band.boundingBox())!;
   await page.mouse.click(bandBox.x + bandBox.width / 2, bandBox.y + bandBox.height * 0.15);
   await expect.poll(() => page.evaluate(() => (window as any).fixtureAudio.equalizer.gains[0])).toBeGreaterThan(0);
@@ -178,6 +187,15 @@ test('volume, mute and original EQ controls apply and recover from native failur
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
   await expect.poll(() => page.evaluate(() => (window as any).fixtureAudio.equalizer.gains[5])).toBe(7);
+  const space = dialog.getByRole('slider', { name: '空间混响', exact: true });
+  await space.scrollIntoViewIfNeeded();
+  const spaceBox = (await space.boundingBox())!;
+  expect(spaceBox.width).toBeGreaterThan(100);
+  expect(spaceBox.height).toBeGreaterThanOrEqual(44);
+  await page.mouse.click(spaceBox.x + spaceBox.width * 0.65, spaceBox.y + spaceBox.height / 2);
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureAudio.equalizer.effects.space)).toBeGreaterThan(0.5);
+  expect(await page.evaluate(() => (window as any).fixtureAudio.equalizer.customSlots[0].effects.space)).toBeGreaterThan(0.5);
+  await page.screenshot({ path: test.info().outputPath('sound-effects.png') });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.evaluate(() => { (window as any).fixtureAudioFailure = true; });
   await dialog.getByRole('button', { name: '音频处理已开启', exact: true }).click();
@@ -185,6 +203,24 @@ test('volume, mute and original EQ controls apply and recover from native failur
   await expect(dialog.getByRole('button', { name: '音频处理已开启', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await dialog.getByRole('button', { name: '关闭', exact: true }).click();
   await expect(dialog).toHaveCount(0);
+});
+
+test('unsupported audio effects are explained without losing the selected original preset', async ({ page }) => {
+  await page.addInitScript(() => { (window as any).fixtureNoServer = true; (window as any).fixtureEffectError = 'unsupported-effect-format'; });
+  await page.goto('/mobile.html');
+  await page.getByRole('button', { name: '导入音乐', exact: true }).click();
+  await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
+  await page.getByRole('button', { name: '音频效果器', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '音频效果器' });
+  await dialog.getByRole('button', { name: 'Lo-Fi', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toHaveText('附加音效目前需要立体声音源，当前歌曲继续使用均衡器。');
+  expect(await page.evaluate(() => (window as any).fixtureAudio.equalizer.effects.wow)).toBe(0.32);
+  await page.evaluate(() => { (window as any).fixtureEffectError = ''; });
+  await dialog.getByRole('button', { name: '音频处理已开启', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toHaveCount(0);
+  await dialog.getByRole('button', { name: '音频处理已关闭', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).fixtureAudio.equalizer.preset)).toBe('lofi');
 });
 
 test('settings and unavailable server error are visible', async ({ page }) => {

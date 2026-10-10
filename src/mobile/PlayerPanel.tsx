@@ -110,7 +110,7 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
         </select>
       </div>
       <AudioControls light={light} theme={light ? appearance.theme.light : appearance.theme.dark}
-        unavailable={state.playing && state.audioProcessingAvailable === false} />
+        unavailable={state.playing && state.audioProcessingAvailable === false} effects={state.audioEffects} />
       <div className="player-options"><button onClick={() => setVisualSettings(true)}>{t('mobile.visuals')}</button>
         {song?.sourceRef?.kind === 'local' && <button onClick={() => void importLyrics()}>{t('mobile.importLyrics')}</button>}</div>
       {song && !lyrics?.lines.length && <p className="muted">{t('mobile.noLyrics')}</p>}

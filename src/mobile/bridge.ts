@@ -8,6 +8,7 @@ export interface PlaybackSnapshot {
   repeat: 'off' | 'all' | 'one'; error?: string; revision: number;
   currentSong: SongResult | null; queueRevision: number;
   audioProcessingAvailable?: boolean;
+  audioEffects?: { available: boolean; pending: boolean; error?: string };
 }
 export interface NativeAudioSettings { volume: number; isMuted: boolean; equalizer: AudioEqualizerSettings }
 export type PlaybackEvent = Omit<PlaybackSnapshot, 'queue' | 'currentSong'> & Partial<Pick<PlaybackSnapshot, 'queue' | 'currentSong'>>;

@@ -83,6 +83,8 @@ private struct EqualizerReference: Decodable {
         let item = AVPlayerItem(url: source); tested.player.insert(item, after: nil)
         var values = NativeAudioSettings(); values.volume = 0.35; values.isMuted = true
         values.equalizer.enabled = true; values.equalizer.gains[5] = 6
+        values.equalizer.effects["space"] = 0.3; values.equalizer.preset = "custom1"
+        values.equalizer.customSlots[0].effects = values.equalizer.effects
         _ = try tested.setAudioSettings(values.dictionary)
         XCTAssertTrue(tested.player.currentItem === item); XCTAssertTrue(tested.player.isMuted)
         values.volume = 0.6; _ = try tested.setAudioSettings(values.dictionary)
@@ -91,9 +93,11 @@ private struct EqualizerReference: Decodable {
         restored.network.cancel(); defer { restored.stop() }
         XCTAssertEqual(restored.player.volume, 0.6, accuracy: 0.001); XCTAssertTrue(restored.player.isMuted)
         XCTAssertEqual(restored.audioSettings.equalizer.gains[5], 6)
+        XCTAssertEqual(restored.audioSettings.equalizer.effects["space"], 0.3)
+        XCTAssertEqual(restored.audioSettings.equalizer.customSlots[0].effects["space"], 0.3)
         XCTAssertNil(restored.player.currentItem); XCTAssertFalse(restored.intentToPlay)
     }
-    func testInvalidAndUnsupportedSettingsDoNotPartiallyApply() throws {
+    func testInvalidSettingsDoNotPartiallyApply() throws {
         let tested = engine(); tested.network.cancel(); defer { tested.stop() }
         let before = tested.storage.data(forKey: "folia.audio")
         var invalid = NativeAudioSettings(); invalid.volume = -1
@@ -101,14 +105,15 @@ private struct EqualizerReference: Decodable {
         invalid.volume = 0.1; invalid.equalizer.gains[0] = 13
         XCTAssertThrowsError(try tested.setAudioSettings(invalid.dictionary))
         invalid.equalizer.gains = []; XCTAssertThrowsError(try tested.setAudioSettings(invalid.dictionary))
-        invalid.equalizer = NativeEqualizerSettings(); invalid.equalizer.enabled = true; invalid.equalizer.effects["space"] = 0.5
-        XCTAssertThrowsError(try tested.setAudioSettings(invalid.dictionary)) { XCTAssertEqual(($0 as? MobileFailure)?.code, "unsupported-audio-effects") }
+        invalid.equalizer = NativeEqualizerSettings(); invalid.equalizer.enabled = true; invalid.equalizer.effects["space"] = 1.1
+        XCTAssertThrowsError(try tested.setAudioSettings(invalid.dictionary)) { XCTAssertEqual(($0 as? MobileFailure)?.code, "invalid-audio-settings") }
         XCTAssertEqual(tested.player.volume, 1); XCTAssertEqual(tested.storage.data(forKey: "folia.audio"), before)
     }
     func testCurrentAndPreloadedMetersInheritLatestSettings() async throws {
         let source = try silentAudio(); defer { try? FileManager.default.removeItem(at: source) }
         let tested = engine(AudioFixtureGateway(url: source)); tested.network.cancel(); defer { tested.stop() }
         var values = NativeAudioSettings(); values.equalizer.enabled = true; values.equalizer.gains[5] = 6
+        values.equalizer.effects["drive"] = 0.25
         _ = try tested.setAudioSettings(values.dictionary)
         try tested.setQueue([song("netease", "a"), song("qq", "b")], at: 0)
         try tested.command("pause")
@@ -120,6 +125,7 @@ private struct EqualizerReference: Decodable {
         let current = try XCTUnwrap(tested.meter), next = try XCTUnwrap(tested.prepared?.meter)
         for meter in [current, next] {
             XCTAssertEqual(meter.equalizer.configuredGains, values.equalizer.gains)
+            XCTAssertEqual(meter.effects.configuredValues, values.equalizer.effects)
         }
     }
     func testEqualizerChangesActualDecodedAudioAfterVisualizerStopsPolling() async throws {

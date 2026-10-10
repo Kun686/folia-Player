@@ -177,7 +177,8 @@ final class PlaybackEngine {
          "position": player.currentItem == nil ? restoredPosition : finiteTime(player.currentTime()),
          "duration": playbackDuration, "playing": player.timeControlStatus == .playing,
          "repeat": repeatMode, "error": error ?? "", "revision": revision,
-         "audioProcessingAvailable": meter?.processingAvailable() ?? false]
+         "audioProcessingAvailable": meter?.processingAvailable() ?? false,
+         "audioEffects": meter?.effectState() ?? ["available": false, "pending": false, "error": ""]]
     }
     func publish() {
         revision += 1; updateNowPlaying()

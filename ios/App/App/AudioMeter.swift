@@ -3,9 +3,10 @@ import MediaToolbox
 import Accelerate
 import QuartzCore
 
-// AudioMeter.swift — native EQ precedes capture; Web Audio-compatible analysis runs only when visible UI reads it.
+// AudioMeter.swift — native EQ/effects precede capture; Web Audio-compatible analysis runs only when visible UI reads it.
 final class AudioMeter {
     let equalizer = AudioEqualizer()
+    let effects = AudioEffectController(prepareOnDemand: true)
     private let lock = NSLock()
     private var requestedAt = -Double.infinity
     private var sampledAt = -Double.infinity
@@ -48,21 +49,32 @@ final class AudioMeter {
     func processingAvailable() -> Bool {
         lock.lock(); defer { lock.unlock() }; return processingReady
     }
+    func effectState() -> [String: Any] {
+        let status = effects.status
+        return ["available": status.available, "pending": status.pending, "error": status.error ?? ""]
+    }
     func prepare(_ format: AudioStreamBasicDescription) {
         lock.lock(); defer { lock.unlock() }
         equalizer.prepare(format)
         sampleRate = format.mSampleRate
         processingReady = equalizer.available
         channels = processingReady ? Int(format.mChannelsPerFrame) : 0
+        effects.prepare(rate: processingReady ? format.mSampleRate : 0, channels: channels)
         clearCapture()
     }
     private func unprepare() {
         lock.lock(); defer { lock.unlock() }
-        equalizer.unprepare(); processingReady = false; channels = 0; clearCapture()
+        equalizer.unprepare(); effects.unprepare(); processingReady = false; channels = 0; clearCapture()
     }
     private func clearCapture() {
         for i in ring.indices { ring[i] = 0 }
         cursor = 0; sampledAt = -Double.infinity; resetAnalysis = true
+    }
+    // The tap invokes this even when no WebView, animation or spectrum consumer is running.
+    func process(_ buffers: UnsafeMutablePointer<AudioBufferList>, frames: Int, discontinuity: Bool = false) {
+        equalizer.process(buffers, frames: frames, discontinuity: discontinuity)
+        effects.process(buffers, frames: frames, discontinuity: discontinuity)
+        consume(buffers, frames: frames, discontinuity: discontinuity)
     }
     // Capture the most recent complete window, downmixed to mono as specified by Web Audio.
     // AVPlayer applies volume after its tap, so apply the same gain only to this analysis copy.
@@ -115,9 +127,7 @@ final class AudioMeter {
                 let status = MTAudioProcessingTapGetSourceAudio(tap, count, buffers, outputFlags, nil, outputCount)
                 if status == noErr {
                     let meter = Unmanaged<AudioMeter>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
-                    meter.equalizer.process(buffers, frames: Int(outputCount.pointee),
-                        discontinuity: outputFlags.pointee & kMTAudioProcessingTapFlag_StartOfStream != 0)
-                    meter.consume(buffers, frames: Int(outputCount.pointee),
+                    meter.process(buffers, frames: Int(outputCount.pointee),
                         discontinuity: outputFlags.pointee & kMTAudioProcessingTapFlag_StartOfStream != 0)
                 } else { outputCount.pointee = 0 }
             })
