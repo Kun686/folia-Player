@@ -2,7 +2,9 @@
 
 2026-10-11。本文件记录移植过程，已交付安装包以 BUILD_RECORD.json 为准。
 原版主混音调度已接入开发源码，见 [MASTER_AUTOMIX.md](MASTER_AUTOMIX.md)。
-原动画接线见 [TRANSITION_ANIMATIONS.md](TRANSITION_ANIMATIONS.md)；完整 Automix 的歌词输入和模型表现手势仍未完成。
+原动画接线见 [TRANSITION_ANIMATIONS.md](TRANSITION_ANIMATIONS.md)；歌词时间轴已由后续
+[LOCAL_LYRICS.md](LOCAL_LYRICS.md)／[ONLINE_LYRICS.md](ONLINE_LYRICS.md) 接入。
+完整 Automix 的模型推理与分轨表现手势仍未完成，运行库评估见 [AUTOMIX_RUNTIME_DECISION.md](AUTOMIX_RUNTIME_DECISION.md)。
 
 ## 已验证：原规则独立于 WebView 执行
 
@@ -70,7 +72,7 @@
 | Crossfade 队列、暂停、拖动、手动选曲与尾曲清理 | PASS，原生测试及设置接线；默认关闭，已随 mobile.9 安装 |
 | 原开关、模式、时长设置 | PASS，原面板／store／桥接／原生持久化；已随 mobile.9 安装 |
 | 逐路实时分析 | 开发源码已接入，148 项原生回归 PASS；未打新包，见 DECK_ANALYSIS.md |
-| 完整 Automix、动画事件接线 | 原生主混音、音频时钟 cue 与前台原动画已接线；歌词输入、模型表现手势仍待完成，尚未开放完整 Automix 开关 |
+| 完整 Automix、动画事件接线 | 原生主混音、歌词时间轴、音频时钟 cue 与前台原动画已接线；模型推理与分轨表现手势仍待完成，尚未开放完整 Automix 开关 |
 | 真机连续混音、听感、功耗与歌词时序验收 | NOT_RUN |
 
 下一步补完整 Automix、封面／歌词缓存与在线链路验收。mobile.7 每个播放项独立处理音效并输出；mobile.8 已改为共用整体音效和最终音量，
