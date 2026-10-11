@@ -8,6 +8,10 @@
 14 项逻辑、15 项移动 WebKit、1 项桌面组件与 iPad 模拟器触摸／旋转／保存／重启恢复通过，
 真实设备新入口及自动 AI 生成功能未验收，见 [THEME_PARK.md](THEME_PARK.md)。
 
+歌曲主题保存／恢复和自动／手动切换随后在独立 QA 通过，个人包仍未更新：
+29 项缓存与偏好逻辑、21 项歌曲主题 WebKit、4 项设置回归及 iPad 模拟器双歌曲编辑、
+切换和重启恢复，见 [SONG_THEMES.md](SONG_THEMES.md)。不包含自动 AI 请求或真实平台主题验收。
+
 mobile.26 接入 M3U 导入／系统分享，28 项逻辑、33 项独立 WebKit、3 项原生模拟器测试通过；
 最终 iPad 模拟器已实际完成系统分享存储、文件选择、导入及终止重启恢复。使用合成音频和旧本机 ID 引用，
 不代表跨设备文件或手机新功能验收，见 [LOCAL_PLAYLIST_FILES.md](LOCAL_PLAYLIST_FILES.md)。
@@ -151,7 +155,8 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | 本地歌曲完整匹配与元数据／封面选择 | PASS（自动测试及 iPhone 原生专项）；真实平台 NOT_RUN | 原完整弹窗与共享规则；iPhone 测试覆盖实际播放期间保存、并发／删除／过期拒绝和后台歌词。HTTPS 阻塞已解除，但尚未执行真实在线候选保存；iPad 历史短测仅覆盖导入与「不使用在线数据」，见 LOCAL_MATCH.md |
 | 完整 Automix | IN_PROGRESS；尚未接入 | 官方Apple1.30.0已解除DFT阻塞；真实人声30秒片段iPhone数值通过，退出点同为23.65秒、PCM最大差1单位；耗时41.4秒／峰值1.08GiB。原近静音样本相对误差FAIL保留。实际分轨手势／听感、播放争用及长期性能待测；未改模型／个人App依赖，见AUTOMIX_MUSIC.md |
 | 原 Theme Park 全局自定义编辑 | PASS（自动检查及独立 iPad 模拟器 QA）；个人 App NOT_RUN | 原配色／信息／内容／手动 JSON、触摸预览、失败重试及保存恢复；见 THEME_PARK.md |
-| 自动 AI 生成／歌曲主题缓存及其余桌面工具 | NOT_IMPLEMENTED | 仍待移植，手动 JSON 编辑不能替代完整 AI 功能；完整移植目标未完成 |
+| 原版歌曲主题缓存与自动／手动切换 | PASS（自动检查及独立 iPad 模拟器 QA）；个人 App NOT_RUN | 复用原缓存和偏好，事务保存、迟到隔离、错误重试、外观开关导入导出；见 SONG_THEMES.md |
+| 自动 AI 生成／远端主题同步及其余桌面工具 | NOT_IMPLEMENTED | 仍待移植，手动 JSON 编辑不能替代完整 AI 功能；完整移植目标未完成 |
 
 音频格式由AudioStreaming、系统AudioToolbox及获批的Ogg／Vorbis决定；Ogg目前不支持拖动。
 实际支持情况需按设备和编码测试，不能仅凭文件扩展名判定。
