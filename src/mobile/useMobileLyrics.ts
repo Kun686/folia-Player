@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { LyricData, SongResult } from '../types';
 import { loadOnlineSongLyrics } from '../services/onlinePlayback';
 import { getMobileRuntime } from '../services/mobileRuntime';
-import { LocalFileLyricAdapter } from '../utils/lyrics/adapters/LocalFileLyricAdapter';
-import { resolveExplicitFileTimedLyricFormat } from '../utils/lyrics/formatDetection';
+import { resolveLocalSongLyrics } from '../utils/lyrics/localSongLyrics';
+import { localLyricsFromSnapshot } from '../utils/lyrics/localLyricSnapshot';
 import { native } from './bridge';
 import { useMobileCover } from './useMobileCover';
 
@@ -25,10 +25,10 @@ export function useMobileLyrics(song?: SongResult, editing = false) {
     const load = async () => {
       if (!song) return;
       if (song.sourceRef?.kind === 'local') {
-        const detail = await native.localDetails({ id: song.sourceRef.mediaId });
-        const result = detail.content ? await new LocalFileLyricAdapter().parse({ type: 'local', lrcContent: detail.content,
-          formatHint: resolveExplicitFileTimedLyricFormat(detail.fileName) }) : null;
-        if (active) setLyrics(result);
+        const detail = await native.readLocalLyrics({ id: song.sourceRef.mediaId });
+        if (!active) return;
+        const result = await resolveLocalSongLyrics(localLyricsFromSnapshot(detail), 'local');
+        if (active) setLyrics(result.lyrics);
       } else {
         const storage = await getMobileRuntime()?.lyrics?.open(song);
         if (!active) return;

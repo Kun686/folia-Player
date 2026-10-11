@@ -3,12 +3,31 @@ import { prepareLocalLyrics } from './localPreparation';
 import { parseLyricsByFormat } from './parserCore';
 import { resolveExplicitFileTimedLyricFormat } from './formatDetection';
 import type { LyricData } from '../../types';
+import { prepareEmbeddedLyrics } from './embeddedPreparation';
+import { localLyricsFromSnapshot } from './localLyricSnapshot';
+import { selectLocalSongLyricsSource } from './localSongLyricsSelection';
 
 // nativeLocalRuntime.ts — original parsers on JavaScriptCore; only planner fields leave this host.
 // This entry runs in its own native context. The original AWLRC/KRC decoders use Buffer when present.
 // Browsers keep their existing Worker entry; Node tests retain their existing global.
 if (typeof globalThis.Buffer === 'undefined') globalThis.Buffer = Buffer;
 export const protocolVersion = 1;
+export function sourcesJSON(text: string): string {
+    if (typeof text !== 'string' || text.length > 24_300_000) throw new Error('invalid-local-lyrics');
+    const raw = JSON.parse(text);
+    if (raw?.version !== 1 || !raw.snapshot) throw new Error('invalid-local-lyrics');
+    const snapshot = raw.snapshot;
+    for (const key of ['content', 'embeddedContent']) {
+        if (snapshot[key] !== undefined && (typeof snapshot[key] !== 'string' || snapshot[key].length > 2_000_000)) throw new Error('invalid-local-lyrics');
+    }
+    if (snapshot.fileName !== undefined && (typeof snapshot.fileName !== 'string' || snapshot.fileName.length > 1024)) throw new Error('invalid-local-lyrics');
+    if (snapshot.lyricsSource !== undefined && !['local', 'embedded'].includes(snapshot.lyricsSource)) throw new Error('invalid-local-lyrics');
+    const song = localLyricsFromSnapshot(snapshot), source = selectLocalSongLyricsSource(song, 'local');
+    if (source === 'local') return parseJSON(JSON.stringify({ version: 1, content: snapshot.content, fileName: snapshot.fileName }));
+    if (source !== 'embedded') return 'null';
+    const args = prepareEmbeddedLyrics({ type: 'embedded', textContent: snapshot.embeddedContent });
+    return plannerLinesJSON(args ? parseLyricsByFormat(...args) : null);
+}
 export function parseJSON(text: string): string {
     const invalid = () => { throw new Error('invalid-local-lyrics'); };
     if (typeof text !== 'string' || text.length > 12_100_000) invalid();

@@ -2,6 +2,7 @@ import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor
 import type { SongResult, ReplayGainMode, LyricData, OnlineLyricsState } from '../types';
 import type { AudioEqualizerSettings } from '../utils/audioEqualizer';
 import type { NativeTransitionCue } from './nativeTransitionCue';
+import type { LocalLyricSnapshot } from '../utils/lyrics/localLyricSnapshot';
 
 // src/mobile/bridge.ts — native owns transport secrets, playback and queue state.
 export interface PlaybackSnapshot {
@@ -21,6 +22,8 @@ export interface NativeAudioSettings { volume: number; isMuted: boolean; equaliz
 export interface NativeTransitionSettings { enabled: boolean; mode: 'crossfade' | 'automix'; crossfadeMaxSec: number }
 export type PlaybackEvent = Omit<PlaybackSnapshot, 'queue' | 'currentSong'> & Partial<Pick<PlaybackSnapshot, 'queue' | 'currentSong'>>;
 export interface FoliaNativePlugin {
+  readLocalLyrics(options: { id: string }): Promise<LocalLyricSnapshot>;
+  selectLocalLyrics(options: { id: string; token: string; source: 'local' | 'embedded' }): Promise<LocalLyricSnapshot>;
   readLyricCache(options: { song: SongResult }): Promise<{ token: string; payload: { lyrics?: LyricData | null; state?: OnlineLyricsState | null } }>;
   writeLyricCache(options: { song: SongResult; token: string; field: 'lyrics' | 'state'; value: LyricData | OnlineLyricsState | null }): Promise<void>;
   lyricCacheState(): Promise<{ bytes: number; count: number }>;

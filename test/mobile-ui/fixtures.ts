@@ -35,7 +35,7 @@ export const test = base.extend<{ nativeBridge: void }>({
     const emit = () => { state.revision++; subscriber?.({ ...state }); };
     win.fixtureEmitPlayback = (patch: Record<string, unknown>) => { Object.assign(state, patch); emit(); };
     const methods = ['bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR',
-      'localCatalog', 'importAudio', 'localDetails', 'importLyrics', 'pickLyricFile', 'saveLocalLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
+      'localCatalog', 'importAudio', 'localDetails', 'readLocalLyrics', 'selectLocalLyrics', 'importLyrics', 'pickLyricFile', 'saveLocalLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
       'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache'];
     win.Capacitor = {
       PluginHeaders: [{ name: 'FoliaNative', methods: [...methods.map(name => ({ name, rtype: 'promise' })), { name: 'addListener' }, { name: 'removeListener' }] }],
@@ -92,9 +92,14 @@ export const test = base.extend<{ nativeBridge: void }>({
             sourceRef: { kind: 'local', mediaId: '00000000-0000-4000-8000-00000000000' + i } }))] : [localSong];
           return { songs: localSongs, failures: [] };
         }
-        if (method === 'localDetails') {
+        if (method === 'localDetails' || method === 'readLocalLyrics') {
           if (win.fixtureLocalLyricDelay) await new Promise<void>(resolve => { (win.fixturePendingLocalLyrics ??= []).push(resolve); });
-          return win.fixtureLocalLyric || { content: lyric };
+          return { token: 'local-token', ...(win.fixtureLocalLyric || { content: lyric }) };
+        }
+        if (method === 'selectLocalLyrics') {
+          if (win.fixtureLocalSaveFailure) throw new Error('disk-full');
+          win.fixtureLocalLyric = { ...win.fixtureLocalLyric, lyricsSource: options.source };
+          return { token: 'local-token', ...win.fixtureLocalLyric };
         }
         if (method === 'importLyrics') { win.fixtureLyricImports = (win.fixtureLyricImports ?? 0) + 1; lyric = '[00:00.00]新导入的歌词\n[00:08.00]下一句'; return { content: lyric }; }
         if (method === 'pickLyricFile') {
@@ -105,7 +110,7 @@ export const test = base.extend<{ nativeBridge: void }>({
         if (method === 'saveLocalLyrics') {
           if (win.fixtureLocalSaveFailure) throw new Error('disk-full');
           win.fixtureLyricImports = (win.fixtureLyricImports ?? 0) + 1;
-          win.fixtureLocalLyric = { content: options.content, fileName: options.fileName };
+          win.fixtureLocalLyric = { ...win.fixtureLocalLyric, content: options.content, fileName: options.fileName, lyricsSource: 'local' };
           return {};
         }
         if (method === 'removeLocal') { localSongs = []; return {}; }

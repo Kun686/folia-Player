@@ -18,6 +18,12 @@ actor NativeLyricParser {
         return data == Data("null".utf8) ? nil : data
     }
     func onlineStep(_ input: Data) throws -> Data { try call("stepJSON", input: input, limit: 3_000_000) }
+    func localSources(_ snapshot: [String: Any]) throws -> Data? {
+        let input = try JSONSerialization.data(withJSONObject: ["version": 1, "snapshot": snapshot])
+        let data = try call("sourcesJSON", input: input, inputLimit: 24_300_000)
+        guard data.count <= 262144 else { throw MobileFailure("invalid-local-lyrics") }
+        return data == Data("null".utf8) ? nil : data
+    }
     func cacheDocument(_ payload: [String: Any]) throws -> [String: Any] {
         let input = try JSONSerialization.data(withJSONObject: ["version": 1, "payload": payload])
         guard input.count <= 8_000_000,
@@ -26,9 +32,9 @@ actor NativeLyricParser {
         return result
     }
 
-    private func call(_ method: String, input: Data, limit: Int = 300000) throws -> Data {
+    private func call(_ method: String, input: Data, limit: Int = 300000, inputLimit: Int = 12_100_000) throws -> Data {
         try Task.checkCancellation()
-        guard input.count <= 12_100_000 else { throw MobileFailure("lyrics-too-large") }
+        guard input.count <= inputLimit else { throw MobileFailure("lyrics-too-large") }
         if context == nil {
             guard let scriptURL, let source = try? String(contentsOf: scriptURL, encoding: .utf8),
                   source.utf8.count <= 2_000_000, let created = JSContext() else { throw MobileFailure("lyric-runtime-unavailable") }
@@ -104,9 +110,9 @@ final class NativeLyrics {
                 let lines: [[String: Any]]?
                 do {
                     if let localID = identity.localID {
-                        let source = try await local.lyricSource(localID)
+                        let source = try await local.readLyricSources(localID)
                         try Task.checkCancellation()
-                        if let source, let data = try await parser.parse(source.content, fileName: source.fileName) {
+                        if let data = try await parser.localSources(source) {
                             lines = try JSONSerialization.jsonObject(with: data) as? [[String: Any]]
                         } else { lines = nil }
                     } else {

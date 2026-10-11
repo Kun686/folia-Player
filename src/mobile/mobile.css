@@ -95,6 +95,11 @@ h1, h2, p { margin: 0; } h1 { font-size: 32px; letter-spacing: -.04em; } h2 { fo
 .online-lyric-actions legend { padding-block: 8px; font-size: 13px; }
 .online-lyric-actions [aria-pressed=true] { box-shadow: inset 0 0 0 2px var(--text); }
 .online-lyric-actions p, .online-lyric-tools > p { overflow-wrap: anywhere; }
+.mobile-local-lyrics fieldset { display: grid; gap: 10px; min-width: 0; border: 0; padding: 0; }
+.mobile-local-lyrics legend { padding-block: 8px; font-size: 13px; }
+.mobile-local-lyrics button { min-height: 44px; touch-action: manipulation; }
+.mobile-local-lyrics button[aria-pressed=true] { box-shadow: inset 0 0 0 2px var(--text); }
+.mobile-local-lyrics p { overflow-wrap: anywhere; }
 .mobile-lyric-timing { display: grid; gap: 16px; margin-top: 20px; }
 .mobile-lyric-timing > div { flex-wrap: wrap; gap: 8px; padding: 0; }
 .sheet .mobile-lyric-timing label { margin: 0; }

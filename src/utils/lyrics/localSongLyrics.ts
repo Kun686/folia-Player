@@ -1,5 +1,7 @@
-import type { ActiveLocalLyricsSource, LocalLyricsPriority, LocalSong, LyricData } from '../../types';
+import type { ActiveLocalLyricsSource, LocalLyricsPriority, LyricData } from '../../types';
 import { LyricParserFactory } from './LyricParserFactory';
+import { selectLocalSongLyricsSource, type LocalSongLyrics } from './localSongLyricsSelection';
+export { selectLocalSongLyricsSource } from './localSongLyricsSelection';
 
 // src/utils/lyrics/localSongLyrics.ts
 // Resolves the lyric payload and its actual source from one local-song snapshot.
@@ -9,27 +11,9 @@ export type ResolvedLocalSongLyrics = {
     source: ActiveLocalLyricsSource | null;
 };
 
-export const selectLocalSongLyricsSource = (
-    song: LocalSong,
-    priority: LocalLyricsPriority,
-): ActiveLocalLyricsSource | null => {
-    if (song.lyricsSource) {
-        if (song.lyricsSource === 'online' && (song.matchedLyrics || song.matchedIsPureMusic)) return 'online';
-        if (song.lyricsSource === 'local' && song.localLyricsContent) return 'local';
-        if (song.lyricsSource === 'embedded' && song.embeddedLyricsContent) return 'embedded';
-        return null;
-    }
-
-    if (priority === 'online' && song.matchedLyrics) return 'online';
-    if (song.hasLocalLyrics && song.localLyricsContent) return 'local';
-    if (song.hasEmbeddedLyrics && song.embeddedLyricsContent) return 'embedded';
-    if (song.matchedLyrics) return 'online';
-    return null;
-};
-
 /** Parses the payload selected by the explicit source or current automatic priority. */
 export const resolveLocalSongLyrics = async (
-    song: LocalSong,
+    song: LocalSongLyrics,
     priority: LocalLyricsPriority,
 ): Promise<ResolvedLocalSongLyrics> => {
     const source = selectLocalSongLyricsSource(song, priority);

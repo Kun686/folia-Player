@@ -20,8 +20,7 @@ extension LocalMediaLibrary {
         if let coordinatedError { throw coordinatedError }
         if let readError { throw readError }
         guard let bytes else { throw MobileFailure("invalid-lyrics") }
-        if lyricEditTokens[id] == nil { lyricEditTokens[id] = UUID().uuidString }
-        return ["data": bytes.base64EncodedString(), "fileName": source.lastPathComponent, "token": lyricEditTokens[id]!]
+        return ["data": bytes.base64EncodedString(), "fileName": source.lastPathComponent, "token": lyricToken(id)]
     }
 
     func saveDecodedLyrics(_ content: String, fileName: String, for id: String, token: String) async throws -> [String: Any] {
@@ -29,6 +28,7 @@ extension LocalMediaLibrary {
         guard lyricEditTokens[id] == token else { throw MobileFailure("local-lyrics-changed") }
         guard !content.isEmpty, content.utf8.count <= 2_000_000, !fileName.isEmpty,
               fileName.utf8.count <= 1024 else { throw MobileFailure("lyrics-too-large") }
+        _ = try await readLyricSources(id)
         // The WebView cannot bypass the original native parser or its line/time/output bounds.
         guard let data = try await lyricImportParser.parse(content, fileName: fileName),
               let lines = try JSONSerialization.jsonObject(with: data) as? [[String: Any]],
@@ -37,9 +37,9 @@ extension LocalMediaLibrary {
         try Task.checkCancellation()
         _ = try resolve(id)
         guard lyricEditTokens[id] == token else { throw MobileFailure("local-lyrics-changed") }
-        let record = LyricSource(content: content, fileName: fileName)
-        try JSONEncoder().encode(record).write(to: directory(id).appendingPathComponent("lyrics.json"),
-            options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        var record = try lyricSource(id) ?? LyricSource(content: "", fileName: nil)
+        record.content = content; record.fileName = fileName; record.lyricsSource = "local"; record.contentIsEmbedded = false
+        try writeLyricSources(record, id: id)
         lyricEditTokens[id] = UUID().uuidString
         return try details(id)
     }

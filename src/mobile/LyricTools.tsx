@@ -7,7 +7,7 @@ import { getMobileRuntime } from '../services/mobileRuntime';
 import OnlineLyricMatchModal from '../components/modal/OnlineLyricMatchModal';
 import GlobalLyricOffsetModal from '../components/modal/settings/GlobalLyricOffsetModal';
 import LyricTimelineOffsetControl from '../components/panelTab/LyricTimelineOffsetControl';
-import { importMobileLocalLyrics } from './localLyricImport';
+import LocalLyricTools from './LocalLyricTools';
 import { getLyricProviderLabel, getSongNativeLyricProviderSource } from '../utils/lyrics/lyricSourceLabels';
 import { LYRIC_IMPORT_ACCEPT } from '../utils/lyrics/lyricFileDecoding';
 import { importMobileOnlineLyrics, resetMobileOnlineLyrics, scopedLyricStorage, switchMobileOnlineLyrics } from './onlineLyricEditor';
@@ -71,9 +71,8 @@ export default function LyricTools({ song, time, lyricTime, lyrics, offsetMs, on
       {(selection?.importedLyrics || selection?.hasOnlineOverride) && <button onClick={() => {
         if (window.confirm(t('mobile.confirmResetLyrics'))) void run(() => resetMobileOnlineLyrics(storage!, song));
       }}>{t('mobile.resetLyrics')}</button>}
-    </fieldset> : <button disabled={busy} onClick={() => void run(async () => {
-      if (song.sourceRef?.kind === 'local') await importMobileLocalLyrics(song.sourceRef.mediaId, () => active.current);
-    })}>{t('mobile.importLyrics')}</button>}
+    </fieldset> : song.sourceRef?.kind === 'local' && <LocalLyricTools key={song.sourceRef.mediaId}
+      id={song.sourceRef.mediaId} light={light} onDone={dismiss} />}
     <div className="mobile-lyric-timing">
       <LyricTimelineOffsetControl offsetMs={offsetMs} onOffsetChange={onOffsetChange} isDaylight={light} />
       <button onClick={() => setCalibrating(true)}>{t('options.globalLyricTimelineOffset')}</button>
