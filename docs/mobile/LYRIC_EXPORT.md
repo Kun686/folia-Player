@@ -8,7 +8,7 @@
 mobile.14 已原位安装、启动并确认 build 14；6 项 WebKit 用例覆盖导出后回导及无效文件保留已有歌词。
 浏览器文件注入不验证系统选择器；用户随后确认「两种文件都能选择，导入后歌词正常」，
 mobile.14 的在线 FIA／LRC 回导记为 PASS_USER_CONFIRMED，详见 [VALIDATION.md](VALIDATION.md)。
-完整移植保持 IN_PROGRESS，批量导出仍待接入。
+完整移植保持 IN_PROGRESS；后续批量导出见 [BATCH_LYRIC_EXPORT.md](BATCH_LYRIC_EXPORT.md)。
 
 ## 复用与行为
 
@@ -30,7 +30,7 @@ mobile.14 的在线 FIA／LRC 回导记为 PASS_USER_CONFIRMED，详见 [VALIDAT
 - UI 沿用原格式卡片，补移动视口滚动、安全区和至少 44px 的触摸目标。
   `LyricFileDialog` 可不显示尚未接入的批量入口；桌面调用仍提供原批量入口。
 
-## 当前验证
+## 最初单曲导出源码阶段验证（历史）
 
 - PASS：类型检查；32 项逻辑回归／4 文件，包含原导出测试及 7 项移动数据源测试。
   覆盖源选择、原始行、分词、平台隔离、文件命名、取消、迟到结果和存储／分享失败。

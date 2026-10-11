@@ -1,6 +1,32 @@
 # 移动候选验证记录
 
-## mobile.14：在线歌词文件置灰修复（当前开发候选）
+## mobile.15：原版批量歌词导出（当前开发候选）
+
+2026-10-11 已原位安装并启动于 iPhone XS Max／iOS18.7.10，设备回读 build 15。
+源码 `1fc4c216b5ab713459f6c2c19bb51010ae57dd01`，
+[准确源码 CI](https://github.com/Kun686/folia-Player/actions/runs/38129261338) PASS。
+复用原批量导出界面、缓存筛选、歌词调整与 ZIP 流程；增加原生缓存枚举和系统 ZIP 分享。
+设置入口不要求正在播放；单曲导出弹窗也接入原批量入口。无新依赖，无播放或动画参数变更。
+范围、旧缓存兼容和限制见 [BATCH_LYRIC_EXPORT.md](BATCH_LYRIC_EXPORT.md)。
+
+- PASS：类型检查、43 项逻辑／6 文件、12 项三视口 WebKit。首次类型检查缺测试样本字段，补齐后通过。
+- PASS：独立 QA 包在同一 iPhone 执行10项原生测试，0失败，3.822秒。已卸载 QA 并回读确认不存在。
+  覆盖缓存身份、失效撤销、旧记录恢复、损坏／非法输入、UTF-8 与 ZIP 字节，以及既有缓存回归。
+- PASS：clean Release 个人签名构建；签名证书匹配描述文件，设备授权有效，无 XCTest 残留。
+  包检查首次假设描述文件必须精确 Bundle ID；实际为合法 Team wildcard，改为校验其授权范围，
+  同时要求 App 的签名 entitlement 为精确 `app.folia.personal` 后通过，未放宽团队或设备验证。
+- PASS：2953个冻结源码输入一致，119个打包／同步／签名资源一致；IPA逐文件匹配签名 App。
+  指纹 `5bb9d06f3ab433db2446f35fce931b9a48d7c569ed562d80481edd60aa31f67f`。
+- 交付：`移动端交付/Folia-0.7.16-mobile.15-5bb9d06f-development.ipa`，8,068,760字节，
+  SHA256 `77297ae591d3c1c7cdcd90d0e202747f35af1f1b01f6bcad62f6a96986c3aee9`。
+  原位安装／启动成功；个人 App 未卸载；保留 mobile.14 且校验哈希未变。
+- NOT_RUN：用户实际批量 ZIP 系统分享、存储与解压回导；已请求真机反馈。物理 iPad、长期性能等保持原状态。
+  mobile.14 的单曲回导用户反馈单独记录，不能自动算作本版批量验收。完整移植仍 IN_PROGRESS。
+
+证据位于 `.mobile-test-results/batch-*` 与 `mobile15-*`，包括原生 xcresult、签名资源检查、
+安装／启动／设备版本回读及 CI。BUILD_RECORD.json 绑定实际构建源码，不绑定后续文档提交。
+
+## mobile.14：在线歌词文件置灰修复（历史候选）
 
 2026-10-11 已原位安装并启动于 iPhone XS Max／iOS18.7.10，设备回读 build 14。
 源码 `a5de02f0a28f31dc9ceda443e7e22babc169087a`，
