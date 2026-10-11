@@ -56,6 +56,8 @@ export interface VisualizerSharedProps {
     visualizerOpacity?: number;
     background?: VisualizerBackgroundConfig;
     lyricsFontScale?: number;
+    /** Fit Partita's complete composition into a smaller host without changing its word animation. */
+    constrainLyricsToStage?: boolean;
     subtitleFontScale?: number;
     subtitleOverlayOpacity?: number;
     subtitleOverlayBackground?: boolean;

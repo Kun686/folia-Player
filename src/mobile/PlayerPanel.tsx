@@ -100,6 +100,7 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
     <button className="player-collapse" onClick={collapse} aria-label={t('mobile.back')}><ChevronDown /></button>
     <div className="lyric-stage">
       {song && rendering ? <MobileVisualizer mode={mode} currentTime={lyricTime} lines={lyrics?.lines ?? NO_LYRIC_LINES} currentLineIndex={line}
+        constrainLyricsToStage
         theme={visualizerTheme} subtitleTheme={visualizerSubtitleTheme} {...typography} {...audio} isDaylight={light}
         paused={!state.playing} songTitle={song.name}  songArtist={song.artists.map(a => a.name).join(' / ')}
         songAlbum={song.album.name} coverUrl={cover} seed={JSON.stringify(song.sourceRef)}

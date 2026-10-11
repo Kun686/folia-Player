@@ -13,6 +13,8 @@ import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { resolveWordColor } from '../wordColoring';
 import { wordGlowVariants } from '../wordGlow';
 import { resolveThemeFontWeight } from '../../../utils/fontStacks';
+import PartitaStageFit from './PartitaStageFit';
+import { PARTITA_ACTIVE_WORD_SCALE } from './partitaFitGeometry';
 
 // This one is still word-driven, but unlike Classic it needs to pre-build a column/chunk structure first.
 // The flow is basically: ask runtime for the active line, optionally preheat the upcoming line,
@@ -403,6 +405,7 @@ const PartitaWord: React.FC<{
     return (
         <motion.div
             key={`${config.id}`}
+            data-partita-fit-word={JSON.stringify([config.x, config.y, config.rotate, config.scale, config.passedRotate])}
             custom={{
                 config,
                 activeColor,
@@ -516,6 +519,8 @@ const PartitaChunk: React.FC<{
     return (
         <motion.div
             className="inline-flex origin-center relative whitespace-nowrap items-center justify-center flex-row"
+            data-partita-fit-chunk={JSON.stringify([config.x, config.y, config.rotate, config.scale, config.passedRotate])}
+            data-partita-entrance-x={guidePosition === 'left' ? -40 : 40}
             style={{
                 marginBottom: config.marginBottom,
                 alignSelf: config.alignSelf,
@@ -700,6 +705,7 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
         subtitleContentMode,
     } = props;
     const { t } = useTranslation();
+    const stageRef = useRef<HTMLDivElement>(null);
     const [windowHeight, setWindowHeight] = useState(800);
     const resolvedPartitaTuning = useMemo(() => resolvePartitaTuning(partitaTuning), [partitaTuning]);
     const layoutCacheRef = useRef<Map<string, PartitaSequentialLayout>>(new Map());
@@ -768,7 +774,7 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
         }),
         active: ({ config }: any) => ({
             opacity: 1,
-            scale: isNaN(config.scale) ? 1.5 : config.scale * 1.4,
+            scale: isNaN(config.scale) ? 1.5 : config.scale * PARTITA_ACTIVE_WORD_SCALE,
             x: config.x,
             y: config.y,
             rotate: config.rotate,
@@ -849,6 +855,7 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
 
     return (
         <VisualizerShell
+            ref={stageRef}
             theme={theme}
             audioPower={audioPower}
             audioBands={audioBands}
@@ -859,6 +866,7 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
                 animate={lyricContainerFloat.animate}
                 transition={lyricContainerFloat.transition}
             >
+                <PartitaStageFit enabled={props.constrainLyricsToStage} stage={stageRef}>
                 <AnimatePresence mode="popLayout">
                     {showText && activeLine && activeLineRenderProfile && (
                         <motion.div
@@ -921,6 +929,7 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
                         </motion.div>
                     )}
                 </AnimatePresence>
+                </PartitaStageFit>
             </motion.div>
 
             <VisualizerSubtitleOverlay
