@@ -1,5 +1,19 @@
 # 移动候选验证记录
 
+## 后续开发源码：原版歌词时间校准（未更新个人 iPhone）
+
+2026-10-11，源码 `f0e38d471864d6171b122a3c2c88b5c5fddd5580`，
+[CI 38111816022](https://github.com/Kun686/folia-Player/actions/runs/38111816022) PASS。
+复用原单曲偏移、全局校准弹窗和存储，接入原生歌词时钟；修复过早打开工具会取消未完成歌词加载的问题。
+
+- PASS：类型检查、131 项逻辑／23 文件、27 项 WebKit UI（手机／宽 iPad／窄窗口）、资源构建与同步。
+- PASS：iPad Pro 11-inch (M5)／iOS26.5 Release 构建，实际容器单曲 +250ms／全局 +50ms 应用后重启恢复。
+  仅使用合成短曲，启动保持暂停；测试偏移已恢复零，App、日志辅助进程与本轮启动的模拟器已停止。
+- 证据及失败修复详见 [LYRIC_TIMING.md](LYRIC_TIMING.md) 和 `.mobile-test-results/lyric-timing-*`。
+- 本阶段未修改 Swift、依赖或服务器，没有新个人 IPA；iPhone 仍为下述 mobile.11，
+  `BUILD_RECORD.json` 仍只描述该已安装版本。模拟器开发产物虽然带 build 11，但源码更新，不能视为同一包。
+- NOT_RUN：本阶段真机校准、真实平台 App 联机、实体 iPad、30 分钟锁屏、蓝牙、150ms 显示误差及持续性能。
+
 ## mobile.11：歌词操作、共用资源缓存与后续播放移植（当前开发候选）
 
 2026-10-11 已完成 Release 开发签名构建、安装和启动，iPhone XS Max／iOS18.7.10 回读 build 11。

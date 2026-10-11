@@ -24,6 +24,10 @@ mobile.10 已安装并启动，设备回读 build 10。已接入原版音频缓�
 本轮 136 项逻辑、15 项界面和 15 项 iPhone 原生专项 PASS，详见 LYRIC_TOOLS.md、VALIDATION.md。
 真实平台 App 链路和长期真机项目仍须单独验收，没有把源码测试视为完成这些项目。
 
+mobile.11 之后的开发源码已接入原单曲／全局歌词校准，131 项逻辑和 27 项 WebKit 回归通过，
+iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.md。
+本阶段尚未更新个人 iPhone，未测真机声画误差；下表该项只表示开发源码的已验证范围。
+
 ## 本地播放器与原有动效
 
 | 检查 | 结果 | 证据边界 |
@@ -43,6 +47,7 @@ mobile.10 已安装并启动，设备回读 build 10。已接入原版音频缓�
 | 共用封面／锁屏封面缓存 | PASS（源码自动测试及真机专项）；真实平台矩阵 NOT_RUN | 前台和锁屏共用、请求取消、独立分类清理；见 COVERS.md |
 | 完整在线歌词与来源选择持久存储 | PASS（源码自动测试及真机专项）；真实平台 App 验收 NOT_RUN | 原解析与选择复用、断网恢复、无 WebView 的原生队列读取、清除及退出隔离；见 LYRIC_CACHE.md |
 | 在线歌词导入、匹配与来源切换 | PASS（WebKit 及持久层原生专项）；系统选择器和真实平台 App 操作 NOT_RUN | 原弹窗、原 Worker／解析器与状态转换复用，迟到结果、保存错误和恢复来源已测；见 LYRIC_TOOLS.md |
+| 单曲／全局歌词时间校准 | PASS（开发源码 WebKit 及 iPad 模拟器设置恢复）；真机校准 NOT_RUN | 原控件、预览／应用／取消、来源隔离、歌词点击反向映射、迟到加载；个人 iPhone 尚未更新，见 LYRIC_TIMING.md |
 | Automix、全部桌面编辑工具 | NOT_IMPLEMENTED | 仍待移植，完整移植目标未完成 |
 
 音频格式由AudioStreaming、系统AudioToolbox及获批的Ogg／Vorbis决定；Ogg目前不支持拖动。
