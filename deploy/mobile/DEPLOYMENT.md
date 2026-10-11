@@ -1,9 +1,24 @@
 # 移动服务部署与回滚
 
 2026-10-10 已完成首台服务器的内部部署，当前只启用网易云和 QQ。
-按用户选择暂不配置域名与 HTTPS；App 的生产网络仍要求受信任 HTTPS，不为内部验证关闭 TLS 校验。
+2026-10-11 用户指定 `music.nb686.cn` 后，已配置独立 HTTPS 入口；此前仅内部部署的状态已更新。
+App 保持受信任 HTTPS 校验。
 详细结果见 docs/mobile/SERVER_VALIDATION.md。三个 Node API 运行在服务器／NAS，不在 iOS 内运行。
 2026-10-11 内部网关已更新到 `6078c7c`，增加云盘歌词只读路由；平台镜像和凭据未变。
+
+## 当前真机连接入口
+
+- App 服务器地址为 `https://music.nb686.cn`，访问令牌复用服务器 `shared/mobile.env` 的既有值。
+  令牌通过本机私有连接文件交付，不写入本仓库或日志。
+- 使用宿主 nginx，已部署配置的非秘密副本为 `nginx.host.conf.example`；不启用额外 Docker TLS 网关。
+  只代理 `/mobile/health`、`/mobile/request`、`/mobile/resolve`，内部平台 API 和 `/healthz` 不公开。
+- 证书由现有 acme.sh 通过 HTTP webroot 签发；80 端口仅保留 ACME 验证与 HTTPS 跳转。
+  独立 `folia-cert-renew.timer` 每日检查此域名，安装证书后执行 `nginx -t && nginx -s reload`。
+  未修改现有 crontab 或其他站点配置；实际到期续签仍待验证。
+- 服务器证据位于 `/opt/folia-player/evidence/20261011-qq-device-tls/`。
+  如需撤销入口，停用独立续签 timer、移出 `folia-music.nb686.cn.conf` 后通过 `nginx -t` 再 reload；
+  保留证书、曲库、QQ 卷和原网关配置，不删除任何账户数据。
+- TLS、网关认证和既有站点连通检查已通过；用户正在进行真机 QQ 登录，尚不能计作登录或播放验收。
 
 ## 固定版本
 

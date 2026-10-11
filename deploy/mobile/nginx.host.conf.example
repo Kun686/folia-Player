@@ -1,0 +1,33 @@
+# Folia mobile gateway. Provider APIs remain private; access credentials are not logged.
+server {
+    listen 80;
+    server_name music.nb686.cn;
+    access_log off;
+    error_log /var/log/folia/nginx-error.log crit;
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/lib/folia-acme;
+        default_type text/plain;
+        try_files $uri =404;
+    }
+    location / { return 308 https://music.nb686.cn$request_uri; }
+}
+server {
+    listen 443 ssl;
+    server_name music.nb686.cn;
+    ssl_certificate /opt/folia-player/shared/tls/music.nb686.cn/fullchain.pem;
+    ssl_certificate_key /opt/folia-player/shared/tls/music.nb686.cn/key.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    access_log off;
+    error_log /var/log/folia/nginx-error.log crit;
+    client_max_body_size 256k;
+    client_body_timeout 15s;
+    location ~ ^/mobile/(health|request|resolve)$ {
+        proxy_pass http://127.0.0.1:17863;
+        proxy_read_timeout 25s;
+        proxy_send_timeout 20s;
+        proxy_set_header Host $host;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+    location / { return 404; }
+}

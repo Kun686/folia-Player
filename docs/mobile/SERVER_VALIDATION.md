@@ -1,7 +1,7 @@
 # 内部服务器验证
 
 日期：2026-10-10。版本：0.7.16-mobile.1。目标仓库：Kun686/folia-Player。
-当前阶段按用户选择只部署内部服务，暂不配置域名和 TLS。
+本节记录最初仅内部服务部署；2026-10-11 已按用户指定接通 `music.nb686.cn`，见文末 HTTPS 更新。
 
 最新运行网关已于 2026-10-11 更新至 `6078c7c`，见文末“在线歌词路由更新”。
 以下 2026-10-10 账户验证是历史证据，不代表会话目前仍有效。
@@ -103,3 +103,30 @@ GitHub Mobile checks 已通过： https://github.com/Kun686/folia-Player/actions
 
 探针首次用 `docker cp` 写入只读容器被 Docker 拒绝，随后改用 `docker exec` 的标准输入写入既有
 `/tmp` tmpfs；没有关闭 read_only。两轮探针退出时均删除临时运行文件，未保存歌词正文或账户会话。
+
+## QQ 真机测试的 HTTPS 入口
+
+2026-10-11 08:20 UTC，用户指定 `music.nb686.cn`，服务器公共 DNS 解析到 `111.229.218.169`。
+复用现有宿主 nginx 和 acme.sh，无新依赖、无 App 更新，音乐容器及其配置保持不变。
+
+- PASS：HTTP webroot 公网探针，Let's Encrypt YE1 证书签发及安装。
+  SAN 为 `music.nb686.cn`，有效期至 2027-01-09 07:20:40 UTC。
+- PASS：系统 curl 开启证书验证，直接连接服务器 IP 并验证域名，TLS 验证码 0。
+  不带令牌 `/mobile/health` 返回 401；持有现有令牌返回 protocol=1、netease/qq。
+- PASS：原有 nginx vhost 文件 SHA256 与部署前一致；所有现有容器 ID／镜像保持不变。
+  `ceshi7.nb686.cn`、`ceshi8.nb686.cn` HTTPS 首页各返回 200。
+- PASS：独立续签 timer 已启用，下次检查为 2026-10-12；只针对 Folia 域名，不改现有 crontab。
+  实际证书续签 NOT_RUN。
+- PASS：连接资料写入用户本机权限 0600 文件；访问令牌不进入源码、证据 JSON 或命令日志。
+  iPhone XS Max 仍安装 mobile.12，devicectl 已成功启动 `app.folia.personal`。
+- 待用户操作：在 App 保存入口和令牌，从 App 发起 QQ 扫码，让会话由 App 保存。
+  **尚未确认真机登录、歌单读取或实际播放，不能将 HTTPS 连通写成这些项目通过。**
+
+部署配置副本为 `deploy/mobile/nginx.host.conf.example`，配置 SHA256：
+`a7c5d4d184184dae20e624a93045df1a7876c9758702824ef85706d99fdaf8a4`。
+服务器证据：`/opt/folia-player/evidence/20261011-qq-device-tls/`；
+本地认证检查：`.mobile-test-results/qq-device-https-health.json`。
+
+失败记录：首次 nginx 检查因该主机不存在 `/var/log/nginx` 而失败，新配置当即撤回、未 reload；
+使用独立 `/var/log/folia` 后通过。首次本机 Python HTTPS 检查因其 CA 信任库缺失失败，
+改用系统 curl 的正常证书校验后通过；未关闭 TLS 校验。

@@ -1,7 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
 当前交付是 **0.7.16-mobile.12 开发候选**，支持 iOS/iPadOS 17+。源码基线为
-d824c0b854e54d5411cb072092999823e9bd7071；移动分支发布到 Kun686/folia-Player，服务器内部部署记录见 SERVER_VALIDATION.md。
+d824c0b854e54d5411cb072092999823e9bd7071；移动分支发布到 Kun686/folia-Player，服务器部署记录见 SERVER_VALIDATION.md。
+2026-10-11 已按用户指定接通 `https://music.nb686.cn`，可在当前 mobile.12 的设置中配置后发起 QQ 登录；
+HTTPS 与网关认证已验证，用户真实登录和播放结果仍待确认，没有因此宣称在线链路验收完成。
 按用户最新要求优先移植原播放器、歌词和动效，同时支持本地导入与网易云／QQ。
 服务器配置不再是使用 App 的前提。真实平台与真机完整验收尚未完成，不能作为已验收安装包发布。
 
