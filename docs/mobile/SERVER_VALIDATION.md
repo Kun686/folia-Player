@@ -119,8 +119,9 @@ GitHub Mobile checks 已通过： https://github.com/Kun686/folia-Player/actions
   实际证书续签 NOT_RUN。
 - PASS：连接资料写入用户本机权限 0600 文件；访问令牌不进入源码、证据 JSON 或命令日志。
   iPhone XS Max 仍安装 mobile.12，devicectl 已成功启动 `app.folia.personal`。
-- 待用户操作：在 App 保存入口和令牌，从 App 发起 QQ 扫码，让会话由 App 保存。
-  **尚未确认真机登录、歌单读取或实际播放，不能将 HTTPS 连通写成这些项目通过。**
+- PASS（用户真机反馈）：在 mobile.12 配置入口并扫码后，用户明确反馈「已登录，能看到账号或歌单」。
+  记录见本地 `.mobile-test-results/qq-device-manual.json`，未采集账户标识或会话。
+  **这证明本次真实登录，不证明歌单完整性、实际播放、歌词或锁屏连续播放；这些结果仍待确认。**
 
 部署配置副本为 `deploy/mobile/nginx.host.conf.example`，配置 SHA256：
 `a7c5d4d184184dae20e624a93045df1a7876c9758702824ef85706d99fdaf8a4`。

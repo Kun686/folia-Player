@@ -18,7 +18,8 @@ App 保持受信任 HTTPS 校验。
 - 服务器证据位于 `/opt/folia-player/evidence/20261011-qq-device-tls/`。
   如需撤销入口，停用独立续签 timer、移出 `folia-music.nb686.cn.conf` 后通过 `nginx -t` 再 reload；
   保留证书、曲库、QQ 卷和原网关配置，不删除任何账户数据。
-- TLS、网关认证和既有站点连通检查已通过；用户正在进行真机 QQ 登录，尚不能计作登录或播放验收。
+- TLS、网关认证和既有站点连通检查已通过；用户已在 iPhone 的 mobile.12 中确认 QQ 登录成功，
+  可见账号或歌单。真实播放、歌词及控制操作正在验收，尚未确认通过。
 
 ## 固定版本
 
