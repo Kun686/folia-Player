@@ -84,3 +84,66 @@ test('reduced motion fades without shrinking and keyboard focus keeps controls a
   await page.waitForTimeout(3500);
   await expect(panel).toHaveAttribute('data-controls-hidden', 'false');
 });
+
+test('blank taps hide immediately and wake without playback commands, including while paused', async ({ page }, info) => {
+  await start(page);
+  const panel = page.locator('.player-panel');
+  const blank = () => page.locator('.lyric-stage').tap({ position: { x: 12, y: 200 } });
+  const commands = await page.evaluate(() => (window as any).fixtureCommands.length);
+  await blank();
+  await expect(panel).toHaveAttribute('data-controls-hidden', 'true');
+  // Manual hiding survives incidental mouse movement, timers and orientation changes.
+  await page.mouse.move(20, 220);
+  await page.clock.fastForward(6000);
+  await page.setViewportSize({ width: 896, height: 414 });
+  await expect(panel).toHaveAttribute('data-controls-hidden', 'true');
+  await revealPlayerControls(page);
+  await expect(panel).toHaveAttribute('data-controls-hidden', 'false');
+  expect(await page.evaluate(() => (window as any).fixtureCommands.length)).toBe(commands);
+  await panel.getByRole('button', { name: '暂停', exact: true }).tap();
+  await blank();
+  await expect(panel).toHaveAttribute('data-controls-hidden', 'true');
+  await revealPlayerControls(page);
+  await expect(panel).toHaveAttribute('data-controls-hidden', 'false');
+  await page.screenshot({ path: '.mobile-test-results/mobile18-glass-' + info.project.name + '.png' });
+  await blank();
+  await page.keyboard.press('Tab');
+  await expect(panel).toHaveAttribute('data-controls-hidden', 'false');
+  await page.clock.fastForward(6000);
+  await expect(panel).toHaveAttribute('data-controls-hidden', 'false');
+});
+
+test('drag and cancelled touches do not dismiss chrome; controls and dialogs keep their own actions', async ({ page }) => {
+  await start(page);
+  const panel = page.locator('.player-panel'), stage = page.locator('.lyric-stage');
+  const down = { pointerId: 3, pointerType: 'touch', isPrimary: true, button: 0, clientX: 12, clientY: 200 };
+  await stage.dispatchEvent('pointerdown', down);
+  await stage.dispatchEvent('pointermove', { ...down, clientY: 240 });
+  await stage.dispatchEvent('pointerup', down); // Moving away and back is still a gesture, not a tap.
+  await stage.dispatchEvent('click', { clientX: 12, clientY: 200 });
+  await expect(panel).toHaveAttribute('data-controls-hidden', 'false');
+  await stage.dispatchEvent('pointerdown', down);
+  await stage.dispatchEvent('pointercancel', down);
+  await stage.dispatchEvent('click', { clientX: 12, clientY: 200 });
+  await expect(panel).toHaveAttribute('data-controls-hidden', 'false');
+  await page.locator('.track-heading').tap();
+  await expect(panel).toHaveAttribute('data-controls-hidden', 'false');
+  await openPlayerTools(page);
+  await page.clock.fastForward(6000);
+  await expect(panel).toHaveAttribute('data-controls-hidden', 'false');
+  await expect(page.getByRole('dialog', { name: '更多播放选项' })).toBeVisible();
+});
+
+test('external pause and errors reveal a manually hidden transport', async ({ page }) => {
+  await start(page);
+  const panel = page.locator('.player-panel');
+  await page.locator('.lyric-stage').tap({ position: { x: 12, y: 200 } });
+  await expect(panel).toHaveAttribute('data-controls-hidden', 'true');
+  await page.evaluate(() => (window as any).fixtureEmitPlayback({ playing: false }));
+  await expect(panel).toHaveAttribute('data-controls-hidden', 'false');
+  await page.locator('.lyric-stage').tap({ position: { x: 12, y: 200 } });
+  await expect(panel).toHaveAttribute('data-controls-hidden', 'true');
+  await page.evaluate(() => (window as any).fixtureEmitPlayback({ error: 'network-unavailable' }));
+  await expect(panel).toHaveAttribute('data-controls-hidden', 'false');
+  await expect(panel.getByRole('alert')).toBeVisible();
+});

@@ -15,7 +15,7 @@ import { useNativeAudio } from './useNativeAudio';
 import VisualSettings from './VisualSettings';
 import AudioControls from './AudioControls';
 import PlayerChrome from './PlayerChrome';
-import { usePlayerChromeActivity } from '../hooks/usePlayerChromeActivity';
+import { usePlayerChrome } from './usePlayerChrome';
 import TransitionControls from './TransitionControls';
 import LyricTools from './LyricTools';
 import { useLyricClock } from './useLyricClock';
@@ -35,8 +35,6 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
   const { t } = useTranslation();
   const [visualSettings, setVisualSettings] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
-  const [chromeHidden, setChromeHidden] = useState(false);
-  const [keyboardFocus, setKeyboardFocus] = useState(false);
   const [transitionSettings, setTransitionSettings] = useState(false);
   const [lyricToolsFor, setLyricToolsFor] = useState<string | null>(null);
   const audioSettingsOpen = useAudioSettingsStore(s => s.isAudioEqualizerOpen);
@@ -77,18 +75,9 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
   const { lyrics, rawLyrics, cover, error: lyricsError, segmentation, refresh } = useMobileLyrics(song ?? undefined, lyricTools);
   const modalOpen = visualSettings || audioSettingsOpen || transitionSettings || lyricTools;
   const rendering = visible && expanded && !modalOpen;
-  const idleEnabled = visible && expanded && state.playing && !toolsOpen && !modalOpen && !keyboardFocus && !error && !state.error && !lyricsError;
-  const revealChrome = usePlayerChromeActivity(idleEnabled, setChromeHidden);
-  const hidden = chromeHidden && !!idleEnabled;
-  useEffect(() => { if (!idleEnabled) setChromeHidden(false); }, [idleEnabled]);
+  const { hidden, reveal: revealChrome, focusProps, stageTapProps } = usePlayerChrome(visible && expanded, state.playing,
+    toolsOpen || modalOpen || error || !!state.error || !!lyricsError);
   useEffect(() => { if (modalOpen || !expanded) setToolsOpen(false); }, [modalOpen, expanded]);
-  useEffect(() => {
-    if (!visible || !expanded) return;
-    // A hidden/inert control cannot receive focus, so keyboard navigation must wake the chrome at window level.
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Tab') setKeyboardFocus(true); };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [visible, expanded]);
   const audio = useNativeAudio(rendering, state.playing);
   const importLyrics = async () => {
     if (song?.sourceRef?.kind !== 'local') return;
@@ -107,10 +96,8 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
   const command = (action: 'play' | 'pause' | 'next' | 'previous' | 'seek' | 'repeat', position?: number, mode?: string) =>
     void native.command({ action, position, mode }).catch(() => setError(true));
   return <section className={'player-panel ' + (expanded ? 'expanded' : '')} aria-label={t('mobile.play')}
-    data-controls-hidden={hidden} onPointerDownCapture={() => setKeyboardFocus(false)}
-    onFocusCapture={event => setKeyboardFocus(event.target.matches(':focus-visible'))}
-    onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setKeyboardFocus(false); }}>
-    <div className="lyric-stage">
+    data-controls-hidden={hidden} {...focusProps}>
+    <div className="lyric-stage" {...stageTapProps}>
       {song && rendering ? <MobileVisualizer mode={mode} currentTime={lyricTime} lines={lyrics?.lines ?? NO_LYRIC_LINES} currentLineIndex={line}
         constrainLyricsToStage isPlayerChromeHidden={hidden}
         theme={visualizerTheme} subtitleTheme={visualizerSubtitleTheme} {...typography} {...audio} isDaylight={light}

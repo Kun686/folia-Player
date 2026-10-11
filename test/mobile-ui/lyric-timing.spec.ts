@@ -106,6 +106,7 @@ test('Monet lyric taps seek the corrected audio position and foreground restore 
   await tools(page).getByRole('button', { name: '关闭', exact: true }).click();
   await page.locator('.lyric-stage').getByRole('button', { name: '第二句', exact: true }).click();
   await expect.poll(() => page.evaluate(() => (window as any).fixturePlayback.position)).toBeCloseTo(10.55, 5);
+  await expect(page.locator('.player-panel')).toHaveAttribute('data-controls-hidden', 'false');
   await page.evaluate(() => {
     const w = window as any;
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => w.fixtureHidden });
