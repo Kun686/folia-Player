@@ -17,6 +17,7 @@ actor LocalMediaLibrary {
     }
     let root: URL
     lazy var libraryStore = NativeLibraryStore(root: root)
+    lazy var folderScanner = LocalFolderScanner()
     var lyricEditTokens: [String: String] = [:]
     let lyricImportParser = NativeLyricParser()
     init(root: URL? = nil) {

@@ -48,3 +48,10 @@ await build({
     lib: { entry: 'src/mobile/nativeLibraryRuntime.ts', name: 'FoliaLibrary', formats: ['iife'], fileName: () => 'library.js' },
   },
 });
+await build({
+  configFile: false, root, publicDir: false,
+  build: {
+    target: 'safari17', outDir: 'dist-mobile/native', emptyOutDir: false,
+    lib: { entry: 'src/mobile/nativeFolderRuntime.ts', name: 'FoliaFolders', formats: ['iife'], fileName: () => 'folders.js' },
+  },
+});

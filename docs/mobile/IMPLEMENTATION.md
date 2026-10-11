@@ -1,5 +1,8 @@
 # Folia iPhone / iPad 实现与安装
 
+文件夹移植已完成原规则复用与原生扫描／增量计划层，69 项逻辑、模拟器与 iPhone 各 5 项原生测试通过。
+目录授权保存、导入事务、重扫和管理 UI 尚未接线；没有更新个人安装包，详见 [LOCAL_FOLDERS.md](LOCAL_FOLDERS.md)。
+
 实体编辑已接通原版面板、原生曲库、匹配保护与队列，已汇入 mobile.27 并原位安装；
 92 项逻辑、33 项独立 WebKit（最终布局另重跑其中 12 项）、模拟器与 iPhone 各 14 项原生测试通过。
 iPad 模拟器实际导入合成 M4A、改名、拆分、旋转及重启恢复通过，详见 [LOCAL_ENTITIES.md](LOCAL_ENTITIES.md)。

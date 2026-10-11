@@ -1,3 +1,5 @@
+import { BROWSER_AUDIO_EXTENSIONS, ELECTRON_FALLBACK_AUDIO_EXTENSIONS, KNOWN_AUDIO_EXTENSIONS,
+    getFolderCoverPriority, getParentRelativePath, getAudioBasePath, getSidecarLyricBasePath, classifyLocalFile } from '../utils/localFileRules';
 import { LocalSong, LyricData, LocalLibrarySnapshot, LocalLibrarySnapshotFile, LocalLibrarySnapshotNode, type SongResult } from '../types';
 import { saveLocalSong, saveLocalSongs, deleteLocalSong as dbDeleteLocalSong, deleteLocalSongs as dbDeleteLocalSongs, saveDirHandles, getDirHandles, deleteDirHandle, getLocalSongs, getLocalLibrarySnapshot, saveLocalLibrarySnapshot, deleteLocalLibrarySnapshot } from './db';
 import { getLocalPlaylists, saveLocalPlaylists } from './localPlaylistService';
@@ -85,11 +87,6 @@ interface ImportDiffPlan {
 // In-memory storage for hot-path access. Persistent recovery uses directory handles from IndexedDB.
 const fileHandleMap = new Map<string, FileSystemFileHandle>();
 const localCoverAssetRequestMap = new Map<string, Promise<LocalSong>>();
-const BROWSER_AUDIO_EXTENSIONS = /\.(mp3|flac|m4a|wav|ogg|opus|aac)$/i;
-const ELECTRON_FALLBACK_AUDIO_EXTENSIONS = /\.(alac|ape|wv|tta|wma|aif|aiff|caf)$/i;
-const KNOWN_AUDIO_EXTENSIONS = /\.(mp3|flac|m4a|wav|ogg|opus|aac|alac|ape|wv|tta|wma|aif|aiff|caf)$/i;
-const LYRIC_EXTENSIONS = /\.(lrc|vtt|ttml|qrc|yrc|krc|fia)$/i;
-const TRANSLATION_LYRIC_EXTENSIONS = /\.t\.(lrc|vtt)$/i;
 const IMPORT_CONCURRENCY = 6;
 export const LOCAL_MUSIC_UPDATED_EVENT = 'folia-local-music-updated';
 export const LOCAL_MUSIC_SCAN_PROGRESS_EVENT = 'folia-local-music-scan-progress';
@@ -97,7 +94,6 @@ const HYDRATION_BATCH_SIZE = 25;
 const HYDRATION_REFRESH_EVERY = 100;
 const SNAPSHOT_HASH_SEED = 2166136261;
 const REIMPORT_HANDLE_MISSING_ERROR = 'Missing persisted directory handle for reimport';
-const PREFERRED_FOLDER_COVER_FILES = ['cover.png', 'cover.jpg', 'cover.jpeg'];
 
 interface LocalMusicScanProgressDetail {
     active: boolean;
@@ -288,28 +284,6 @@ function isAudioFileName(fileName: string): boolean {
         || (canImportElectronFallbackAudio() && ELECTRON_FALLBACK_AUDIO_EXTENSIONS.test(fileName));
 }
 
-function getFolderCoverPriority(fileName: string): number {
-    return PREFERRED_FOLDER_COVER_FILES.indexOf(fileName.toLowerCase());
-}
-
-function getParentRelativePath(relativePath: string): string {
-    const lastSlashIndex = relativePath.lastIndexOf('/');
-    return lastSlashIndex === -1 ? '' : relativePath.slice(0, lastSlashIndex);
-}
-
-function getAudioBasePath(relativePath: string): string {
-    return relativePath.replace(KNOWN_AUDIO_EXTENSIONS, '');
-}
-
-function getSidecarLyricBasePath(relativePath: string, kind: 'lyric' | 'translationLyric'): string {
-    const withoutLyricSuffix = kind === 'translationLyric'
-        ? relativePath.replace(/\.t\.(lrc|vtt)$/i, '')
-        : relativePath.replace(/\.(lrc|vtt|ttml|qrc|yrc|krc|fia)$/i, '');
-
-    // Support both "track.lrc" and "track.mp3.lrc" style sidecar lyrics.
-    return getAudioBasePath(withoutLyricSuffix);
-}
-
 // Sidecar lyric base paths whose winning file differs between two format orders. Only these
 // tracks need their lyrics re-read after the user reorders formats.
 function collectLyricBasePathsAffectedByFormatOrder(
@@ -344,20 +318,7 @@ function collectLyricBasePathsAffectedByFormatOrder(
 }
 
 function getSnapshotFileKind(fileName: string): LocalLibrarySnapshotFile['kind'] {
-    const lowerName = fileName.toLowerCase();
-    if (TRANSLATION_LYRIC_EXTENSIONS.test(lowerName)) {
-        return 'translationLyric';
-    }
-    if (LYRIC_EXTENSIONS.test(lowerName)) {
-        return 'lyric';
-    }
-    if (getFolderCoverPriority(lowerName) !== -1) {
-        return 'cover';
-    }
-    if (isAudioFileName(fileName)) {
-        return 'audio';
-    }
-    return 'other';
+    return classifyLocalFile(fileName, isAudioFileName);
 }
 
 function buildFileSignature(relativePath: string, size: number, lastModified: number): string {
