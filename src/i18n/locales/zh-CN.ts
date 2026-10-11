@@ -1319,6 +1319,7 @@ export default {
     "amll": "AMLLDB",
   },
   "globalLyricOffset": {
+    "back": "返回",
     "title": "全局时间偏移",
     "subtitle": "补偿蓝牙耳机等输出设备造成的音画不同步",
     "apply": "应用",

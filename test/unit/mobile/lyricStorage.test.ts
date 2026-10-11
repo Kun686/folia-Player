@@ -80,4 +80,25 @@ describe('original lyric loader with native storage', () => {
     await loadOnlineSongLyrics(song, null, undefined, callbacks(), await openNativeLyricsStorage(song, () => true), { skipAutoMatch: true });
     expect(mocks.match).not.toHaveBeenCalled();
   });
+  it('loads an editing preview without persisting provider lyrics or starting automatic matching', async () => {
+    for (const prefetched of [null, { lyrics }]) {
+      const cb = callbacks();
+      await loadOnlineSongLyrics(song, prefetched as Parameters<typeof loadOnlineSongLyrics>[1], undefined, cb,
+        await openNativeLyricsStorage(song, () => true), { readOnly: true });
+      expect(cb.onLyrics).toHaveBeenLastCalledWith(lyrics);
+      expect(cb.onDone).toHaveBeenCalled();
+    }
+    expect(mocks.match).not.toHaveBeenCalled();
+    expect(mocks.write).not.toHaveBeenCalled();
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+  it('discards a read-only preview that finishes after the editor lifetime ends', async () => {
+    let active = true, finish!: (value: unknown) => void;
+    mocks.getLyrics.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const cb = callbacks();
+    const task = loadOnlineSongLyrics(song, null, undefined, cb, await openNativeLyricsStorage(song, () => active), { readOnly: true });
+    await vi.waitFor(() => expect(mocks.getLyrics).toHaveBeenCalled());
+    active = false; finish({ lyrics, isPureMusic: false }); await task;
+    expect(cb.onLyrics).not.toHaveBeenCalled(); expect(mocks.write).not.toHaveBeenCalled();
+  });
 });

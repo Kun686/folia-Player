@@ -87,12 +87,16 @@ const GlobalLyricOffsetModal: React.FC<GlobalLyricOffsetModalProps> = ({
                         transition={shellTransition}
                         className={`flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-[32px] border ${borderColor} ${glassBg} shadow-[0_24px_80px_rgba(0,0,0,0.28)]`}
                         onClick={(event) => event.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={t('globalLyricOffset.title')}
                     >
                         <div className={`flex items-center justify-between border-b ${borderColor} px-4 py-4 sm:px-6`}>
                             <div className="flex min-w-0 items-center gap-3">
                                 <button
                                     type="button"
                                     onClick={onClose}
+                                    aria-label={t('globalLyricOffset.back')}
                                     className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-colors hover:bg-white/10"
                                     style={{ color: 'var(--text-primary)' }}
                                 >

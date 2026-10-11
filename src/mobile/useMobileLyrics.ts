@@ -16,10 +16,12 @@ export function useMobileLyrics(song?: SongResult, editing = false) {
   const key = JSON.stringify(song?.sourceRef);
   const wasEditing = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (editing) { wasEditing.current = key; return; }
-    const skipAutoMatch = wasEditing.current === key && key !== undefined; wasEditing.current = undefined;
+    if (editing) wasEditing.current = key;
+    const skipAutoMatch = wasEditing.current === key && key !== undefined;
+    if (!editing) wasEditing.current = undefined;
     let active = true;
-    setLyrics(null); setError(false);
+    if (!editing) setLyrics(null);
+    setError(false);
     const load = async () => {
       if (!song) return;
       if (song.sourceRef?.kind === 'local') {
@@ -34,7 +36,7 @@ export function useMobileLyrics(song?: SongResult, editing = false) {
           isCurrent: () => active,
           onLyrics: value => { if (active) setLyrics(value); },
           onDone: () => undefined,
-        }, storage, { skipAutoMatch });
+        }, storage, { skipAutoMatch, readOnly: editing });
       }
     };
     void load().catch(() => { if (active) setError(true); });

@@ -85,14 +85,16 @@ export async function loadOnlineSongLyrics(
         onDone: () => void;
     },
     storage?: OnlineLyricsStorage,
-    options?: { skipAutoMatch?: boolean },
+    options?: { skipAutoMatch?: boolean; readOnly?: boolean },
 ): Promise<void> {
     const { onLyrics, onPureMusicChange, onStateChange, onAutoMatchStart, onDone } = callbacks;
     const isCurrent = () => callbacks.isCurrent() && (storage?.isCurrent() ?? true);
+    // Editing previews may finish loading words, but must never replace a saved user selection.
+    const skipAutoMatch = options?.skipAutoMatch || options?.readOnly;
     const lyricCacheKey = getSongResourceCacheKey('lyric', song);
     const onlineLyricsState = await (storage ? storage.readState() : loadOnlineLyricsState(song));
     const persistLyrics = (lyrics: LyricData | null) => {
-        if (!isCurrent()) return;
+        if (!isCurrent() || options?.readOnly) return;
         if (storage) void storage.writeLyrics(lyrics).catch(() => undefined);
         else if (lyrics) { void saveToCache(lyricCacheKey, lyrics); saveLyricCacheSongMetadata(song); }
     };
@@ -112,7 +114,7 @@ export async function loadOnlineSongLyrics(
     if (hasAuthoritativeLyricsSelection && !preferredCachedLyrics && onlineLyricsState?.matchedIsPureMusic) {
         onPureMusicChange?.(true); onLyrics(null); onDone(); return;
     }
-    if (preferredCachedLyrics && (hasAuthoritativeLyricsSelection || (!initialSettingsLyricSettings.autoUseBestLyric || options?.skipAutoMatch))) {
+    if (preferredCachedLyrics && (hasAuthoritativeLyricsSelection || (!initialSettingsLyricSettings.autoUseBestLyric || skipAutoMatch))) {
         const cachedText = preferredCachedLyrics.lines.map(line => line.fullText).join('\n');
         onPureMusicChange?.(resolveOnlineLyricsPureMusic(onlineLyricsState, cachedText));
         onLyrics(preferredCachedLyrics);
@@ -122,7 +124,7 @@ export async function loadOnlineSongLyrics(
     if (preferredCachedLyrics && storage) onLyrics(preferredCachedLyrics);
 
     if (prefetched?.lyricRaw?.isPureMusic && !prefetched.lyrics
-        && (hasAuthoritativeLyricsSelection || (!initialSettingsLyricSettings.autoUseBestLyric || options?.skipAutoMatch))) {
+        && (hasAuthoritativeLyricsSelection || (!initialSettingsLyricSettings.autoUseBestLyric || skipAutoMatch))) {
         onPureMusicChange?.(true);
         onLyrics(null);
         onDone();
@@ -134,7 +136,7 @@ export async function loadOnlineSongLyrics(
         const effectiveLyrics = preferredPrefetchedLyrics ?? prefetched.lyrics;
 
   const settingsLyricSettings = useLyricSettingsStore.getState();
-        const shouldAutoMatch = !options?.skipAutoMatch && settingsLyricSettings.autoUseBestLyric && !onlineLyricsState?.hasOnlineOverride;
+        const shouldAutoMatch = !skipAutoMatch && settingsLyricSettings.autoUseBestLyric && !onlineLyricsState?.hasOnlineOverride;
 
         if (!shouldAutoMatch) {
             const effectiveText = effectiveLyrics?.lines.map(line => line.fullText).join('\n') ?? '';
@@ -188,7 +190,7 @@ export async function loadOnlineSongLyrics(
     let finalState = onlineLyricsState;
 
   const settingsLyricSettings = useLyricSettingsStore.getState();
-    const shouldAutoMatch = !options?.skipAutoMatch && settingsLyricSettings.autoUseBestLyric && !onlineLyricsState?.hasOnlineOverride;
+    const shouldAutoMatch = !skipAutoMatch && settingsLyricSettings.autoUseBestLyric && !onlineLyricsState?.hasOnlineOverride;
 
     if (shouldAutoMatch) {
         // The lyrics in hand are already displayable, so hand them over and report done BEFORE the

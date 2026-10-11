@@ -16,7 +16,8 @@ import { useNativeAudio } from './useNativeAudio';
 import VisualSettings from './VisualSettings';
 import AudioControls from './AudioControls';
 import TransitionControls from './TransitionControls';
-import OnlineLyricTools from './OnlineLyricTools';
+import LyricTools from './LyricTools';
+import { useLyricClock } from './useLyricClock';
 import TransitionOverlays from './TransitionOverlays';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -65,10 +66,11 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
     return () => media.removeEventListener('change', changed);
   }, []);
   const [error, setError] = useState(false);
-  const seekLyrics = useCallback((position: number) => {
-    void native.command({ action: 'seek', position }).catch(() => setError(true));
-  }, []);
   const song = state.currentSong;
+  const { lyricTime, offsetMs, setOffsetMs, toPlaybackTime } = useLyricClock(song, time);
+  const seekLyrics = useCallback((position: number) => {
+    void native.command({ action: 'seek', position: toPlaybackTime(position) }).catch(() => setError(true));
+  }, [toPlaybackTime]);
   const lyricSongKey = JSON.stringify(song?.sourceRef);
   const lyricTools = lyricToolsFor === lyricSongKey;
   useEffect(() => { setLyricToolsFor(null); }, [lyricSongKey]);
@@ -82,10 +84,10 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
     catch { setError(true); }
   };
   useEffect(() => {
-    const index = findLatestActiveLineIndex(lyrics?.lines ?? [], time.get());
+    const index = findLatestActiveLineIndex(lyrics?.lines ?? [], lyricTime.get());
     lineRef.current = index; setLine(index);
-  }, [lyrics, time]);
-  useMotionValueEvent(time, 'change', value => {
+  }, [lyrics, lyricTime]);
+  useMotionValueEvent(lyricTime, 'change', value => {
     const next = findLatestActiveLineIndex(lyrics?.lines ?? [], value);
     if (next !== lineRef.current) { lineRef.current = next; setLine(next); }
   });
@@ -94,7 +96,7 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
   return <section className={'player-panel ' + (expanded ? 'expanded' : '')} aria-label={t('mobile.play')}>
     <button className="player-collapse" onClick={collapse} aria-label={t('mobile.back')}><ChevronDown /></button>
     <div className="lyric-stage">
-      {song && rendering ? <MobileVisualizer mode={mode} currentTime={time} lines={lyrics?.lines ?? NO_LYRIC_LINES} currentLineIndex={line}
+      {song && rendering ? <MobileVisualizer mode={mode} currentTime={lyricTime} lines={lyrics?.lines ?? NO_LYRIC_LINES} currentLineIndex={line}
         theme={visualizerTheme} subtitleTheme={visualizerSubtitleTheme} {...typography} {...audio} isDaylight={light}
         paused={!state.playing} songTitle={song.name}  songArtist={song.artists.map(a => a.name).join(' / ')}
         songAlbum={song.album.name} coverUrl={cover} seed={JSON.stringify(song.sourceRef)}
@@ -123,14 +125,15 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
         unavailable={state.playing && state.audioProcessingAvailable === false} effects={state.audioEffects} replayGain={song?.replayGain} />
       <div className="player-options"><button onClick={() => setVisualSettings(true)}>{t('mobile.visuals')}</button>
         <button onClick={() => setTransitionSettings(true)}>{t('options.transitionSettings')}</button>
-        {song?.sourceRef?.kind === 'online' && <button onClick={() => setLyricToolsFor(lyricSongKey)}>{t('localMusic.lyrics')}</button>}
+        {song && <button onClick={() => setLyricToolsFor(lyricSongKey)}>{t('localMusic.lyrics')}</button>}
         {song?.sourceRef?.kind === 'local' && <button onClick={() => void importLyrics()}>{t('mobile.importLyrics')}</button>}</div>
       {song && !lyrics?.lines.length && <p className="muted">{t('mobile.noLyrics')}</p>}
       {(state.error || error || lyricsError) && <p role="alert">{t('mobile.error')} {state.error}</p>}
     </div>
     <TransitionControls light={light} theme={light ? appearance.theme.light : appearance.theme.dark}
       open={transitionSettings} setOpen={setTransitionSettings} />
-    {lyricTools && song?.sourceRef?.kind === 'online' && <OnlineLyricTools key={JSON.stringify(song.sourceRef)} song={song} time={time} light={light} close={() => setLyricToolsFor(null)} />}
+    {lyricTools && song && <LyricTools key={lyricSongKey} song={song} time={time} lyricTime={lyricTime} lyrics={lyrics}
+      offsetMs={offsetMs} onOffsetChange={setOffsetMs} light={light} visible={visible} close={() => setLyricToolsFor(null)} />}
     {visualSettings && <VisualSettings light={light} appearance={appearance} close={() => setVisualSettings(false)} />}
   </section>;
 }

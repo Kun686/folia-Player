@@ -1320,6 +1320,7 @@ export default {
     "amll": "AMLLDB",
   },
   "globalLyricOffset": {
+    "back": "Back",
     "title": "Global Timing Offset",
     "subtitle": "Compensate audio/visual latency from Bluetooth headphones or other output devices",
     "apply": "Apply",

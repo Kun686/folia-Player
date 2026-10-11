@@ -1313,6 +1313,7 @@ export default {
     "amll": "AMLLDB"
   },
   "globalLyricOffset": {
+    "back": "Kembali",
     "title": "Offset Waktu Global",
     "subtitle": "Kompensasi latensi audio/visual dari headphone Bluetooth atau perangkat output lain",
     "apply": "Terapkan",
