@@ -37,6 +37,8 @@ export interface FoliaNativePlugin {
   importAudio(): Promise<{ songs?: SongResult[]; failures?: { name: string; code: string }[]; cancelled?: boolean }>;
   localDetails(options: { id: string }): Promise<{ content?: string; fileName?: string; cover?: string }>;
   importLyrics(options: { id: string }): Promise<{ content?: string; fileName?: string; cover?: string; cancelled?: boolean }>;
+  pickLyricFile(options: { id: string }): Promise<{ data?: string; fileName?: string; token?: string; cancelled?: boolean }>;
+  saveLocalLyrics(options: { id: string; token: string; content: string; fileName: string }): Promise<void>;
   removeLocal(options: { id: string }): Promise<void>;
   audioLevels(): Promise<{ available: boolean; spectrum: number[]; sampleRate: number }>;
   getAudioSettings(): Promise<NativeAudioSettings>;

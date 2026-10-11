@@ -41,10 +41,10 @@ export const decodeLyricText = (bytes: Uint8Array): string => {
 
 const normalizeLineEndings = (text: string): string => text.replace(/\r\n?/g, '\n');
 
-export const decodeLyricFileBytes = async (bytes: Uint8Array): Promise<string> => normalizeLineEndings(
-    isEncryptedKrc(bytes) ? await krcDecrypt(bytes) : decodeLyricText(bytes)
+export const decodeLyricFileBytes = async (bytes: Uint8Array, maxDecodedBytes = Infinity): Promise<string> => normalizeLineEndings(
+    isEncryptedKrc(bytes) ? await krcDecrypt(bytes, maxDecodedBytes) : decodeLyricText(bytes)
 );
 
-export const readLyricFile = async (file: Blob): Promise<string> => (
-    decodeLyricFileBytes(new Uint8Array(await file.arrayBuffer()))
+export const readLyricFile = async (file: Blob, maxDecodedBytes = Infinity): Promise<string> => (
+    decodeLyricFileBytes(new Uint8Array(await file.arrayBuffer()), maxDecodedBytes)
 );

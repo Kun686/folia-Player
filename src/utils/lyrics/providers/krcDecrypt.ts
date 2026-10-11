@@ -12,7 +12,7 @@ const KRC_KEY = new Uint8Array([
 /**
  * Helper to decompress zlib-compressed data using browser's DecompressionStream.
  */
-async function decompressDeflate(bytes: Uint8Array): Promise<string> {
+async function decompressDeflate(bytes: Uint8Array, maxBytes = Infinity): Promise<string> {
   const ds = new DecompressionStream('deflate');
   const writer = ds.writable.getWriter();
   writer.write(new Uint8Array(bytes)).catch(() => {});
@@ -20,10 +20,16 @@ async function decompressDeflate(bytes: Uint8Array): Promise<string> {
   
   const reader = ds.readable.getReader();
   const chunks: Uint8Array[] = [];
+  let totalLength = 0;
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (value) {
+        totalLength += value.length;
+        if (totalLength > maxBytes) {
+          await reader.cancel().catch(() => {});
+          throw new Error('lyrics-too-large');
+        }
         chunks.push(value);
       }
       if (done) {
@@ -31,6 +37,7 @@ async function decompressDeflate(bytes: Uint8Array): Promise<string> {
       }
     }
   } catch (error) {
+    if (totalLength > maxBytes) throw error;
     if (chunks.length === 0) {
       throw error;
     }
@@ -39,7 +46,6 @@ async function decompressDeflate(bytes: Uint8Array): Promise<string> {
     reader.releaseLock();
   }
   
-  const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
   const result = new Uint8Array(totalLength);
   let offset = 0;
   for (const chunk of chunks) {
@@ -53,7 +59,7 @@ async function decompressDeflate(bytes: Uint8Array): Promise<string> {
  * Decrypts Kugou KRC format bytes.
  * Skip first 4 bytes ("krc1"), XOR with the static key, and inflate.
  */
-export async function krcDecrypt(encryptedBytes: Uint8Array): Promise<string> {
+export async function krcDecrypt(encryptedBytes: Uint8Array, maxBytes = Infinity): Promise<string> {
   if (encryptedBytes.length <= 4) {
     throw new Error('Invalid KRC data: too short');
   }
@@ -66,5 +72,5 @@ export async function krcDecrypt(encryptedBytes: Uint8Array): Promise<string> {
     decrypted[i] = data[i] ^ KRC_KEY[i % KRC_KEY.length];
   }
 
-  return await decompressDeflate(decrypted);
+  return await decompressDeflate(decrypted, maxBytes);
 }

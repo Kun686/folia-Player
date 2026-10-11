@@ -8,7 +8,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     public let jsName = "FoliaNative"
     public let pluginMethods: [CAPPluginMethod] = ["bootstrap", "configure", "health", "saveSession", "clearSession",
         "request", "cancelRequests", "setQueue", "editQueue", "selectQueue", "command", "getState", "shareQR",
-        "localCatalog", "importAudio", "localDetails", "importLyrics", "removeLocal", "audioLevels",
+        "localCatalog", "importAudio", "localDetails", "importLyrics", "pickLyricFile", "saveLocalLyrics", "removeLocal", "audioLevels",
         "getAudioSettings", "setAudioSettings", "getTransitionSettings", "setTransitionSettings", "getMediaCacheSettings", "setMediaCacheSettings",
         "mediaCacheState", "clearMediaCache", "songCover", "coverCacheState", "clearCoverCache",
         "readLyricCache", "writeLyricCache", "lyricCacheState", "clearLyricCache"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
@@ -199,7 +199,19 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     } }
     @objc func importAudio(_ call: CAPPluginCall) { chooseFiles(call, lyrics: false) }
     @objc func importLyrics(_ call: CAPPluginCall) { chooseFiles(call, lyrics: true) }
-    private func chooseFiles(_ call: CAPPluginCall, lyrics: Bool) { run(call) {
+    @objc func pickLyricFile(_ call: CAPPluginCall) { chooseFiles(call, lyrics: true, readBytes: true) }
+    @objc func saveLocalLyrics(_ call: CAPPluginCall) { run(call) {
+        guard let id = call.getString("id"), let content = call.getString("content"),
+              let name = call.getString("fileName"), let token = call.getString("token") else { throw MobileFailure("invalid-lyrics") }
+        Task { @MainActor in
+            do {
+                let result = try await self.engine.local.saveDecodedLyrics(content, fileName: name, for: id, token: token)
+                self.engine.crossfade?.localLyricsChanged(id)
+                call.resolve(result)
+            } catch { call.reject((error as? MobileFailure)?.code ?? "import-failed") }
+        }
+    } }
+    private func chooseFiles(_ call: CAPPluginCall, lyrics: Bool, readBytes: Bool = false) { run(call) {
         guard !self.importing, let controller = self.bridge?.viewController else { throw MobileFailure("import-busy") }
         if lyrics && !LocalMediaLibrary.validID(call.getString("id") ?? "") { throw MobileFailure("invalid-local-identity") }
         try self.picker.present(on: controller, lyrics: lyrics) { urls in
@@ -211,6 +223,10 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
                 do {
                     if lyrics {
                         let id = call.getString("id") ?? ""
+                        if readBytes {
+                            call.resolve(try await self.engine.local.readLyricFile(urls[0], for: id))
+                            return
+                        }
                         let result = try await self.engine.local.importLyrics(urls[0], for: id)
                         self.engine.crossfade?.localLyricsChanged(id)
                         call.resolve(result)

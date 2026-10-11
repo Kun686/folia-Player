@@ -18,6 +18,7 @@ import AudioControls from './AudioControls';
 import TransitionControls from './TransitionControls';
 import LyricTools from './LyricTools';
 import { useLyricClock } from './useLyricClock';
+import { importMobileLocalLyrics } from './localLyricImport';
 import TransitionOverlays from './TransitionOverlays';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -72,6 +73,8 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
     void native.command({ action: 'seek', position: toPlaybackTime(position) }).catch(() => setError(true));
   }, [toPlaybackTime]);
   const lyricSongKey = JSON.stringify(song?.sourceRef);
+  const currentLyricSongKey = useRef(lyricSongKey); currentLyricSongKey.current = lyricSongKey;
+  useEffect(() => { currentLyricSongKey.current = lyricSongKey; return () => { currentLyricSongKey.current = ''; }; }, []);
   const lyricTools = lyricToolsFor === lyricSongKey;
   useEffect(() => { setLyricToolsFor(null); }, [lyricSongKey]);
   const { lyrics, cover, error: lyricsError, refresh } = useMobileLyrics(song ?? undefined, lyricTools);
@@ -80,8 +83,8 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
   const importLyrics = async () => {
     if (song?.sourceRef?.kind !== 'local') return;
     setError(false);
-    try { const result = await native.importLyrics({ id: song.sourceRef.mediaId }); if (!result.cancelled) refresh(); }
-    catch { setError(true); }
+    try { if (await importMobileLocalLyrics(song.sourceRef.mediaId, () => currentLyricSongKey.current === lyricSongKey)) refresh(); }
+    catch { if (currentLyricSongKey.current === lyricSongKey) setError(true); }
   };
   useEffect(() => {
     const index = findLatestActiveLineIndex(lyrics?.lines ?? [], lyricTime.get());

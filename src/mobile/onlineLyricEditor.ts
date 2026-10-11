@@ -15,7 +15,7 @@ export function scopedLyricStorage(storage: OnlineLyricsStorage, active: () => b
 }
 export async function importMobileOnlineLyrics(storage: OnlineLyricsStorage, file: File) {
   if (file.size > 2_000_000 || file.name.length > 1024) throw new Error('lyrics-too-large');
-  const content = await readLyricFile(file);
+  const content = await readLyricFile(file, 2_000_000);
   if (new TextEncoder().encode(content).length > 2_000_000) throw new Error('lyrics-too-large');
   const lyrics = await parseImportedOnlineLyrics(content, file.name);
   if (!hasRenderableLyrics(lyrics)) throw new Error('invalid-lyrics');

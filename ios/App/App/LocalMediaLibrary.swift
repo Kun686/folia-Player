@@ -5,12 +5,14 @@ import UIKit
 actor LocalMediaLibrary {
     struct LyricSource: Codable { let content: String; let fileName: String? }
     let root: URL
+    var lyricEditTokens: [String: String] = [:]
+    let lyricImportParser = NativeLyricParser()
     init(root: URL? = nil) {
         self.root = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("FoliaMedia", isDirectory: true)
     }
     static func validID(_ id: String) -> Bool { UUID(uuidString: id) != nil }
-    private func directory(_ id: String) throws -> URL {
+    func directory(_ id: String) throws -> URL {
         guard Self.validID(id) else { throw MobileFailure("invalid-local-identity") }
         return root.appendingPathComponent(id, isDirectory: true)
     }
@@ -100,7 +102,10 @@ actor LocalMediaLibrary {
         }
         return try Data(contentsOf: url)
     }
-    func remove(_ id: String) throws { try FileManager.default.removeItem(at: directory(id)) }
+    func remove(_ id: String) throws {
+        try FileManager.default.removeItem(at: directory(id))
+        lyricEditTokens.removeValue(forKey: id)
+    }
 
     // Copy before inspecting metadata so cloud/security-scoped documents can be released promptly.
     func importAudio(_ source: URL) async throws -> [String: Any] {
@@ -167,6 +172,7 @@ actor LocalMediaLibrary {
         // Keep content and its format hint in one atomic record; a later LRC import cannot inherit a stale YRC hint.
         let record = LyricSource(content: text, fileName: source.lastPathComponent)
         try JSONEncoder().encode(record).write(to: directory(id).appendingPathComponent("lyrics.json"), options: .atomic)
+        lyricEditTokens[id] = UUID().uuidString
         return try details(id)
     }
 }

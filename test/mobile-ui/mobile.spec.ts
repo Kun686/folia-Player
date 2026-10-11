@@ -296,7 +296,8 @@ test('imported word lyrics keep their format and can be replaced by LRC', async 
     { fileName: '歌曲.YRC', content: '[0,8000](0,8000,0)逐字歌词已恢复', text: '逐字歌词已恢复' },
     { fileName: '替换.lrc', content: '[00:00.00]普通歌词已替换', text: '普通歌词已替换' },
   ]) {
-    await page.evaluate(source => { (window as any).fixtureLocalLyric = source; }, source);
+    await page.evaluate(source => { (window as any).fixturePickedLyric = { fileName: source.fileName, token: 'local-token',
+      data: btoa(String.fromCharCode(...new TextEncoder().encode(source.content))) }; }, source);
     await page.getByRole('button', { name: '导入歌词', exact: true }).click();
     await expect(page.locator('.lyric-stage').getByText(source.text, { exact: true })).toBeVisible();
     await expect(page.getByRole('alert')).toHaveCount(0);
@@ -508,8 +509,11 @@ for (const action of ['close', 'change song'] as const) test('pending lyric matc
   await page.getByRole('textbox', { name: '搜索歌曲' }).fill('测试');
   await page.getByRole('button', { name: '搜索歌曲', exact: true }).click();
   await page.getByRole('button', { name: '播放 测试歌曲', exact: true }).click();
+  // This test starts from loaded lyrics; the early-open loading race has its own timing regression.
+  await expect(page.locator('.player-controls').getByText('暂无歌词', { exact: true })).toHaveCount(0);
   await page.evaluate(() => { (window as any).fixtureLyricTools = true; });
   await page.getByRole('button', { name: '歌词', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: '歌词', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '在线匹配', exact: true }).click();
   const match = page.getByRole('dialog', { name: '匹配歌词', exact: true });
   await match.getByRole('button', { name: 'QQ 音乐', exact: true }).click();
