@@ -41,3 +41,10 @@ await build({
     rolldownOptions: { treeshake: { manualPureFunctions: ['globalThis.TextDecoder', 'globalThis.TextEncoder'] } },
   },
 });
+await build({
+  configFile: false, root, publicDir: false,
+  build: {
+    target: 'safari17', outDir: 'dist-mobile/native', emptyOutDir: false,
+    lib: { entry: 'src/mobile/nativeLibraryRuntime.ts', name: 'FoliaLibrary', formats: ['iife'], fileName: () => 'library.js' },
+  },
+});

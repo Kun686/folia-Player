@@ -53,6 +53,24 @@ describe('localLibraryCatalogService', () => {
         await appDatabase.delete();
     });
 
+    it('rolls back entity redirects if writing the merged assignments fails', async () => {
+        await assignImportedSongs([song('one', { artist: 'First' }), song('two', { artist: 'Second' })]);
+        const entities = await appDatabase.local_library_entities.toArray();
+        const assignments = await appDatabase.local_library_assignments.toArray();
+        vi.spyOn(appDatabase.local_library_assignments, 'bulkPut').mockRejectedValueOnce(new Error('disk-full'));
+        await expect(mergeEntities(assignments[0].artistEntityIds[0], [assignments[1].artistEntityIds[0]])).rejects.toThrow('disk-full');
+        expect(await appDatabase.local_library_entities.toArray()).toEqual(entities);
+        expect(await appDatabase.local_library_assignments.toArray()).toEqual(assignments);
+    });
+
+    it('rejects stale split membership without leaving an empty entity', async () => {
+        await assignImportedSongs([song('one', { artist: 'First' }), song('two', { artist: 'Second' })]);
+        const entities = await appDatabase.local_library_entities.toArray();
+        const assignment = await appDatabase.local_library_assignments.get('one');
+        await expect(splitEntity(assignment!.artistEntityIds[0], ['two'], 'Wrong')).rejects.toThrow('No selected members');
+        expect(await appDatabase.local_library_entities.toArray()).toEqual(entities);
+    });
+
     it('groups same-folder same-name albums even when track artists differ', async () => {
         await assignImportedSongs([
             song('one', { artist: 'Artist One' }),

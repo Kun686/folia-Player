@@ -4,9 +4,8 @@ import type { LocalSong } from '../types';
 import type {
   LocalLibraryAssignment,
   LocalLibraryAssignmentOrigin,
-  LocalLibraryEntity,
 } from '../types/localLibrary';
-import { buildLocalLibraryIndex, followEntityRedirect } from '../utils/localLibraryIndex';
+import { collectOrphanedEntityIds } from './localLibraryEntityDeletion';
 import {
   cleanLocalLibraryName,
   getImportedAlbumName,
@@ -151,33 +150,6 @@ export const restoreImportedMetadata = async (
     return restored;
   },
 );
-
-const getAssignmentEntityIds = (assignment: LocalLibraryAssignment): string[] => [
-  ...assignment.artistEntityIds,
-  ...(assignment.albumEntityId ? [assignment.albumEntityId] : []),
-];
-
-const collectOrphanedEntityIds = (
-  deletedAssignments: LocalLibraryAssignment[],
-  remainingAssignments: LocalLibraryAssignment[],
-  entities: LocalLibraryEntity[],
-): string[] => {
-  const { entitiesById } = buildLocalLibraryIndex(entities);
-  const resolveEntityId = (entityId: string) => followEntityRedirect(entityId, entitiesById) || entityId;
-  const affectedEntityIds = new Set(
-    deletedAssignments.flatMap(getAssignmentEntityIds).map(resolveEntityId),
-  );
-  const referencedEntityIds = new Set(
-    remainingAssignments.flatMap(getAssignmentEntityIds).map(resolveEntityId),
-  );
-
-  return entities
-    .filter(entity => {
-      const resolvedId = resolveEntityId(entity.id);
-      return affectedEntityIds.has(resolvedId) && !referencedEntityIds.has(resolvedId);
-    })
-    .map(entity => entity.id);
-};
 
 // Deletes songs and assignments atomically, then removes only entity families with no remaining members.
 const deleteSongRecords = async (songIds: string[]): Promise<void> => {

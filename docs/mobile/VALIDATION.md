@@ -1,5 +1,24 @@
 # 移动候选验证记录
 
+## 实体编辑共享规则／原生存储：开发源码，尚未接入个人 App
+
+2026-10-12，详见 [LOCAL_ENTITIES.md](LOCAL_ENTITIES.md)。复用原改名、合并、拆分及孤立实体清理规则，
+保留桌面 Dexie 事务；新增原生原子文档存储，无新依赖。个人安装包仍为下述 mobile.26。
+
+- PASS：最终 TypeScript、42 项逻辑、`ios:sync`；输入校验、人工关系保留、事务回滚和原曲库行为均有相关测试。
+- PASS_NATIVE_SIMULATOR：前一轮实现的 5 项 JavaScriptCore／文件存储测试通过；
+  首轮文件保护属性断言失败，确认模拟器缺少该属性后明确记为 NOT_RUN_SIMULATOR，没有据此声称策略通过。
+- PASS_NATIVE_DEVICE：最终源码在 iPhone XS Max / iOS18.7.10、独立 `app.folia.validation.App` 下执行 5 项测试通过。
+  实际文件保护属性、重读、旧修订拒绝、损坏保留、真实写权限失败和拆分／删除清理均通过；没有 WebView 参与规则执行。
+  初次一体化 test 启动错宿主、未执行测试，显式 xctestrun 纠正后通过；随后原生提交顺序补强并再次通过。
+- PASS_CLEANUP：本轮独立 QA 包已删除，模拟器已关闭；个人 mobile.26 留给用户使用，未更新或卸载。
+- NOT_IMPLEMENTED：LocalMediaLibrary 持有与完整目录衔接、人工关系匹配保护、队列／锁屏名称更新、原编辑 UI 接线。
+- NOT_RUN：新功能 UI／真实曲库端到端、实际锁屏文件可读性、物理 iPad、大曲库和长期性能。
+
+证据：`.mobile-test-results/entities-canonical-{unit,typecheck,sync}.log`、`entities-native-fixed.xcresult`、
+`entities-device-final.xcresult`、`entities-device-final-build.log` 和 `entities-device-cleanup.json`。
+完整移植保持 IN_PROGRESS；独立存储测试不是实体编辑成品验收。
+
 ## mobile.26：M3U 歌单文件（当前已安装开发候选）
 
 2026-10-12，准确源码 `4b6d81ad6e7dc575c36cbe19ccdeee73c6e77233`。

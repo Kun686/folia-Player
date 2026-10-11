@@ -1,5 +1,8 @@
 # Folia iPhone / iPad 实现与安装
 
+实体编辑的共享规则和原生原子存储已完成独立实现，尚未接入个人 App 的界面、匹配和队列，
+详见 [LOCAL_ENTITIES.md](LOCAL_ENTITIES.md)。个人已安装候选仍为下述 mobile.26。
+
 后续源码补齐本地歌单／收藏，复用原业务规则、已安装 Dexie 和原生歌曲身份；
 94 项逻辑、72 项 WebKit 和 3 项原生模拟器测试通过，见 [LOCAL_PLAYLISTS.md](LOCAL_PLAYLISTS.md)。
 mobile.26 已加入手机 M3U 文件流程，28 项逻辑、33 项独立 WebKit、3 项原生模拟器测试通过；
