@@ -1,7 +1,8 @@
 # 真实服务与真机验收表
 
-后续开发源码接入 M3U 导入／系统分享，28 项逻辑、33 项独立 WebKit、3 项原生模拟器测试通过；
-实际系统文件交互和手机验收尚未执行，见 [LOCAL_PLAYLIST_FILES.md](LOCAL_PLAYLIST_FILES.md)。
+mobile.26 接入 M3U 导入／系统分享，28 项逻辑、33 项独立 WebKit、3 项原生模拟器测试通过；
+最终 iPad 模拟器已实际完成系统分享存储、文件选择、导入及终止重启恢复。使用合成音频和旧本机 ID 引用，
+不代表跨设备文件或手机新功能验收，见 [LOCAL_PLAYLIST_FILES.md](LOCAL_PLAYLIST_FILES.md)。
 
 后续源码补齐本地歌单／收藏，94 项逻辑、72 项 WebKit、3 项原生模拟器测试通过；
 新功能真机仍 NOT_RUN，范围与存储保护见 [LOCAL_PLAYLISTS.md](LOCAL_PLAYLISTS.md)。
@@ -28,10 +29,15 @@
 mobile.21 的 1 分钟锁屏定时暂停及手动继续获用户确认；未区分具体音源，
 逐平台定时矩阵、其他时长和物理 iPad 保持 NOT_RUN。
 
-当前已安装候选为 0.7.16-mobile.25（build25），2026-10-12 已原位更新、启动并回读构建号。
-准确源码 `12f83db4f9ead5fa7c9d5c5888f7073d8092f1ec` 的 CI、签名、资源和 IPA 核验通过；
-iPad 模拟器完成歌单新建、添加／收藏、终止重启恢复及歌单范围播放，横竖屏检查见 VALIDATION.md。
+当前已安装候选为 0.7.16-mobile.26（build26），2026-10-12 已原位更新、启动并回读构建号。
+准确源码 `4b6d81ad6e7dc575c36cbe19ccdeee73c6e77233` 的 CI、签名、资源和 IPA 核验通过；
+iPad 模拟器系统 M3U 分享／选择及重启恢复证据见 VALIDATION.md，mobile.25 安装包保留。
 本版手机登录／在线播放没有复测，本地新功能真机 NOT_RUN；物理 iPad 和长期验收未覆盖。
+
+此前 mobile.25 的证据：
+准确源码 `12f83db4f9ead5fa7c9d5c5888f7073d8092f1ec` 的 CI、签名、资源和 IPA 核验通过，已原位安装；
+iPad 模拟器完成歌单新建、添加／收藏、终止重启恢复及歌单范围播放，横竖屏检查见 VALIDATION.md。
+当时手机登录／在线播放没有复测，本地新功能真机 NOT_RUN；物理 iPad 和长期验收未覆盖。
 
 此前 mobile.24 的证据：
 准确源码、签名、资源与 IPA、CI 通过；最终 iPad 模拟器已实际操作本地分类、搜索、播放及队列范围。

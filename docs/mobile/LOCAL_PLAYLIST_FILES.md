@@ -35,7 +35,13 @@
   写入失败保留／重试，另含上一版歌单／收藏回归。使用真实 File API 和 IndexedDB；原生接口为 fixture。
 - 3 项 iPadOS26.5 原生 XCTest 通过：M3U UTF-8／allowlist／路径／大小校验，原歌词与 ZIP 拒绝非法输入。
   `.mobile-test-results/m3u-native.xcresult`；此项不证明系统文件选择或分享交互。
-- 最终构建、系统文件选择／分享操作、安装和真机反馈须分别追加到 [VALIDATION.md](VALIDATION.md)。
+- M3U／歌词分享 WebKit 回归 21 项通过，与上述 27 项中 15 项重叠，合计 33 项独立用例。
+- 最终 mobile.26 签名 iPad 模拟器实际完成系统分享「存储到文件」、选中 M3U8、匹配 1 首、导入，
+  终止重启后歌单仍在。样本为历史合成音频，因缺原文件名使用已提示的本机 ID 回导；原文件名分支是自动测试证据。
+  实际保存文件 100 字节，UTF-8／CRLF 与歌单一致；临时分享文件已清理，保存的用户文件保留。
+- mobile.26 的前端同步、模拟器／iPhone Release 签名构建、源码／资源／IPA 核验及准确源码 CI 通过，
+  已于 2026-10-12 原位安装个人 iPhone XS Max / iOS18.7.10、启动并回读 build26。
+  本版手机新功能与在线回归仍为 NOT_RUN；证据与安装包摘要见 [VALIDATION.md](VALIDATION.md)。
 
 2 MB／10,000 条以上文件、GBK 等旧编码、大曲库性能、物理 iPad 尚未验收。
 完整文件夹管理、稳定曲库实体编辑、完整 Automix 和其余原桌面工具仍未交付。

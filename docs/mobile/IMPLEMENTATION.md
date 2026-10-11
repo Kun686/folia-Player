@@ -2,8 +2,9 @@
 
 后续源码补齐本地歌单／收藏，复用原业务规则、已安装 Dexie 和原生歌曲身份；
 94 项逻辑、72 项 WebKit 和 3 项原生模拟器测试通过，见 [LOCAL_PLAYLISTS.md](LOCAL_PLAYLISTS.md)。
-后续源码已加入手机 M3U 文件流程，28 项逻辑、33 项独立 WebKit、3 项原生模拟器测试通过，
-实际系统分享与选择器待验，见 [LOCAL_PLAYLIST_FILES.md](LOCAL_PLAYLIST_FILES.md)。稳定实体编辑与完整 Automix 仍未交付。
+mobile.26 已加入手机 M3U 文件流程，28 项逻辑、33 项独立 WebKit、3 项原生模拟器测试通过；
+iPad 模拟器实际完成系统分享保存、选择文件、导入及重启恢复，手机新功能仍待验收，
+见 [LOCAL_PLAYLIST_FILES.md](LOCAL_PLAYLIST_FILES.md)。稳定实体编辑与完整 Automix 仍未交付。
 
 2026-10-12 后续源码已接通原版四档音质偏好与原生播放地址请求，保留当前播放、缓存优先及原平台回退规则。
 123 项逻辑／provider、9 项 WebKit、11 项 iPhone QA 自动测试通过；已汇入 mobile.21，真实平台音质仍待验证，
@@ -22,7 +23,13 @@
 另修复切歌后旧歌词文件选择结果提交的竞态。17 项逻辑、78 项 WebKit 回归及 15 项补充导入专项通过，
 专项包含重复回归；详情及尚缺的实体编辑、歌单能力见 [LOCAL_BROWSING.md](LOCAL_BROWSING.md)。
 
-当前交付是 **0.7.16-mobile.25 开发候选**，支持 iOS/iPadOS 17+。
+当前交付是 **0.7.16-mobile.26 开发候选**，支持 iOS/iPadOS 17+。
+准确源码 `4b6d81ad6e7dc575c36cbe19ccdeee73c6e77233`；2026-10-12 原位更新个人 iPhone，启动并回读 build26。
+3,026 项源码输入、120 项资源、签名／IPA、准确源码 CI 通过；iPad 模拟器实际完成 M3U 系统分享、
+文件选择、导入与终止重启恢复。本版手机在线回归和本地新功能仍 NOT_RUN；mobile.25 原包保留。
+完整移植仍 IN_PROGRESS，详见 [VALIDATION.md](VALIDATION.md)。
+
+此前 **mobile.25** 的证据：
 准确源码 `12f83db4f9ead5fa7c9d5c5888f7073d8092f1ec`；2026-10-12 原位更新个人 iPhone，启动并回读 build25。
 3,020 项源码输入、120 项资源、签名／IPA、准确源码 CI 通过；iPad 模拟器实际完成歌单／收藏写入、
 终止重启恢复与歌单范围播放。本版手机在线回归和本地新功能仍 NOT_RUN；mobile.24 原包保留，
@@ -90,7 +97,7 @@ mobile.17自动回归及iPad实际模拟器操作通过；iPhone模拟器部分�
 服务器配置不再是使用 App 的前提。真实平台与真机完整验收尚未完成，不能作为已验收安装包发布。
 
 历史 mobile.12 已原位安装并启动于 iPhone XS Max / iOS18.7.10，其源码提交及安装包摘要见
-VALIDATION.md；BUILD_RECORD.json 现描述 mobile.24；mobile.23 及更早安装包保留用于回退。
+VALIDATION.md；BUILD_RECORD.json 现描述 mobile.26；mobile.25 及更早安装包保留用于回退。
 新增包含原歌词时间校准、GBK／KRC 导入、内嵌／导入歌词来源管理、本地完整匹配及 Partita 长词适配。
 本轮 142 项移动逻辑与 17 项 iPhone 原生专项通过；界面结果沿用各功能阶段证据，
 不代表真实平台 App 链路、全部原生动画表现或长期真机验收已完成。

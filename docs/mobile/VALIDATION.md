@@ -1,17 +1,37 @@
 # 移动候选验证记录
 
-## M3U 歌单文件：mobile.26 开发源码
+## mobile.26：M3U 歌单文件（当前已安装开发候选）
 
-2026-10-12。原版 M3U 解析／匹配／序列化接入移动导入与系统分享，详见 [LOCAL_PLAYLIST_FILES.md](LOCAL_PLAYLIST_FILES.md)。
+2026-10-12，准确源码 `4b6d81ad6e7dc575c36cbe19ccdeee73c6e77233`。
+原版 M3U 解析／匹配／序列化接入移动导入与系统分享，详见 [LOCAL_PLAYLIST_FILES.md](LOCAL_PLAYLIST_FILES.md)。
 
 - PASS：TypeScript、28 项相关逻辑；导入事务按最新完整原生目录匹配，失败不留下半成品歌单。
 - PASS：27 项 M3U／歌单 WebKit，以及之后 21 项 M3U／歌词导出 WebKit（15 项重叠，合计 33 项独立用例）。
   覆盖文件读取、预览、同名跳过、回导、取消、写入／分享失败重试；手机／iPad／窄窗口均覆盖。
 - PASS_NATIVE_SIMULATOR：iPadOS26.5 独立验证包，3 项 XCTest，M3U 输入校验与原歌词／ZIP 校验回归。
-- 个人手机当前仍为 mobile.25；实际系统分享／文件选择、mobile.26 安装和物理设备反馈尚未执行。
-  自动测试不代替这些证据。结果位于 `.mobile-test-results/m3u-*`。
+- PASS_SIMULATOR_INTERACTION：最终 iPad Pro 11-inch M5 / iPadOS26.5 容器实际导出 `Playlist QA.m3u8`，
+  经系统分享保存到「我的 iPad → Folia」，再从系统文件选择器选中、预览匹配 1 首、改名 `M3U QA` 并导入。
+  终止并重新启动 App 后，歌单仍含「Folia 验收音 1」。样本为已有合成 WAV，旧导入缺原文件名，
+  此操作验证的是明确提示后的本机 ID 回导；原文件名匹配分支由自动测试覆盖，不代表跨设备文件验收。
+  实际保存文件为 100 字节 UTF-8／CRLF，SHA256 `6148aedab39fb113206cb61a5e2e0b92c6f97bc3b5958fc38886ffcc9a574c9c`；
+  分享临时目录无残留文件，用户保存的 M3U8 保留。
+- PASS_BUILD：`npm run ios:sync`、Simulator Release 本地签名和 iPhone Release 开发签名构建。
+- PASS_PACKAGE：3,026 项源码输入冻结，120 项资源与同步目录、签名 App 一致；IPA 逐文件、
+  开发签名／profile／设备绑定核验通过。源码指纹 `94c56d2ba0bb7db2d7056cac7bdb4416d8c788f50ebb197164cfa607d926e84c`。
+- PASS_CI：[准确源码 Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38167120378)。
+- PASS_INSTALL：iPhone XS Max / iOS18.7.10 原位更新 `app.folia.personal`，启动成功并回读 `bundleVersion: 26`。
+  首次读回校验误将 marketing version 当作 build 号，修正检查字段后通过；没有重装、卸载或修改 App。
+- 交付：`移动端交付/Folia-0.7.16-mobile.26-94c56d2b-development.ipa`，7,955,834 字节，
+  SHA256 `c9cecc42d2676df43abdc1954a09bf279bf658221e847833433f81bff19f2303`。
+  比 mobile.25 增加 3,719 字节；mobile.25 原包保留且摘要未变，没有歌单数据库版本迁移。
+- NOT_RUN：本版 iPhone 登录／在线播放复测、本地新功能真机使用、物理 iPad、大曲库及完整长期／性能矩阵。
+  mobile.24 的用户在线播放反馈保留为历史证据；手机暂无本地歌曲，不要求重复确认无样本的项目。
 
-## mobile.25：本地歌单与收藏（当前已安装开发候选）
+证据：`.mobile-test-results/m3u-*`、`mobile26-*`，含文件选择、预览、导入、重启恢复截图及文件内容核验。
+本轮模拟器已关闭，个人 iPhone App 留给用户使用。完整文件夹管理、稳定曲库实体编辑、
+完整 Automix 和其余原桌面工具仍未交付，完整移植保持 IN_PROGRESS。
+
+## mobile.25：本地歌单与收藏（历史候选）
 
 2026-10-12，准确源码 `12f83db4f9ead5fa7c9d5c5888f7073d8092f1ec`。
 复用原歌单服务，新增移动存储和触摸操作，详见 [LOCAL_PLAYLISTS.md](LOCAL_PLAYLISTS.md)。
