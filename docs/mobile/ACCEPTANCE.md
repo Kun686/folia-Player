@@ -4,8 +4,8 @@
 mobile.17已按用户要求改为全屏画布；mobile.18加入磨砂和空白轻点隐藏／唤回，mobile.19进一步半透明并修正背景跟随。
 用户对mobile.19回复“先这样吧”，当前外观按此保留；不视为完整旋转、材质及性能矩阵通过。
 mobile.20汇集多标签歌词、独立翻译与FLAC／SYLT适配，格式专项和签名／资源／IPA验证见VALIDATION.md；
-升级后的真实账户、播放及新格式界面操作仍待反馈。
-独立Automix候选因htdemucs／ORT算子兼容性阻塞，尚未加入App，见VALIDATION.md。
+用户已确认升级后“两平台登录保留，播放正常”；新格式界面操作仍待验收。
+独立Automix候选1.30.0已解除旧DFT阻塞，完成Mac及iPhone原模型单样本推理；完整功能尚未加入App，见VALIDATION.md。
 mobile.13 用户确认两平台登录保留、播放正常、导出可用；在线歌曲导入 `.fia`／`.lrc` 时文件被置灰，
 mobile.14 已修复且用户确认两种文件可选择、导入显示正常。mobile.15 批量 ZIP 用户提供清单并确认回导显示正常，
 分别记为 PASS_USER_CONFIRMED；文件字节与每首歌词未独立检查。
@@ -55,6 +55,7 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | 网易云真实登录、歌单、声音、歌词、拖动和切歌 | PASS（用户真机反馈） | mobile.12；用户确认这些操作正常，未验证歌单完整性和精确歌词误差 |
 | 网易云 30 分钟锁屏与自动跨曲 | NOT_RUN | 用户明确反馈「应该没什么问题 没有长时间测试」，不以推测判定通过 |
 | QQ／网易云同一队列手动切换 | PASS（用户真机反馈） | 用户确认来回切换正常，声音、歌名和歌词对应；不等于后台自动跨平台切换 |
+| mobile.20 原位升级后登录与播放 | PASS_USER_CONFIRMED | 用户反馈“两平台登录保留，播放正常”；不自动复核历史锁屏、全部交互及新内嵌格式 |
 | 锁屏／控制中心控制及前台同步 | PASS（用户真机反馈） | 暂停、继续、上一首、下一首、拖动和回 App 状态同步；未区分锁屏与控制中心具体使用面，不包括物理耳机或蓝牙 |
 | 不配置服务器进入曲库 | PASS | 浏览器样本及 iPad 模拟器实际启动 |
 | 系统文件选择器多选音频并导入 | PASS | iPad Pro 11-inch (M5) / iPadOS 26.5 Simulator，4 个明确标注的合成 WAV |
@@ -81,7 +82,7 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | 本地导入／内嵌歌词来源切换 | PASS（自动测试、iPad 模拟器短测及 iPhone 原生专项）；真机界面操作 NOT_RUN | 独立正文、标签迁移、来源恢复、失败保留；历史基线与后续专项分别记录。多标签和独立翻译已随mobile.20安装，见 LOCAL_LYRIC_SOURCES.md、EMBEDDED_METADATA.md |
 | FLAC／SYLT 内嵌歌词和独立翻译 | PASS（源码逻辑、实际文件原生专项）；真机选择器／显示 NOT_RUN | 43项逻辑、iOS26.5修正前41项原生、iOS18.7.10修正后10项专项；同一10个实际音频样本与桌面结果对照，系统无Vorbis标签仍读取文件。已随mobile.20安装；不代表Ogg导入或全部编码，见 EMBEDDED_FORMATS.md |
 | 本地歌曲完整匹配与元数据／封面选择 | PASS（自动测试及 iPhone 原生专项）；真实平台 NOT_RUN | 原完整弹窗与共享规则；iPhone 测试覆盖实际播放期间保存、并发／删除／过期拒绝和后台歌词。HTTPS 阻塞已解除，但尚未执行真实在线候选保存；iPad 历史短测仅覆盖导入与「不使用在线数据」，见 LOCAL_MATCH.md |
-| 完整 Automix | BLOCKED（固定运行库兼容性）；未接入 | 原Beat This!合成样本与Node参考输出相等；Apple ORT1.24.2无法加载原htdemucs。未改模型、未新增App依赖；见AUTOMIX_RUNTIME_DECISION.md |
+| 完整 Automix | IN_PROGRESS；尚未接入 | 新官方Apple1.30.0已解除DFT阻塞；独立iPhone两原模型各3次推理及参考对照通过，分轨峰值约1.03GiB。完整窗口／播放器争用及长期性能待测；未改模型、未新增个人App依赖；见AUTOMIX_RUNTIME_130.md |
 | 其余桌面编辑工具／AI | NOT_IMPLEMENTED | 仍待移植，完整移植目标未完成 |
 
 音频格式由AudioStreaming、系统AudioToolbox及获批的Ogg／Vorbis决定；Ogg目前不支持拖动。

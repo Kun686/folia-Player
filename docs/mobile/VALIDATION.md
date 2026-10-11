@@ -1,5 +1,19 @@
 # 移动候选验证记录
 
+## Automix：DFT兼容性定位与新版候选（2026-10-11）
+
+- PASS（固定样本、Mac）：用户单独批准的官方Apple1.30.0产物已校验；两个原模型均加载成功，
+  输出与已安装Node1.30.0参考逐字节相等。旧1.24.2的DFT规则失败在新候选解除，模型未修改。
+- RESOURCE_CONCERN：默认memory pattern使第二次分轨峰值footprint达约1.85GiB。
+  关闭该公开选项后，同输入8次运行峰值约1.17GiB，最后输出保持一致；不是完整窗口或长期测试。
+- PASS（独立真机样本）：iPhone XS Max／iOS18.7.10，两个模型各连续3次推理，0次内存警告；
+  分轨峰值约1.03GiB、拍点约650MiB，释放后分别约13.5MB／11.8MB。
+  分轨对Mac参考maxAbs约1.49e-7；拍点浮点结果存在小差异，但原后处理的61拍点与小节线数组完全一致。
+- PASS（独立取消／恢复）：Mac及iPhone均取消实际Run后复用同一Session／RunOptions连续推理3次；
+  真机恢复输出与未取消真机输出逐字节相等，0次内存警告。独立QA已移除，个人包仍为build20。
+- NOT_RUN：完整分轨窗口拼接、真实音乐质量、播放器／动画争用、后台调度和长期温升／内存；
+  完整Automix尚未接入，个人App仍为mobile.20。固定依赖、数字、命令和证据见[AUTOMIX_RUNTIME_130.md](AUTOMIX_RUNTIME_130.md)。
+
 ## mobile.20：内嵌歌词格式与翻译（当前开发候选）
 
 2026-10-11 已原位安装并启动于 iPhone XS Max／iOS18.7.10，设备回读 build20。
@@ -18,7 +32,8 @@
   比保留的 mobile.19 IPA 增加 67,316 字节；不是运行内存或未压缩安装体积的测量。
 - 个人 App 未卸载；原位更新成功后回读 `app.folia.personal`／build20，并经 devicectl 启动。
   mobile.19 回退包摘要未变；BUILD_RECORD 已更新到本次准确构建源码。
-- NOT_RUN／待反馈：本版本更新后的真实账户和播放、FLAC／SYLT 文件选择器与歌词界面、物理 iPad、
+- PASS_USER_CONFIRMED：用户在本版更新后反馈“两平台登录保留，播放正常”；未独立采集真实歌曲事件。
+- NOT_RUN：FLAC／SYLT 文件选择器与歌词界面、物理 iPad、
   其余完整真机及性能矩阵。安装与启动不替代这些验收。完整移植保持 IN_PROGRESS。
 
 证据：`.mobile-test-results/mobile20-*`；私人交付目录含 IPA、源码清单和版本说明。

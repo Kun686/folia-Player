@@ -31,7 +31,10 @@ mobile.17自动回归及iPad实际模拟器操作通过；iPhone模拟器部分�
 最终29项界面回归通过、7项明确跳过；原生Safari冷暖背景对照通过。用户回复“先这样吧”，当前外观按此保留；
 该反馈不等于全部动态材质、旋转或长期性能验收。
 测试次数、分阶段修正和桌面已知预期失败见 [VALIDATION.md](VALIDATION.md)，布局见 [FULLSCREEN_LAYOUT.md](FULLSCREEN_LAYOUT.md)。
-包含旧缓存身份随歌曲读取恢复。独立Automix推理验证遇到htdemucs／ORT兼容性阻塞，详见[AUTOMIX_RUNTIME_DECISION.md](AUTOMIX_RUNTIME_DECISION.md)。
+包含旧缓存身份随歌曲读取恢复。独立Automix旧候选1.24.2的htdemucs兼容性失败见[AUTOMIX_RUNTIME_DECISION.md](AUTOMIX_RUNTIME_DECISION.md)。
+用户单独批准的官方Apple1.30.0已解除该失败，并完成Mac／iPhone两原模型单样本推理和参考对照；
+分轨真机峰值约1.03GiB，完整窗口、播放器争用及长期性能待测，尚未接入个人App。
+详见[AUTOMIX_RUNTIME_130.md](AUTOMIX_RUNTIME_130.md)。
 按用户最新要求优先移植原播放器、歌词和动效，同时支持本地导入与网易云／QQ。
 服务器配置不再是使用 App 的前提。真实平台与真机完整验收尚未完成，不能作为已验收安装包发布。
 
@@ -65,7 +68,8 @@ mobile.19 之后的开发源码已补齐本地多 USLT／iTunes 歌词择优、�
 上述两阶段已汇入 mobile.20，2026-10-11 原位安装并启动，个人 iPhone 回读 build20。
 准确源码 `9f87ef458f01cf54e0b82ec090daea68b5c8e54d`；2,975 项源码输入、120 项生成资源、签名和 IPA 逐文件核验通过，
 [准确源码 CI](https://github.com/Kun686/folia-Player/actions/runs/38144231076) PASS。
-界面保留 mobile.19；该版本升级后的真实账户与播放反馈待确认，不能将成功启动计作功能验收。
+界面保留 mobile.19；用户已确认 mobile.20 升级后“两平台登录保留，播放正常”。
+该反馈记为本版用户实测，不扩展为新歌词格式、后台完整矩阵或性能验收。
 
 此前附加音效开发见 [EFFECT_PARITY.md](EFFECT_PARITY.md)：DSP、组合链、线程交接和tap共32项测试通过；
 组合阶段Debug全部70项、Release相关8项回归通过，随后实际tap接线9项通过。
