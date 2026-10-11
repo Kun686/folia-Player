@@ -1,3 +1,4 @@
+import type { LocalMatchDocument } from '../../types/localSongMatch';
 import type { LocalSongLyrics } from './localSongLyricsSelection';
 import { resolveExplicitFileTimedLyricFormat } from './formatDetection';
 
@@ -6,11 +7,13 @@ export interface LocalLyricSnapshot {
     content?: string;
     fileName?: string;
     embeddedContent?: string;
-    lyricsSource?: 'local' | 'embedded';
+    lyricsSource?: 'local' | 'embedded' | 'online';
+    matched?: LocalMatchDocument;
     token: string;
 }
 export function localLyricsFromSnapshot(snapshot: LocalLyricSnapshot): LocalSongLyrics {
     return {
+        matchedLyrics: snapshot.matched?.matchedLyrics, matchedIsPureMusic: snapshot.matched?.matchedIsPureMusic,
         hasLocalLyrics: Boolean(snapshot.content), localLyricsContent: snapshot.content,
         localLyricsFormat: resolveExplicitFileTimedLyricFormat(snapshot.fileName),
         hasEmbeddedLyrics: Boolean(snapshot.embeddedContent), embeddedLyricsContent: snapshot.embeddedContent,

@@ -1,9 +1,10 @@
+import { applyMatchedSongFields, type MatchedLocalMetadata } from '../utils/localMatchedMetadata';
+export type { MatchedLocalMetadata } from '../utils/localMatchedMetadata';
 import type { LocalSong } from '../types';
 import type {
   LocalLibraryAssignment,
   LocalLibraryAssignmentOrigin,
   LocalLibraryEntity,
-  LocalSongMetadataSource,
 } from '../types/localLibrary';
 import { buildLocalLibraryIndex, followEntityRedirect } from '../utils/localLibraryIndex';
 import {
@@ -30,15 +31,6 @@ export {
   splitEntity,
 } from './localLibraryEntityMutations';
 
-export interface MatchedLocalMetadata {
-  source?: LocalSongMetadataSource;
-  title?: string;
-  artists?: Array<{ id?: number | string; name: string }>;
-  album?: { id?: number | string; name: string };
-  songId?: number | string;
-  coverUrl?: string;
-}
-
 export const applyMatchedMetadata = async (
   songId: string,
   metadata: MatchedLocalMetadata,
@@ -55,23 +47,8 @@ export const applyMatchedMetadata = async (
     async () => {
       const song = await appDatabase.local_music.get(songId);
       if (!song) return undefined;
-      const updatedSong: LocalSong = { ...song, ...options.songPatch };
       const assignmentOrigin = options.assignmentOrigin || 'auto-match';
-      if (metadata.source) {
-        updatedSong.onlineMetadata = {
-          source: metadata.source,
-          songId: metadata.songId,
-          albumId: metadata.album?.id,
-          title: cleanLocalLibraryName(metadata.title),
-          artists: metadata.artists?.filter(artist => cleanLocalLibraryName(artist.name)) || [],
-          album: cleanLocalLibraryName(metadata.album?.name)
-            ? { id: metadata.album?.id, name: cleanLocalLibraryName(metadata.album?.name)! }
-            : undefined,
-          coverUrl: metadata.coverUrl,
-          matchMode: assignmentOrigin === 'manual-match' ? 'manual' : 'auto',
-          matchedAt: Date.now(),
-        };
-      }
+      const updatedSong = applyMatchedSongFields({ ...song, ...options.songPatch }, metadata, options.lyricsOnly, assignmentOrigin);
       if (!options.lyricsOnly) {
         const entities = await appDatabase.local_library_entities.toArray();
         const current = await appDatabase.local_library_assignments.get(songId);
@@ -88,10 +65,6 @@ export const applyMatchedMetadata = async (
         const albumId = albumName
           ? resolveEntityNames(entities, 'album', [albumName], current?.albumEntityId ? [current.albumEntityId] : [])[0]
           : current?.albumEntityId;
-        if (metadata.title?.trim()) {
-          updatedSong.title = metadata.title.trim();
-          updatedSong.titleOrigin = assignmentOrigin;
-        }
         await Promise.all([
           appDatabase.local_library_entities.bulkPut(entities),
           appDatabase.local_library_assignments.put({

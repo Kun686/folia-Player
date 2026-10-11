@@ -15,6 +15,7 @@ interface LyricPreviewPanelProps {
     source: LyricMatchSource;
     isDaylight: boolean;
     currentTime?: MotionValue<number>;
+    fetchLyrics?: typeof fetchLyricsForMatchSource;
 }
 
 type RemoteLyricDisplay = {
@@ -63,6 +64,7 @@ export const LyricPreviewPanel: React.FC<LyricPreviewPanelProps> = ({
     source,
     isDaylight,
     currentTime,
+    fetchLyrics = fetchLyricsForMatchSource,
 }) => {
     const { t } = useTranslation();
     const [isLoading, setIsLoading] = useState(false);
@@ -123,7 +125,7 @@ export const LyricPreviewPanel: React.FC<LyricPreviewPanelProps> = ({
             setIsLoading(true);
             setError(null);
             try {
-                const processed = await fetchLyricsForMatchSource(source, selectedResult);
+                const processed = await fetchLyrics(source, selectedResult);
                 if (isCancelled) return;
 
                 if (isCancelled) return;
@@ -161,7 +163,7 @@ export const LyricPreviewPanel: React.FC<LyricPreviewPanelProps> = ({
         return () => {
             isCancelled = true;
         };
-    }, [selectedResult?.id, source, retryTrigger, t]);
+    }, [selectedResult?.id, source, retryTrigger, t, fetchLyrics]);
 
     /**
      * 测量并记录滚动参数，计算各个字符/单词的中点，防范 text-center 下的溢出截断

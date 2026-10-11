@@ -10,6 +10,7 @@ actor LocalMediaLibrary {
         var embeddedScanned: Bool? = nil
         var lyricsSource: String? = nil
         var contentIsEmbedded: Bool? = nil
+        var matchJSON: String? = nil
     }
     let root: URL
     var lyricEditTokens: [String: String] = [:]
@@ -29,7 +30,8 @@ actor LocalMediaLibrary {
             .filter { Self.validID($0.lastPathComponent) }
             .compactMap { url -> [String: Any]? in
                 guard let data = try? Data(contentsOf: url.appendingPathComponent("song.json")) else { return nil }
-                return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+                guard let base = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+                return (try? displayedSong(url.lastPathComponent, base: base)) ?? base
             }.sorted { ($0["name"] as? String ?? "").localizedStandardCompare($1["name"] as? String ?? "") == .orderedAscending }
     }
     func resolve(_ id: String) throws -> URL {
@@ -76,7 +78,7 @@ actor LocalMediaLibrary {
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         let values = try url.resourceValues(forKeys: [.fileSizeKey, .isSymbolicLinkKey])
         // JSON escaping can expand each 2MB UTF-8 payload sixfold. Legacy text keeps its original limit.
-        let limit = hasDocument ? 24_300_000 : 2_000_000
+        let limit = hasDocument ? 37_000_000 : 2_000_000
         guard values.isSymbolicLink != true, let size = values.fileSize, size <= limit else { throw MobileFailure("lyrics-too-large") }
         let data = try Data(contentsOf: url)
         guard data.count <= limit else { throw MobileFailure("lyrics-too-large") }
@@ -87,8 +89,8 @@ actor LocalMediaLibrary {
             source = LyricSource(content: text, fileName: nil)
         }
         guard source.content.utf8.count <= 2_000_000, (source.embeddedContent?.utf8.count ?? 0) <= 2_000_000,
-              (source.fileName?.utf8.count ?? 0) <= 1024,
-              source.lyricsSource == nil || ["local", "embedded"].contains(source.lyricsSource!) else { throw MobileFailure("invalid-lyrics") }
+              (source.fileName?.utf8.count ?? 0) <= 1024, (source.matchJSON?.utf8.count ?? 0) <= 3_000_000,
+              source.lyricsSource == nil || ["local", "embedded", "online"].contains(source.lyricsSource!) else { throw MobileFailure("invalid-lyrics") }
         return source
     }
     func details(_ id: String) throws -> [String: Any] {
@@ -145,7 +147,7 @@ actor LocalMediaLibrary {
             let title = await string(.commonKeyTitle) ?? source.deletingPathExtension().lastPathComponent
             let artist = await string(.commonKeyArtist) ?? ""
             let album = await string(.commonKeyAlbumName) ?? ""
-            var song: [String: Any] = ["id": id, "name": String(title.prefix(512)),
+            var song: [String: Any] = ["importedFileName": String(source.lastPathComponent.prefix(1024)), "id": id, "name": String(title.prefix(512)),
                 "artists": [["id": "", "name": String(artist.prefix(256))]], "album": ["id": "", "name": String(album.prefix(512))],
                 "durationMs": duration * 1000, "sourceRef": ["kind": "local", "mediaId": id]]
             if let art = metadata.first(where: { $0.commonKey == .commonKeyArtwork }),

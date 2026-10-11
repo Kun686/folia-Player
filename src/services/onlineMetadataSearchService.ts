@@ -1,3 +1,4 @@
+import type { LocalSongMatchTarget } from '../types/localSongMatch';
 import type { LocalSong, LyricProviderSource, SongResult } from '../types';
 import type { LocalSongMetadataSource } from '../types/localLibrary';
 import { getOnlineMusicProvider } from './onlineMusic/providerRegistry';
@@ -40,7 +41,7 @@ export interface OnlineMetadataCandidate {
 
 const stripAudioExtension = (fileName: string) => fileName.replace(/\.(mp3|flac|m4a|wav|ogg|opus|aac)$/i, '');
 
-export const buildLocalSongMetadataSearchTarget = (song: LocalSong): OnlineMetadataSearchTarget => ({
+export const buildLocalSongMetadataSearchTarget = (song: LocalSongMatchTarget): OnlineMetadataSearchTarget => ({
     title: song.title || stripAudioExtension(song.fileName),
     artist: song.titleOrigin === 'import'
         ? song.importedMetadata.artistNames.join(', ')

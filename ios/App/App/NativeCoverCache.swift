@@ -34,7 +34,12 @@ actor NativeCoverCache {
     func cover(_ song: [String: Any], local: LocalMediaLibrary, allowNetwork: Bool = true) async throws -> Data? {
         try Task.checkCancellation()
         guard let identity = NativeProfileIdentity(song) else { throw MobileFailure("invalid-cover-identity") }
-        if let id = identity.localID { return try await local.cover(id) }
+        if let id = identity.localID {
+            if let matched = try await local.onlineCoverSong(id),
+               let data = try? await cover(matched, local: local, allowNetwork: allowNetwork) { return data }
+            try Task.checkCancellation()
+            return try await local.cover(id)
+        }
         let destination = path(identity)
         if let data = cached(destination) { return data }
         guard allowNetwork else { return nil }

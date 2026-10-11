@@ -100,6 +100,8 @@ export async function searchQQLyrics(keyword: string, page = 1, pageSize = 20): 
       };
     });
   } catch (error) {
+    // Native callers must distinguish a failed gateway/provider request from an empty search.
+    if (getMobileRuntime()) throw error;
     console.error('[QQMusic] Search failed:', error);
     return [];
   }

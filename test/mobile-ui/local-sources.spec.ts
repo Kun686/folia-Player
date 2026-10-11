@@ -10,7 +10,8 @@ test('local and embedded sources switch independently and a fresh import selects
     await page.goto('/mobile.html');
     await page.getByRole('button', { name: '导入音乐', exact: true }).click();
     await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
-    await page.getByRole('button', { name: '歌词与动效', exact: true }).click();
+    await expect(page.getByRole('region', { name: '播放', exact: true }).getByRole('heading', { name: '本地测试音乐', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '歌词与动效', exact: true }).tap();
     await page.getByLabel('歌词动画', { exact: true }).selectOption('still');
     await page.locator('.visual-settings > header').getByRole('button', { name: '关闭', exact: true }).click();
     await page.evaluate(() => (window as any).fixtureEmitPlayback({ playing: false, position: 1 }));

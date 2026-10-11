@@ -1,3 +1,4 @@
+import type { LocalMatchDocument, LocalMatchSnapshot } from '../types/localSongMatch';
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 import type { SongResult, ReplayGainMode, LyricData, OnlineLyricsState } from '../types';
 import type { AudioEqualizerSettings } from '../utils/audioEqualizer';
@@ -22,8 +23,11 @@ export interface NativeAudioSettings { volume: number; isMuted: boolean; equaliz
 export interface NativeTransitionSettings { enabled: boolean; mode: 'crossfade' | 'automix'; crossfadeMaxSec: number }
 export type PlaybackEvent = Omit<PlaybackSnapshot, 'queue' | 'currentSong'> & Partial<Pick<PlaybackSnapshot, 'queue' | 'currentSong'>>;
 export interface FoliaNativePlugin {
+  readLocalMatch(options: { id: string }): Promise<LocalMatchSnapshot>;
+  writeLocalMatch(options: { id: string; token: string; document: LocalMatchDocument; source: 'local' | 'embedded' | 'online' | null; cacheCover: boolean }): Promise<{ coverCached: boolean }>;
+  addListener(name: 'localCatalog', listener: () => void): Promise<PluginListenerHandle>;
   readLocalLyrics(options: { id: string }): Promise<LocalLyricSnapshot>;
-  selectLocalLyrics(options: { id: string; token: string; source: 'local' | 'embedded' }): Promise<LocalLyricSnapshot>;
+  selectLocalLyrics(options: { id: string; token: string; source: 'local' | 'embedded' | 'online' }): Promise<LocalLyricSnapshot>;
   readLyricCache(options: { song: SongResult }): Promise<{ token: string; payload: { lyrics?: LyricData | null; state?: OnlineLyricsState | null } }>;
   writeLyricCache(options: { song: SongResult; token: string; field: 'lyrics' | 'state'; value: LyricData | OnlineLyricsState | null }): Promise<void>;
   lyricCacheState(): Promise<{ bytes: number; count: number }>;

@@ -9,9 +9,11 @@ export function useLocalCatalog() {
   const [error, setError] = useState('');
   useEffect(() => {
     let active = true;
-    if (isNative) void native.localCatalog().then(value => { if (active) setSongs(value.songs); })
+    const refresh = () => native.localCatalog().then(value => { if (active) setSongs(value.songs); })
       .catch(() => { if (active) setError('local-library-unavailable'); });
-    return () => { active = false; };
+    const listener = isNative ? native.addListener('localCatalog', () => { void refresh(); }) : undefined;
+    if (isNative) void refresh();
+    return () => { active = false; void listener?.then(handle => handle.remove()).catch(() => undefined); };
   }, []);
   const importAudio = async () => {
     setBusy(true); setError('');

@@ -17,11 +17,12 @@ extension LocalMediaLibrary {
         if let token = lyricEditTokens[id] { return token }
         let token = UUID().uuidString; lyricEditTokens[id] = token; return token
     }
-    private func lyricSnapshot(_ record: LyricSource, id: String) -> [String: Any] {
+    func lyricSnapshot(_ record: LyricSource, id: String) -> [String: Any] {
         var result: [String: Any] = ["content": record.contentIsEmbedded == true ? "" : record.content, "token": lyricToken(id)]
         if let name = record.fileName { result["fileName"] = name }
         if let text = record.embeddedContent { result["embeddedContent"] = text }
         if let source = record.lyricsSource { result["lyricsSource"] = source }
+        if let match = record.matchJSON, let data = match.data(using: .utf8) { result["matched"] = try? JSONSerialization.jsonObject(with: data) }
         return result
     }
     // Legacy lyrics.txt has no provenance. Only an exact match to the retained audio tag is classified as embedded.
@@ -55,16 +56,21 @@ extension LocalMediaLibrary {
     func writeLyricSources(_ record: LyricSource, id: String) throws {
         _ = try resolve(id)
         let data = try JSONEncoder().encode(record)
-        guard data.count <= 24_300_000 else { throw MobileFailure("lyrics-too-large") }
+        guard data.count <= 37_000_000 else { throw MobileFailure("lyrics-too-large") }
         try data.write(to: directory(id).appendingPathComponent("lyrics.json"),
             options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
     func selectLyricSource(_ source: String, id: String, token: String) async throws -> [String: Any] {
-        guard ["local", "embedded"].contains(source) else { throw MobileFailure("invalid-lyrics-source") }
+        guard ["local", "embedded", "online"].contains(source) else { throw MobileFailure("invalid-lyrics-source") }
         _ = try await readLyricSources(id)
         guard lyricToken(id) == token, var record = try lyricSource(id) else { throw MobileFailure("local-lyrics-changed") }
-        let available = source == "local" ? (record.contentIsEmbedded == true ? "" : record.content) : record.embeddedContent ?? ""
-        guard !available.isEmpty else { throw MobileFailure("lyrics-source-unavailable") }
+        if source == "online" {
+            let match = try matchDocument(record)
+            guard match?["matchedLyrics"] is [String: Any] || match?["matchedIsPureMusic"] as? Bool == true else { throw MobileFailure("lyrics-source-unavailable") }
+        } else {
+            let available = source == "local" ? (record.contentIsEmbedded == true ? "" : record.content) : record.embeddedContent ?? ""
+            guard !available.isEmpty else { throw MobileFailure("lyrics-source-unavailable") }
+        }
         record.lyricsSource = source
         try Task.checkCancellation()
         try writeLyricSources(record, id: id)

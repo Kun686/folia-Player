@@ -9,6 +9,7 @@ import { parseQqSongDetail } from './qqNormalize';
 
 // nativeLyricRuntime.ts — provider adapter for the independent native host. UI callers keep using Omni.
 export { parseJSON, sourcesJSON, protocolVersion } from '../../utils/lyrics/nativeLocalRuntime';
+export { localMatchJSON } from '../../utils/lyrics/nativeLocalMatchRuntime';
 export { cacheJSON } from '../../utils/lyrics/nativeCacheRuntime';
 function fail(code = 'invalid-lyric-response'): never { throw new Error(code); }
 type Reply = { status: number; body: string };

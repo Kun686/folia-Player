@@ -12,6 +12,7 @@ export const test = base.extend<{ nativeBridge: void }>({
     win.CapacitorCustomPlatform = { name: 'ios' };
     let subscriber: (state: unknown) => void;
     let cacheSubscriber: () => void;
+    let catalogSubscriber: () => void;
     win.fixtureCache = { settings: { enabled: false, limitGB: 5 }, count: 0, bytes: 0, pending: 0, revision: 0, error: null, songs: [] };
     win.fixtureCovers = { bytes: 1048576, count: 1 };
     // This fixture selects provider lyrics; optional cross-provider matching has separate logical coverage.
@@ -35,12 +36,12 @@ export const test = base.extend<{ nativeBridge: void }>({
     const emit = () => { state.revision++; subscriber?.({ ...state }); };
     win.fixtureEmitPlayback = (patch: Record<string, unknown>) => { Object.assign(state, patch); emit(); };
     const methods = ['bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR',
-      'localCatalog', 'importAudio', 'localDetails', 'readLocalLyrics', 'selectLocalLyrics', 'importLyrics', 'pickLyricFile', 'saveLocalLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
+      'localCatalog', 'importAudio', 'localDetails', 'readLocalLyrics', 'readLocalMatch', 'writeLocalMatch', 'selectLocalLyrics', 'importLyrics', 'pickLyricFile', 'saveLocalLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
       'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache'];
     win.Capacitor = {
       PluginHeaders: [{ name: 'FoliaNative', methods: [...methods.map(name => ({ name, rtype: 'promise' })), { name: 'addListener' }, { name: 'removeListener' }] }],
       nativeCallback: (_plugin: string, method: string, options: any, cb: (state: unknown) => void) => {
-        if (method === 'addListener') { if (options.eventName === 'mediaCache') cacheSubscriber = cb as () => void; else subscriber = cb; } return 'callback-1';
+        if (method === 'addListener') { if (options.eventName === 'mediaCache') cacheSubscriber = cb as () => void; else if (options.eventName === 'localCatalog') catalogSubscriber = cb as () => void; else if (options.eventName === 'playback') subscriber = cb; } return 'callback-1';
       },
       nativePromise: async (_plugin: string, method: string, options: any) => {
         if (method === 'readLyricCache') return { token: lyricToken, payload: structuredClone(lyricCache[JSON.stringify(options.song.sourceRef)] || {}) };
@@ -92,6 +93,27 @@ export const test = base.extend<{ nativeBridge: void }>({
             sourceRef: { kind: 'local', mediaId: '00000000-0000-4000-8000-00000000000' + i } }))] : [localSong];
           return { songs: localSongs, failures: [] };
         }
+        if (method === 'readLocalMatch') return {
+          base: structuredClone(localSong), fileName: 'original.m4a',
+          lyrics: { token: 'local-token', ...(win.fixtureLocalLyric || { content: lyric }) },
+          document: win.fixtureMatchDocument,
+          embeddedCover: win.fixtureEmbeddedCover,
+        };
+        if (method === 'writeLocalMatch') {
+          if (win.fixtureLocalSaveFailure) throw new Error('disk-full');
+          win.fixtureMatchWrites = (win.fixtureMatchWrites || 0) + 1;
+          win.fixtureMatchDocument = structuredClone(options.document);
+          win.fixtureLocalLyric = { ...(win.fixtureLocalLyric || { content: lyric }), matched: options.document,
+            lyricsSource: options.source ?? undefined };
+          const doc = options.document;
+          const saved = { ...localSong, name: doc.title, artists: doc.artistNames.map((name: string) => ({ id: '', name })),
+            album: { id: '', name: doc.albumName || '', ...(doc.useOnlineCover ? { coverUrl: doc.onlineMetadata?.coverUrl } : {}) } };
+          localSongs = localSongs.map(x => x.id === options.id ? saved : x);
+          state.queue = state.queue.map(x => x.id === options.id ? saved : x);
+          if (state.currentSong?.id === options.id) state.currentSong = saved;
+          state.queueRevision++; emit(); catalogSubscriber?.();
+          return { coverCached: true };
+        }
         if (method === 'localDetails' || method === 'readLocalLyrics') {
           if (win.fixtureLocalLyricDelay) await new Promise<void>(resolve => { (win.fixturePendingLocalLyrics ??= []).push(resolve); });
           return { token: 'local-token', ...(win.fixtureLocalLyric || { content: lyric }) };
@@ -141,6 +163,7 @@ export const test = base.extend<{ nativeBridge: void }>({
         if (path === 'https://u.y.qq.com/cgi-bin/musicu.fcg' && win.fixtureLyricTools) {
           const request = JSON.parse(options.payload.body).request;
           if (request.method === 'DoSearchForQQMusicLite') {
+            if (win.fixtureSearchFailure) throw new Error('configure-server');
             return { status: 200, body: JSON.stringify({ code: 0, request: { code: 0, data: { body: { item_song: [
               { id: 43, mid: 'qq-test', title: 'QQ 匹配候选', singer: [{ id: 1, name: '测试歌手' }], album: { id: 1, name: '样本专辑' }, interval: 180 },
             ] } } } }), headers: {} };
@@ -155,12 +178,13 @@ export const test = base.extend<{ nativeBridge: void }>({
         else if (path.startsWith('/login/status')) body = { code: 200, data: { code: 200, profile } };
         else if (path.startsWith('/user/account')) body = { code: 200, profile, account: cookie ? { id: 9 } : null };
         else if (path.startsWith('/user/playlist')) body = { code: 200, playlist: [{ id: 8, name: '测试歌单', trackCount: 1, creator: { userId: 9 } }], more: false };
-        else if (path.startsWith('/cloudsearch')) body = path.includes('fail') ? { code: 500 } : { code: 200, result: { songs: [song], songCount: 1 } };
+        else if (path.startsWith('/cloudsearch')) body = path.includes('fail') ? { code: 500 } : { code: 200, result: { songs: [{ ...song, al: { ...song.al, ...(win.fixtureMatchCover ? { picUrl: win.fixtureMatchCover } : {}) } }], songCount: 1 } };
         else if (path.startsWith('/playlist/track/all')) body = { code: 200, songs: [song] };
         else if (path.startsWith('/playlist/detail')) body = { code: 200, playlist: { id: 8, name: '测试歌单', tracks: [song], trackIds: [{ id: 42 }], trackCount: 1 } };
         else if (path.startsWith('/lyric')) {
           win.fixtureLyricRequests = (win.fixtureLyricRequests || 0) + 1;
           if (win.fixtureOfflineLyrics) throw new Error('offline');
+          if (win.fixtureLyricDelay) await new Promise<void>(resolve => { (win.fixturePendingLyrics ??= []).push(resolve); });
           body = { code: 200, lrc: { lyric: '[00:00.00]测试歌词\n[00:10.00]第二句' } };
         }
         return { status: 200, body: JSON.stringify(body), headers: { 'content-type': 'application/json' } };

@@ -1,3 +1,6 @@
+import type { MotionValue } from 'framer-motion';
+import LocalMatchDialog from './LocalMatchDialog';
+import { getLyricProviderLabel } from '../utils/lyrics/lyricSourceLabels';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { native } from './bridge';
@@ -7,10 +10,11 @@ import { localLyricsFromSnapshot, type LocalLyricSnapshot } from '../utils/lyric
 import { selectLocalSongLyricsSource } from '../utils/lyrics/localSongLyricsSelection';
 
 // LocalLyricTools.tsx — original source controls backed by atomic native snapshots, scoped to one mounted song.
-export default function LocalLyricTools({ id, light, onDone }: { id: string; light: boolean; onDone(): void }) {
+export default function LocalLyricTools({ id, light, time, onDone }: { id: string; light: boolean; time?: MotionValue<number>; onDone(): void }) {
     const { t } = useTranslation();
     const [snapshot, setSnapshot] = useState<LocalLyricSnapshot>();
     const [error, setError] = useState(false), [busy, setBusy] = useState(false), [retry, setRetry] = useState(0);
+    const [matching, setMatching] = useState(false);
     const active = useRef(false), locked = useRef(false);
     useEffect(() => {
         let mounted = true; active.current = true; setError(false);
@@ -27,15 +31,17 @@ export default function LocalLyricTools({ id, light, onDone }: { id: string; lig
     };
     const song = snapshot && localLyricsFromSnapshot(snapshot);
     const sources = [
+        ...(snapshot?.matched?.matchedLyrics || snapshot?.matched?.matchedIsPureMusic ? [{ key: 'online' as const, label: getLyricProviderLabel(snapshot?.matched?.matchedLyricsSource ?? 'netease', snapshot?.matched?.matchedLyricsProviderPlatform) }] : []),
         ...(song?.hasLocalLyrics ? [{ key: 'local' as const, label: t('localMusic.statusLocal') }] : []),
         ...(song?.hasEmbeddedLyrics ? [{ key: 'embedded' as const, label: t('localMusic.statusEmbedded') }] : []),
     ];
+    if (matching) return <LocalMatchDialog key={id} id={id} light={light} time={time} close={() => setMatching(false)} done={onDone} />;
     return <div className="mobile-local-lyrics">
         <fieldset disabled={!snapshot || busy}>
             <legend>{t('localMusic.lyricsSource')}</legend>
             <LocalLyricSourceSelector sources={sources} active={song ? selectLocalSongLyricsSource(song, 'local') : null}
                 isDaylight={light} onChange={source => {
-                    if (!snapshot || source === 'online') return;
+                    if (!snapshot) return;
                     void run(async () => {
                         await native.selectLocalLyrics({ id, token: snapshot.token, source });
                         return true;
@@ -43,6 +49,7 @@ export default function LocalLyricTools({ id, light, onDone }: { id: string; lig
                 }} />
             {snapshot?.fileName && <p className="muted">{snapshot.fileName}</p>}
             <button onClick={() => void run(() => importMobileLocalLyrics(id, () => active.current))}>{t('mobile.importLyrics')}</button>
+            <button onClick={() => setMatching(true)}>{t('localMusic.matchOnline')}</button>
         </fieldset>
         {(!snapshot && !error || busy) && <p role="status">{t('localMusic.loadingLyrics')}</p>}
         {error && <p role="alert">{t('mobile.lyricEditError')}</p>}

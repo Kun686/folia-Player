@@ -13,7 +13,7 @@ import { selectLocalSongLyricsSource } from './localSongLyricsSelection';
 if (typeof globalThis.Buffer === 'undefined') globalThis.Buffer = Buffer;
 export const protocolVersion = 1;
 export function sourcesJSON(text: string): string {
-    if (typeof text !== 'string' || text.length > 24_300_000) throw new Error('invalid-local-lyrics');
+    if (typeof text !== 'string' || text.length > 37_000_000) throw new Error('invalid-local-lyrics');
     const raw = JSON.parse(text);
     if (raw?.version !== 1 || !raw.snapshot) throw new Error('invalid-local-lyrics');
     const snapshot = raw.snapshot;
@@ -21,9 +21,10 @@ export function sourcesJSON(text: string): string {
         if (snapshot[key] !== undefined && (typeof snapshot[key] !== 'string' || snapshot[key].length > 2_000_000)) throw new Error('invalid-local-lyrics');
     }
     if (snapshot.fileName !== undefined && (typeof snapshot.fileName !== 'string' || snapshot.fileName.length > 1024)) throw new Error('invalid-local-lyrics');
-    if (snapshot.lyricsSource !== undefined && !['local', 'embedded'].includes(snapshot.lyricsSource)) throw new Error('invalid-local-lyrics');
+    if (snapshot.lyricsSource !== undefined && !['local', 'embedded', 'online'].includes(snapshot.lyricsSource)) throw new Error('invalid-local-lyrics');
     const song = localLyricsFromSnapshot(snapshot), source = selectLocalSongLyricsSource(song, 'local');
     if (source === 'local') return parseJSON(JSON.stringify({ version: 1, content: snapshot.content, fileName: snapshot.fileName }));
+    if (source === 'online') return plannerLinesJSON(song.matchedLyrics ?? null);
     if (source !== 'embedded') return 'null';
     const args = prepareEmbeddedLyrics({ type: 'embedded', textContent: snapshot.embeddedContent });
     return plannerLinesJSON(args ? parseLyricsByFormat(...args) : null);

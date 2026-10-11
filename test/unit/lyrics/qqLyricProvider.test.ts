@@ -1,3 +1,4 @@
+import * as mobileRuntime from '@/services/mobileRuntime';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SongResult } from '@/types';
 import { qrcDecrypt } from '@/utils/lyrics/providers/qrcDecrypt';
@@ -23,6 +24,7 @@ describe('QQ lyric provider', () => {
     afterEach(() => {
         vi.unstubAllGlobals();
         vi.clearAllMocks();
+        vi.restoreAllMocks();
     });
 
     it('fetches and parses QQ romanization anonymously', async () => {
@@ -50,6 +52,19 @@ describe('QQ lyric provider', () => {
         expect(lyricRequestBody.comm).not.toHaveProperty('sid');
         expect(lyricRequestBody.comm).not.toHaveProperty('userip');
         expect(lyricRequestBody.request.param).toMatchObject({ roma: 1, roma_t: 0 });
+    });
+
+    it('surfaces mobile search failures while preserving the existing desktop fallback', async () => {
+        const failure = new Error('configure-server');
+        vi.stubGlobal('fetch', vi.fn().mockRejectedValue(failure));
+        const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        const runtime = vi.spyOn(mobileRuntime, 'getMobileRuntime').mockReturnValue({
+            fetch: vi.fn(), read: () => null, write: () => undefined,
+        });
+        await expect(searchQQLyrics('test')).rejects.toBe(failure);
+        expect(log).not.toHaveBeenCalled();
+        runtime.mockReturnValue(null);
+        await expect(searchQQLyrics('test')).resolves.toEqual([]);
     });
 
     it('keeps QQ lyric searches anonymous', async () => {

@@ -72,7 +72,7 @@ export default function LyricTools({ song, time, lyricTime, lyrics, offsetMs, on
         if (window.confirm(t('mobile.confirmResetLyrics'))) void run(() => resetMobileOnlineLyrics(storage!, song));
       }}>{t('mobile.resetLyrics')}</button>}
     </fieldset> : song.sourceRef?.kind === 'local' && <LocalLyricTools key={song.sourceRef.mediaId}
-      id={song.sourceRef.mediaId} light={light} onDone={dismiss} />}
+      id={song.sourceRef.mediaId} light={light} time={time} onDone={dismiss} />}
     <div className="mobile-lyric-timing">
       <LyricTimelineOffsetControl offsetMs={offsetMs} onOffsetChange={onOffsetChange} isDaylight={light} />
       <button onClick={() => setCalibrating(true)}>{t('options.globalLyricTimelineOffset')}</button>

@@ -1,15 +1,13 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import type { LocalSongMatchTarget, LocalSongMatchStorage, LocalMatchRequests } from '../../types/localSongMatch';
+import type { MotionValue } from 'framer-motion';
+import { useLocalLyricMatch } from '../../hooks/useLocalLyricMatch';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, Loader2, X, Music, Check, FileAudio } from 'lucide-react';
-import { LocalSong, SongResult } from '../../types';
-import { applyLocalSongMatchSelection, resolveLyricMatchMetadataSelection } from '../../services/localSongMatchSelectionService';
-import { buildLocalSongMetadataSearchTarget, normalizeLyricMatchMetadataCandidate } from '../../services/onlineMetadataSearchService';
 import { formatSongName } from '../../utils/songNameFormatter';
 import { calculateMatchScoreDetails } from '../../utils/lyrics/matchScore';
-import { buildLyricSearchQuery } from '../../utils/lyrics/searchQuery';
-import { fetchLyricsForMatchSource, LYRIC_MATCH_SOURCES, searchLyricsByMatchSource } from '../../utils/lyrics/lyricMatchSources';
+import { LYRIC_MATCH_SOURCES } from '../../utils/lyrics/lyricMatchSources';
 import { getLocalCoverAssetUrl } from '../../services/localCoverAssetUrl';
-import { getLocalLibraryAssignment } from '../../services/localLibraryEntityRepository';
 import { getSizedCoverUrl } from '../../utils/coverUrl';
 import {
     getLyricMatchSourceLabel,
@@ -22,16 +20,20 @@ import {
 } from './lyricMatchResultHelpers';
 import { LyricPreviewPanel } from './LyricPreviewPanel';
 import { DurationMatchBadge } from './DurationMatchBadge';
-import { hasRenderableLyrics } from '../../utils/lyrics/validity';
 
 interface LyricMatchModalProps {
-    song: LocalSong;
+    song: LocalSongMatchTarget;
+    storage?: LocalSongMatchStorage;
+    requests?: LocalMatchRequests;
+    sources?: readonly LyricMatchSource[];
+    localCover?: string;
+    currentTime?: MotionValue<number>;
     onClose: () => void;
     onMatch: () => void;
     isDaylight: boolean;
 }
 
-const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatch, isDaylight }) => {
+const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatch, isDaylight, storage, requests, sources = LYRIC_MATCH_SOURCES, localCover, currentTime }) => {
     const { t } = useTranslation();
 
     // Dynamic theme classes
@@ -49,40 +51,12 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
     const dotBase = isDaylight ? 'bg-zinc-300' : 'bg-zinc-600';
     const dotActive = isDaylight ? 'bg-blue-500' : 'bg-blue-400';
 
-    // Search state
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState<SongResult[]>([]);
-    const [isSearching, setIsSearching] = useState(false);
-    const [selectedResult, setSelectedResult] = useState<SongResult | null>(null);
-    const [isMatching, setIsMatching] = useState(false);
-    const searchRequestIdRef = useRef(0);
-
-    const [source, setSource] = useState<LyricMatchSource>('netease');
-
-    // Online data toggle state (dots)
-    const [lyricsSource, setLyricsSource] = useState<'local' | 'embedded' | 'online' | undefined>(song.lyricsSource || 'online');
-    const [useOnlineCover, setUseOnlineCover] = useState(song.useOnlineCover ?? !song.localCoverAssetId);
-    const [useOnlineMetadata, setUseOnlineMetadata] = useState(song.titleOrigin !== 'import');
-
-    // Derive song information for matching
-    const songInfo = useMemo(() => {
-        const title = song.title || song.fileName.replace(/\.(mp3|flac|m4a|wav|ogg|opus|aac)$/i, '');
-        const artist = song.onlineMetadata?.artists.map(item => item.name).join(', ')
-            || song.importedMetadata.artistNames.join(', ');
-        const durationMs = song.duration || 0;
-        const album = song.onlineMetadata?.album?.name || song.importedMetadata.albumName || '';
-        return { title, artist, album, durationMs };
-    }, [song]);
-
-    // Selecting a result defaults lyrics to online while metadata remains an all-or-nothing bundle.
-    useEffect(() => {
-        if (selectedResult) {
-            setLyricsSource('online');
-        }
-    }, [selectedResult]);
+    const { searchQuery, setSearchQuery, searchResults, isSearching, selectedResult, setSelectedResult, isMatching,
+        source, setSource, lyricsSource, setLyricsSource, useOnlineCover, setUseOnlineCover, useOnlineMetadata, setUseOnlineMetadata,
+        songInfo, handleSearch, handleConfirm, handleNoMatch, error } = useLocalLyricMatch(song, sources, onMatch, storage, requests, Boolean(localCover));
 
     const previewCoverUrl = useMemo(() => {
-        const localCoverUrl = getLocalCoverAssetUrl(song.localCoverAssetId, 512);
+        const localCoverUrl = localCover ?? getLocalCoverAssetUrl(song.localCoverAssetId, 512);
         if (!selectedResult) {
             return song.useOnlineCover ? song.onlineMetadata?.coverUrl || localCoverUrl : localCoverUrl;
         } else if (useOnlineCover) {
@@ -90,7 +64,7 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
             return selectedCoverUrl || song.onlineMetadata?.coverUrl || localCoverUrl;
         }
         return localCoverUrl;
-    }, [selectedResult, useOnlineCover, song, source]);
+    }, [selectedResult, useOnlineCover, song, source, localCover]);
 
     // Derive lyrics source label
     const lyricsSourceLabel = useMemo(() => {
@@ -107,128 +81,6 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
         return t('localMusic.statusNone');
     }, [lyricsSource, song, t, source, selectedResult]);
 
-    const runSearch = async (query: string, activeSource: LyricMatchSource) => {
-        const q = query.trim();
-        if (!q) return;
-
-        const requestId = ++searchRequestIdRef.current;
-        setIsSearching(true);
-        setSearchResults([]);
-        setSelectedResult(null);
-
-        try {
-            const results = await searchLyricsByMatchSource(activeSource, q, songInfo);
-            if (requestId !== searchRequestIdRef.current) return;
-
-            setSearchResults(results);
-        } catch (error) {
-            console.error('Search failed:', error);
-        } finally {
-            if (requestId === searchRequestIdRef.current) {
-                setIsSearching(false);
-            }
-        }
-    };
-
-    // Initialize the query only when the target song changes.
-    useEffect(() => {
-        const title = song.title || song.fileName.replace(/\.(mp3|flac|m4a|wav|ogg|opus|aac)$/i, '');
-        const initialQuery = buildLyricSearchQuery(
-            title,
-            song.onlineMetadata?.artists.map(item => item.name).join(', ') || song.importedMetadata.artistNames.join(', '),
-            song.onlineMetadata?.album?.name || song.importedMetadata.albumName || '',
-        );
-        setSearchQuery(initialQuery);
-        void runSearch(initialQuery, source);
-    }, [song]);
-
-    // Source changes should reuse the user's current query instead of resetting it.
-    useEffect(() => {
-        void runSearch(searchQuery, source);
-    }, [source]);
-
-    const handleSearch = async (query?: string) => {
-        await runSearch(query || searchQuery, source);
-    };
-
-    const handleConfirm = async () => {
-        if (!selectedResult) return;
-
-        setIsMatching(true);
-        try {
-            const candidate = normalizeLyricMatchMetadataCandidate(
-                source,
-                selectedResult,
-                buildLocalSongMetadataSearchTarget(song),
-            );
-            const selection = resolveLyricMatchMetadataSelection(source, candidate, { useOnlineMetadata, useOnlineCover });
-            if (selection.metadata === 'online') {
-                const assignment = await getLocalLibraryAssignment(song.id);
-                const protectedOrigins = new Set(['manual', 'split']);
-                const replacesProtectedArtist = Boolean(
-                    candidate.artists.length
-                    && assignment
-                    && protectedOrigins.has(assignment.artistOrigin),
-                );
-                const replacesProtectedAlbum = Boolean(
-                    candidate.album?.name
-                    && assignment
-                    && protectedOrigins.has(assignment.albumOrigin),
-                );
-                if ((replacesProtectedArtist || replacesProtectedAlbum)
-                    && !window.confirm(t('localMusic.replaceProtectedEntityConfirm'))) return;
-            }
-            let processed = null;
-            let lyricsFailed = false;
-            if (lyricsSource === 'online') {
-                try {
-                    processed = await fetchLyricsForMatchSource(source, selectedResult);
-                    lyricsFailed = !processed?.isPureMusic && !hasRenderableLyrics(processed?.lyrics);
-                } catch (error) {
-                    console.warn('[LocalMusic] Lyrics failed while applying metadata selection:', error);
-                    lyricsFailed = true;
-                }
-            }
-            const applied = await applyLocalSongMatchSelection({
-                songId: song.id,
-                ...selection,
-                lyrics: lyricsSource || 'automatic',
-                onlineLyrics: processed?.lyrics ? {
-                    lyrics: processed.lyrics,
-                    songId: selectedResult.id,
-                    source,
-                    providerPlatform: processed.matchedLyricsProviderPlatform,
-                    isPureMusic: processed.isPureMusic,
-                } : undefined,
-                lyricsFailed,
-            });
-            onMatch();
-            if (applied.partialLyricsFailure) alert(t('localMusic.lyricsNotAppliedOtherSaved'));
-            else if (applied.coverAttempted && !applied.coverCached) alert(t('localMusic.coverCacheFailed'));
-        } catch (error) {
-            console.error('Failed to match or save song:', error);
-            alert(t('localMusic.matchFailed'));
-        } finally {
-            setIsMatching(false);
-        }
-    };
-
-    const handleNoMatch = async () => {
-        try {
-            await applyLocalSongMatchSelection({
-                songId: song.id,
-                metadata: 'imported',
-                cover: 'embedded',
-                lyrics: 'automatic',
-                setNoAutoMatch: true,
-            });
-            onMatch(); // Trigger refresh so the change applies
-        } catch (error) {
-            console.error('Failed to save song:', error);
-            alert(t('localMusic.matchFailed'));
-        }
-    };
-
     const canUseOnlineMetadata = sourceProvidesSongMetadata(source);
     const previewsOnlineMetadata = useOnlineMetadata && canUseOnlineMetadata && selectedResult;
     const previewTitle = previewsOnlineMetadata
@@ -243,7 +95,7 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
 
 
     return (
-        <div data-folia-keyboard-window="true" className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xl flex items-center justify-center p-6">
+        <div role="dialog" aria-modal="true" aria-label={t('localMusic.matchLyrics')} data-local-lyric-match data-folia-keyboard-window="true" className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xl flex items-center justify-center p-6">
             <div className={`${bgClass} border rounded-2xl max-w-5xl w-full max-h-[80vh] flex flex-col shadow-2xl backdrop-blur-md`}>
                 {/* Header */}
                 <div className={`px-6 py-4 border-b ${borderColor} flex items-center justify-between`}>
@@ -258,6 +110,7 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
                     </div>
                     <button
                         onClick={onClose}
+                        aria-label={t('localMusic.cancel')}
                         className={`p-2 ${closeBtnHover} rounded-lg transition-colors ${textPrimary}`}
                     >
                         <X size={20} />
@@ -265,13 +118,13 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
                 </div>
 
                 {/* Body: Two-panel layout */}
-                <div className="flex-1 flex min-h-0 overflow-hidden">
+                <div data-match-body className="flex-1 flex min-h-0 overflow-hidden">
                     {/* LEFT PANEL: Search + Results (wider) */}
-                    <div className={`w-[62%] flex flex-col border-r ${borderColor}`}>
+                    <div data-match-results className={`w-[62%] flex flex-col border-r ${borderColor}`}>
                         {/* Search Bar */}
                         <div className="p-4">
                             <div className={`flex border-b ${borderColor} pb-2 mb-3.5 gap-4`}>
-                                {LYRIC_MATCH_SOURCES
+                                {sources
                                     .map(id => ({ id, label: getLyricMatchSourceLabel(id) }))
                                     .map(t => {
                                     const isSelected = source === t.id;
@@ -284,7 +137,9 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
                                         <button
                                             key={t.id}
                                             type="button"
-                                            onClick={() => setSource(t.id as any)}
+                                            disabled={isMatching}
+                                            aria-pressed={source === t.id}
+                                            onClick={() => setSource(t.id)}
                                             className={`pb-2 border-b-2 text-sm transition-all px-1 cursor-pointer ${activeTabClass}`}
                                         >
                                             {t.label}
@@ -303,16 +158,18 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
                                     <Search size={18} className={`opacity-40 ${textSecondary}`} />
                                     <input
                                         type="text"
+                                        disabled={isMatching}
+                                        aria-label={t('localMusic.search')}
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         placeholder={t('localMusic.searchForSong')}
                                         className={`flex-1 bg-transparent outline-none text-sm ${textPrimary}`}
-                                        autoFocus
+                                        autoFocus={!storage}
                                     />
                                 </div>
                                 <button
                                     type="submit"
-                                    disabled={isSearching}
+                                    disabled={isSearching || isMatching}
                                     className={`px-4 rounded-2xl text-sm font-medium transition-colors ${searchBtnBg}`}
                                 >
                                     {isSearching ? <Loader2 size={16} className="animate-spin" /> : t('localMusic.search')}
@@ -343,7 +200,10 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
                                         return (
                                             <div
                                                 key={resultKey}
-                                                onClick={() => setSelectedResult(result)}
+                                                role="button" tabIndex={0} aria-pressed={selectedKey === resultKey}
+                                                aria-label={result.name}
+                                                onKeyDown={event => { if (!isMatching && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setSelectedResult(result); } }}
+                                                onClick={() => { if (!isMatching) setSelectedResult(result); }}
                                                 className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all border ${selectedKey === resultKey
                                                     ? resultItemSelected
                                                     : resultItemBg
@@ -386,7 +246,7 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
                     </div>
 
                     {/* RIGHT PANEL: Centered-style preview with lower-half LyricPreviewPanel */}
-                    <div className="w-[38%] flex flex-col items-center justify-between px-6 py-6 border-l border-white/10 min-h-0 overflow-hidden">
+                    <div data-local-match-preview className="w-[38%] flex flex-col items-center justify-between px-6 py-6 border-l border-white/10 min-h-0 overflow-hidden">
                         {/* Upper section: Cover, Indicators and Info centered (Scrollable when height is constrained) */}
                         <div className="flex flex-col items-center justify-start w-full flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
                             {/* Cover Image */}
@@ -412,7 +272,8 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
                                             setUseOnlineCover(!useOnlineCover);
                                         }
                                     }}
-                                    disabled={!sourceSupportsCover(source, selectedResult)}
+                                    disabled={isMatching || !sourceSupportsCover(source, selectedResult)}
+                                    aria-pressed={useOnlineCover && sourceSupportsCover(source, selectedResult)}
                                     className="flex items-center gap-1.5 group disabled:opacity-40 disabled:cursor-not-allowed"
                                     title={t('localMusic.coverSource')}
                                 >
@@ -423,7 +284,8 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
                                 </button>
                                 <button
                                     onClick={() => setUseOnlineMetadata(!useOnlineMetadata)}
-                                    disabled={!canUseOnlineMetadata}
+                                    disabled={isMatching || !canUseOnlineMetadata}
+                                    aria-pressed={useOnlineMetadata && canUseOnlineMetadata}
                                     className="flex items-center gap-1.5 group disabled:opacity-40 disabled:cursor-not-allowed"
                                     title={t('localMusic.metadataSource')}
                                 >
@@ -433,6 +295,8 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
                                     </span>
                                 </button>
                                 <button
+                                    disabled={isMatching}
+                                    aria-pressed={lyricsSource === 'online'}
                                     onClick={() => setLyricsSource(lyricsSource === 'online' ? undefined : 'online')}
                                     className="flex items-center gap-1.5 group"
                                     title={t('localMusic.lyricsSource')}
@@ -484,15 +348,19 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
                                 selectedResult={selectedResult}
                                 source={source}
                                 isDaylight={isDaylight}
+                                currentTime={currentTime}
+                                fetchLyrics={requests?.fetch}
                             />
                         </div>
                     </div>
                 </div>
 
+                {error && <p role="alert" className="px-6 py-2">{t(error)}</p>}
                 {/* Footer */}
                 <div className={`px-6 py-4 border-t ${borderColor} flex justify-end gap-3`}>
                     <button
                         onClick={handleNoMatch}
+                        disabled={isMatching}
                         className={`px-5 py-2 ${noMatchBtnBg} text-red-400 border rounded-lg transition-colors mr-auto text-sm`}
                     >
                         {t('localMusic.dontUseOnlineMetadata')}
@@ -505,7 +373,7 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
                     </button>
                     <button
                         onClick={handleConfirm}
-                        disabled={!selectedResult || isMatching}
+                        disabled={!selectedResult || isMatching || isSearching}
                         className="px-5 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm text-white"
                     >
                         {isMatching ? (

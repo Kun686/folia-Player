@@ -17,10 +17,16 @@ actor NativeLyricParser {
         guard data.count <= 262144 else { throw MobileFailure("invalid-local-lyrics") }
         return data == Data("null".utf8) ? nil : data
     }
+    func localMatchDocument(_ document: [String: Any]) throws -> String {
+        let input = try JSONSerialization.data(withJSONObject: document)
+        let result = try call("localMatchJSON", input: input, limit: 3_000_000, inputLimit: 8_000_000)
+        guard let text = String(data: result, encoding: .utf8) else { throw MobileFailure("invalid-local-match") }
+        return text
+    }
     func onlineStep(_ input: Data) throws -> Data { try call("stepJSON", input: input, limit: 3_000_000) }
     func localSources(_ snapshot: [String: Any]) throws -> Data? {
         let input = try JSONSerialization.data(withJSONObject: ["version": 1, "snapshot": snapshot])
-        let data = try call("sourcesJSON", input: input, inputLimit: 24_300_000)
+        let data = try call("sourcesJSON", input: input, inputLimit: 37_000_000)
         guard data.count <= 262144 else { throw MobileFailure("invalid-local-lyrics") }
         return data == Data("null".utf8) ? nil : data
     }
