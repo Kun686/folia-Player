@@ -6,10 +6,12 @@ import { MobilePlaylistDatabase, createMobilePlaylistStorage } from './localPlay
 // useLocalPlaylists.ts — shared transactional storage; only the latest read can replace the displayed lists.
 const storage = createMobilePlaylistStorage(new MobilePlaylistDatabase(), async () => (await native.localCatalog({ requireComplete: true })).songs);
 export type PlaylistRequest = { type: 'create' | 'add'; songs: SongResult[] } | { type: 'rename'; playlist: LocalPlaylist };
+export type PlaylistFileRequest = { type: 'import' } | { type: 'export'; playlist: LocalPlaylist };
 export function useLocalPlaylists(songs: SongResult[]) {
   const [lists, setLists] = useState<LocalPlaylist[]>([]), [ready, setReady] = useState(false);
   const [error, setError] = useState(false), [busy, setBusy] = useState(false);
   const [request, setRequest] = useState<PlaylistRequest | null>(null);
+  const [fileRequest, setFileRequest] = useState<PlaylistFileRequest | null>(null);
   const mounted = useRef(false), sequence = useRef(0), locked = useRef(false);
   const refresh = useCallback(async () => {
     const ticket = ++sequence.current;
@@ -33,7 +35,7 @@ export function useLocalPlaylists(songs: SongResult[]) {
   };
   const isFavorite = (song: SongResult) => song.sourceRef?.kind === 'local'
     && Boolean(lists.find(list => list.isFavorite)?.songIds.includes(song.sourceRef.mediaId));
-  return { lists, ready, busy, error, refresh, run, storage, request, setRequest, isFavorite,
+  return { lists, ready, busy, error, refresh, run, storage, request, setRequest, fileRequest, setFileRequest, isFavorite,
     add: (items: SongResult[]) => setRequest({ type: 'add', songs: items.filter(song => song.sourceRef?.kind === 'local') }),
     create: (items: SongResult[] = []) => setRequest({ type: 'create', songs: items.filter(song => song.sourceRef?.kind === 'local') }),
     favorite: (song: SongResult) => run(() => storage.favorite(song, !isFavorite(song))),

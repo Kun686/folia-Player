@@ -13,6 +13,7 @@ import { useLocalBrowser } from './useLocalBrowser';
 import { useLocalPlaylists } from './useLocalPlaylists';
 import LocalPlaylistToolbar from './LocalPlaylistToolbar';
 import LocalPlaylistDialog from './LocalPlaylistDialog';
+import LocalPlaylistFileDialog from './LocalPlaylistFileDialog';
 import LocalSongPlaylistActions from './LocalSongPlaylistActions';
 import LocalCollections, { LocalLibraryNav } from './LocalCollections';
 import { useAppPreferences } from '../hooks/useAppPreferences';
@@ -147,5 +148,6 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       saved={value => { if (value === server) location.reload(); else setServer(value); }} close={() => setSettings(false)} />}
     {login && <LoginSheet provider={provider} refresh={catalog.refresh} close={() => setLogin(false)} />}
     {localPlaylists.request && <LocalPlaylistDialog controller={localPlaylists} request={localPlaylists.request} />}
+    {localPlaylists.fileRequest && <LocalPlaylistFileDialog controller={localPlaylists} request={localPlaylists.fileRequest} songs={local.songs} />}
   </main>;
 }

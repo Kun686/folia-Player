@@ -44,7 +44,7 @@ export const test = base.extend<{ nativeBridge: void }>({
     win.fixtureCommands = [];
     const emit = () => { state.revision++; subscriber?.({ ...state }); };
     win.fixtureEmitPlayback = (patch: Record<string, unknown>) => { Object.assign(state, patch); emit(); };
-    const methods = ['bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile',
+    const methods = ['bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile', 'sharePlaylistFile',
       'localCatalog', 'importAudio', 'localDetails', 'readLocalLyrics', 'readLocalMatch', 'writeLocalMatch', 'selectLocalLyrics', 'importLyrics', 'pickLyricFile', 'saveLocalLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
       'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache', 'listExportLyrics', 'readExportLyrics', 'shareLyricArchive', 'getSleepTimer', 'setSleepTimer'];
     win.Capacitor = {
@@ -85,6 +85,11 @@ export const test = base.extend<{ nativeBridge: void }>({
         if (method === 'shareLyricFile') {
           if (win.fixtureShareFailure) throw new Error('share-failed');
           win.fixtureSharedLyrics = [...(win.fixtureSharedLyrics || []), options];
+          return { completed: !win.fixtureShareCancelled };
+        }
+        if (method === 'sharePlaylistFile') {
+          if (win.fixtureShareFailure) throw new Error('share-failed');
+          win.fixtureSharedPlaylists = [...(win.fixtureSharedPlaylists || []), options];
           return { completed: !win.fixtureShareCancelled };
         }
         if (method === 'copyText') { win.fixtureClipboard = options.text; return {}; }

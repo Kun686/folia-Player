@@ -7,7 +7,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "FoliaNativePlugin"
     public let jsName = "FoliaNative"
     public let pluginMethods: [CAPPluginMethod] = ["bootstrap", "configure", "health", "saveSession", "clearSession",
-        "request", "cancelRequests", "setQueue", "editQueue", "selectQueue", "command", "getState", "shareQR", "copyText", "shareLyricFile",
+        "request", "cancelRequests", "setQueue", "editQueue", "selectQueue", "command", "getState", "shareQR", "copyText", "shareLyricFile", "sharePlaylistFile",
         "localCatalog", "importAudio", "localDetails", "importLyrics", "pickLyricFile", "saveLocalLyrics", "readLocalLyrics", "selectLocalLyrics", "readLocalMatch", "writeLocalMatch", "removeLocal", "audioLevels",
         "getAudioSettings", "setAudioSettings", "getTransitionSettings", "setTransitionSettings", "getMediaCacheSettings", "setMediaCacheSettings",
         "mediaCacheState", "clearMediaCache", "songCover", "coverCacheState", "clearCoverCache",
@@ -282,6 +282,16 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
             if error != nil { call.reject("share-failed") } else { call.resolve() }
         }
         controller.present(share, animated: true)
+    } }
+    @objc func sharePlaylistFile(_ call: CAPPluginCall) { run(call) {
+        guard let fileName = call.getString("fileName"), let content = call.getString("content"),
+              let controller = self.bridge?.viewController else { throw MobileFailure("invalid-playlist-file") }
+        try self.lyricFileShare.presentPlaylist(fileName: fileName, content: content, on: controller) { result in
+            switch result {
+            case .success(let completed): call.resolve(["completed": completed])
+            case .failure: call.reject("share-failed")
+            }
+        }
     } }
 }
 final class FoliaViewController: CAPBridgeViewController {

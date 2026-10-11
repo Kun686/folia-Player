@@ -1,5 +1,8 @@
 # 真实服务与真机验收表
 
+后续开发源码接入 M3U 导入／系统分享，28 项逻辑、33 项独立 WebKit、3 项原生模拟器测试通过；
+实际系统文件交互和手机验收尚未执行，见 [LOCAL_PLAYLIST_FILES.md](LOCAL_PLAYLIST_FILES.md)。
+
 后续源码补齐本地歌单／收藏，94 项逻辑、72 项 WebKit、3 项原生模拟器测试通过；
 新功能真机仍 NOT_RUN，范围与存储保护见 [LOCAL_PLAYLISTS.md](LOCAL_PLAYLISTS.md)。
 

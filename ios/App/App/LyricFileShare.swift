@@ -10,11 +10,18 @@ final class LyricFileShare {
         try? FileManager.default.removeItem(at: root)
     }
 
-    private static func validateName(_ fileName: String, extensions: [String]) throws {
+    private static func validateName(_ fileName: String, extensions: [String], code: String = "invalid-lyric-file") throws {
         guard !fileName.isEmpty, !fileName.hasPrefix("."), fileName.utf8.count <= 255,
               fileName.rangeOfCharacter(from: .controlCharacters) == nil,
               !fileName.contains("/"), !fileName.contains("\\"), !fileName.contains(":"),
-              extensions.contains((fileName as NSString).pathExtension.lowercased()) else { throw MobileFailure("invalid-lyric-file") }
+              extensions.contains((fileName as NSString).pathExtension.lowercased()) else { throw MobileFailure(code) }
+    }
+    static func validatePlaylist(fileName: String, content: String) throws -> Data {
+        try validateName(fileName, extensions: ["m3u8"], code: "invalid-playlist-file")
+        guard content.hasPrefix("#EXTM3U\r\n"), !content.contains("\0"), content.utf8.count <= 2_000_000 else {
+            throw MobileFailure("invalid-playlist-file")
+        }
+        return Data(content.utf8)
     }
     static func validate(fileName: String, content: String) throws -> Data {
         try validateName(fileName, extensions: ["fia", "lrc"])
@@ -62,5 +69,10 @@ final class LyricFileShare {
             completion(error.map { .failure($0) } ?? .success(completed))
         }
         controller.present(share, animated: true)
+    }
+    // M3U uses its own allowlist while sharing the same temporary-file lifetime and busy guard.
+    func presentPlaylist(fileName: String, content: String, on controller: UIViewController,
+                         completion: @escaping (Result<Bool, Error>) -> Void) throws {
+        try present(fileName: fileName, data: Self.validatePlaylist(fileName: fileName, content: content), on: controller, completion: completion)
     }
 }

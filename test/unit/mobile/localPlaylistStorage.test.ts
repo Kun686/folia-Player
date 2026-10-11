@@ -19,6 +19,48 @@ beforeEach(() => {
 afterEach(async () => { vi.restoreAllMocks(); await db.delete(); });
 
 describe('native local playlists', () => {
+  it('imports M3U in order, deduplicates and reports ambiguous/missing/online entries', async () => {
+    songs = [Object.assign(song('a'), { importedFileName: 'One.wav' }),
+      Object.assign(song('b'), { importedFileName: 'Two.wav' }),
+      Object.assign(song('c'), { importedFileName: 'Duplicate.wav' }),
+      Object.assign(song('d'), { importedFileName: 'Duplicate.wav' })];
+    const result = await store.importM3u('Two.wav\nD:\\Music\\One.wav\nTwo.wav\nDuplicate.wav\nmissing.wav\nhttps://example.com/file.mp3', 'Import');
+    expect(result.playlist?.songIds).toEqual(['b', 'a']);
+    expect(result.matchedSongIds).toEqual(['b', 'a']);
+    expect(result.ambiguousPaths).toEqual(['Duplicate.wav']);
+    expect(result.unmatchedPaths).toEqual(['missing.wav', 'https://example.com/file.mp3']);
+    expect((await store.list()).find(list => list.id === result.playlist?.id)?.songIds).toEqual(['b', 'a']);
+  });
+  it('rechecks the current catalog and creates no empty list when all references vanished', async () => {
+    const before = await store.list();
+    songs = [];
+    const result = await store.importM3u('a\nb', 'Deleted since preview');
+    expect(result.playlist).toBeNull();
+    expect(result.unmatchedPaths).toEqual(['a', 'b']);
+    expect(await store.list()).toEqual(before);
+  });
+  it('exports latest metadata/order and roundtrips named tracks while flagging legacy identities', async () => {
+    songs = [Object.assign(song('a'), { importedFileName: '第一首.wav' }), Object.assign(song('b'), { importedFileName: '#Second.wav' }), song('c')];
+    const list = await store.create('Export', [songs[1], songs[0], songs[2]]);
+    await store.rename(list.id, 'Current');
+    const exported = await store.exportM3u(list.id);
+    expect(exported.name).toBe('Current');
+    expect(exported.missingNames).toBe(1);
+    const imported = await store.importM3u(exported.content, 'Restored');
+    expect(imported.playlist?.songIds).toEqual(['b', 'a', 'c']);
+    await store.delete(list.id);
+    await expect(store.exportM3u(list.id)).rejects.toThrow('playlist-missing');
+  });
+  it('failed import rolls back favorites initialization and can be retried once', async () => {
+    const put = db.lists.put.bind(db.lists);
+    const spy = vi.spyOn(db.lists, 'put').mockImplementationOnce(put).mockRejectedValueOnce(new Error('disk-full'));
+    await expect(store.importM3u('a\nb', 'Import')).rejects.toThrow('disk-full');
+    expect(await db.lists.count()).toBe(0);
+    spy.mockRestore();
+    const result = await store.importM3u('a\nb', 'Import');
+    expect(result.playlist?.songIds).toEqual(['a', 'b']);
+    expect(await store.list()).toHaveLength(2);
+  });
   it('creates once, deduplicates native IDs and survives closing/reopening the database', async () => {
     const created = await store.create(' Mix ', [songs[1], songs[0], songs[1]]);
     expect(created.name).toBe('Mix');

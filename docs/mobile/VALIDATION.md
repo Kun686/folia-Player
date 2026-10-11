@@ -1,5 +1,16 @@
 # 移动候选验证记录
 
+## M3U 歌单文件：mobile.26 开发源码
+
+2026-10-12。原版 M3U 解析／匹配／序列化接入移动导入与系统分享，详见 [LOCAL_PLAYLIST_FILES.md](LOCAL_PLAYLIST_FILES.md)。
+
+- PASS：TypeScript、28 项相关逻辑；导入事务按最新完整原生目录匹配，失败不留下半成品歌单。
+- PASS：27 项 M3U／歌单 WebKit，以及之后 21 项 M3U／歌词导出 WebKit（15 项重叠，合计 33 项独立用例）。
+  覆盖文件读取、预览、同名跳过、回导、取消、写入／分享失败重试；手机／iPad／窄窗口均覆盖。
+- PASS_NATIVE_SIMULATOR：iPadOS26.5 独立验证包，3 项 XCTest，M3U 输入校验与原歌词／ZIP 校验回归。
+- 个人手机当前仍为 mobile.25；实际系统分享／文件选择、mobile.26 安装和物理设备反馈尚未执行。
+  自动测试不代替这些证据。结果位于 `.mobile-test-results/m3u-*`。
+
 ## mobile.25：本地歌单与收藏（当前已安装开发候选）
 
 2026-10-12，准确源码 `12f83db4f9ead5fa7c9d5c5888f7073d8092f1ec`。

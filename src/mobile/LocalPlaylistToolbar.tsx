@@ -8,6 +8,8 @@ export default function LocalPlaylistToolbar({ controller, selected }: { control
   const playlist = controller.lists.find(list => list.id === selected?.playlistId);
   return <div className="local-playlist-toolbar">
     <button disabled={!controller.ready || controller.busy} onClick={() => controller.create()}>{t('localMusic.createPlaylist')}</button>
+    <button disabled={!controller.ready || controller.busy} onClick={() => controller.setFileRequest({ type: 'import' })}>{t('localMusic.importPlaylist')}</button>
+    {playlist && <button disabled={controller.busy} onClick={() => controller.setFileRequest({ type: 'export', playlist })}>{t('localMusic.exportPlaylist')}</button>}
     {playlist && !playlist.isFavorite && <>
       <button disabled={controller.busy} onClick={() => controller.setRequest({ type: 'rename', playlist })}>{t('mobile.renamePlaylist')}</button>
       <button disabled={controller.busy} onClick={() => {

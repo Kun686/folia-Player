@@ -148,4 +148,11 @@ describe('localPlaylistFileService', () => {
         expect(output).toContain('LibraryA/Album/01.mp3');
         expect(output).toContain('LibraryB/Album/02.mp3');
     });
+    it('roundtrips filenames beginning with a directive marker or containing newlines as single entries', () => {
+        const songs = [createSong('one', '#Track.wav'), createSong('two', 'line\nbreak.wav')];
+        const playlist: LocalPlaylist = { id: 'list', name: 'Special', songIds: ['one', 'two'], createdAt: 1, updatedAt: 1 };
+        const parsed = parseM3uPlaylist(serializeLocalPlaylistToM3u8(playlist, songs));
+        expect(parsed.paths).toHaveLength(2);
+        expect(matchM3uPathsToLocalSongs(parsed.paths, songs).matchedSongIds).toEqual(['one', 'two']);
+    });
 });

@@ -2,7 +2,8 @@
 
 后续源码补齐本地歌单／收藏，复用原业务规则、已安装 Dexie 和原生歌曲身份；
 94 项逻辑、72 项 WebKit 和 3 项原生模拟器测试通过，见 [LOCAL_PLAYLISTS.md](LOCAL_PLAYLISTS.md)。
-未包含手机 M3U 文件流程、稳定实体编辑或完整 Automix。
+后续源码已加入手机 M3U 文件流程，28 项逻辑、33 项独立 WebKit、3 项原生模拟器测试通过，
+实际系统分享与选择器待验，见 [LOCAL_PLAYLIST_FILES.md](LOCAL_PLAYLIST_FILES.md)。稳定实体编辑与完整 Automix 仍未交付。
 
 2026-10-12 后续源码已接通原版四档音质偏好与原生播放地址请求，保留当前播放、缓存优先及原平台回退规则。
 123 项逻辑／provider、9 项 WebKit、11 项 iPhone QA 自动测试通过；已汇入 mobile.21，真实平台音质仍待验证，

@@ -1,6 +1,8 @@
 import Dexie, { type Table } from 'dexie';
 import type { LocalPlaylist, SongResult } from '../types';
-import { createLocalPlaylistService } from '../services/localPlaylistStore';
+import { createLocalPlaylistService, type LocalPlaylistTransaction } from '../services/localPlaylistStore';
+import { parseM3uPlaylist, serializeLocalPlaylistToM3u8 } from '../services/localPlaylistM3u';
+import { matchM3uPathsToLocalSongs } from '../services/localPlaylistM3uPaths';
 import { projectMobileLocalSongs } from './localSongProjection';
 
 // localPlaylistStorage.ts — user-authored lists are separate from disposable caches; writes share one IndexedDB transaction.
@@ -15,7 +17,7 @@ export class MobilePlaylistDatabase extends Dexie {
 }
 
 export function createMobilePlaylistStorage(database: MobilePlaylistDatabase, catalog: () => Promise<SongResult[]>) {
-  const service = createLocalPlaylistService(work => database.transaction('rw!', database.lists, async () => {
+  const transaction: LocalPlaylistTransaction = work => database.transaction('rw!', database.lists, async () => {
     // Wait for IndexedDB to grant the write lock before starting the native snapshot.
     // A transaction callback can run while another connection still owns that lock.
     await database.lists.get('library');
@@ -40,7 +42,8 @@ export function createMobilePlaylistStorage(database: MobilePlaylistDatabase, ca
           playlists: playlists.map(playlist => ({ ...playlist, songIds: playlist.songIds.filter(id => validIds.has(id)) })) });
       },
     });
-  }));
+  });
+  const service = createLocalPlaylistService(transaction);
   const name = (value: string) => {
     const trimmed = value.trim();
     if (!trimmed || trimmed.length > 256) throw new Error('invalid-playlist-name');
@@ -52,6 +55,24 @@ export function createMobilePlaylistStorage(database: MobilePlaylistDatabase, ca
     return playlist;
   };
   return {
+    importM3u: (text: string, title: string) => transaction(async store => {
+      const songs = await store.songs();
+      const matched = matchM3uPathsToLocalSongs(parseM3uPlaylist(text).paths, songs);
+      const byId = new Map(songs.map(song => [song.id, song]));
+      // Match and commit against this transaction's complete native snapshot, not the preview.
+      const scoped = createLocalPlaylistService(work => work(store));
+      const playlist = matched.matchedSongIds.length ? await scoped.createLocalPlaylist(name(title),
+        matched.matchedSongIds.map(id => byId.get(id)!)) : null;
+      return { ...matched, playlist };
+    }),
+    exportM3u: (id: string) => transaction(async store => {
+      const scoped = createLocalPlaylistService(work => work(store));
+      const playlist = (await scoped.getLocalPlaylists()).find(list => list.id === id);
+      if (!playlist) throw new Error('playlist-missing');
+      const songs = await store.songs();
+      return { name: playlist.name, content: serializeLocalPlaylistToM3u8(playlist, songs),
+        missingNames: songs.filter(song => playlist.songIds.includes(song.id) && song.filePath === song.id).length };
+    }),
     list: service.getLocalPlaylists,
     create: (title: string, songs: SongResult[] = []) => service.createLocalPlaylist(name(title), projectMobileLocalSongs(songs)),
     rename: (id: string, title: string) => {

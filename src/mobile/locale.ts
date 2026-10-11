@@ -1,5 +1,13 @@
 // src/mobile/locale.ts
 export const mobileEn = {
+  playlistTransferError: 'Could not read, import or share the playlist. Please retry.',
+  choosePlaylistFile: 'Choose M3U file', importMatchedSongs: 'Import matched songs', sharePlaylistFile: 'Share M3U8 file',
+  playlistFileHint: 'Playlists contain references, not audio. Import music first. Matching uses original filenames; ambiguous names are skipped. UTF-8 M3U/M3U8, up to 2 MB and 10,000 entries.',
+  playlistFileCounts: 'Matched {{matched}} · Missing {{missing}} · Ambiguous {{ambiguous}}',
+  playlistFileImported: 'Playlist saved. Skipped entries were not added.', playlistFileNoMatches: 'No matching songs remain. No playlist was created.',
+  playlistFileError: 'Could not read this file. Choose a UTF-8 .m3u or .m3u8 file within the size and entry limits.',
+  playlistLegacyNames: '{{count}} older tracks lack original filenames. Their exported identifiers can only match this device.',
+  playlistFileShared: 'Sharing completed.', playlistFileCancelled: 'Sharing cancelled.',
   renamePlaylist: 'Rename playlist', searchPlaylists: 'Search playlists', playlistLocalCount: 'Save {{count}} local tracks',
   playlistError: 'Could not load or save the playlist. Please retry.', confirmDeletePlaylist: 'Delete “{{name}}”? Audio files will remain in your library.',
   favoriteLocal: 'Add to Liked Songs', unfavoriteLocal: 'Remove from Liked Songs', removeFromPlaylist: 'Remove from playlist', moveSongUp: 'Move up', moveSongDown: 'Move down',
@@ -52,6 +60,14 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  playlistTransferError: '读取、导入或分享歌单失败，请重试。',
+  choosePlaylistFile: '选择 M3U 文件', importMatchedSongs: '导入匹配歌曲', sharePlaylistFile: '分享 M3U8 文件',
+  playlistFileHint: '歌单只包含引用，不包含音频。请先导入音乐；按原始文件名匹配，同名且无法区分的歌曲会跳过。支持 UTF-8 M3U／M3U8，最多 2 MB、10,000 条。',
+  playlistFileCounts: '匹配 {{matched}} 首 · 未找到 {{missing}} 条 · 同名歧义 {{ambiguous}} 条',
+  playlistFileImported: '歌单已保存，跳过的条目未加入。', playlistFileNoMatches: '当前已无匹配歌曲，没有创建歌单。',
+  playlistFileError: '无法读取文件，请选择 UTF-8 .m3u／.m3u8 文件，并检查大小和条目数量。',
+  playlistLegacyNames: '{{count}} 首旧歌曲缺少原文件名，导出的编号仅可在本机匹配。',
+  playlistFileShared: '分享已完成。', playlistFileCancelled: '已取消分享。',
   renamePlaylist: '重命名歌单', searchPlaylists: '搜索歌单', playlistLocalCount: '保存 {{count}} 首本地歌曲',
   playlistError: '歌单读取或保存失败，请重试。', confirmDeletePlaylist: '删除“{{name}}”歌单？音频文件会保留在曲库中。',
   favoriteLocal: '加入我喜欢的音乐', unfavoriteLocal: '取消喜欢', removeFromPlaylist: '从歌单移除', moveSongUp: '上移', moveSongDown: '下移',
@@ -104,6 +120,14 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  playlistTransferError: 'Playlist tidak dapat dibaca, diimpor, atau dibagikan. Silakan coba lagi.',
+  choosePlaylistFile: 'Pilih file M3U', importMatchedSongs: 'Impor lagu yang cocok', sharePlaylistFile: 'Bagikan file M3U8',
+  playlistFileHint: 'Playlist berisi referensi, bukan audio. Impor musik terlebih dahulu. Nama file ambigu dilewati. UTF-8 M3U/M3U8, maksimal 2 MB dan 10.000 entri.',
+  playlistFileCounts: 'Cocok {{matched}} · Tidak ditemukan {{missing}} · Ambigu {{ambiguous}}',
+  playlistFileImported: 'Playlist disimpan. Entri yang dilewati tidak ditambahkan.', playlistFileNoMatches: 'Tidak ada lagu yang cocok. Playlist tidak dibuat.',
+  playlistFileError: 'File tidak dapat dibaca. Pilih file UTF-8 .m3u atau .m3u8 sesuai batas ukuran dan entri.',
+  playlistLegacyNames: '{{count}} lagu lama tidak memiliki nama file asli. ID ekspornya hanya cocok di perangkat ini.',
+  playlistFileShared: 'Berbagi selesai.', playlistFileCancelled: 'Berbagi dibatalkan.',
   renamePlaylist: 'Ganti nama playlist', searchPlaylists: 'Cari playlist', playlistLocalCount: 'Simpan {{count}} lagu lokal',
   playlistError: 'Gagal memuat atau menyimpan playlist. Silakan coba lagi.', confirmDeletePlaylist: 'Hapus “{{name}}”? Berkas audio tetap ada di pustaka.',
   favoriteLocal: 'Tambahkan ke lagu favorit', unfavoriteLocal: 'Hapus dari favorit', removeFromPlaylist: 'Hapus dari playlist', moveSongUp: 'Pindah ke atas', moveSongDown: 'Pindah ke bawah',

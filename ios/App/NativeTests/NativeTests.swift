@@ -83,6 +83,18 @@ final class RefreshingAudioGateway: GatewayClient {
         XCTAssertThrowsError(try LyricFileShare.validate(fileName: "song.lrc", content: ""))
         XCTAssertThrowsError(try LyricFileShare.validate(fileName: "song.lrc", content: String(repeating: "歌", count: 5_333_334)))
     }
+    func testPlaylistSharePreservesUTF8AndUsesItsOwnAllowlist() throws {
+        let text = "#EXTM3U\r\n#PLAYLIST:歌单\r\n#EXTINF:12,歌手 - 歌曲\r\n歌曲.wav\r\n"
+        XCTAssertEqual(try LyricFileShare.validatePlaylist(fileName: "歌单.m3u8", content: text), Data(text.utf8))
+        for name in ["../list.m3u8", ".hidden.m3u8", "list.lrc", "list.zip", "a\n.m3u8", "x:y.m3u8",
+                     String(repeating: "歌", count: 84) + ".m3u8"] {
+            XCTAssertThrowsError(try LyricFileShare.validatePlaylist(fileName: name, content: text))
+        }
+        for content in ["", "#EXTM3U\r\n\0", "#EXTM3U\r\n" + String(repeating: "歌", count: 666_667)] {
+            XCTAssertThrowsError(try LyricFileShare.validatePlaylist(fileName: "list.m3u8", content: content))
+        }
+        XCTAssertThrowsError(try LyricFileShare.validate(fileName: "list.m3u8", content: text))
+    }
     func testQueueRequiresPlatformIdentity() {
         let player = engine()
         XCTAssertThrowsError(try player.setQueue([["id": 42]], at: 0))

@@ -41,7 +41,8 @@
 - 已原位安装并启动个人 iPhone、回读 build25；本地新功能的手机验收仍 NOT_RUN。
   `mobile25-playlists-{created,restored,landscape}.png` 和 `mobile25-playlist-queue.png` 保存模拟器观察。
 
-M3U 手机导入／系统分享、曲库稳定实体编辑、文件夹导入／管理仍未接入；不能称为完整本地曲库对齐。
+后续源码已接入 M3U 手机导入／系统分享，见 [LOCAL_PLAYLIST_FILES.md](LOCAL_PLAYLIST_FILES.md)。
+曲库稳定实体编辑、文件夹导入／管理仍未接入；不能称为完整本地曲库对齐。
 大曲库耗时、长期存储保留与实体 iPad 仍为 NOT_RUN。
 
 ## 回退
