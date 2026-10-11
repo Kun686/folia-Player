@@ -89,7 +89,7 @@ private struct TransitionGainReference: Decodable {
         for values in [[Double.nan, 0], [-0.1, 0], [1.1, 0], [1]] {
             XCTAssertThrowsError(try TransitionGainCurve(outgoing: out, incoming: next, out: values, input: values, rate: 44100, seconds: 1))
         }
-        for seconds in [Double.nan, .infinity, 0, -1, 26] {
+        for seconds in [Double.nan, .infinity, 0, -1, 30, (25 / 0.879999).nextUp] {
             XCTAssertThrowsError(try TransitionGainCurve(outgoing: out, incoming: next, out: [1, 0], input: [0, 1], rate: 44100, seconds: seconds))
         }
         let curve = try TransitionGainCurve(outgoing: out, incoming: next, out: [1, 0], input: [0, 1], rate: 44100, seconds: 1)

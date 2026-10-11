@@ -12,7 +12,8 @@ struct TransitionGainCurve {
          seconds: Double, hold: Double = 0, bands: NativeTransitionEnvelope.Bands? = nil,
          echo: NativeEchoSchedule? = nil) throws {
         guard outgoing != incoming, AudioEffectSources.validRate(rate),
-              seconds.isFinite, seconds > 0, seconds <= 25,
+              // A 25-second media window at the original minimum bend lasts longer on the output clock.
+              seconds.isFinite, seconds > 0, seconds <= 25 / 0.879999,
               hold.isFinite, hold >= 0, hold <= 25,
               (2...256).contains(out.count), out.count == input.count,
               out.allSatisfy({ $0.isFinite && (0...1).contains($0) }),

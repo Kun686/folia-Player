@@ -1,7 +1,8 @@
 # 原版 Automix 移植记录
 
 2026-10-11。本文件记录移植过程，已交付安装包以 BUILD_RECORD.json 为准。
-完整 Automix 尚未接入移动播放器。
+原版主混音调度已接入开发源码，见 [MASTER_AUTOMIX.md](MASTER_AUTOMIX.md)。
+完整 Automix 的歌词输入、模型表现手势和前台动画接线仍未完成。
 
 ## 已验证：原规则独立于 WebView 执行
 
@@ -55,13 +56,13 @@
 
 | 部分 | 状态 |
 | --- | --- |
-| 原规划与曲线计算 | PASS；Crossfade 原生队列测试已调用，完整 Automix 尚未接入 |
+| 原规划与曲线计算 | PASS；原生队列已按所选模式调用原规划器；开发源码主混音接线见 MASTER_AUTOMIX.md |
 | 两个解码器汇入同一混音与整体 DSP 输出 | PASS；mobile.8 源码已接入 App 默认原生队列 |
 | 按采样时钟调度原增益曲线 | PASS，执行层、Crossfade 原生队列与原设置已随 mobile.9 安装 |
 | 频带交接 | 开发源码已接入执行层，原 WebKit 数值对照与双解码器测试 PASS；见 TRANSITION_TONE_BALANCE.md |
 | 过渡响度平衡 | 开发源码复用原规则，原生 Crossfade 已接线；见 TRANSITION_TONE_BALANCE.md |
 | 回声执行与双路复用 | 开发源码已接入共享输出；原 WebKit 对照、解码器释放后的尾音、新歌复用 PASS；模拟器 159 项、iPhone 12 项回归通过，完整模式仍未启用，见 TRANSITION_ECHO.md |
-| 伸缩 | 系统执行器、媒体时间标记、EOF 后尾音及重置验证 PASS；共享输出已接可选预热交接，播放项时钟／拖动／结束接线见 [TEMPO_OCCURRENCE.md](TEMPO_OCCURRENCE.md)；默认队列仍未请求变速，完整模式尚未启用 |
+| 伸缩 | 系统执行器、媒体时间标记、EOF 后尾音及重置验证 PASS；播放项生命周期见 [TEMPO_OCCURRENCE.md](TEMPO_OCCURRENCE.md)，开发源码已按 Automix 方案请求实际速率并换算包络，见 MASTER_AUTOMIX.md |
 | 本地 profile 获取与分析缓存 | PASS，原分析无模型分支、原生静音边界接线；已随 mobile.9 安装，见文末 |
 | 在线 profile（关闭媒体缓存时） | 已接入原 1.5MiB 前缀策略；受控传输、分析、真实解码队列及输出已通过，真实平台／CDN 未验收，见文末 |
 | 完整音频媒体缓存与离线播放 | PASS，已随 mobile.10 安装，见 MEDIA_CACHE.md；封面／歌词持久缓存仍待移植 |
@@ -69,7 +70,7 @@
 | Crossfade 队列、暂停、拖动、手动选曲与尾曲清理 | PASS，原生测试及设置接线；默认关闭，已随 mobile.9 安装 |
 | 原开关、模式、时长设置 | PASS，原面板／store／桥接／原生持久化；已随 mobile.9 安装 |
 | 逐路实时分析 | 开发源码已接入，148 项原生回归 PASS；未打新包，见 DECK_ANALYSIS.md |
-| 完整 Automix、动画事件接线 | NOT_IMPLEMENTED |
+| 完整 Automix、动画事件接线 | 原生主混音模式及音频时钟 cue 快照已接线；歌词输入、模型表现手势和前台动画订阅仍待完成 |
 | 真机连续混音、听感、功耗与歌词时序验收 | NOT_RUN |
 
 下一步补完整 Automix、封面／歌词缓存与在线链路验收。mobile.7 每个播放项独立处理音效并输出；mobile.8 已改为共用整体音效和最终音量，

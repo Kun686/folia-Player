@@ -1,11 +1,13 @@
 import { isTransitionMode, planForMode, type TransitionSettings } from './transitionStrategy';
 import type { TransitionPlan, TransitionTrack } from './transitionPlanner';
-import { shapeBlend, type TransitionStyle } from './transitionChooser';
-import { buildBandCurves, buildCrossfadeCurves, dbToGain, planBlendShape } from './signalAnalysis';
+import type { StyledBlend, TransitionStyle } from './transitionChooser';
+import { buildBandCurves, buildCrossfadeCurves, dbToGain } from './signalAnalysis';
 import { TRACK_PROFILE_VERSION } from './trackProfile';
 import { BALANCE_INTERVAL_MS, BALANCE_RAMP_SEC, nextBalanceTrim } from './balanceCorrection';
 import { AUTOMIX_MIN_OVERLAP_SEC } from './transitionPlanner';
 import { echoThrowAt, planEchoThrow } from './echoThrow';
+import { handoverWindow, handoverStretch, handoverPeriod, handoverBeatGrid, waitToGrid, shapeMasterHandover, masterHandoverCue } from './masterHandover';
+import { tempoBendRate } from './tempoBend';
 
 // nativeRuntime.ts — JSON boundary for the original planners, bundled for Apple's JavaScriptCore.
 export const protocolVersion = 1;
@@ -91,20 +93,54 @@ export function envelopeJSON(text: string): string {
     for (const key of ['overlap', 'remaining']) if (!numeric(timing[key]) || (timing[key] as number) < 0) fail();
     if ((timing.overlap as number) > (timing.remaining as number)) fail();
     for (const key of ['outgoingDb', 'nextBeatIn', 'periodSec', 'incomingLeadIn']) if (!optionalNumber(timing[key])) fail();
-    const fade = planBlendShape({ overlap: timing.overlap as number, outgoingDb: timing.outgoingDb as number | null,
+    const { fade, shape } = shapeMasterHandover({ style: plan.style as TransitionStyle, minOverlap: plan.minOverlap as number }, {
+        overlap: timing.overlap as number, outgoingDb: timing.outgoingDb as number | null,
         nextBeatIn: timing.nextBeatIn as number | null, periodSec: timing.periodSec as number | null,
-        minOverlap: plan.minOverlap as number, maxOverlap: timing.remaining as number });
-    const shape = shapeBlend({ style: plan.style as TransitionStyle, room: timing.overlap as number,
-        overlap: fade.overlap, crossover: fade.crossover, nextBeatIn: timing.nextBeatIn as number | null,
-        periodSec: timing.periodSec as number | null, incomingLeadIn: timing.incomingLeadIn as number | null });
-    const gain = buildCrossfadeCurves(shape.crossover, shape.together);
-    const bands = shape.shapeBands ? buildBandCurves({ crossover: shape.crossover, swapBass: true,
-        sweepOut: shape.sweepOut, tiltDb: plan.tiltDb as TransitionPlan['tiltDb'] }) : null;
+        remaining: timing.remaining as number, incomingLeadIn: timing.incomingLeadIn as number | null });
     return JSON.stringify({ ...shape, snappedToBeat: fade.snappedToBeat,
         ...(plan.echoThrow ? { echo: planEchoThrow(echoThrowAt(shape.hold, shape.style, shape.overlap, shape.crossover),
-            timing.periodSec as number | null, 0) } : {}),
-        gain: { out: Array.from(gain.out), in: Array.from(gain.in) },
-        bands: bands ? { out: bands.out.map(row => Array.from(row)), in: bands.in.map(row => Array.from(row)) } : null });
+            timing.periodSec as number | null, 0) } : {}), ...curves(shape, plan.tiltDb as TransitionPlan['tiltDb']) });
+}
+
+function curves(shape: StyledBlend, tiltDb: TransitionPlan['tiltDb']) {
+    const gain = buildCrossfadeCurves(shape.crossover, shape.together);
+    const bands = shape.shapeBands ? buildBandCurves({ crossover: shape.crossover, swapBass: true,
+        sweepOut: shape.sweepOut, tiltDb }) : null;
+    return { gain: { out: Array.from(gain.out), in: Array.from(gain.in) },
+        bands: bands ? { out: bands.out.map(row => Array.from(row)), in: bands.in.map(row => Array.from(row)) } : null };
+}
+
+// A first call asks for the rate; a second uses the rate actually adopted by the system output.
+// nextBeatIn is the live analyser's answer at the projected start, as in automixSession.
+export function masterJSON(text: string): string {
+    const request = read(text), raw = object(request.plan), timing = object(request.timing);
+    if (!['fade', 'hardCut'].includes(raw.kind as string) || !styles.includes(raw.style as TransitionStyle)
+        || !numbers(raw.tiltDb, 2) || typeof raw.echoThrow !== 'boolean') fail();
+    for (const key of ['outStart', 'overlap', 'minOverlap', 'stretch']) {
+        if (!numeric(raw[key]) || (raw[key] as number) < 0) fail();
+    }
+    if ((raw.stretch as number) < 0.88 || (raw.stretch as number) > 1.12) fail();
+    for (const key of ['position', 'tailRate']) if (!numeric(timing[key]) || (timing[key] as number) < 0) fail();
+    if (!(timing.tailRate as number > 0)) fail();
+    for (const key of ['appliedRate', 'outgoingDb', 'periodSec', 'nextBeatIn']) if (!optionalNumber(timing[key])) fail();
+    if (timing.appliedRate !== null && ((timing.appliedRate as number) < 0.879999 || (timing.appliedRate as number) > 1.120001)) fail();
+    if (timing.periodSec !== null && (timing.periodSec as number) <= 0) fail();
+    if (timing.nextBeatIn !== null && (timing.nextBeatIn as number) < 0) fail();
+    const from = track(request.from), to = track(request.to), plan = raw as unknown as TransitionPlan;
+    const { startMedia, remaining, overlap } = handoverWindow(plan, from.duration, timing.position as number);
+    const requestedRate = overlap > 0 ? tempoBendRate(handoverStretch(plan, overlap, false)) : 1;
+    if (overlap <= 0 || timing.appliedRate === null) return JSON.stringify({ requestedRate, mediaOverlap: overlap, envelope: null, cue: null });
+    const applied = timing.appliedRate as number, tailRate = timing.tailRate as number;
+    const periodSec = handoverPeriod(from.profile, timing.periodSec as number | null);
+    const alignHold = Math.max(0, (startMedia - (timing.position as number)) / (tailRate * applied));
+    const nextBeatIn = waitToGrid(handoverBeatGrid(from.profile), startMedia, tailRate * applied) ?? timing.nextBeatIn as number | null;
+    const { fade, shape } = shapeMasterHandover(plan, { overlap, remaining, periodSec, nextBeatIn,
+        outgoingDb: timing.outgoingDb as number | null, incomingLeadIn: to.profile?.leadIn ?? null });
+    const hold = alignHold + shape.hold, wall = shape.overlap / applied;
+    return JSON.stringify({ requestedRate, mediaOverlap: shape.overlap,
+        envelope: { ...shape, hold, overlap: wall, snappedToBeat: fade.snappedToBeat, ...curves(shape, plan.tiltDb),
+            ...(plan.echoThrow ? { echo: planEchoThrow(echoThrowAt(hold, shape.style, wall, shape.crossover), periodSec, 0) } : {}) },
+        cue: masterHandoverCue(hold, wall, shape.crossover, periodSec, applied, shape.style === 'plainBlend') });
 }
 
 export function balanceJSON(text: string): string {

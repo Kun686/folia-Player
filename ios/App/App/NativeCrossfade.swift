@@ -4,7 +4,7 @@ import QuartzCore
 // NativeCrossfade.swift — original crossfade plans on the native identity queue, independent of WebView timers.
 final class NativeCrossfade {
     private struct Key: Equatable {
-        let epoch: Int, queueRevision: Int, profileRevision: Int
+        let epoch: Int, queueRevision: Int, profileRevision: Int, planningSecond: Int
         let outgoing: ObjectIdentifier, incoming: ObjectIdentifier
         let fromDuration: Double, toDuration: Double
     }
@@ -15,6 +15,9 @@ final class NativeCrossfade {
         var cached = false
         let epoch: Int, gainGeneration: UInt64
         let seconds: Double
+        let cue: NativeTransitionCue
+        let hold: Double
+        let style: String
     }
     private weak var owner: PlaybackEngine?
     private let planner = NativeTransitionPlanner()
@@ -25,31 +28,37 @@ final class NativeCrossfade {
     private var revision: UInt64 = 0
     private var key: Key?
     private var plan: NativeTransitionPlan?
+    private var armed = false
+    private var plannedFrom: [String: Any]?, plannedTo: [String: Any]?
     private var fade: Fade?
+    private weak var bending: StreamOccurrence?
+    private(set) var mode = "crossfade"
     private(set) var enabled = false
     private(set) var maximumSeconds = 5.0
     var isFading: Bool { fade != nil }
 
-    init(owner: PlaybackEngine) {
+    init(owner: PlaybackEngine, profiler: NativeTrackProfiler = NativeTrackProfiler()) {
         self.owner = owner
-        profiles = NativeTrackProfiles(local: owner.local, configuration: owner.mediaNetworkConfiguration ?? .ephemeral, mediaCache: owner.mediaCache)
+        profiles = NativeTrackProfiles(local: owner.local, profiler: profiler, configuration: owner.mediaNetworkConfiguration ?? .ephemeral, mediaCache: owner.mediaCache)
         profiles.changed = { [weak self] in self?.tick() }
     }
     deinit { work?.cancel(); release?.cancel(); balance.cancel(); fade?.tail?.dispose() }
 
-    // Only the original crossfade mode is executed here. Full Automix requires its separate measured inputs.
-    func configure(enabled: Bool, maximumSeconds: Double) throws {
-        guard maximumSeconds.isFinite, (1...25).contains(maximumSeconds) else {
+    // Both original planners share this lifecycle; unavailable profiles remain unknown, never fabricated.
+    func configure(enabled: Bool, maximumSeconds: Double, mode: String = "crossfade") throws {
+        guard ["crossfade", "automix"].contains(mode), maximumSeconds.isFinite, (1...25).contains(maximumSeconds) else {
             throw MobileFailure("invalid-transition-settings")
         }
-        guard self.enabled != enabled || self.maximumSeconds != maximumSeconds else { return }
-        self.enabled = enabled; self.maximumSeconds = maximumSeconds
+        guard self.enabled != enabled || self.maximumSeconds != maximumSeconds || self.mode != mode else { return }
+        self.enabled = enabled; self.maximumSeconds = maximumSeconds; self.mode = mode
         owner?.streamOutput?.setAnalysisEnabled(enabled)
         if !enabled { cancel(); owner?.prefetch() } else { invalidatePlan() }
         tick()
     }
     func invalidatePlan() {
         revision &+= 1
+        if let bending { try? bending.requestTempo(rate: 1) }; bending = nil
+        armed = false; plannedFrom = nil; plannedTo = nil
         work?.cancel(); work = nil; release?.cancel(); release = nil; key = nil; plan = nil
     }
     func cancel(preservingAnalysis: Bool = false) {
@@ -101,29 +110,39 @@ final class NativeCrossfade {
         let fromDuration = owner.playbackDuration
         let toDuration = pending.entry.duration > 0 ? pending.entry.duration
             : (owner.queue[pending.index]["durationMs"] as? Double ?? 0) / 1000
+        // Pin the original plan within its one-second arm lead. Replanning just past a bar line
+        // can choose a later bar and postpone a valid handover forever.
+        if let plan, plan.kind == "fade", owner.playbackPosition >= plan.outStart - 1 { armed = true }
         let current = Key(epoch: owner.generation, queueRevision: owner.queueRevision,
-                          profileRevision: profiles.revision,
+                          profileRevision: armed ? (key?.profileRevision ?? profiles.revision) : profiles.revision,
+                          planningSecond: armed ? (key?.planningSecond ?? 0) : (mode == "automix" ? Int(owner.playbackPosition) : 0),
                           outgoing: ObjectIdentifier(outgoing), incoming: ObjectIdentifier(pending.entry),
                           fromDuration: fromDuration, toDuration: toDuration)
         if key != current {
             invalidatePlan(); key = current
-            let position = owner.playbackPosition, maximum = maximumSeconds
+            let position = owner.playbackPosition, maximum = maximumSeconds, selectedMode = mode
             work = Task { @MainActor [weak self] in
                 guard let self else { return }
                 guard !Task.isCancelled, self.matches(current) else { self.discardStale(current); return }
                 do {
+                    let measured = await owner.streamOutput?.deckState(outgoing.audio)
+                    guard !Task.isCancelled, self.matches(current) else { self.discardStale(current); return }
+                    let live = measured.flatMap { state in state.time.flatMap { CACurrentMediaTime() - $0 < 0.25 ? state : nil } }
+                    let fromProfile = self.profiles.value(currentSong), toProfile = self.profiles.value(upcomingSong)
+                    let bpm = fromProfile?["bpm"] as? Double ?? live?.tempo?.bpm
                     let request: [String: Any] = ["version": 1,
-                        "settings": ["mode": "crossfade", "crossfadeMaxSec": maximum, "performance": false],
-                        "from": ["duration": fromDuration, "lines": NSNull(), "profile": self.profiles.value(currentSong) as Any? ?? NSNull()],
-                        "to": ["duration": toDuration, "lines": NSNull(), "profile": self.profiles.value(upcomingSong) as Any? ?? NSNull()],
-                        "bpm": NSNull(), "at": position]
+                        "settings": ["mode": selectedMode, "crossfadeMaxSec": maximum, "performance": false],
+                        "from": ["duration": fromDuration, "lines": NSNull(), "profile": fromProfile as Any? ?? NSNull()],
+                        "to": ["duration": toDuration, "lines": NSNull(), "profile": toProfile as Any? ?? NSNull()],
+                        "bpm": bpm as Any? ?? NSNull(), "at": position]
                     let result = try await self.planner.plan(JSONSerialization.data(withJSONObject: request))
                     guard !Task.isCancelled else { return }
                     guard self.matches(current) else { self.discardStale(current); return }
                     if result.kind == "fade" { try await pending.entry.preparePosition(result.inStart) }
                     guard !Task.isCancelled else { return }
                     guard self.matches(current) else { self.discardStale(current); return }
-                    self.work = nil; self.plan = result; self.tick()
+                    self.work = nil; self.plan = result
+                    self.plannedFrom = fromProfile; self.plannedTo = toProfile; self.tick()
                 } catch { if !Task.isCancelled, self.key == current { self.work = nil } }
             }
             return
@@ -150,7 +169,8 @@ final class NativeCrossfade {
 
     private func matches(_ expected: Key) -> Bool {
         guard let owner, enabled, owner.intentToPlay, owner.outputIsPlaying, key == expected,
-              owner.generation == expected.epoch, owner.queueRevision == expected.queueRevision, profiles.revision == expected.profileRevision,
+              owner.generation == expected.epoch, owner.queueRevision == expected.queueRevision,
+              (armed || profiles.revision == expected.profileRevision),
               let current = owner.stream, let next = owner.preparedStream,
               ObjectIdentifier(current) == expected.outgoing, ObjectIdentifier(next.entry) == expected.incoming,
               owner.nextIndex(automatic: true) == next.index else { return false }
@@ -170,24 +190,18 @@ final class NativeCrossfade {
     // Validate the awaited envelope against queue intent, then hand over ownership without replacing the output graph.
     private func begin(_ plan: NativeTransitionPlan, key expected: Key) {
         guard let owner else { return }
-        let remaining = min(owner.playbackDuration, plan.outStart + plan.overlap) - owner.playbackPosition
-        guard remaining > 0 else { self.plan = nil; return }
+        guard min(owner.playbackDuration, plan.outStart + plan.overlap) > owner.playbackPosition else { self.plan = nil; return }
         work = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                guard let output = self.owner?.streamOutput, let outgoing = self.owner?.stream else { return }
-                let measured = await output.deckState(outgoing.audio)
-                guard !Task.isCancelled else { return }
-                guard self.matches(expected) else { self.discardStale(expected); return }
-                let live = measured.flatMap { value in
-                    value.time.map { CACurrentMediaTime() - $0 < 0.25 ? value : nil } ?? nil
-                }
-                let request: [String: Any] = ["version": 1,
-                    "plan": ["style": plan.style, "minOverlap": plan.minOverlap, "tiltDb": plan.tiltDb, "echoThrow": plan.echoThrow],
-                    "timing": ["overlap": min(plan.overlap, remaining), "remaining": remaining,
-                        "outgoingDb": live?.loudnessDb as Any? ?? NSNull(), "nextBeatIn": live?.nextBeatIn as Any? ?? NSNull(),
-                        "periodSec": live?.tempo?.periodSec as Any? ?? NSNull(), "incomingLeadIn": NSNull()]]
-                let envelope = try await self.planner.envelope(JSONSerialization.data(withJSONObject: request))
+                guard self.matches(expected), let output = self.owner?.streamOutput,
+                      let outgoing = self.owner?.stream else { self.discardStale(expected); return }
+                self.bending = outgoing
+                let handover = try await NativeMasterTransition.prepare(planner: self.planner, plan: plan,
+                    output: output, outgoing: outgoing, duration: owner.playbackDuration,
+                    fromProfile: self.plannedFrom, toProfile: self.plannedTo,
+                    current: { [weak self] in self?.matches(expected) == true })
+                guard let envelope = handover.envelope, let cue = handover.cue else { throw MobileFailure("transition-cancelled") }
                 guard !Task.isCancelled else { return }
                 guard self.matches(expected) else { self.discardStale(expected); return }
                 guard let owner = self.owner,
@@ -215,11 +229,12 @@ final class NativeCrossfade {
                 owner.restoredPosition = pending.entry.position
                 owner.error = nil; owner.retried = false; owner.failures = 0
                 self.fade = Fade(tail: outgoing, tailSong: song, sourceURL: outgoing.sourceURL, epoch: owner.generation,
-                                 gainGeneration: gainGeneration, seconds: envelope.overlap)
+                                 gainGeneration: gainGeneration, seconds: envelope.overlap, cue: cue, hold: envelope.hold, style: envelope.style)
+                self.bending = nil
                 self.balance.start(planner: self.planner, output: output, outgoing: outgoing, incoming: pending.entry,
                     outgoingReference: self.profiles.value(song)?["loudness"] as? Double,
                     incomingReference: self.profiles.value(owner.queue[pending.index])?["loudness"] as? Double,
-                    overlap: envelope.overlap, generation: gainGeneration,
+                    overlap: handover.mediaOverlap, generation: gainGeneration,
                     current: { [weak self] in
                         guard let self, let fade = self.fade, let owner = self.owner else { return false }
                         return fade.gainGeneration == gainGeneration && fade.epoch == owner.generation && owner.intentToPlay
@@ -232,10 +247,22 @@ final class NativeCrossfade {
                 owner.persist(); owner.publish()
             } catch {
                 // Optional transition failure leaves the current song playing; normal EOF resolves next afresh.
-                if !Task.isCancelled, self.key == expected { self.work = nil; self.plan = nil }
+                if !Task.isCancelled, self.key == expected {
+                    if let bending = self.bending { try? bending.requestTempo(rate: 1) }; self.bending = nil
+                    self.work = nil; self.plan = nil
+                }
             }
         }
     }
+    var cueSnapshot: [String: Any]? {
+        guard let fade, let clock = owner?.streamOutput?.transitionGain.clock,
+              clock.generation == fade.gainGeneration, let start = clock.curveStart, let end = clock.renderedEnd else { return nil }
+        let elapsed = max(0, (end - start) / 44100 + fade.hold)
+        guard elapsed < fade.cue.seconds else { return nil }
+        return ["id": fade.epoch, "style": fade.style, "seconds": fade.cue.seconds, "crossover": fade.cue.crossover,
+                "periodSec": fade.cue.periodSec as Any? ?? NSNull(), "plain": fade.cue.plain ?? false, "elapsed": elapsed]
+    }
+
     private func releaseTail(_ entry: StreamOccurrence?) {
         guard let entry, fade?.tail === entry else { return }
         if entry.hasEnded, let fade { owner?.cachePlayedSong(fade.tailSong, source: fade.sourceURL); self.fade?.cached = true }

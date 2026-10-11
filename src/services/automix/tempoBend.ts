@@ -18,7 +18,7 @@ export const applyTempoBend = (
     element: HTMLAudioElement,
     rate: number,
 ): number => {
-    if (!(rate > 0) || Math.abs(rate - 1) < 0.001) {
+    if (tempoBendRate(rate) === 1) {
         resetTempoBend(element);
         return 1;
     }
@@ -26,6 +26,9 @@ export const applyTempoBend = (
     element.playbackRate = rate;
     return rate;
 };
+
+/** Shared with native execution so a sub-threshold bend also keeps an unscaled clock there. */
+export const tempoBendRate = (rate: number): number => !(rate > 0) || Math.abs(rate - 1) < 0.001 ? 1 : rate;
 
 /** Puts a deck back at its own tempo. Part of every settle, like the gains and the tone are. */
 export const resetTempoBend = (element: HTMLAudioElement | null) => {

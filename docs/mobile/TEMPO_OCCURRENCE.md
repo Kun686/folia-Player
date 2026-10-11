@@ -2,6 +2,7 @@
 
 2026-10-11。接续 [TEMPO_HANDOVER.md](TEMPO_HANDOVER.md)。开发源码阶段，无新 IPA。
 完整 Automix 仍待模式调度和动画事件接线；`allowsTempo` 显式选择，默认队列不请求变速。
+后续开发源码的主混音模式调度见 [MASTER_AUTOMIX.md](MASTER_AUTOMIX.md)；上述状态为本阶段完成时的边界。
 
 ## 实现边界
 

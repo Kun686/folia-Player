@@ -11,7 +11,7 @@ extension PlaybackEngine {
             if refresh { try? await mediaCache.remove(identity) }
             else if let hit = try? await mediaCache.cached(identity, touch: true) {
                 do {
-                    let entry = try await StreamOccurrence.prepare(url: hit.url, position: position, output: output)
+                    let entry = try await StreamOccurrence.prepare(url: hit.url, position: position, output: output, allowsTempo: true)
                     entry.cachedMedia = hit
                     return entry
                 } catch {
@@ -23,7 +23,7 @@ extension PlaybackEngine {
         }
         try Task.checkCancellation()
         return try await StreamOccurrence.prepare(url: resolve(song), position: position, output: output,
-                                                   networkConfiguration: mediaNetworkConfiguration)
+                                                   networkConfiguration: mediaNetworkConfiguration, allowsTempo: true)
     }
     func cachePlayedSong(_ song: [String: Any], entry: StreamOccurrence) {
         cachePlayedSong(song, source: entry.sourceURL)

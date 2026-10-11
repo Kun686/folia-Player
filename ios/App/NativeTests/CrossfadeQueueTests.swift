@@ -79,6 +79,8 @@ import AVFoundation
         let current = tested.stream
         try tested.command("seek", position: 1)
         XCTAssertFalse(tested.crossfade!.isFading); XCTAssertTrue(tested.stream === current)
+        // Tempo-capable output detaches while seeking, then reattaches the same occurrence at the target.
+        try await waitForStream { current?.seeking == false && tested.outputIsPlaying }
         XCTAssertEqual(tested.streamOutput?.attachedCount, 1)
         try await waitForStream { tested.playbackPosition >= 1 && tested.preparedStream?.index == 3 }
         try tested.command("seek", position: 6.8)

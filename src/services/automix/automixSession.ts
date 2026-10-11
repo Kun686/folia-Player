@@ -32,13 +32,12 @@ import {
 } from './expansionGesture';
 import { STEM_NAMES, type TrackStems } from './stems';
 import { createDeckClock, type DeckClock } from './deckClock';
-import { barGrid, settledBpm, RAW_RATE_LIMIT, type Grid } from './musicalTime';
-import { planBlendShape, BEATS_PER_BAR } from './signalAnalysis';
+import { barGrid, RAW_RATE_LIMIT } from './musicalTime';
+import { BEATS_PER_BAR } from './signalAnalysis';
 import { applyTempoBend, resetTempoBend } from './tempoBend';
-import { shapeBlend } from './transitionChooser';
+import { handoverWindow, handoverStretch, handoverPeriod, handoverBeatGrid, waitToGrid, shapeMasterHandover, masterHandoverCue } from './masterHandover';
 import {
     AUTOMIX_MIN_OVERLAP_SEC,
-    resolveOverlap,
     type TransitionPlan,
     type TransitionTrack,
 } from './transitionPlanner';
@@ -110,7 +109,7 @@ const CUT_SECONDS = 0.05;
  * Capped because everything waited is taken off the outgoing track's remaining tail, so a hold that
  * grew unbounded would shorten the blend it exists to place.
  */
-const MAX_ALIGN_HOLD_SEC = 1;
+// The shared handoverWindow owns this limit for both playback hosts.
 
 export interface AutomixSessionPorts {
     getContext: () => AudioContext | null;
@@ -225,11 +224,7 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
      * Both halves of the conversion in one place: the grid is in the track's own seconds, the
      * answer is in the audio clock's, and a deck bent onto another tempo is running at neither one.
      */
-    const waitToGrid = (grid: Grid | null, fromMedia: number, rate: number): number | null => {
-        if (!grid || !(grid.period > 0) || !(rate > 0)) return null;
-        const next = grid.offset + Math.ceil((fromMedia - grid.offset) / grid.period) * grid.period;
-        return (next - fromMedia) / rate;
-    };
+    // The shared waitToGrid owns this conversion for both playback hosts.
 
     /**
      * Puts the incoming deck's playhead where the plan wants it to enter.
@@ -889,7 +884,7 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         // the beat snap a track's trailing silence to move the handover into, the one place it must never
         // land. Clamped by the element as well: the profile and the media are two independent measurements
         // of the same file and can disagree.
-        const soundingLeft = Math.min(tailElement.duration, plan.outStart + plan.overlap);
+        // handoverWindow clamps the same sounding endpoint below.
 
         // Where the outgoing track really is, to a fraction of a millisecond, rather than to the
         // tens of milliseconds `currentTime` reports. Everything below is placed against this.
@@ -904,12 +899,7 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         // deck was late, the blend starts now and is shorter, as it always was. Clamped here rather than
         // after the fact: everything below measures the blend from this moment, so a wait trimmed later
         // would leave the length describing a start the transition never had.
-        const startMedia = Math.min(
-            Math.max(position, Math.min(plan.outStart, soundingLeft)),
-            position + MAX_ALIGN_HOLD_SEC,
-        );
-        const remaining = soundingLeft - startMedia;
-        const overlap = resolveOverlap(plan, remaining);
+        const { startMedia, remaining, overlap } = handoverWindow(plan, tailElement.duration, position);
         // The queue can move under us between planning and playing: a manual skip, or a track
         // that turned out to be unavailable and auto-skipped. Blending into a song we never
         // measured is precisely the bad transition this feature exists to refuse.
@@ -961,8 +951,7 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         // The tail's own tempo where the track's two readings of it agree - a track that slows into
         // its last chorus has two tempos, and one whose readings are a third apart has none. Null
         // falls through to the live tap, which is the only thing that actually heard the tail.
-        const outgoingBpm = settledBpm(plannedFrom?.bpm, plannedFrom?.outroBpm);
-        const periodSec = outgoingBpm ? 60 / outgoingBpm : tempo?.periodSec ?? null;
+        const periodSec = handoverPeriod(plannedFrom, tempo?.periodSec ?? null);
 
         // Whether this song change is handed over stem by stem rather than as two masters.
         //
@@ -983,9 +972,7 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         // bending one without the other would slide them apart across the window; bending both
         // means two clocks that have to stay locked for twenty-five seconds. The listening test
         // that killed the tempo bend makes that a cost with nothing on the other side of it.
-        const stretch = plan.style === 'beatCut' || overlap < AUTOMIX_MIN_OVERLAP_SEC || useStems
-            ? 1
-            : plan.stretch;
+        const stretch = handoverStretch(plan, overlap, useStems);
         const applied = applyTempoBend(tailElement, stretch);
         const alignHold = Math.max(0, (startMedia - position) / (tailRate * applied));
 
@@ -1001,29 +988,11 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         // grid; pairing it with a DIFFERENT period measured over the last half minute gives a grid right
         // about spacing and wrong about position, the worse of the two errors. Where a track slowed down,
         // the tap is the only thing that heard it.
-        const steady = plannedFrom?.bpm
-            && (plannedFrom.outroBpm === null || Math.abs((plannedFrom.outroBpm ?? 0) - plannedFrom.bpm) < 0.5);
-        const beatGrid = steady && plannedFrom?.bpm
-            ? { offset: plannedFrom.beatOffset % (60 / plannedFrom.bpm), period: 60 / plannedFrom.bpm }
-            : null;
+        const beatGrid = handoverBeatGrid(plannedFrom);
         const nextBeatIn = waitToGrid(beatGrid, startMedia, tailRate * applied)
             ?? tailChain.analyser.nextBeatIn(now + alignHold);
-        const fade = planBlendShape({
-            overlap,
-            outgoingDb,
-            nextBeatIn,
-            periodSec,
-            minOverlap: plan.minOverlap,
-            maxOverlap: remaining,
-        });
-        const shape = shapeBlend({
-            style: plan.style,
-            room: overlap,
-            overlap: fade.overlap,
-            crossover: fade.crossover,
-            nextBeatIn,
-            periodSec,
-            incomingLeadIn: plannedTo?.leadIn ?? null,
+        const { fade, shape } = shapeMasterHandover(plan, {
+            overlap, remaining, outgoingDb, nextBeatIn, periodSec, incomingLeadIn: plannedTo?.leadIn ?? null,
         });
 
         // Everything above is in the outgoing track's own seconds. Everything below is on the audio
@@ -1146,12 +1115,7 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         // fraction that means something different from the number next to it. Divided by `applied` for the
         // same reason `wall` is - a bent outgoing track counts beats faster than its own tempo says, and a
         // pulse on the untouched period would drift across the window.
-        announceTransition({
-            seconds: hold + wall,
-            crossover: hold + wall > 0 ? (hold + wall * shape.crossover) / (hold + wall) : 0,
-            periodSec: periodSec === null ? null : periodSec / applied,
-            ...(shape.style === 'plainBlend' ? { plain: true } as const : {}),
-        });
+        announceTransition(masterHandoverCue(hold, wall, shape.crossover, periodSec, applied, shape.style === 'plainBlend'));
 
         if (stemmed) {
             cleanupTimer = setTimeout(

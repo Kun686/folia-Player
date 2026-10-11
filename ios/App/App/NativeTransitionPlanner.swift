@@ -27,6 +27,17 @@ struct NativeBalanceStep: Decodable {
     let adjustment: Adjustment?
 }
 
+struct NativeTransitionCue: Codable {
+    let seconds: Double, crossover: Double
+    let periodSec: Double?
+    let plain: Bool?
+}
+struct NativeMasterHandover: Codable {
+    let requestedRate: Double, mediaOverlap: Double
+    let envelope: NativeTransitionEnvelope?
+    let cue: NativeTransitionCue?
+}
+
 actor NativeTransitionPlanner {
     private let scriptURL: URL?
     private var context: JSContext?
@@ -39,6 +50,9 @@ actor NativeTransitionPlanner {
     }
     func envelope(_ input: Data) throws -> NativeTransitionEnvelope {
         try decode(NativeTransitionEnvelope.self, method: "envelopeJSON", input: input)
+    }
+    func master(_ input: Data) throws -> NativeMasterHandover {
+        try decode(NativeMasterHandover.self, method: "masterJSON", input: input)
     }
     func balance(_ input: Data) throws -> NativeBalanceStep {
         try decode(NativeBalanceStep.self, method: "balanceJSON", input: input)
