@@ -3,7 +3,7 @@
 2026-10-11。状态：**APPROVED_INDEPENDENT_VALIDATION**。用户已批准官方 Apple 1.30.0 独立验证。
 此前授权只覆盖 Swift ORT 1.24.2；新增授权覆盖本文件的固定候选与验证顺序，不包含生产接入。
 mobile.20 用户已确认 QQ／网易云登录保留、播放正常；个人 App 与已接受的 mobile.19 外观保持原状。
-官方产物现已完成下载、Mac及iPhone单样本验证；具体结果与未测边界见文末。完整Automix仍未接入。
+官方产物现已完成下载、Mac及iPhone单样本与30秒窗口验证；窗口浮点诊断部分失败，具体结果与未测边界见文末。完整Automix仍未接入。
 
 ## 兼容性问题与最简方案
 
@@ -143,5 +143,9 @@ Mac取消恢复也通过，最终输出与Node参考相等。命令在上述启�
 `ios-beat-cancel/`、`ios-cancellation-comparison.json`。独立QA已移除，个人App仍为build20，见
 `ios-qa-uninstall.json`、`personal-app-after.json`；未卸载或更新个人App。
 
-**NOT_RUN**：完整30秒分轨窗口／拼接、真实音乐质量、播放器与动画争用、后台调度、温升功耗和长期内存。
-两个模型单样本可运行并不等于完整Automix；当前内存仍需纳入实际播放器的总预算。
+**后续完整窗口**：原30秒／11段拼接已完成Mac与独立iPhone验证；Mac与原Python拼接参考逐字节相等。
+iPhone耗时约33.1秒、峰值约1.08GiB，0次内存警告。近静音vocals相对L2为1.1004219e-4，
+仍记为未通过原1e-4诊断门槛；原16位存储最大差1单位，人声退出判断相同。详见[AUTOMIX_WINDOW.md](AUTOMIX_WINDOW.md)。
+
+**NOT_RUN**：真实音乐质量、播放器与动画争用、后台调度、温升功耗和长期内存。
+独立推理可运行不等于完整Automix；生产接入仍待批准，见[接入评估](AUTOMIX_INTEGRATION_DECISION.md)。

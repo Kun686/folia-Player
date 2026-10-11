@@ -82,7 +82,7 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | 本地导入／内嵌歌词来源切换 | PASS（自动测试、iPad 模拟器短测及 iPhone 原生专项）；真机界面操作 NOT_RUN | 独立正文、标签迁移、来源恢复、失败保留；历史基线与后续专项分别记录。多标签和独立翻译已随mobile.20安装，见 LOCAL_LYRIC_SOURCES.md、EMBEDDED_METADATA.md |
 | FLAC／SYLT 内嵌歌词和独立翻译 | PASS（源码逻辑、实际文件原生专项）；真机选择器／显示 NOT_RUN | 43项逻辑、iOS26.5修正前41项原生、iOS18.7.10修正后10项专项；同一10个实际音频样本与桌面结果对照，系统无Vorbis标签仍读取文件。已随mobile.20安装；不代表Ogg导入或全部编码，见 EMBEDDED_FORMATS.md |
 | 本地歌曲完整匹配与元数据／封面选择 | PASS（自动测试及 iPhone 原生专项）；真实平台 NOT_RUN | 原完整弹窗与共享规则；iPhone 测试覆盖实际播放期间保存、并发／删除／过期拒绝和后台歌词。HTTPS 阻塞已解除，但尚未执行真实在线候选保存；iPad 历史短测仅覆盖导入与「不使用在线数据」，见 LOCAL_MATCH.md |
-| 完整 Automix | IN_PROGRESS；尚未接入 | 新官方Apple1.30.0已解除DFT阻塞；独立iPhone两原模型各3次推理及参考对照通过，分轨峰值约1.03GiB。完整窗口／播放器争用及长期性能待测；未改模型、未新增个人App依赖；见AUTOMIX_RUNTIME_130.md |
+| 完整 Automix | IN_PROGRESS；尚未接入 | 官方Apple1.30.0已解除DFT阻塞；独立iPhone原30秒窗口约33.1秒／峰值1.08GiB，Mac原拼接对照相等。近静音vocals相对误差诊断未通过，16位存储最大差1单位；真实音乐、播放器争用及长期性能待测。未改模型／个人App依赖，见AUTOMIX_WINDOW.md |
 | 其余桌面编辑工具／AI | NOT_IMPLEMENTED | 仍待移植，完整移植目标未完成 |
 
 音频格式由AudioStreaming、系统AudioToolbox及获批的Ogg／Vorbis决定；Ogg目前不支持拖动。

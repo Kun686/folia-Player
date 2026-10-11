@@ -7,10 +7,12 @@
 #include <sys/resource.h>
 #include <thread>
 #include <vector>
+#include "automix-window-probe.hpp"
 
 // Independent macOS / isolated iOS QA gate, never linked into the personal App.
 // Invoke only after checking the runtime/model SHA256s in AUTOMIX_RUNTIME_DECISION.md.
 // Arguments: model [input.f32 output-prefix [runs [no-memory-pattern [cancel-once]]]].
+// Alternatively: model window-input.f32 output-prefix window (30-second maximum, original stitching).
 int main(int argc, char** argv) {
     if (argc != 2 && (argc < 4 || argc > 7)) {
         std::cerr << "usage: probe model [input.f32 output-prefix [runs [no-memory-pattern [cancel-once]]]]\n"; return 2;
@@ -29,8 +31,9 @@ int main(int argc, char** argv) {
             << " peak_footprint_bytes=" << memory.ledger_phys_footprint_peak << std::endl;
     };
     try {
+        const bool windowMode = argc == 5 && std::string(argv[4]) == "window";
         size_t runs = 1;
-        if (argc >= 5) {
+        if (argc >= 5 && !windowMode) {
             size_t consumed = 0;
             runs = std::stoul(argv[4], &consumed);
             if (consumed != std::string(argv[4]).size() || runs < 1 || runs > 8)
@@ -47,8 +50,9 @@ int main(int argc, char** argv) {
         // Public CPU-arena control is available; it does not replace Python's enable_mem_reuse=False.
         options.DisableCpuMemArena();
         // Public pattern allocation is distinct from the unavailable internal memory-reuse flag.
-        if (argc >= 6) options.DisableMemPattern();
-        std::cout << "runs=" << runs << " memory_pattern=" << (argc >= 6 ? "disabled" : "default") << std::endl;
+        if (argc >= 6 || windowMode) options.DisableMemPattern();
+        std::cout << "runs=" << runs << " memory_pattern=" << (argc >= 6 || windowMode ? "disabled" : "default")
+            << " window_mode=" << windowMode << std::endl;
         checkpoint("before_load");
         Ort::Session session(environment, argv[1], options);
         checkpoint("loaded");
@@ -69,6 +73,10 @@ int main(int argc, char** argv) {
             std::cout << "output " << outputNames.back() << std::endl;
         }
         if (argc == 2) return 0;
+        if (windowMode) {
+            foliaProbeStemWindow(session, argv[2], argv[3], checkpoint);
+            return 0;
+        }
         if (inputInfo.GetElementType() != ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT) throw std::runtime_error("expected float32 input");
         if (std::string(inputName.get()) == "input_spectrogram") shape = {1, 1500, 128};
         size_t count = 1;

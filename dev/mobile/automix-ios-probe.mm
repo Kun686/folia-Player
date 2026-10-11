@@ -17,6 +17,7 @@
 @property(nonatomic) NSUInteger memoryWarnings;
 @property(nonatomic) BOOL finished;
 @property(nonatomic) BOOL cancelOnce;
+@property(nonatomic) BOOL windowMode;
 @end
 
 @implementation FoliaORTProbeDelegate
@@ -31,7 +32,8 @@
         @"system": UIDevice.currentDevice.systemVersion,
         @"memoryWarnings": @(self.memoryWarnings), @"memoryResult": @(memoryResult),
         @"footprintBytes": @(memory.phys_footprint), @"peakFootprintBytes": @(memory.ledger_phys_footprint_peak),
-        @"runs": @3, @"memoryPattern": @"disabled", @"cancelOnce": @(self.cancelOnce),
+        @"runs": self.windowMode ? @1 : @3, @"windowMode": @(self.windowMode),
+        @"memoryPattern": @"disabled", @"cancelOnce": @(self.cancelOnce),
         @"timestamp": @(NSDate.date.timeIntervalSince1970)
     };
     NSError *error;
@@ -65,12 +67,18 @@
     if (modelIndex == NSNotFound || modelIndex + 1 >= arguments.count) return YES;
     self.model = arguments[modelIndex + 1];
     self.cancelOnce = [arguments containsObject:@"--cancel-once"];
+    self.windowMode = [arguments containsObject:@"--window"];
     if (![@[@"htdemucs", @"beat_this"] containsObject:self.model]) {
         self.label.text = @"Unsupported QA model";
         return YES;
     }
+    if (self.windowMode && (self.cancelOnce || ![self.model isEqualToString:@"htdemucs"])) {
+        self.label.text = @"Unsupported QA mode combination";
+        return YES;
+    }
     NSString *documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
     NSString *resultName = self.cancelOnce ? [self.model stringByAppendingString:@"-cancel"] : self.model;
+    if (self.windowMode) resultName = [resultName stringByAppendingString:@"-window"];
     NSString *directory = [documents stringByAppendingPathComponent:resultName];
     NSError *error;
     if (![NSFileManager.defaultManager createDirectoryAtPath:directory withIntermediateDirectories:NO attributes:nil error:&error]) {
@@ -87,6 +95,7 @@
     setvbuf(stdout, nullptr, _IOLBF, 0);
     NSString *modelPath = [NSBundle.mainBundle pathForResource:self.model ofType:@"onnx"];
     NSString *inputName = [self.model isEqualToString:@"beat_this"] ? @"beat-input" : @"htdemucs-input";
+    if (self.windowMode) inputName = @"input";
     NSString *inputPath = [NSBundle.mainBundle pathForResource:inputName ofType:@"f32"];
     if (!modelPath || !inputPath) {
         [self saveResult:@"MISSING_FIXTURE" exitCode:2];
@@ -104,6 +113,7 @@
         @autoreleasepool {
             std::vector<std::string> args = {"FoliaORTProbe", modelPath.fileSystemRepresentation,
                 inputPath.fileSystemRepresentation, outputPrefix.fileSystemRepresentation, "3", "no-memory-pattern"};
+            if (self.windowMode) { args.resize(4); args.push_back("window"); }
             if (self.cancelOnce) args.push_back("cancel-once");
             std::vector<char *> argv;
             for (auto& argument : args) argv.push_back(argument.data());

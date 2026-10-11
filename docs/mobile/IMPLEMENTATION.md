@@ -33,8 +33,10 @@ mobile.17自动回归及iPad实际模拟器操作通过；iPhone模拟器部分�
 测试次数、分阶段修正和桌面已知预期失败见 [VALIDATION.md](VALIDATION.md)，布局见 [FULLSCREEN_LAYOUT.md](FULLSCREEN_LAYOUT.md)。
 包含旧缓存身份随歌曲读取恢复。独立Automix旧候选1.24.2的htdemucs兼容性失败见[AUTOMIX_RUNTIME_DECISION.md](AUTOMIX_RUNTIME_DECISION.md)。
 用户单独批准的官方Apple1.30.0已解除该失败，并完成Mac／iPhone两原模型单样本推理和参考对照；
-分轨真机峰值约1.03GiB，完整窗口、播放器争用及长期性能待测，尚未接入个人App。
-详见[AUTOMIX_RUNTIME_130.md](AUTOMIX_RUNTIME_130.md)。
+后续原30秒窗口Mac拼接对照逐字节相等，iPhone约33.1秒、峰值1.08GiB；近静音vocals相对误差诊断未通过，
+原16位存储最大差1单位，保留失败。真实音乐、播放器争用及长期性能待测，尚未接入个人App。
+详见[AUTOMIX_RUNTIME_130.md](AUTOMIX_RUNTIME_130.md)、[AUTOMIX_WINDOW.md](AUTOMIX_WINDOW.md)；
+生产依赖与接入方案待批准，见[AUTOMIX_INTEGRATION_DECISION.md](AUTOMIX_INTEGRATION_DECISION.md)。
 按用户最新要求优先移植原播放器、歌词和动效，同时支持本地导入与网易云／QQ。
 服务器配置不再是使用 App 的前提。真实平台与真机完整验收尚未完成，不能作为已验收安装包发布。
 
