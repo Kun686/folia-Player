@@ -1,5 +1,17 @@
 # 移动候选验证记录
 
+## Automix：真实人声音乐片段对照（2026-10-11）
+
+- PASS_REAL_MUSIC_FIXTURE_NUMERICS：Karissa Hobbs — Let's Go Fishin' 的30秒尾部，官方样本哈希已核对。
+  Mac原窗口拼接对照逐字节相等；iPhone XS Max四轨均通过原maxAbs／relativeL2门槛，
+  人声退出点同为23.65秒、16位PCM最大差1单位。此前近静音合成样本的FAIL仍保留。
+- RESOURCE_CONCERN：iPhone窗口处理41.394秒，启动至保存42.241秒，峰值footprint约1.08GiB，
+  释放后14.04MB、0次内存警告；这不是播放／动画联合资源验收，不外推温度或慢于上一样本的原因。
+- PASS：系统解码／片段提取；提取参数及防覆盖4项检查；独立iOS构建与签名／资源校验；
+  QA已卸载、个人mobile.20保留并恢复前台。音频和分轨不提交、不随App分发。
+- NOT_RUN：实际分轨手势／听感、播放动画争用、后台调度、长期性能与物理iPad。
+  许可元数据差异、固定身份和可复核记录见[AUTOMIX_MUSIC.md](AUTOMIX_MUSIC.md)。
+
 ## Automix：原30秒分轨窗口（2026-10-11）
 
 - PASS（Mac固定样本）：官方Apple1.30.0完整11段推理加原窗口拼接，与原Python拼接函数回放参考逐字节相等。
