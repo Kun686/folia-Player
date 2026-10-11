@@ -1,6 +1,35 @@
 # 移动候选验证记录
 
-## mobile.17：全屏画面与自动隐藏控制器（当前开发候选）
+## mobile.18：磨砂气泡与空白轻点控制（当前开发候选）
+
+2026-10-11 已原位安装并启动于 iPhone XS Max／iOS18.7.10，设备回读 build 18。
+源码 `09cb338e052d459f2b49cec87d9d5714e51a330b`，
+[准确源码 CI](https://github.com/Kun686/folia-Player/actions/runs/38138128518) PASS。
+按mobile.17追加反馈，将控制层改为透色磨砂气泡，空白轻点立即隐藏／再次轻点唤回，保留播放闲置三秒自动隐藏。
+暂停也可主动隐藏；拖动、歌词跳转、按钮和弹窗保持原行为。复用原活动计时及Motion弹簧，无新依赖或Swift播放改动。
+
+- PASS：`npm run typecheck`；`npm run test:mobile:ui -- chrome.spec layout.spec lyric-timing.spec`
+  共35项通过、4项跳过（iPad重复布局矩阵）。覆盖手动隐藏、再次唤回、暂停、外部状态／错误唤回、
+  拖动／取消、旋转、键盘、减弱动画和原Monet歌词跳转。原生桥为受控样本，不能算真实平台验收。
+- PASS／SKIP：`npm run test:mobile:ui -- material.spec` 的增强对比度实色替代3项通过，材质像素3项跳过。
+  初始材质像素测试3项失败，改成有窗口模式的1项重试仍失败；独立内联模糊样例同样不渲染，确定该测试引擎合成能力受限。
+  测试现先运行独立能力探针，不能模糊时明确SKIP；具备能力的引擎仍检查真实控制器开启／关闭模糊的像素差异。
+  不将CSS属性存在或跳过项目计作磨砂通过。
+- PASS（原生材质短测）：iPhone 17 Pro模拟器／iOS26.5的原生Safari加载相同生产CSS，
+  对照截图可见开启模糊后条纹柔化，关闭后清晰透出。这是合成材质样例，不是Folia容器或物理iPhone验收。
+- PASS：`npm run ios:sync`、个人真机clean Release开发签名构建；签名证书／描述文件／设备授权一致，无XCTest残留。
+  冻结2964项源码输入、119项生成资源核验一致；Capacitor同步另含两份空文件，IPA逐文件匹配签名App。
+  指纹 `00fd1d7c607bb2ca4774a4bb56a0bad75e23f34f613a0a7473389d3482cc381a`。
+- 交付：`移动端交付/Folia-0.7.16-mobile.18-00fd1d7c-development.ipa`，7,858,138字节，
+  SHA256 `233dd5df802d479378cd3625d709474d2f96329e2f4dfe0ad3abdb6ec5260ddb`。
+  个人App未卸载，mobile.17回退包摘要复核未变。BUILD_RECORD绑定构建源码，不绑定后续文档提交。
+- NOT_RUN：mobile.18真机材质／点按反馈（已请求）、物理iPad、长期锁屏／外设／性能及歌词精度。
+  无Swift播放变更，本轮不重跑原生XCTest；历史平台验收不迁移为新版完整验收。完整移植仍IN_PROGRESS。
+
+本地证据：`.mobile-test-results/mobile18-*`；安装包、源码和验证JSON、使用说明、原生材质对照截图已存入`移动端交付`。
+测试HTTP服务已终止，任务启动的模拟器已关闭，无任务构建／测试进程遗留。Automix兼容性阻塞保持原状。
+
+## mobile.17：全屏画面与自动隐藏控制器（历史候选）
 
 2026-10-11 已原位安装并启动于 iPhone XS Max／iOS18.7.10，设备回读 build 17。
 源码 `7fb7067b1c4ab10e84b09c74bcad978afbea08c6`，
@@ -34,7 +63,8 @@
   SHA256 `c7ae779f82d29b239e72dfda87e9d46c423eafe90dd495a2d84c80e6785baebe`。
   个人App未卸载；mobile.16回退包SHA256复核未变。`BUILD_RECORD.json`绑定上述构建源码，不绑定后续文档提交。
 - 修正缺歌手元数据时共用提示的翻译键，改用已有 `localMusic.unknownArtist`。
-- NOT_RUN：mobile.17用户真机QQ／网易云布局及触摸验收、物理iPad、长期锁屏／外设／性能和歌词精度。
+- 用户反馈：mobile.17布局“看着还可以”，并要求磨砂气泡材质和空白轻点隐藏／唤回，已进入mobile.18。
+  此反馈未分别确认平台、旋转、长期性能；物理iPad、长期锁屏／外设／性能和歌词精度仍NOT_RUN。
   本轮没有Swift播放实现变更，未重跑原生XCTest；历史真机结果保留原版本边界。完整移植仍 IN_PROGRESS。
 
 本地证据：`.mobile-test-results/mobile17-*`，包含各阶段原始日志、CI、签名资源检查、安装／启动／回读、

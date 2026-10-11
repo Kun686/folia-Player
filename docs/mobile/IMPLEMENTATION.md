@@ -1,6 +1,6 @@
 # Folia iPhone / iPad 实现与安装
 
-当前交付是 **0.7.16-mobile.17 开发候选**，支持 iOS/iPadOS 17+。源码基线为
+当前交付是 **0.7.16-mobile.18 开发候选**，支持 iOS/iPadOS 17+。源码基线为
 d824c0b854e54d5411cb072092999823e9bd7071；移动分支发布到 Kun686/folia-Player，服务器部署记录见 SERVER_VALIDATION.md。
 2026-10-11 已按用户指定接通 `https://music.nb686.cn`，在 mobile.12 中完成以下用户实测：
 HTTPS 与网关认证已验证；用户已确认 iPhone 的真实 QQ 登录成功、可见账号或歌单。
@@ -22,14 +22,18 @@ mobile.15 接入原版批量歌词导出，已原位安装并回读 build 15。�
 mobile.16的分栏布局被用户真机反馈要求替换。mobile.17已原位安装、启动并回读build17：
 手机／iPad播放页均为原版全屏画布，曲库独立；顶部歌曲信息、底部悬浮控制，低高度横屏缩成浅条。
 播放闲置三秒后控制缩小淡出，首次触摸只唤回，暂停／拖动／弹窗保持显示；复用原动画、歌词及桌面计时，不新增依赖。
-自动回归及iPad实际模拟器操作通过；iPhone模拟器部分触摸检查受工具错误限制，新版用户真机体验仍待确认。
+mobile.17自动回归及iPad实际模拟器操作通过；iPhone模拟器部分触摸检查受工具错误限制。
+用户反馈布局“看着还可以”，追加磨砂气泡及空白轻点隐藏／唤回要求。mobile.18已原位安装、启动并回读build18：
+控制器与顶部信息透色磨砂，轻点空白立即隐藏、再次唤回，保留自动隐藏及原歌词跳转行为。
+交互回归35项、增强对比度3项通过；Playwright材质合成限制下3项像素测试明确跳过，原生Safari模拟器独立对照确认模糊。
+签名、资源和准确源码CI通过，mobile.18真机质感与操作反馈仍待确认。
 测试次数、分阶段修正和桌面已知预期失败见 [VALIDATION.md](VALIDATION.md)，布局见 [FULLSCREEN_LAYOUT.md](FULLSCREEN_LAYOUT.md)。
 包含旧缓存身份随歌曲读取恢复。独立Automix推理验证遇到htdemucs／ORT兼容性阻塞，详见[AUTOMIX_RUNTIME_DECISION.md](AUTOMIX_RUNTIME_DECISION.md)。
 按用户最新要求优先移植原播放器、歌词和动效，同时支持本地导入与网易云／QQ。
 服务器配置不再是使用 App 的前提。真实平台与真机完整验收尚未完成，不能作为已验收安装包发布。
 
 历史 mobile.12 已原位安装并启动于 iPhone XS Max / iOS18.7.10，其源码提交及安装包摘要见
-VALIDATION.md；BUILD_RECORD.json 现描述 mobile.17；mobile.16 及更早安装包保留用于回退。
+VALIDATION.md；BUILD_RECORD.json 现描述 mobile.18；mobile.17 及更早安装包保留用于回退。
 新增包含原歌词时间校准、GBK／KRC 导入、内嵌／导入歌词来源管理、本地完整匹配及 Partita 长词适配。
 本轮 142 项移动逻辑与 17 项 iPhone 原生专项通过；界面结果沿用各功能阶段证据，
 不代表真实平台 App 链路、全部原生动画表现或长期真机验收已完成。
