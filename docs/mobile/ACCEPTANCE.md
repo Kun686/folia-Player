@@ -48,6 +48,7 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | 完整在线歌词与来源选择持久存储 | PASS（源码自动测试及真机专项）；真实平台 App 验收 NOT_RUN | 原解析与选择复用、断网恢复、无 WebView 的原生队列读取、清除及退出隔离；见 LYRIC_CACHE.md |
 | 在线歌词导入、匹配与来源切换 | PASS（WebKit 及持久层原生专项）；系统选择器和真实平台 App 操作 NOT_RUN | 原弹窗、原 Worker／解析器与状态转换复用，迟到结果、保存错误和恢复来源已测；见 LYRIC_TOOLS.md |
 | 单曲／全局歌词时间校准 | PASS（开发源码 WebKit 及 iPad 模拟器设置恢复）；真机校准 NOT_RUN | 原控件、预览／应用／取消、来源隔离、歌词点击反向映射、迟到加载；个人 iPhone 尚未更新，见 LYRIC_TIMING.md |
+| 本地 GBK／加密 KRC 文件导入 | PASS（开发源码自动测试及 iPad 模拟器实际选择器／重启）；真机 NOT_RUN | 原文件解码复用，失败保留、编辑令牌与原子保存；33 个 UI 用例分两次覆盖、215 项原生通过，三个独立 HTTP 用例未跑。Partita 长词裁切另待查，见 LOCAL_LYRIC_IMPORT.md |
 | Automix、全部桌面编辑工具 | NOT_IMPLEMENTED | 仍待移植，完整移植目标未完成 |
 
 音频格式由AudioStreaming、系统AudioToolbox及获批的Ogg／Vorbis决定；Ogg目前不支持拖动。

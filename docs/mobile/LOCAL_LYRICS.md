@@ -3,6 +3,9 @@
 2026-10-11，接续 [TRANSITION_ANIMATIONS.md](TRANSITION_ANIMATIONS.md)。这是开发源码阶段，
 完整移植仍在进行；个人安装包未因本阶段升级。完整 Automix 的设置入口仍保持不可用。
 
+后续源码修复系统选择器不能导入 GBK／加密 KRC 的缺口，复用原字节解码器并增加校验后保存；
+实际模拟器选择器与重启证据见 [LOCAL_LYRIC_IMPORT.md](LOCAL_LYRIC_IMPORT.md)。该修复尚未更新个人 iPhone。
+
 ## 复用与修复
 
 - 原 `LocalFileLyricAdapter` 的 FIA／AWLRC 优先级、合并时间轴拆分和格式选择提取到
