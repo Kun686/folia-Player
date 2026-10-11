@@ -142,7 +142,7 @@ export const upsertThemeSyncRecord = async (record: ThemeSyncRegistryRecord) => 
     await upsertThemeSyncRecords([record]);
 };
 
-export const registerThemeSyncRecordForSong = async (
+export const createThemeSyncRecordForSong = (
     song: SongResult | null,
     source: SyncedThemeSource,
     updatedAt = new Date().toISOString(),
@@ -158,7 +158,14 @@ export const registerThemeSyncRecordForSong = async (
         updatedAt,
         source,
     };
-    await upsertThemeSyncRecord(record);
+    return record;
+};
+
+export const registerThemeSyncRecordForSong = async (
+    song: SongResult | null, source: SyncedThemeSource, updatedAt = new Date().toISOString(),
+) => {
+    const record = createThemeSyncRecordForSong(song, source, updatedAt);
+    if (record) await upsertThemeSyncRecord(record);
     return record;
 };
 

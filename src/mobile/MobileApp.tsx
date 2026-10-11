@@ -5,6 +5,7 @@ import '../i18n/config';
 import { native, isNative } from './bridge';
 import { flushSessions } from './runtime';
 import { usePlayback } from './usePlayback';
+import { useMobileTheme } from './useMobileTheme';
 import { useCatalog } from './useCatalog';
 import { mobileCollectionKey } from './catalogSession';
 import { useProviders } from './useProviders';
@@ -57,6 +58,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
     if (provider !== 'local' && provider !== 'cached' && available.providers.length && !providerEnabled) setProvider(available.providers[0]);
   }, [available.providers, providerEnabled, provider]);
   const playback = usePlayback();
+  const appearance = useMobileTheme(playback.state.currentSong, playback.songEpoch, playback.captureSongGuard);
   const sleepTimer = useNativeSleepTimer();
   const catalog = useCatalog(provider, !!server && isNative && providerEnabled);
   const local = useLocalCatalog();
@@ -150,7 +152,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         : browsingFolders && !queueView && !folderView.root ? null : <div className="empty"><Music2 size={44} /><p>{t(queueView ? 'mobile.queueEmpty' : isLocal ? (local.songs.length ? 'mobile.empty' : 'mobile.localEmpty') : 'mobile.noSongs')}</p></div>}
       {!isLocal && !isCached && catalog.more && !queueView && <button disabled={catalog.busy} onClick={() => void catalog.load()}>{t('mobile.more')}</button>}
     </div>
-    <PlayerPanel state={playback.state} time={playback.currentTime} visible={playback.visible} light={light}
+    <PlayerPanel appearance={appearance} state={playback.state} time={playback.currentTime} visible={playback.visible} light={light}
       captureSongGuard={playback.captureSongGuard}
       expanded={expanded} collapse={() => setExpanded(false)} openQueue={() => { setQueueView(true); setExpanded(false); }} />
     <footer className="mini-player" inert={expanded}>
@@ -160,7 +162,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         onClick={() => void native.command({ action: playback.state.playing ? 'pause' : 'play' }).catch(() => setError(true))}>
         {playback.state.playing ? <Pause /> : <Play />}</button>
     </footer>
-    {settings && <SettingsSheet mediaCache={mediaCache} timer={sleepTimer} server={server} light={light} setLight={setLight}
+    {settings && <SettingsSheet appearance={appearance} mediaCache={mediaCache} timer={sleepTimer} server={server} light={light} setLight={setLight}
       saved={value => { if (value === server) location.reload(); else setServer(value); }} close={() => setSettings(false)} />}
     {login && <LoginSheet provider={provider} refresh={catalog.refresh} close={() => setLogin(false)} />}
     {entityId && local.snapshot && <LocalEntityDialog snapshot={local.snapshot} id={entityId} light={light}

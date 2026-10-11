@@ -4,14 +4,14 @@ import { BASE_DUAL_THEME } from '../../src/services/baseThemes';
 import { decompressConfig } from '../../src/utils/appearanceCodec';
 
 // theme-editor.spec.ts — real original panels with native transport fixtures; no AI requests or real account use.
-const editor = (page: Page) => page.getByRole('dialog', { name: 'Theme Park · 自定义主题', exact: true });
+const editor = (page: Page) => page.getByRole('dialog', { name: 'Theme Park · 主题编辑', exact: true });
 async function play(page: Page) {
   await page.getByRole('button', { name: '导入音乐', exact: true }).click();
   await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
 }
 async function open(page: Page) {
   await clickPlayerTool(page, '歌词与动效');
-  await page.getByRole('button', { name: 'Theme Park · 自定义主题', exact: true }).click();
+  await page.getByRole('button', { name: 'Theme Park · 主题编辑', exact: true }).click();
 }
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => { (window as any).fixtureNoServer = true; });
@@ -70,7 +70,7 @@ test('invalid names, cancel and storage failures preserve unsaved input and allo
   expect(await page.evaluate(() => localStorage.getItem('custom_dual_theme'))).toBe(before);
   await page.evaluate(() => { (window as any).fixtureThemeFail = false; });
   await panel.getByRole('button', { name: '保存并应用', exact: true }).click();
-  await page.getByRole('button', { name: 'Theme Park · 自定义主题', exact: true }).click();
+  await page.getByRole('button', { name: 'Theme Park · 主题编辑', exact: true }).click();
   await panel.getByRole('button', { name: '信息', exact: true }).click();
   await panel.getByRole('textbox').nth(0).fill('Cancelled draft');
   await panel.getByRole('button', { name: '取消', exact: true }).click();
@@ -130,8 +130,11 @@ test('daylight touch color picker applies the selected color without horizontal 
   const panel = editor(page), hex = panel.getByLabel('HEX', { exact: true });
   const before = await hex.inputValue();
   await panel.locator('.react-colorful__hue').tap({ position: { x: 60, y: 10 } });
-  await panel.locator('.react-colorful__saturation').tap({ position: { x: 60, y: 60 } });
   await expect(hex).not.toHaveValue(before);
+  const hue = await hex.inputValue();
+  await panel.locator('.react-colorful__saturation').tap({ position: { x: 60, y: 60 } });
+  // The original editor throttles drag commits; observe each gesture before sampling the final color.
+  await expect(hex).not.toHaveValue(hue);
   const selected = await hex.inputValue();
   expect(await panel.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
   await page.screenshot({ path: test.info().outputPath('theme-editor-daylight-picker.png') });

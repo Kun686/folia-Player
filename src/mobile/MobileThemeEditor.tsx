@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import ThemeParkColorPanel from '../components/modal/theme-park/ThemeParkColorPanel';
 import ThemeParkDetailsPanel from '../components/modal/theme-park/ThemeParkDetailsPanel';
@@ -21,20 +21,37 @@ export default function MobileThemeEditor({ appearance, light, visible, source, 
   appearance: MobileTheme; light: boolean; visible: boolean; source: MobileThemeSource; close(): void;
 }) {
   const { t } = useTranslation(), [tab, setTab] = useState<ThemeParkTab>('colors');
-  const [preview, setPreview] = useState(false), [error, setError] = useState(false);
-  // The editor is a global custom-theme session, not a per-song AI cache write.
-  const draft = useThemeParkDraft({ aiTheme: null, customTheme: appearance.custom, bgMode: 'custom',
+  const [preview, setPreview] = useState(false), [error, setError] = useState(false), [saving, setSaving] = useState(false);
+  const [session] = useState(appearance.beginSongEdit), [initialSource] = useState(source);
+  const saveLock = useRef(false);
+  const stale = !!session.song && !session.isCurrent();
+  const songTheme = session.cached.kind === 'dual' ? session.cached.theme : null;
+  // Each editor session is anchored to its opening song; switching tracks cannot save the old draft onto the new song.
+  const draft = useThemeParkDraft({ aiTheme: songTheme, customTheme: appearance.custom, bgMode: appearance.activeSource,
     seedTheme: appearance.theme, isDaylight: light, defaultCustomTheme: BASE_DUAL_THEME });
   const colors = useMemo(() => buildRecommendedColors(draft.baseTheme, []), [draft.baseTheme]);
-  const save = () => {
-    if (!isDualThemeNameValid(draft.draft)) return;
-    try { appearance.save(draft.buildFinalTheme()); close(); }
+  const save = async () => {
+    if (!isDualThemeNameValid(draft.draft) || saveLock.current) return;
+    saveLock.current = true; setSaving(true); setError(false);
+    try {
+      if (draft.target === 'custom') appearance.save(draft.buildFinalTheme());
+      else await appearance.saveSong(draft.buildFinalTheme(), session);
+      close();
+    }
     catch { setError(true); }
+    finally { saveLock.current = false; setSaving(false); }
   };
   return <div className="sheet-backdrop"><section className="sheet mobile-theme-editor" role="dialog" aria-modal="true" aria-label={t('mobile.themeEditor')}>
-    <header><h2>{t('mobile.themeEditor')}</h2><button onClick={close}>{t('mobile.cancel')}</button></header>
+    <header><h2>{t('mobile.themeEditor')}</h2><button disabled={saving} onClick={close}>{t('mobile.cancel')}</button></header>
+    <fieldset className="mobile-theme-editor-fields" disabled={saving}>
+    <nav className="theme-editor-tabs" aria-label={t('mobile.themeTarget')}>
+      <button aria-pressed={draft.target === 'custom'} onClick={() => draft.setTarget('custom')}>{t('theme.targetCustomTheme')}</button>
+      <button aria-pressed={draft.target === 'ai'} disabled={!session.ready || session.cached.kind === 'legacy'} onClick={() => draft.setTarget('ai')}>{t('theme.targetAiTheme')}</button>
+    </nav>
+    {draft.target === 'ai' && <p>{t('mobile.themeSong', { name: session.song?.name })}</p>}
+    {draft.target === 'ai' && stale && <p role="alert">{t('mobile.themeSongChanged')}</p>}
     <div className="actions theme-editor-actions"><button onClick={draft.reset}>{t('ui.resetToDefaultTheme')}</button>
-      <button disabled={!isDualThemeNameValid(draft.draft)} onClick={save}>{t('options.saveAndApplyCustomTheme')}</button></div>
+      <button disabled={!isDualThemeNameValid(draft.draft) || (draft.target === 'ai' && stale)} onClick={() => void save()}>{t('options.saveAndApplyCustomTheme')}</button></div>
     {error && <p role="alert">{t('mobile.themeSaveError')}</p>}
     <details onToggle={event => setPreview(event.currentTarget.open)}><summary>{t('mobile.themePreview')}</summary>
       <p>{t('mobile.themePreviewHint')}</p>
@@ -52,7 +69,8 @@ export default function MobileThemeEditor({ appearance, light, visible, source, 
     {tab === 'content' && <ThemeParkContentPanel wordColors={draft.draft.dark.wordColors ?? []} lyricsIcons={draft.draft.dark.lyricsIcons ?? []}
       accentColor={draft.safeDraft[draft.mode].accentColor} onWordColorsChange={wordColors => draft.updateSharedField({ wordColors })}
       onLyricsIconsChange={lyricsIcons => draft.updateSharedField({ lyricsIcons })} />}
-    {tab === 'ai' && <ThemeParkAiPanel {...source} buildFinalTheme={draft.buildFinalTheme} fallbackTheme={draft.baseTheme}
+    {tab === 'ai' && <ThemeParkAiPanel {...(stale ? initialSource : source)} buildFinalTheme={draft.buildFinalTheme} fallbackTheme={draft.baseTheme}
       onImportTheme={draft.replaceDraft} writeClipboard={text => native.copyText({ text })} maxInputLength={200_000} />}
+    </fieldset>
   </section></div>;
 }

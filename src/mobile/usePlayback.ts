@@ -51,5 +51,5 @@ export function usePlayback() {
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [currentTime, visible]);
-  return { state, currentTime, visible, captureSongGuard };
+  return { state, currentTime, visible, captureSongGuard, songEpoch: songEpoch.current };
 }

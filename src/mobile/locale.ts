@@ -2,7 +2,10 @@ import { foldersEn, foldersZh, foldersIn } from './localeFolders';
 
 // src/mobile/locale.ts
 export const mobileEn = {
-  themeEditor: 'Theme Park · Custom theme', themeEditorSections: 'Theme editor sections', themePreview: 'Preview theme',
+  themeEditor: 'Theme Park · Theme editor', themeEditorSections: 'Theme editor sections', themePreview: 'Preview theme',
+  themeTarget: 'Theme target', themeSong: 'Save for: {{name}}', themeSongChanged: 'The song changed. Your draft remains here; reopen the editor for the current song.',
+  themeAutoSwitch: 'Automatically use saved song themes', themeSongEmpty: 'This song has no saved theme.', themeSongSaved: 'Saved song theme: {{name}}',
+  themeApplySong: 'Apply song theme', themeDefault: 'Use default theme', themeReadError: 'Theme storage or selection failed. Please retry.',
   themePreviewHint: 'Preview uses sample lyrics and does not change the playing song.',
   themeSaveError: 'Could not save the theme. Your draft is retained; check storage and retry.',
   folders: foldersEn,
@@ -72,7 +75,10 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
-  themeEditor: 'Theme Park · 自定义主题', themeEditorSections: '主题编辑分类', themePreview: '预览主题',
+  themeEditor: 'Theme Park · 主题编辑', themeEditorSections: '主题编辑分类', themePreview: '预览主题',
+  themeTarget: '主题保存目标', themeSong: '保存到歌曲：{{name}}', themeSongChanged: '歌曲已切换，草稿仍保留在此。请重新打开编辑器编辑当前歌曲。',
+  themeAutoSwitch: '切歌时自动使用已保存的歌曲主题', themeSongEmpty: '这首歌还没有保存主题。', themeSongSaved: '已保存的歌曲主题：{{name}}',
+  themeApplySong: '应用本曲主题', themeDefault: '使用默认主题', themeReadError: '主题读取或应用失败，请重试。',
   themePreviewHint: '使用示例歌词预览，不影响正在播放的歌曲。',
   themeSaveError: '主题保存失败，草稿已保留，请检查存储后重试。',
   folders: foldersZh,
@@ -142,7 +148,10 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
-  themeEditor: 'Theme Park · Tema kustom', themeEditorSections: 'Bagian editor tema', themePreview: 'Pratinjau tema',
+  themeEditor: 'Theme Park · Editor tema', themeEditorSections: 'Bagian editor tema', themePreview: 'Pratinjau tema',
+  themeTarget: 'Tujuan tema', themeSong: 'Simpan untuk: {{name}}', themeSongChanged: 'Lagu berubah. Draf tetap di sini; buka ulang editor untuk lagu saat ini.',
+  themeAutoSwitch: 'Otomatis gunakan tema lagu tersimpan', themeSongEmpty: 'Lagu ini belum memiliki tema tersimpan.', themeSongSaved: 'Tema lagu tersimpan: {{name}}',
+  themeApplySong: 'Terapkan tema lagu', themeDefault: 'Gunakan tema bawaan', themeReadError: 'Penyimpanan atau pemilihan tema gagal. Coba lagi.',
   themePreviewHint: 'Pratinjau memakai contoh lirik tanpa mengubah lagu yang diputar.',
   themeSaveError: 'Tema gagal disimpan. Draf dipertahankan; periksa penyimpanan dan coba lagi.',
   folders: foldersIn,

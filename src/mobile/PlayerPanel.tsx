@@ -6,7 +6,7 @@ import { useVisualizerSettingsStore } from '../stores/useVisualizerSettingsStore
 import { useVisualizerBackgroundConfig } from '../components/visualizer/useVisualizerBackgroundConfig';
 import { useVisualizerTunings } from '../components/visualizer/useVisualizerTunings';
 import { useThemeSettingsStore } from '../stores/useThemeSettingsStore';
-import { useMobileTheme } from './useMobileTheme';
+import type { MobileTheme } from './useMobileTheme';
 import { useTypographySettingsStore } from '../stores/useTypographySettingsStore';
 import { buildVisualizerTheme } from '../components/app/presentation/buildVisualizerTheme';
 import { findLatestActiveLineIndex } from '../utils/appPlaybackHelpers';
@@ -30,7 +30,8 @@ import type { SongResult } from '../types';
 
 // src/mobile/PlayerPanel.tsx — original registry renderers consume the native clock and decoded audio.
 const MobileVisualizer = memo(VisualizerRenderer);
-export default function PlayerPanel({ state, time, visible, light, expanded, collapse, openQueue, captureSongGuard }: {
+export default function PlayerPanel({ appearance, state, time, visible, light, expanded, collapse, openQueue, captureSongGuard }: {
+  appearance: MobileTheme;
   state: PlaybackSnapshot; time: MotionValue<number>; visible: boolean; light: boolean; expanded: boolean; collapse: () => void; openQueue: () => void;
   captureSongGuard: (song: SongResult) => () => boolean;
 }) {
@@ -42,7 +43,6 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
   const audioSettingsOpen = useAudioSettingsStore(s => s.isAudioEqualizerOpen);
   const mode = useVisualizerSettingsStore(s => s.visualizerMode);
   const visualizerOpacity = useVisualizerSettingsStore(s => s.visualizerOpacity);
-  const appearance = useMobileTheme();
   const typography = useTypographySettingsStore(useShallow(s => ({
     hideTranslationSubtitle: s.hidePlayerTranslationSubtitle,
     lyricsFontStyle: s.lyricsFontStyle, lyricsFontWeight: s.lyricsFontWeight,

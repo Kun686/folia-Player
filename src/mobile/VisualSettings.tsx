@@ -11,6 +11,7 @@ import AppearanceTransfer from './AppearanceTransfer';
 import type { MobileTheme } from './useMobileTheme';
 import TypographyControls from './TypographyControls';
 import MobileThemeEditor, { type MobileThemeSource } from './MobileThemeEditor';
+import SongThemeControls from './SongThemeControls';
 
 // src/mobile/VisualSettings.tsx — expose existing registry/settings and desktop persistence.
 export default function VisualSettings({ light, close, appearance, visible, themeSource }: {
@@ -43,7 +44,8 @@ export default function VisualSettings({ light, close, appearance, visible, them
     </select></label>
     <label className="check-label"><input type="checkbox" checked={staticMode} onChange={e => useThemeSettingsStore.getState().handleToggleStaticMode(e.target.checked)} />{t('mobile.staticMode')}</label>
     <AppearanceTransfer appearance={appearance} />
-    <button className="mobile-theme-entry" onClick={() => setThemeEditor(true)}>{t('mobile.themeEditor')}</button>
+    <SongThemeControls appearance={appearance} />
+    <button disabled={appearance.loading} className="mobile-theme-entry" onClick={() => setThemeEditor(true)}>{t('mobile.themeEditor')}</button>
     <TypographyControls theme={theme} onUploading={setUploading} />
     <Suspense fallback={<p>{t('mobile.loading')}</p>}>{entry.renderSettingsPanel?.({
       t, theme, isDaylight: light, controlCardBg: 'bg-black/5 dark:bg-white/5', rangeInputClass: 'w-full',

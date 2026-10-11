@@ -5,13 +5,14 @@ import MediaCacheControls from './MediaCacheControls';
 import ResourceCacheControls from './ResourceCacheControls';
 import type { useMediaCache } from './useMediaCache';
 import { cancelProvider, clearProvider } from './runtime';
-import { useMobileTheme } from './useMobileTheme';
+import type { MobileTheme } from './useMobileTheme';
 import BatchLyricExportDialog from './BatchLyricExportDialog';
 import SleepTimerSheet from './SleepTimerSheet';
 import type { useNativeSleepTimer } from './useNativeSleepTimer';
 
 // src/mobile/SettingsSheet.tsx
-export default function SettingsSheet({ mediaCache, timer, server, light, setLight, saved, close }: {
+export default function SettingsSheet({ appearance, mediaCache, timer, server, light, setLight, saved, close }: {
+  appearance: MobileTheme;
   timer: ReturnType<typeof useNativeSleepTimer>;
   mediaCache: ReturnType<typeof useMediaCache>; server: string; light: boolean; setLight: (value: boolean) => void; saved: (server: string) => void; close: () => void;
 }) {
@@ -22,7 +23,6 @@ export default function SettingsSheet({ mediaCache, timer, server, light, setLig
   const [error, setError] = useState(false);
   const [batch, setBatch] = useState(false);
   const [sleep, setSleep] = useState(false);
-  const appearance = useMobileTheme();
   const save = async () => {
     setBusy(true); setError(false);
     try {

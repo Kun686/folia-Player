@@ -33,13 +33,15 @@ export default function AppearanceTransfer({ appearance }: { appearance: MobileT
       if (typeof config.useCoverColorBg === 'boolean') theme.handleToggleCoverColorBg(config.useCoverColorBg);
       if (typeof config.disableVisualizerGeometricBackground === 'boolean') visual.handleToggleDisableVisualizerGeometricBackground(config.disableVisualizerGeometricBackground);
       if (typeof config.disableVisualizerVignette === 'boolean') visual.handleToggleDisableVisualizerVignette(config.disableVisualizerVignette);
-      if (config.theme?.light && config.theme?.dark) appearance.save(config.theme);
+      const autoSwitch = typeof config.songThemeAutoSwitchEnabled === 'boolean' ? config.songThemeAutoSwitchEnabled : undefined;
+      if (config.theme?.light && config.theme?.dark) appearance.save(config.theme, autoSwitch);
+      else if (autoSwitch !== undefined) appearance.setAutoSwitch(autoSwitch);
       setError(false); setText('');
     } catch { setError(true); }
   };
   return <details className="appearance-transfer"><summary>{t('mobile.appearanceTransfer')}</summary>
     {appearance.custom && <label className="check-label"><input type="checkbox" checked={appearance.selected}
-      onChange={e => appearance.select(e.target.checked)} />{t('mobile.customTheme')}: {appearance.custom.dark.name}</label>}
+      onChange={e => { try { appearance.select(e.target.checked); setError(false); } catch { setError(true); } }} />{t('mobile.customTheme')}: {appearance.custom.dark.name}</label>}
     <label>{t('mobile.appearanceCode')}<textarea aria-label={t('mobile.appearanceCode')} value={text} rows={4} onChange={e => setText(e.target.value)} /></label>
     <div className="actions"><button onClick={() => { setText(compressConfig({ ...buildVisualSettingsConfig(), theme: appearance.theme })); setError(false); }}>{t('mobile.exportAppearance')}</button>
       <button disabled={!text.trim()} onClick={apply}>{t('mobile.importAppearance')}</button></div>
