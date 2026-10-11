@@ -32,10 +32,10 @@ final class NativeBalanceCorrection {
                     // A temporary decoder stall must not permanently disable correction for this blend.
                     guard output.running, outgoing.playing, incoming.playing else { continue }
                     let outLevel: Double?
-                    if let outgoingReference { outLevel = outgoingReference }
+                    if let outgoingReference { outLevel = outgoingReference + output.replayGainDb(outgoing.audio) }
                     else { outLevel = recent(await output.deckState(outgoing.audio)) }
                     let inLevel: Double?
-                    if let incomingReference { inLevel = incomingReference }
+                    if let incomingReference { inLevel = incomingReference + output.replayGainDb(incoming.audio) }
                     else { inLevel = recent(await output.deckState(incoming.audio)) }
                     try Task.checkCancellation()
                     guard current() else { return }

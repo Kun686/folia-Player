@@ -33,8 +33,18 @@ struct NativeAudioSettings: Codable {
     var volume = 1.0
     var isMuted = false
     var equalizer = NativeEqualizerSettings()
+    var replayGainMode = "off"
+    private enum CodingKeys: String, CodingKey { case volume, isMuted, equalizer, replayGainMode }
+    init() {}
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        volume = try values.decode(Double.self, forKey: .volume)
+        isMuted = try values.decode(Bool.self, forKey: .isMuted)
+        equalizer = try values.decode(NativeEqualizerSettings.self, forKey: .equalizer)
+        replayGainMode = try values.decodeIfPresent(String.self, forKey: .replayGainMode) ?? "off"
+    }
     func validate() throws {
-        guard volume.isFinite, (0...1).contains(volume) else { throw MobileFailure("invalid-audio-settings") }
+        guard volume.isFinite, (0...1).contains(volume), ["off", "track", "album"].contains(replayGainMode) else { throw MobileFailure("invalid-audio-settings") }
         try equalizer.validate()
     }
     var dictionary: [String: Any] {

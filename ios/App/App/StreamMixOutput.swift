@@ -18,6 +18,7 @@ final class StreamMixOutput {
     private var sources: [ObjectIdentifier: (bus: AVAudioNodeBus, source: StreamRenderSource)] = [:]
     private var observer: NSObjectProtocol?
     private var closed = false
+    private var replayGainMode = "off"
     var attachedCount: Int { sources.count }
     var running: Bool { !closed && engine.isRunning }
 
@@ -60,7 +61,7 @@ final class StreamMixOutput {
     }
 
     // Only sounding decks join the graph. Prepared/cancelled network work never changes audible routing.
-    func attach(_ player: AudioPlayer, allowsTempo: Bool = false) throws {
+    func attach(_ player: AudioPlayer, allowsTempo: Bool = false, replayGain: NativeReplayGainLevels = .neutral) throws {
         guard !closed else { throw MobileFailure("audio-failed") }
         let identity = ObjectIdentifier(player)
         if let entry = sources[identity] {
@@ -71,7 +72,7 @@ final class StreamMixOutput {
         guard let bus = (0..<2).map({ AVAudioNodeBus($0) }).first(where: { !occupied.contains($0) }) else {
             throw MobileFailure("audio-decks-full")
         }
-        let source = try StreamRenderSource(player: player, allowsTempo: allowsTempo)
+        let source = try StreamRenderSource(player: player, allowsTempo: allowsTempo, replayGain: replayGain, mode: replayGainMode)
         let deck = decks[Int(bus)]
         deck.processor.source(source.identity)
         engine.attach(source.node)
@@ -102,6 +103,9 @@ final class StreamMixOutput {
     func pause() { transitionGain.cancel(); engine.pause(); analysis.configure(running: false) }
     func setAnalysisEnabled(_ enabled: Bool) { analysis.configure(enabled: enabled) }
     func resetAnalysis(_ player: AudioPlayer) { sources[ObjectIdentifier(player)]?.source.capture.reset() }
+    func replayGainDb(_ player: AudioPlayer) -> Double {
+        20 * log10(max(sources[ObjectIdentifier(player)]?.source.replayGain.amplitude ?? 1, 1e-6))
+    }
     @MainActor func deckState(_ player: AudioPlayer, history: Bool = false) async -> NativeDeckState? {
         guard let capture = sources[ObjectIdentifier(player)]?.source.capture else { return nil }
         let epoch = capture.currentEpoch()
@@ -133,6 +137,8 @@ final class StreamMixOutput {
         if sources.isEmpty { engine.pause(); analysis.configure(running: false); unit.requestDiscontinuity() }
     }
     func apply(_ settings: NativeAudioSettings) {
+        replayGainMode = settings.replayGainMode
+        for entry in sources.values { entry.source.replayGain.configure(replayGainMode) }
         engine.mainMixerNode.outputVolume = settings.isMuted ? 0 : Float(settings.volume)
         meter.setOutputGain(volume: settings.volume, muted: settings.isMuted)
         meter.equalizer.configure(enabled: settings.equalizer.enabled, gains: settings.equalizer.gains)

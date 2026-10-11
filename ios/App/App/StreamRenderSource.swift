@@ -8,8 +8,9 @@ final class StreamRenderSource {
     let identity: UUID
     let capture: NativeDeckCapture
     let tempo: NativeTempoHandover?
+    let replayGain: StreamReplayGain
 
-    init(player: AudioPlayer, allowsTempo: Bool = false) throws {
+    init(player: AudioPlayer, allowsTempo: Bool = false, replayGain levels: NativeReplayGainLevels = .neutral, mode: String = "off") throws {
         guard player.externalOutputFormat.commonFormat == .pcmFormatFloat32,
               player.externalOutputFormat.isInterleaved, player.externalOutputFormat.channelCount == 2,
               let format = AVAudioFormat(standardFormatWithSampleRate: player.externalOutputFormat.sampleRate, channels: 2) else {
@@ -17,6 +18,8 @@ final class StreamRenderSource {
         }
         self.format = format
         let identity = UUID(), rate = format.sampleRate
+        let replayGain = StreamReplayGain(levels: levels, mode: mode, rate: rate)
+        self.replayGain = replayGain
         self.identity = identity
         let capture = NativeDeckCapture(rate: rate)
         self.capture = capture
@@ -25,6 +28,7 @@ final class StreamRenderSource {
         if let tempo {
             node = AVAudioSourceNode(format: player.externalOutputFormat) { silence, time, frames, output in
                 let status = tempo.render(output, frames: frames)
+                if status == noErr { replayGain.process(output, frames: Int(frames)) }
                 if status == noErr, time.pointee.mFlags.contains(.sampleTimeValid) {
                     capture.consume(output, frames: Int(frames), sampleTime: time.pointee.mSampleTime)
                 }
@@ -37,6 +41,7 @@ final class StreamRenderSource {
         // AVAudioSourceNode performs PCM layout conversion. Its block retains the decoder until detached.
         node = AVAudioSourceNode(format: player.externalOutputFormat) { silence, time, frames, output in
             let status = player.renderExternalAudio(frames: frames, output: output)
+            if status == noErr { replayGain.process(output, frames: Int(frames)) }
             if status == noErr, time.pointee.mFlags.contains(.sampleTimeValid) {
                 capture.consume(output, frames: Int(frames), sampleTime: time.pointee.mSampleTime)
             }

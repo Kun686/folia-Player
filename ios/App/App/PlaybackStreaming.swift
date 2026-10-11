@@ -47,6 +47,7 @@ extension PlaybackEngine {
                 if let cached { entry = cached }
                 else { entry = try await self.prepareMedia(song, refresh: refresh, position: position, output: output) }
                 guard epoch == self.generation, !Task.isCancelled else { entry.dispose(); return }
+                self.retainReplayGain(entry, for: song, at: self.index)
                 self.stream = entry; self.meter = entry.meter
                 entry.apply(self.audioSettings)
                 self.observeStream(entry, epoch: epoch)
@@ -69,6 +70,7 @@ extension PlaybackEngine {
             do {
                 let entry = try await self.prepareMedia(song, output: output)
                 guard epoch == self.generation, !Task.isCancelled else { entry.dispose(); return }
+                self.retainReplayGain(entry, for: song, at: next)
                 self.preparedStream?.entry.dispose()
                 self.preparedStream = (next, entry, Date())
                 self.crossfade?.tick()

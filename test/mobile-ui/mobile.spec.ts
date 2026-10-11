@@ -11,13 +11,13 @@ test.beforeEach(async ({ page }) => {
     let cookie = false;
     const effects = { highpass: 20, lowpass: 20000, drive: 0, crush: 0, wow: 0, noise: 0, width: 1, space: 0, punch: 0 };
     win.fixtureTransition = { enabled: false, mode: 'automix', crossfadeMaxSec: 5 };
-    win.fixtureAudio = { volume: 1, isMuted: false, equalizer: { enabled: false, gains: Array(10).fill(0), preset: 'flat', effects,
+    win.fixtureAudio = { volume: 1, isMuted: false, replayGainMode: 'off', equalizer: { enabled: false, gains: Array(10).fill(0), preset: 'flat', effects,
       customSlots: [1, 2].map(() => ({ gains: Array(10).fill(0), effects })) } };
     const song = { id: 42, name: '测试歌曲', ar: [{ id: 1, name: '测试歌手' }], al: { id: 1, name: '专辑' }, dt: 180000 };
     const state = { queue: [] as any[], index: -1, position: 0, duration: 180, playing: false, repeat: 'off', revision: 0, queueRevision: 0, currentSong: null as any,
       audioEffects: { available: true, pending: false, error: '' } };
     const localSong = { id: '11111111-1111-4111-8111-111111111111', name: '本地测试音乐', artists: [{ id: '', name: '本地歌手' }], album: { id: '', name: '' }, durationMs: 180000,
-      sourceRef: { kind: 'local', mediaId: '11111111-1111-4111-8111-111111111111' } };
+      sourceRef: { kind: 'local', mediaId: '11111111-1111-4111-8111-111111111111' }, replayGain: { trackGain: -6, albumGain: -3 } };
     let localSongs: any[] = [];
     let lyric = '[00:00.00]测试本地歌词\n[00:10.00]第二句';
     win.fixturePlayback = state;
@@ -271,6 +271,31 @@ test('touch queue editing preserves current song and rejects stale actions', asy
   const current = info.project.name === 'ipad' ? page.locator('.player-controls h2') : page.locator('.mini-title strong');
   await expect(current).toHaveText('本地测试音乐');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('original ReplayGain control restores, applies touch selections and rolls back failures', async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as any).fixtureNoServer = true;
+    (window as any).fixtureAudio.replayGainMode = 'track';
+  });
+  await page.goto('/mobile.html');
+  await page.getByRole('button', { name: '导入音乐', exact: true }).click();
+  await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
+  const controls = page.locator('.replay-gain-controls');
+  await expect(controls.getByText('T -6.0 dB / A -3.0 dB')).toBeVisible();
+  await expect(controls.getByRole('button', { name: '单曲', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  const album = controls.getByRole('button', { name: '专辑', exact: true });
+  await album.tap();
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureAudio.replayGainMode)).toBe('album');
+  await expect(album).toHaveAttribute('aria-pressed', 'true');
+  await expect(album).toHaveCSS('background-color', 'rgba(59, 130, 246, 0.2)');
+  expect((await album.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await page.evaluate(() => { (window as any).fixtureAudioFailure = true; });
+  await controls.getByRole('button', { name: '单曲', exact: true }).tap();
+  await expect(page.locator('.audio-controls [role="alert"]')).toHaveText('声音设置未能应用，已保留上次确认的设置。');
+  await expect(album).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath('replaygain.png') });
 });
 
 test('volume, mute and original sound controls apply and recover from native failure', async ({ page }) => {

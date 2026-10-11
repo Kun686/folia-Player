@@ -1,5 +1,5 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
-import type { SongResult } from '../types';
+import type { SongResult, ReplayGainMode } from '../types';
 import type { AudioEqualizerSettings } from '../utils/audioEqualizer';
 import type { NativeTransitionCue } from './nativeTransitionCue';
 
@@ -17,7 +17,7 @@ export interface NativeMediaCacheState {
   settings: NativeMediaCacheSettings; count: number; bytes: number; pending: number;
   revision: number; error: string | null; songs: SongResult[];
 }
-export interface NativeAudioSettings { volume: number; isMuted: boolean; equalizer: AudioEqualizerSettings }
+export interface NativeAudioSettings { volume: number; isMuted: boolean; equalizer: AudioEqualizerSettings; replayGainMode: ReplayGainMode }
 export interface NativeTransitionSettings { enabled: boolean; mode: 'crossfade' | 'automix'; crossfadeMaxSec: number }
 export type PlaybackEvent = Omit<PlaybackSnapshot, 'queue' | 'currentSong'> & Partial<Pick<PlaybackSnapshot, 'queue' | 'currentSong'>>;
 export interface FoliaNativePlugin {

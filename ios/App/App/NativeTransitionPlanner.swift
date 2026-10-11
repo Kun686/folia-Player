@@ -62,6 +62,10 @@ actor NativeTransitionPlanner {
         try result.validate()
         return result
     }
+    func replayGain(_ info: NativeReplayGainInfo?) throws -> NativeReplayGainLevels {
+        try decode(NativeReplayGainLevels.self, method: "replayGainJSON", input:
+            JSONSerialization.data(withJSONObject: ["version": 1, "info": info?.dictionary as Any? ?? NSNull()]))
+    }
 
     // Only this actor touches JS values. Request data is passed as an argument, never evaluated as source.
     private func decode<T: Decodable>(_ type: T.Type, method: String, input: Data) throws -> T {

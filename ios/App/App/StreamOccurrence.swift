@@ -5,6 +5,8 @@ import AudioStreaming
 final class StreamOccurrence: AudioPlayerDelegate {
     var cachedMedia: NativeCachedMedia?
     let sourceURL: URL
+    private(set) var replayGain: NativeReplayGainInfo?
+    private var replayGainLevels = NativeReplayGainLevels.neutral
     private(set) var audio: AudioPlayer
     let node: AVAudioUnit
     let unit: AudioEffectUnit
@@ -58,12 +60,14 @@ final class StreamOccurrence: AudioPlayerDelegate {
     }
 
     @MainActor static func prepare(url: URL, position: Double = 0, output: StreamMixOutput? = nil,
-                                   networkConfiguration: URLSessionConfiguration? = nil, allowsTempo: Bool = false) async throws -> StreamOccurrence {
+                                   networkConfiguration: URLSessionConfiguration? = nil, allowsTempo: Bool = false,
+                                   replayGain: NativeReplayGainInfo? = nil, replayGainLevels: NativeReplayGainLevels = .neutral) async throws -> StreamOccurrence {
         guard !allowsTempo || output != nil else { throw MobileFailure("tempo-unavailable") }
         let node: AVAudioUnit
         if let output { node = output.node } else { node = try await AudioEffectUnit.makeNode() }
         guard let unit = node.auAudioUnit as? AudioEffectUnit else { throw MobileFailure("audio-failed") }
         let entry = StreamOccurrence(url: url, node: node, unit: unit, output: output, allowsTempo: allowsTempo, networkConfiguration: networkConfiguration)
+        entry.replayGain = replayGain; entry.replayGainLevels = replayGainLevels
         entry.audio.play(url: url)
         do {
             try await entry.waitForPCM()
@@ -122,7 +126,7 @@ final class StreamOccurrence: AudioPlayerDelegate {
     // with play(), including the optional tempo history and its native event subscription.
     func attachOutput() throws {
         guard !disposed, !hasFailed, !hasEnded, seekTask == nil else { throw MobileFailure("audio-failed") }
-        try output?.attach(audio, allowsTempo: allowsTempo)
+        try output?.attach(audio, allowsTempo: allowsTempo, replayGain: replayGainLevels)
         if allowsTempo {
             let stamp = seekGeneration
             try output?.observeTempo(audio) { [weak self] failed in

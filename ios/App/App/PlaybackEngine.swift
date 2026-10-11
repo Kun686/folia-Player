@@ -14,6 +14,7 @@ final class PlaybackEngine {
     var streamTimer: DispatchSourceTimer?
     var crossfade: NativeCrossfade?
     var audioSettings = NativeAudioSettings()
+    let audioRules = NativeTransitionPlanner()
     var transitionSettings = NativeTransitionSettings()
     let gateway: GatewayClient
     let storage: UserDefaults

@@ -32,16 +32,18 @@ extension PlaybackEngine {
         let artists = (song["artists"] as? [[String: Any]] ?? []).prefix(30).map {
             ["id": String(describing: $0["id"] ?? ""), "name": String(($0["name"] as? String ?? "").prefix(256))]
         }
-        return ["id": id, "name": String((song["name"] as? String ?? "").prefix(512)), "artists": artists,
+        var result: [String: Any] = ["id": id, "name": String((song["name"] as? String ?? "").prefix(512)), "artists": artists,
                 "album": album,
                 "durationMs": (song["durationMs"] as? Double ?? 0), "sourceRef": ref]
+        if let gain = NativeReplayGainInfo(song["replayGain"]) { result["replayGain"] = gain.dictionary }
+        return result
     }
 
     func resolve(_ song: [String: Any]) async throws -> URL {
         if let ref = song["sourceRef"] as? [String: Any], ref["kind"] as? String == "local", let id = ref["mediaId"] as? String {
             do { return try await local.resolve(id) } catch { throw MobileFailure("local-file-missing") }
         }
-        return try await gateway.resolve(song)
+        return try await gateway.resolve(song).url
     }
     var currentIsLocal: Bool {
         (currentSong?["sourceRef"] as? [String: Any])?["kind"] as? String == "local"

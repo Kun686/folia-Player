@@ -51,6 +51,7 @@ const ReplayGainControl: React.FC<ReplayGainControlProps> = ({
                 {modes.map(({ key, label }) => (
                     <button
                         key={key}
+                        aria-pressed={mode === key}
                         onClick={() => onChangeMode(key)}
                         className={`flex-1 text-[11px] py-1 px-1.5 rounded-md font-medium transition-all ${
                             mode === key ? activeBackground : inactiveBackground

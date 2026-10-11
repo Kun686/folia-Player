@@ -8,14 +8,20 @@ import { connectAudioSettings } from './audioSettingsSync';
 import type { Theme } from '../types';
 import type { PlaybackSnapshot } from './bridge';
 import { isNeutralAudioEffects } from '../utils/audioEffects';
+import ReplayGainControl from '../components/panelTab/ReplayGainControl';
+import { usePlaybackStore } from '../stores/usePlaybackStore';
+import type { ReplayGainInfo } from '../types';
 
 // src/mobile/AudioControls.tsx — existing store/actions/dialog; AVPlayer owns the audible settings.
-export default function AudioControls({ light, theme, unavailable, effects }: {
+export default function AudioControls({ light, theme, unavailable, effects, replayGain }: {
   light: boolean; theme: Theme; unavailable: boolean; effects: PlaybackSnapshot['audioEffects'];
+  replayGain?: ReplayGainInfo;
 }) {
   const { t } = useTranslation();
   const [status, setStatus] = useState({ ready: false, error: false });
   const [attempt, setAttempt] = useState(0);
+  const replayGainMode = usePlaybackStore(s => s.replayGainMode);
+  const setReplayGainMode = usePlaybackStore(s => s.setReplayGainMode);
   const audio = useAudioSettingsStore(useShallow(s => ({
     volume: s.volume, isMuted: s.isMuted, enabled: s.audioEqualizerSettings.enabled,
     effectsRequested: s.audioEqualizerSettings.enabled && !isNeutralAudioEffects(s.audioEqualizerSettings.effects),
@@ -35,6 +41,9 @@ export default function AudioControls({ light, theme, unavailable, effects }: {
       <output>{Math.round(audio.volume * 100)}%</output>
       <button disabled={!status.ready} onClick={audio.openAudioEqualizer}>{t('ui.equalizerTitle')}</button>
     </div>
+    <fieldset disabled={!status.ready} className="replay-gain-controls">
+      <ReplayGainControl isDaylight={light} values={replayGain} mode={replayGainMode} onChangeMode={setReplayGainMode} />
+    </fieldset>
     {message && <p role="alert">{message}</p>}
     {!status.ready && status.error && <button onClick={() => setAttempt(a => a + 1)}>{t('mobile.retry')}</button>}
     <AudioEqualizerDialog isDaylight={light} theme={theme} mobileLayout commitOnInput statusMessage={message} />

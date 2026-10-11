@@ -6,7 +6,7 @@ import AVFoundation
 final class FailingGateway: GatewayClient {
     var count = 0
     var code = "unavailable"
-    override func resolve(_ song: [String: Any]) async throws -> URL { count += 1; throw MobileFailure(code) }
+    override func resolve(_ song: [String: Any]) async throws -> NativeAudioSource { count += 1; throw MobileFailure(code) }
     override func send(_ path: String, body: [String: Any]? = nil) async throws -> [String: Any] { throw MobileFailure("fixture-no-lyrics") }
 }
 final class AudioFixtureGateway: GatewayClient {
@@ -14,11 +14,11 @@ final class AudioFixtureGateway: GatewayClient {
     var resolved: [String] = []
     init(url: URL) { self.url = url }
     override func send(_ path: String, body: [String: Any]? = nil) async throws -> [String: Any] { throw MobileFailure("fixture-no-lyrics") }
-    override func resolve(_ song: [String: Any]) async throws -> URL {
+    override func resolve(_ song: [String: Any]) async throws -> NativeAudioSource {
         let id = (song["sourceRef"] as? [String: Any])?["mediaId"] as? String ?? ""
         resolved.append(id)
         if id == "slow" { try? await Task.sleep(nanoseconds: 250_000_000) }
-        return url
+        return NativeAudioSource(url: url, replayGain: NativeReplayGainInfo(song["replayGain"]))
     }
 }
 final class RefreshingAudioGateway: GatewayClient {
@@ -27,9 +27,9 @@ final class RefreshingAudioGateway: GatewayClient {
     var count = 0
     init(validURL: URL) { self.validURL = validURL }
     override func send(_ path: String, body: [String: Any]? = nil) async throws -> [String: Any] { throw MobileFailure("fixture-no-lyrics") }
-    override func resolve(_ song: [String: Any]) async throws -> URL {
+    override func resolve(_ song: [String: Any]) async throws -> NativeAudioSource {
         count += 1
-        return count == 1 ? missingURL : validURL
+        return NativeAudioSource(url: count == 1 ? missingURL : validURL)
     }
 }
 @MainActor final class NativeTests: XCTestCase {

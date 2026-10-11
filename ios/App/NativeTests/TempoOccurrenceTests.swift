@@ -90,7 +90,9 @@ import AudioStreaming
         defer { try? FileManager.default.removeItem(at: url) }
         let graph = try await TempoOccurrenceProbe()
         defer { graph.output.close() }
-        let entry = try await StreamOccurrence.prepare(url: url, output: graph.output, allowsTempo: true)
+        let gain = try await NativeTransitionPlanner().replayGain(NativeReplayGainInfo(["trackGain": -6.0]))
+        var settings = NativeAudioSettings(); settings.replayGainMode = "track"; graph.output.apply(settings)
+        let entry = try await StreamOccurrence.prepare(url: url, output: graph.output, allowsTempo: true, replayGainLevels: gain)
         defer { entry.dispose() }
         try await waitForStream { entry.audio.bufferedDuration >= 4 }
         try entry.play()
@@ -105,11 +107,12 @@ import AudioStreaming
         XCTAssertEqual(entry.position, 1.5, accuracy: 0.001)
         XCTAssertEqual(entry.tempoState?.phase, .raw); XCTAssertEqual(entry.rate, 1)
         try entry.play()
+        for _ in 0..<10 { graph.render() } // Original 100ms gain ramp after reattachment.
         for _ in 0..<25 {
             graph.render()
             for frame in 0..<512 {
-                XCTAssertEqual(graph.pcm.floatChannelData![0][frame], 0.125, accuracy: 1e-6)
-                XCTAssertEqual(graph.pcm.floatChannelData![1][frame], -0.0625, accuracy: 1e-6)
+                XCTAssertEqual(graph.pcm.floatChannelData![0][frame], Float(0.125 * gain.track), accuracy: 1e-6)
+                XCTAssertEqual(graph.pcm.floatChannelData![1][frame], Float(-0.0625 * gain.track), accuracy: 1e-6)
             }
         }
         XCTAssertEqual(entry.tempoState?.phase, .raw)
@@ -119,8 +122,10 @@ import AudioStreaming
         try await waitForStream { !entry.seeking || entry.hasFailed }
         XCTAssertFalse(entry.hasFailed); XCTAssertFalse(entry.hasEnded); XCTAssertFalse(entry.playing)
         XCTAssertEqual(entry.position, 0.25, accuracy: 0.001)
-        try entry.play(); graph.render()
+        try entry.play(); for _ in 0..<12 { graph.render() }
         XCTAssertGreaterThan(entry.position, 0.25); XCTAssertTrue(entry.playing)
+        XCTAssertEqual(graph.pcm.floatChannelData![0][511], Float(0.125 * gain.track), accuracy: 1e-6)
+        XCTAssertEqual(graph.pcm.floatChannelData![1][511], Float(-0.0625 * gain.track), accuracy: 1e-6)
         print("FOLIA_TEMPO_SEEK latestPosition=1.5 paused=true oldRateCleared=true replayPosition=\(entry.position)")
     }
 

@@ -3,7 +3,10 @@ import Foundation
 // NativeMediaFiles.swift — atomic cache records; hard-linked playback leases survive clearing and LRU eviction.
 final class NativeCachedMedia: @unchecked Sendable {
     let url: URL, generation: String
-    init(url: URL, generation: String) { self.url = url; self.generation = generation }
+    let replayGain: NativeReplayGainInfo?
+    init(url: URL, generation: String, replayGain: NativeReplayGainInfo? = nil) {
+        self.url = url; self.generation = generation; self.replayGain = replayGain
+    }
     deinit { try? FileManager.default.removeItem(at: url) }
 }
 struct NativeMediaFiles {
@@ -38,7 +41,8 @@ struct NativeMediaFiles {
         let url = manager.temporaryDirectory.appendingPathComponent("FoliaPlayback-" + UUID().uuidString).appendingPathExtension(record.fileExtension)
         try manager.linkItem(at: path(key, record), to: url)
         if touch { record.used = Date(); try? write(key, record) }
-        return NativeCachedMedia(url: url, generation: record.generation)
+        let song = (try? JSONSerialization.jsonObject(with: record.song)) as? [String: Any]
+        return NativeCachedMedia(url: url, generation: record.generation, replayGain: NativeReplayGainInfo(song?["replayGain"]))
     }
     private func write(_ key: String, _ record: Record) throws {
         try JSONEncoder().encode(record).write(to: directory.appendingPathComponent(key + ".json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])

@@ -8,6 +8,8 @@ import { AUTOMIX_MIN_OVERLAP_SEC } from './transitionPlanner';
 import { echoThrowAt, planEchoThrow } from './echoThrow';
 import { handoverWindow, handoverStretch, handoverPeriod, handoverBeatGrid, waitToGrid, shapeMasterHandover, masterHandoverCue } from './masterHandover';
 import { tempoBendRate } from './tempoBend';
+import { calculateReplayGain } from '../../utils/replayGain';
+import type { ReplayGainInfo } from '../../types';
 
 // nativeRuntime.ts — JSON boundary for the original planners, bundled for Apple's JavaScriptCore.
 export const protocolVersion = 1;
@@ -159,4 +161,16 @@ export function echoJSON(text: string): string {
     const request = read(text);
     if (!numeric(request.at) || request.at < 0 || request.at > 50 || !optionalNumber(request.periodSec)) fail();
     return JSON.stringify(planEchoThrow(request.at as number, request.periodSec as number | null, 0));
+}
+
+// Precompute both modes outside the audio thread; Swift only ramps these original amplitudes.
+export function replayGainJSON(text: string): string {
+    const request = read(text);
+    const info = request.info == null ? undefined : object(request.info) as ReplayGainInfo;
+    const gain = (mode: 'track' | 'album') => {
+        const value = calculateReplayGain(info, mode).linearGain;
+        // Corrupt tags must not inject Infinity into float PCM.
+        return Number.isFinite(value) && value >= 0 && value <= 3.4028234663852886e38 ? value : 1;
+    };
+    return JSON.stringify({ track: gain('track'), album: gain('album') });
 }

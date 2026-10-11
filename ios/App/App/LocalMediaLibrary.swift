@@ -35,6 +35,30 @@ actor LocalMediaLibrary {
         }
         return url
     }
+    func audioSource(_ id: String) async throws -> NativeAudioSource {
+        let url: URL
+        do { url = try resolve(id) } catch { throw MobileFailure("local-file-missing") }
+        let songURL = try directory(id).appendingPathComponent("song.json")
+        guard let data = try? Data(contentsOf: songURL),
+              var song = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            return NativeAudioSource(url: url)
+        }
+        // Older imports are upgraded lazily; no reimport and no repeated scans for untagged songs.
+        if song["replayGainScanned"] as? Bool != true {
+            guard let metadata = try? await AVURLAsset(url: url).load(.metadata) else {
+                try Task.checkCancellation()
+                return NativeAudioSource(url: url, replayGain: NativeReplayGainInfo(song["replayGain"]))
+            }
+            let info = await NativeReplayGainInfo.read(metadata)
+            try Task.checkCancellation()
+            _ = try resolve(id) // A concurrent delete must not resurrect its metadata.
+            if let info { song["replayGain"] = info.dictionary }
+            song["replayGainScanned"] = true
+            // A full/read-only disk may delay the upgrade, but must not prevent playback.
+            try? JSONSerialization.data(withJSONObject: song).write(to: songURL, options: .atomic)
+        }
+        return NativeAudioSource(url: url, replayGain: NativeReplayGainInfo(song["replayGain"]))
+    }
     func lyricSource(_ id: String) throws -> LyricSource? {
         _ = try resolve(id)
         let folder = try directory(id), document = folder.appendingPathComponent("lyrics.json")
@@ -98,7 +122,7 @@ actor LocalMediaLibrary {
             let title = await string(.commonKeyTitle) ?? source.deletingPathExtension().lastPathComponent
             let artist = await string(.commonKeyArtist) ?? ""
             let album = await string(.commonKeyAlbumName) ?? ""
-            let song: [String: Any] = ["id": id, "name": String(title.prefix(512)),
+            var song: [String: Any] = ["id": id, "name": String(title.prefix(512)),
                 "artists": [["id": "", "name": String(artist.prefix(256))]], "album": ["id": "", "name": String(album.prefix(512))],
                 "durationMs": duration * 1000, "sourceRef": ["kind": "local", "mediaId": id]]
             if let art = metadata.first(where: { $0.commonKey == .commonKeyArtwork }),
@@ -111,6 +135,8 @@ actor LocalMediaLibrary {
                 if let jpeg = thumb.jpegData(compressionQuality: 0.8) { try jpeg.write(to: folder.appendingPathComponent("cover.jpg"), options: .atomic) }
             }
             let allMetadata = try await asset.load(.metadata)
+            if let info = await NativeReplayGainInfo.read(allMetadata) { song["replayGain"] = info.dictionary }
+            song["replayGainScanned"] = true
             if let item = allMetadata.first(where: { $0.identifier == .id3MetadataUnsynchronizedLyric }),
                let text = try? await item.load(.stringValue), text.utf8.count <= 2_000_000 {
                 try Data(text.utf8).write(to: folder.appendingPathComponent("lyrics.txt"), options: .atomic)

@@ -65,7 +65,9 @@ import AVFoundation
     func testStereoQueueRapidSelectionCannotRestoreOldResolvedSong() async throws {
         let source = try streamingTone(); defer { try? FileManager.default.removeItem(at: source) }
         let tested = stereoEngine(AudioFixtureGateway(url: source)); defer { tested.stop(); tested.clearOutput() }
-        try tested.setQueue([song("qq", "slow"), song("netease", "new")], at: 0)
+        var slow = song("qq", "slow"), next = song("netease", "new")
+        slow["replayGain"] = ["trackGain": -9.0]; next["replayGain"] = ["trackGain": -3.0]
+        try tested.setQueue([slow, next], at: 0)
         try await Task.sleep(nanoseconds: 20_000_000)
         try tested.selectQueue(1, expectedRevision: tested.queueRevision)
         try await waitForStream { tested.outputIsPlaying }
@@ -73,6 +75,8 @@ import AVFoundation
         try await Task.sleep(nanoseconds: 350_000_000)
         XCTAssertEqual(tested.index, 1); XCTAssertTrue(tested.stream === active)
         XCTAssertEqual(tested.currentSong?["name"] as? String, "new")
+        XCTAssertEqual(tested.stream?.replayGain?.dictionary, ["trackGain": -3])
+        XCTAssertEqual(NativeReplayGainInfo(tested.currentSong?["replayGain"])?.dictionary, ["trackGain": -3])
     }
 
     func testStereoQueueAuthenticationAndFailureLimitKeepExistingPolicy() async throws {

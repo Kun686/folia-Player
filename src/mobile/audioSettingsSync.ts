@@ -1,6 +1,7 @@
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { native, type NativeAudioSettings } from './bridge';
 import { connectNativeSettings } from './nativeSettingsSync';
+import { usePlaybackStore } from '../stores/usePlaybackStore';
 
 // src/mobile/audioSettingsSync.ts — one ordered native writer for the original store and command actions.
 export function connectAudioSettings(report: (ready: boolean, error: boolean) => void) {
@@ -12,11 +13,22 @@ export function connectAudioSettings(report: (ready: boolean, error: boolean) =>
       store.handleSetVolume(value.volume);
       if (store.isMuted !== value.isMuted) store.handleToggleMute();
       store.handleSetAudioEqualizerSettings(value.equalizer);
+      usePlaybackStore.getState().setReplayGainMode(value.replayGainMode);
     },
-    subscribe: changed => useAudioSettingsStore.subscribe((state, previous) => {
-      if (state.volume === previous.volume && state.isMuted === previous.isMuted &&
-          state.audioEqualizerSettings === previous.audioEqualizerSettings) return;
-      changed({ volume: state.volume, isMuted: state.isMuted, equalizer: state.audioEqualizerSettings });
-    }),
+    subscribe: changed => {
+      const publish = () => {
+        const state = useAudioSettingsStore.getState();
+        changed({ volume: state.volume, isMuted: state.isMuted, equalizer: state.audioEqualizerSettings,
+          replayGainMode: usePlaybackStore.getState().replayGainMode });
+      };
+      const audio = useAudioSettingsStore.subscribe((state, previous) => {
+        if (state.volume !== previous.volume || state.isMuted !== previous.isMuted ||
+            state.audioEqualizerSettings !== previous.audioEqualizerSettings) publish();
+      });
+      const playback = usePlaybackStore.subscribe((state, previous) => {
+        if (state.replayGainMode !== previous.replayGainMode) publish();
+      });
+      return () => { audio(); playback(); };
+    },
   }, report);
 }
