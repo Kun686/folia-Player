@@ -60,7 +60,8 @@ WebKit 用受控的原生／provider 响应，但执行真实 Omni、Worker 与�
 ## 边界与回退
 
 **NOT_IMPLEMENTED**：移动端本地歌手／专辑实体拆分合并、完整多标签采集、全部桌面编辑工具、
-完整 Automix。既有 Partita 长词裁切仍待处理，本阶段没有修改原版动画参数。
+完整 Automix。Partita 长词裁切由后续源码适配，见 [PARTITA_FIT.md](PARTITA_FIT.md)；
+本匹配阶段没有修改原版动画参数。
 移动原生存储没有拆分实体，因此不虚构桌面 assignment ID。
 
 **NOT_RUN**：本阶段实体 iPhone／iPad、三平台长时间锁屏、耳机／蓝牙、网络切换、
