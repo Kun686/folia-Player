@@ -68,7 +68,11 @@ test('manual missing-key fallback and offline cover generation preserve cache an
   expect(await page.evaluate(() => [localStorage.getItem('theme_auto_generate_enabled'), localStorage.getItem('theme_generation_source')])).toEqual(['true', 'cover']);
 });
 test('settings retain blank keys, clear explicitly, keep failed drafts and export no credentials', async ({ page }) => {
-  await open(page); await generation(page).getByRole('button', { name: 'AI 服务设置' }).click();
+  await open(page);
+  for (const button of await generation(page).getByRole('button').all()) {
+    const box = await button.boundingBox(); expect(box?.height).toBeGreaterThanOrEqual(44); expect(box?.width).toBeGreaterThanOrEqual(44);
+  }
+  await generation(page).getByRole('button', { name: 'AI 服务设置' }).click();
   const sheet = page.getByRole('dialog', { name: 'AI 服务设置', exact: true });
   await sheet.getByLabel('API 地址').fill('https://compatible.example/v1');
   await sheet.getByLabel('API Key', { exact: true }).fill('fixture-only-key');
