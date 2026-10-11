@@ -37,6 +37,10 @@
   修正独立描述文件并确认没有个人 Bundle ID，再执行测试通过。
 - 证据位于 `.mobile-test-results/folder-scan-*`：unit.log、typecheck.log、sim.xcresult、
   device-fixed.xcresult、inputs.json 和设备前后记录。未修改个人 App 安装包。
+- PASS_CI：源码 `f5802982eb2dcb0dbbd12d1eac69e3830cd8076c` 的
+  [Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38173298578) 通过。
+  提交前仅移除 localFileRules.ts 末尾的额外空行，差异记录于 cleanup-check.json；已测原生脚本未变。
+- PASS_CLEANUP：QA 包移除、个人 App 重新打开，设备前后个人 App 记录完全一致；无遗留构建／测试进程或启动的模拟器。
 
 逻辑命令：
 
@@ -49,6 +53,8 @@ npm run test:unit -- test/unit/mobile/nativeFolderRuntime.test.ts test/unit/util
 
 1. 系统目录选择和持久授权：保存设备本地 bookmark，根目录用独立稳定身份；同名根目录不得合并。
    失效授权通过重新选择恢复，不能当作目录已清空。
+   已核对 Xcode iPhoneOS26.5 SDK 的 Foundation/NSURL.h：显式 withSecurityScope 选项不可用于 iOS；
+   应使用 iOS 可用的 bookmark API，解析时避免隐式持有权限，并成对管理 start／stop 访问。
 2. 导入事务：暂存到 App 自有目录，复用现有音频元数据、原歌词解码与封面处理；失败与取消回滚。
    读取实际内容前重新取得目录授权并核验签名；完整扫描成功后才允许处理删除项。
 3. 增量重扫：保留歌曲身份、歌单引用和人工实体／匹配；分别处理音频、歌词、封面变化。
