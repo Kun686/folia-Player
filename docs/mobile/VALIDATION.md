@@ -1,6 +1,46 @@
 # 移动候选验证记录
 
-## mobile.16：布局、旋转与安全区（当前开发候选）
+## mobile.17：全屏画面与自动隐藏控制器（当前开发候选）
+
+2026-10-11 已原位安装并启动于 iPhone XS Max／iOS18.7.10，设备回读 build 17。
+源码 `7fb7067b1c4ab10e84b09c74bcad978afbea08c6`，
+[准确源码 CI](https://github.com/Kun686/folia-Player/actions/runs/38135581923) PASS。
+依据用户对 mobile.16 的真机反馈，所有移动窗口改用完整画布，曲库独立；竖屏为顶部歌曲信息及底部悬浮控制，
+低高度横屏缩为浅条。播放闲置三秒后控制层缩小淡出，首次触摸仅唤回，暂停／拖动／弹窗保持显示。
+复用原视觉渲染器与桌面活动计时；原设置收进更多选项，无新依赖和播放规则变更。
+详细行为见 [FULLSCREEN_LAYOUT.md](FULLSCREEN_LAYOUT.md)。
+
+- PASS：本地类型检查及准确源码 CI；移动 WebKit 原流程首轮130项通过、2项跳过、12项失败。
+  12项均为 Partita 测试使用了旧标题选择器，修正后全部通过。
+  后续 `partita-fit.spec chrome.spec layout.spec local-import.spec` 为29项通过、4项跳过、3项失败；
+  3项来自新增减少动态效果用例。改用真实时钟检查合成器动画后发现键盘唤回缺失，补充窗口 Tab 监听，
+  最终 `chrome.spec` 在手机／宽iPad／窄iPad共12项全部通过（46.9秒）。
+  布局矩阵在phone项目执行，4项跳过为iPad重复矩阵；另2项为仅适用phone的分词用例。
+  以上为分阶段回归，不是一次全绿全套运行。原生桥为受控样本，不代表在线平台或真机验收。
+- PASS／KNOWN_FAILURE（桌面活动计时）：2项正常通过，1项预期失败。
+  React StrictMode 恢复保存的隐藏偏好时有原有问题，已在未改动的 `958c89c` 复现；本次保持原桌面偏好策略。
+  Playwright 输出的“3 passed”包含 `test.fail`，不能将该项计作功能通过。
+- PASS（iPad实际模拟器短测）：iPad Pro 11-inch (M5)／iPadOS26.5，合成音频竖屏全屏播放、控制自动隐藏、
+  自动跨曲、触摸唤回／暂停、旋转保留歌曲与暂停位置，以及更多选项／原均衡器打开关闭。
+  该组音频无歌词，不计作iPad歌词真机验收。
+- PARTIAL（iPhone实际模拟器短测）：iPhone 17 Pro／iOS26.5，打开既有合成音频，观察全屏竖屏、横屏及返回竖屏。
+  坐标点击工具报 `windowNotFoundAtPosition`，刷新窗口／缩放后仍失败，未完成后续拖动及暂停触摸检查。
+  原生容器本轮歌词视觉与全部主题动效没有完整验证。
+- PASS：`ios:sync`、模拟器Release与个人真机clean Release开发签名构建，签名证书／描述文件／设备授权一致，无XCTest残留。
+  共2962个冻结源码输入、119个生成资源一致；同步资源另含Capacitor两份空文件，IPA逐文件匹配签名App。
+  指纹 `d3e027450440ba618c35a32e27222f0b57a08253afccb319bffbccfb1fa4aca7`。
+  曾在模拟器安装前并行clean共用DerivedData，导致其产物不存在；改为依次构建／安装后成功。
+- 交付：`移动端交付/Folia-0.7.16-mobile.17-d3e02745-development.ipa`，7,857,587字节，
+  SHA256 `c7ae779f82d29b239e72dfda87e9d46c423eafe90dd495a2d84c80e6785baebe`。
+  个人App未卸载；mobile.16回退包SHA256复核未变。`BUILD_RECORD.json`绑定上述构建源码，不绑定后续文档提交。
+- 修正缺歌手元数据时共用提示的翻译键，改用已有 `localMusic.unknownArtist`。
+- NOT_RUN：mobile.17用户真机QQ／网易云布局及触摸验收、物理iPad、长期锁屏／外设／性能和歌词精度。
+  本轮没有Swift播放实现变更，未重跑原生XCTest；历史真机结果保留原版本边界。完整移植仍 IN_PROGRESS。
+
+本地证据：`.mobile-test-results/mobile17-*`，包含各阶段原始日志、CI、签名资源检查、安装／启动／回读、
+模拟器截图与最终交付记录。独立Automix的htdemucs／Apple ORT兼容性阻塞保持原状，未加入生产依赖或修改模型。
+
+## mobile.16：布局、旋转与安全区（历史候选，布局已被用户要求替换）
 
 2026-10-11 已原位安装并启动于 iPhone XS Max／iOS18.7.10，设备回读 build 16。
 源码 `28449046a4a32db4eed665914455c38fe1d1c839`，
@@ -25,8 +65,9 @@
   个人App未卸载；mobile.15回退包SHA256复核未变。`BUILD_RECORD.json`绑定构建源码，不绑定后续文档提交。
 - 包含此前`38bf11a`的旧歌词缓存身份按歌曲读取恢复；该阶段9项iPhone QA测试通过，未计作此次布局改动的新测试。
 - 已知遗留显示问题：缺歌手元数据时，原共用切歌提示会显示`ui.unknownArtist`；实际模拟器已观察，未在本次布局移植中改动该组件。
-- NOT_RUN：mobile.16真实QQ／网易云手工旋转反馈、物理iPad、完整键盘／多任务矩阵、歌词误差与温升／长期内存测量。
-  历史用户验收保持原版本边界。完整移植仍IN_PROGRESS。
+- FAIL_USER_REPORTED（布局方向）：用户要求“跟桌面端的一样”“全屏覆盖”“控制器自动缩小隐藏”，明确拒绝半画面半控制区。
+  该反馈取代本版分栏方案，修正见mobile.17；不据此推断具体平台、旋转稳定性或长期性能已通过。
+  物理iPad、完整键盘／多任务矩阵、歌词误差与温升／长期内存测量仍NOT_RUN。完整移植仍IN_PROGRESS。
 
 独立Automix验证：原Beat This!单样本输出与Node参考相等；htdemucs被固定Apple ORT1.24.2的DFT形状检查拒绝，
 完整接入BLOCKED，未加入个人App依赖或修改模型。macOS内存结果不能外推到iPhone，详见[AUTOMIX_RUNTIME_DECISION.md](AUTOMIX_RUNTIME_DECISION.md)。
