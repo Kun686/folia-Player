@@ -20,6 +20,7 @@ vi.mock('@/services/netease', () => ({
         getArtistAlbums: vi.fn(),
         getPersonalizedPlaylists: vi.fn(),
         getLikedSongs: vi.fn(),
+        getUserPlaylists: vi.fn(),
         checkQr: vi.fn(),
         getQrKey: vi.fn(),
         createQr: vi.fn(),
@@ -269,6 +270,29 @@ describe('neteaseProvider', () => {
             code: 'invalid-response',
             message: 'NetEase QR image request failed: code 400: key is required',
         });
+    });
+});
+
+describe('neteaseProvider playlist pages', () => {
+    beforeEach(() => vi.clearAllMocks());
+    it.each([
+        [{ code: 200, playlist: [], more: false }, false],
+        [{ code: 200, playlist: [{ id: 1, name: 'one' }], more: true }, true],
+        [{ code: 200, playlist: [{ id: 1, name: 'one' }], more: false }, false],
+    ])('preserves the upstream more flag for successful pages', async (response, hasMore) => {
+        vi.mocked(neteaseApi.getUserPlaylists).mockResolvedValue(response as any);
+        await expect(neteaseProvider.library!.getUserPlaylists(7, 100, 200)).resolves.toMatchObject({
+            hasMore, nextOffset: 200 + response.playlist.length,
+        });
+        expect(neteaseApi.getUserPlaylists).toHaveBeenCalledWith(7, 100, 200);
+    });
+    it.each([
+        [{ code: 502 }, 'unavailable'], [{ code: 200 }, 'unavailable'],
+        [{ code: 200, playlist: {} }, 'unavailable'], [{ playlist: [] }, 'unavailable'],
+        [{ code: 301 }, 'auth-required'], [{ code: 401 }, 'auth-required'], [{ code: 403 }, 'auth-required'],
+    ])('rejects malformed or rejected pages instead of returning an empty library', async (response, code) => {
+        vi.mocked(neteaseApi.getUserPlaylists).mockResolvedValue(response as any);
+        await expect(neteaseProvider.library!.getUserPlaylists(7, 100, 0)).rejects.toMatchObject({ code });
     });
 });
 

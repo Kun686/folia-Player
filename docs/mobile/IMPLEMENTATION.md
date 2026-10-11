@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+2026-10-12 后续源码已补齐超过 100 个个人歌单的分页入口，隔离账户刷新与搜索请求，
+并修正网易云错误响应被当成空歌单的问题。114 项相关逻辑／provider、12 项 WebKit 通过；
+真实大歌单账户待验，尚未更新个人包，见 [CATALOG_PAGING.md](CATALOG_PAGING.md)。
+
 后续开发源码已补齐原版睡眠定时：复用原控件，由原生持有期限，到期暂停并保留队列；
 7 项逻辑、6 项 WebKit 和 10 项 iPhone 原生自动测试通过，无新依赖。
 尚未更新个人 mobile.20，真实平台锁屏定时待验收，见 [SLEEP_TIMER.md](SLEEP_TIMER.md)。

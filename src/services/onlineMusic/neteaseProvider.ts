@@ -425,8 +425,16 @@ export const neteaseProvider: OnlineMusicProvider = {
     library: {
         async getUserPlaylists(userId, limit, offset) {
             const response = await neteaseApi.getUserPlaylists(toNeteaseId(userId), limit, offset);
-            const items = (response?.playlist || []).map((item: any) => normalizeCollection(item));
-            return { items, hasMore: items.length === limit, nextOffset: offset + items.length };
+            // A failed page must not erase a retained library by looking like an empty successful list.
+            const code = Number(response?.code);
+            if ([301, 401, 403].includes(code)) {
+                throw new OnlineProviderError('auth-required', 'NetEase rejected the playlists request: not signed in', 'netease');
+            }
+            if (code !== 200 || !Array.isArray(response?.playlist)) {
+                throw new OnlineProviderError('unavailable', 'NetEase returned no playlist list', 'netease');
+            }
+            const items = response.playlist.map((item: any) => normalizeCollection(item));
+            return { items, hasMore: typeof response.more === 'boolean' ? response.more : items.length === limit, nextOffset: offset + items.length };
         },
         async getLikedSongIds(userId) {
             const response = await neteaseApi.getLikedSongs(toNeteaseId(userId));

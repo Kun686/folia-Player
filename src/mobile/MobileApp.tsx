@@ -6,6 +6,7 @@ import { native, isNative } from './bridge';
 import { flushSessions } from './runtime';
 import { usePlayback } from './usePlayback';
 import { useCatalog } from './useCatalog';
+import { mobileCollectionKey } from './catalogSession';
 import { useProviders } from './useProviders';
 import { useLocalCatalog } from './useLocalCatalog';
 import { useAppPreferences } from '../hooks/useAppPreferences';
@@ -79,13 +80,13 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         <button aria-label={t('mobile.settings')} onClick={() => setSettings(true)}><Settings /></button></header>
       <nav className="providers" aria-label="Music platform">
         {[['local', t('mobile.local')], ['cached', t('options.mediaCache')], ['netease', '网易云'], ['qq', 'QQ 音乐'], ['kugou', '酷狗']].filter(([id]) => id !== 'kugou' || available.providers.includes(id)).map(([id, name]) =>
-          <button key={id} aria-pressed={provider === id} onClick={() => { setProvider(id); setQueueView(false); setQuery(''); }}>{name}</button>)}
+          <button key={id} disabled={catalog.loggingOut} aria-pressed={provider === id} onClick={() => { setProvider(id); setQueueView(false); setQuery(''); }}>{name}</button>)}
       </nav>
       {isCached ? <div className="account-row"><span>{mediaCache.state?.count ?? 0} {t('mobile.tracks')}</span></div> : isLocal ? <div className="account-row"><span>{local.songs.length} {t('mobile.tracks')}</span>
         <button disabled={local.busy || !isNative} onClick={() => void local.importAudio()}>{t('mobile.importAudio')}</button></div> :
       <div className="account-row"><span>{catalog.user?.nickname ?? provider.toUpperCase()}</span>
         {catalog.user ? <button disabled={catalog.busy} onClick={() => void catalog.logout().catch(() => setError(true))}>{t('mobile.logout')}</button>
-          : <button disabled={!providerEnabled} onClick={() => setLogin(true)}>{t('mobile.login')}</button>}</div>}
+          : <button disabled={!providerEnabled || catalog.loggingOut} onClick={() => setLogin(true)}>{t('mobile.login')}</button>}</div>}
       {!isLocal && !isCached && !providerEnabled && <p className="connection-hint">{t('mobile.connect')} <button onClick={() => setSettings(true)}>{t('mobile.settings')}</button></p>}
       <form className="search" onSubmit={e => { e.preventDefault(); setQueueView(false); if (!isLocal && !isCached && query.trim()) void catalog.load({ query: query.trim() }); }}>
         <Search size={20} /><input aria-label={t('mobile.search')} placeholder={t('mobile.search')} value={query} onChange={e => setQuery(e.target.value)} />
@@ -98,12 +99,18 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         <button disabled={queueBusy || !songs.length} onClick={() => { if (window.confirm(t('mobile.confirmClearQueue'))) edit({ type: 'clear' }); }}>{t('mobile.clearQueue')}</button>
       </div>}
       {!isLocal && !isCached && !queueView && catalog.collections.length > 0 && <div className="collections">{catalog.collections.map(collection =>
-        <button key={String(collection.id)} onClick={() => void catalog.load({ collection })}><Music2 size={18} />{collection.name}</button>)}</div>}
+        <button key={mobileCollectionKey(collection)} onClick={() => void catalog.load({ collection })}><Music2 size={18} />{collection.name}</button>)}</div>}
+      {!isLocal && !isCached && !queueView && <div className="collection-actions">
+        {catalog.collectionsMore && <button disabled={catalog.accountBusy} onClick={() => void catalog.loadCollections()}>{t('mobile.morePlaylists')}</button>}
+        {catalog.accountError && <button disabled={catalog.accountBusy} onClick={() => void catalog.refresh()}>{t('mobile.retryPlaylists')}</button>}
+        {catalog.trackError && <button disabled={catalog.busy} onClick={() => void catalog.load()}>{t('mobile.retrySongs')}</button>}
+        {catalog.logoutError && <button disabled={catalog.loggingOut} onClick={() => void catalog.logout()}>{t('mobile.retry')} · {t('mobile.logout')}</button>}
+      </div>}
       {((!isLocal && !isCached && (catalog.error || available.error)) || error) && <p role="alert">{t('mobile.error')}</p>}
       {isCached && mediaCache.error && <p role="alert">{t('mobile.cacheError')}</p>}
       {queueError && <p role="alert">{t('mobile.' + queueError)}</p>}
       {isLocal && local.error && <p role="alert">{t('mobile.importError')} {local.error}</p>}
-      {(catalog.busy || local.busy) && <p role="status">{t('mobile.loading')}</p>}
+      {(catalog.busy || catalog.accountBusy || local.busy) && <p role="status">{t('mobile.loading')}</p>}
       {songs.length ? <SongList songs={songs} play={index => void play(index)} add={(song, next) => void add(song, next)}
         busy={queueBusy} edit={queueView ? edit : undefined} currentIndex={queueView ? playback.state.index : undefined}
         remove={isLocal && !queueView ? song => { if (window.confirm(t('mobile.confirmRemove', { name: song.name }))) void local.remove(song); } : undefined} />

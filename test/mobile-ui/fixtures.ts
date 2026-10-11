@@ -220,7 +220,16 @@ export const test = base.extend<{ nativeBridge: void }>({
         else if (path.startsWith('/login/qr/check')) { cookie = true; body = { code: 803, cookie: 'fixture-cookie' }; }
         else if (path.startsWith('/login/status')) body = { code: 200, data: { code: 200, profile } };
         else if (path.startsWith('/user/account')) body = { code: 200, profile, account: cookie ? { id: 9 } : null };
-        else if (path.startsWith('/user/playlist')) body = { code: 200, playlist: [{ id: 8, name: '测试歌单', trackCount: 1, creator: { userId: 9 } }], more: false };
+        else if (path.startsWith('/user/playlist')) {
+          const params = new URL(path, 'https://fixture.invalid').searchParams;
+          const offset = Number(params.get('offset') || 0), limit = Number(params.get('limit') || 100);
+          (win.fixturePlaylistOffsets ??= []).push(offset);
+          if (win.fixturePlaylistDelay) await new Promise<void>(resolve => { win.fixtureReleasePlaylists = resolve; });
+          body = win.fixturePlaylistFailure ? { code: 502 } : win.fixturePlaylistCount
+            ? { code: 200, playlist: Array.from({ length: win.fixturePlaylistCount }, (_, id) => ({ id, name: '歌单' + id,
+                trackCount: 1, creator: { userId: 9 } })).slice(offset, offset + limit), more: offset + limit < win.fixturePlaylistCount }
+            : { code: 200, playlist: [{ id: 8, name: '测试歌单', trackCount: 1, creator: { userId: 9 } }], more: false };
+        }
         else if (path.startsWith('/cloudsearch')) body = path.includes('fail') ? { code: 500 } : { code: 200, result: { songs: [{ ...song, al: { ...song.al, ...(win.fixtureMatchCover ? { picUrl: win.fixtureMatchCover } : {}) } }], songCount: 1 } };
         else if (path.startsWith('/playlist/track/all')) body = { code: 200, songs: [song] };
         else if (path.startsWith('/playlist/detail')) body = { code: 200, playlist: { id: 8, name: '测试歌单', tracks: [song], trackIds: [{ id: 42 }], trackCount: 1 } };

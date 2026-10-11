@@ -35,6 +35,8 @@ h1, h2, p { margin: 0; } h1 { font-size: 34px; font-weight: 700; letter-spacing:
 .section-heading h2 { font-size: 20px; }
 .collections { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 16px; }
 .collections button { display: flex; gap: 8px; align-items: center; flex-shrink: 0; max-width: 240px; text-align: left; }
+.collection-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.collection-actions button { font-size: 13px; }
 .collections svg { flex-shrink: 0; }
 .song-list { flex: 1; scrollbar-width: thin; }
 .song-row { display: flex; gap: 2px; border-bottom: 1px solid var(--border); align-items: center; }

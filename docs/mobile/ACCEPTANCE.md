@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+开发源码的个人歌单分页已通过受控第 101 个歌单、失败重试、搜索并发及平台切换测试，
+共 114 项逻辑／provider 与 12 项 WebKit；真实账户歌单完整性仍为 NOT_RUN。
+没有把受控数据当作上游验收，详见 [CATALOG_PAGING.md](CATALOG_PAGING.md)。
+
 后续睡眠定时开发源码已通过独立 iPhone QA 自动测试，未更新个人包；
 实际解码输出暂停、期限／恢复竞态覆盖见 [SLEEP_TIMER.md](SLEEP_TIMER.md)。
 QQ／网易云完整时长锁屏定时、物理 iPad 均保持 NOT_RUN。

@@ -1,5 +1,6 @@
 // src/mobile/locale.ts
 export const mobileEn = {
+  morePlaylists: 'Load more playlists', retryPlaylists: 'Retry playlists', retrySongs: 'Retry songs',
   playerTools: 'More playback options', showControls: 'Show playback controls',
   nowPlaying: 'Now playing',
   clearMediaCache: "Clear audio cache",
@@ -46,6 +47,7 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  morePlaylists: '加载更多歌单', retryPlaylists: '重试歌单加载', retrySongs: '重试歌曲加载',
   playerTools: '更多播放选项', showControls: '显示播放控制',
   nowPlaying: '正在播放',
   clearMediaCache: "清除音频缓存",
@@ -92,6 +94,7 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  morePlaylists: 'Muat daftar putar lainnya', retryPlaylists: 'Coba lagi daftar putar', retrySongs: 'Coba lagi lagu',
   playerTools: 'Opsi pemutaran lainnya', showControls: 'Tampilkan kontrol pemutaran',
   nowPlaying: 'Sedang diputar',
   clearMediaCache: "Hapus cache audio",
