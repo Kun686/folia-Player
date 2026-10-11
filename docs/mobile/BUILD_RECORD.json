@@ -1,10 +1,10 @@
 {
-  "version": "0.7.16-mobile.18",
+  "version": "0.7.16-mobile.19",
   "baseline": "d824c0b854e54d5411cb072092999823e9bd7071",
   "repository": "https://github.com/Kun686/folia-Player",
   "history": "snapshot import; upstream history retained at source repository",
   "captured": "2026-10-11",
-  "sourceFingerprint": "00fd1d7c607bb2ca4774a4bb56a0bad75e23f34f613a0a7473389d3482cc381a",
+  "sourceFingerprint": "5054ffab08b5c3bf65c1fecef28a823c94c394b2e21bc886394579caf2c7189a",
   "files": {
     ".all-contributorsrc": "e05f605a8137d493ed345485fa98b1d54fa9cdcf8983c0cfd9ca25639e46d468",
     ".editorconfig": "e0a1440140170db3cdc9464527dc96b2ac0b77c84936f9d78a8a9b2c6b07f7eb",
@@ -304,7 +304,7 @@
     "img/visualizer.png": "5f395a4f024d9406923c111add8fad919b31b967f67ada5487e6909d39673563",
     "index.html": "1c033828016895f9759b3039baae8ced3b6f7d34ab6540d1a60de3bbc311bb67",
     "ios/.gitignore": "2b7132a9943d2622e51e656897ca5162f56b121b40b423dedce1fbc699dba88a",
-    "ios/App/App.xcodeproj/project.pbxproj": "864dae60c77df209b2b60b37429dec510afc069231c96e094c09233193fcd28d",
+    "ios/App/App.xcodeproj/project.pbxproj": "cec7bdde2a50236500c97d9a5ee4d5f976a644076e3ac2cfef9009ef71e95e1f",
     "ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist": "dfa0f9bb85b95ccba9c6811adadf8cb407fb5d52088e89db83ebc308ec448542",
     "ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved": "f6fa6e3297400ca97c3c332ed09d04c29ea807606cc966bb1a3f6a4b8d03ca39",
     "ios/App/App.xcodeproj/xcshareddata/xcschemes/App.xcscheme": "d862a323ddbadf6edb649834838ccd229dd75a5cb4cc8e3a0844b9e9682fd696",
@@ -1750,7 +1750,7 @@
     "src/mobile/lyricExport.ts": "183fc144a4358e3827433d7e96fc65df9e29bf5c7258e5c913275b68b678af01",
     "src/mobile/lyricStorage.ts": "9a2baac79d16734502778f02c97cf3cc9c6664c39e10a207a90e509719ef710f",
     "src/mobile/mediaCacheSettingsSync.ts": "4bda6fe22f4a4cdabf0a1a034bdfdceae479661a33fd25744413d28e0a0f8d2d",
-    "src/mobile/mobile-player.css": "2df868ffb12ab6b7d0ec825a44483a44e42ec190f8ebcddcc26d82d89ec18da4",
+    "src/mobile/mobile-player.css": "77af3eea9d8170a187cb6fde052bf5c8b1638f137cf3a04760d453c9b460d1a2",
     "src/mobile/mobile-shell.css": "39c9f3dd4b6794e3ce8d9768a5e1bc41ba90505f38308d6ca9cb250ddc7fb8fe",
     "src/mobile/mobile.css": "4655be0a758515dd31fa3831c314649074e50cda4dbae1e32f665dfae01821c0",
     "src/mobile/nativeSettingsSync.ts": "529e3b849e44c29822f71d8566e7e01703ca7bd5ec85b1596db44ff96741172a",
@@ -2325,7 +2325,7 @@
     "test/mobile-ui/lyric-display.spec.ts": "f07fcf9fb83d3f05f2823fb0cceaaede648dce2e8110c46b244aa2f127289f4d",
     "test/mobile-ui/lyric-timing.spec.ts": "82eed57205ae1832e0bacc083b30fedd46b2a07ec0d9a500e0f136af3d3e7feb",
     "test/mobile-ui/lyricExport.spec.ts": "a9f07594ca9ed2214ae7055fcce55751f21c8072df015a7bb7726ad69da8231b",
-    "test/mobile-ui/material.spec.ts": "c4aeaeea0c65989e04c8232c28b3e043729d2a3a5380951bbf58e556a19116ba",
+    "test/mobile-ui/material.spec.ts": "f199d787a4cdcd08810a4dcc04f0bb872cf13f87d0d34b84768d1104eb36a74f",
     "test/mobile-ui/mobile.spec.ts": "402a6c01b4538a5bc148de1c7804779229db150cc9552051966478c85d65aa15",
     "test/mobile-ui/modulation-reference.spec.ts": "cc896d4bafa1b701c06ac2a3c9feef32980911a38a077bc64242bbed492afc5f",
     "test/mobile-ui/noise-reference.spec.ts": "a953c9a51393a3caf2d3f60d9f3240dcb099f4a748f675c5ae713259203a8c83",
@@ -2971,9 +2971,9 @@
     "worker/segment-lyrics.ts": "24a415da99e571e5625e668ce8d9088d533b59355ea5fd0fd6aa94022dc32af6",
     "wrangler.jsonc": "e9467fdd338eb90fa42c597eebcf4ffffb075726539d6a6306c06f8e1713f6ba"
   },
-  "buildNumber": 18,
+  "buildNumber": 19,
   "configuration": "Release",
-  "sourceCommit": "09cb338e052d459f2b49cec87d9d5714e51a330b",
+  "sourceCommit": "634e2b8550b943ef700f3aba450c7e8acbe095c9",
   "sourceFingerprintAlgorithm": "sha256 of UTF-8 compact JSON files map with sorted keys; all tracked regular files excluding docs/** and Markdown files; file contents captured from the clean source commit",
   "fileCount": 2964
 }

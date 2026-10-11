@@ -1,6 +1,33 @@
 # 移动候选验证记录
 
-## mobile.18：磨砂气泡与空白轻点控制（当前开发候选）
+## mobile.19：半透明与动态背景跟随（当前开发候选）
+
+2026-10-11 已原位安装并启动于 iPhone XS Max／iOS18.7.10，设备回读 build 19。
+源码 `634e2b8550b943ef700f3aba450c7e8acbe095c9`，
+[准确源码 CI](https://github.com/Kun686/folia-Player/actions/runs/38139061876) PASS。
+用户要求“需要半透明，跟随背景的变化”。控制器底色从58%降至18%，弱化高光和阴影，
+以18px模糊直接采样画面；文字和图标增加局部阴影，保留原布局、点按／自动隐藏及实色辅助功能替代。
+
+- PASS：类型检查；最终 `npm run test:mobile:ui -- material.spec chrome.spec layout.spec`
+  29项通过、7项跳过（4项重复尺寸矩阵、3项Playwright WebKit合成器不能渲染独立模糊探针）。
+  背景变色与同一控制器节点连续显示3项通过，但该浏览器结果只能证明透色，不能证明原生模糊实时刷新。
+- 原生对照发现并修复：iPhone 17 Pro模拟器／iOS26.5的Safari加载生产材质CSS，
+  未修复时背景由蓝变暖、顶部和底部磨砂仍保留初始蓝色；仅取消isolation仍失败。
+  给画面加 `translateZ(0)` 后，两层控制器在同页冷／暖两帧均跟随背景变色；保留原isolation混色边界。
+  此为原生Safari合成样例的对照证据，不等同于完整Folia容器、物理iPhone/iPad或长期性能验收。
+- PASS：资源构建与同步、个人真机clean Release签名；2964项冻结输入、119项生成资源一致，
+  签名证书／描述文件／设备授权及IPA逐文件核验通过，无XCTest残留。
+  指纹 `5054ffab08b5c3bf65c1fecef28a823c94c394b2e21bc886394579caf2c7189a`。
+- 交付：`移动端交付/Folia-0.7.16-mobile.19-5054ffab-development.ipa`，7,858,287字节，
+  SHA256 `47cfd9cadd0b48a306f0994ada5eeb7691db2c4b578e9383b388b8bbfa649df3`。
+  个人App未卸载，mobile.18回退包摘要复核未变。BUILD_RECORD绑定构建源码；无新依赖及Swift播放修改。
+- NOT_RUN：mobile.19真机材质／动态背景反馈（已请求）、物理iPad和长期性能；本轮未重跑原生XCTest。
+  完整移植仍IN_PROGRESS。内嵌多标签功能工作稿单独保存在忽略的证据目录，尚未接线／测试，不包含于本包。
+
+证据：`.mobile-test-results/mobile19-*`；私人交付目录含安装包、源码／构建JSON、说明与原生冷暖对照截图。
+测试HTTP服务已停止，任务启动的模拟器已关闭，任务构建与测试进程已清理。
+
+## mobile.18：磨砂气泡与空白轻点控制（历史候选）
 
 2026-10-11 已原位安装并启动于 iPhone XS Max／iOS18.7.10，设备回读 build 18。
 源码 `09cb338e052d459f2b49cec87d9d5714e51a330b`，
@@ -23,7 +50,8 @@
 - 交付：`移动端交付/Folia-0.7.16-mobile.18-00fd1d7c-development.ipa`，7,858,138字节，
   SHA256 `233dd5df802d479378cd3625d709474d2f96329e2f4dfe0ad3abdb6ec5260ddb`。
   个人App未卸载，mobile.17回退包摘要复核未变。BUILD_RECORD绑定构建源码，不绑定后续文档提交。
-- NOT_RUN：mobile.18真机材质／点按反馈（已请求）、物理iPad、长期锁屏／外设／性能及歌词精度。
+- 用户反馈：需要半透明、跟随背景变化，已在mobile.19进一步调整；没有单独确认点按项目。
+  物理iPad、长期锁屏／外设／性能及歌词精度仍NOT_RUN。
   无Swift播放变更，本轮不重跑原生XCTest；历史平台验收不迁移为新版完整验收。完整移植仍IN_PROGRESS。
 
 本地证据：`.mobile-test-results/mobile18-*`；安装包、源码和验证JSON、使用说明、原生材质对照截图已存入`移动端交付`。
