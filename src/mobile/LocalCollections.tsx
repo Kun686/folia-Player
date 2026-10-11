@@ -11,9 +11,10 @@ export function LocalLibraryNav({ browser, clearQuery }: { browser: Browser; cle
   const { t } = useTranslation();
   return <>
     <nav className="local-sections" aria-label={t('mobile.localBrowse')}>
-      {(['songs', 'albums', 'artists', 'playlists'] as const).map(section => <button key={section}
+      {(['songs', 'folders', 'albums', 'artists', 'playlists'] as const).map(section => <button key={section}
         aria-pressed={browser.section === section} onClick={() => { browser.changeSection(section); clearQuery(); }}>
-        {t(section === 'songs' ? 'localMusic.allSongs' : section === 'playlists' ? 'localMusic.customPlaylists' : 'localMusic.' + section)}
+        {t(section === 'songs' ? 'localMusic.allSongs' : section === 'playlists' ? 'localMusic.customPlaylists'
+          : section === 'folders' ? 'mobile.folders.title' : 'localMusic.' + section)}
       </button>)}
     </nav>
     {browser.selected && <div className="local-collection-heading">

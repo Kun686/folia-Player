@@ -12,10 +12,10 @@ export function useLocalBrowser(allSongs: SongResult[], query: string, playlists
   const [section, setSection] = useState<MobileLocalSection>('songs');
   const [selection, setSelection] = useState<string | null>(null);
   const grouped = useMemo(() => buildMobileLocalGroups(allSongs, t, playlists, snapshot), [allSongs, t, playlists, snapshot]);
-  const groups = section === 'songs' ? [] : grouped[section];
+  const groups = section === 'songs' || section === 'folders' ? [] : grouped[section];
   const selected = groups.find(group => group.id === selection);
   useEffect(() => { if (selection && !selected) setSelection(null); }, [selection, selected]);
-  const browsing = section !== 'songs' && !selected;
+  const browsing = section !== 'songs' && section !== 'folders' && !selected;
   const songs = useMemo(() => filterMobileLocalSongs(selected?.songs ?? (browsing ? [] : allSongs), query),
     [selected, browsing, allSongs, query]);
   const needle = normalizeLocalLibraryName(query);

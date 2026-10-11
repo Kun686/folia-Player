@@ -12,16 +12,19 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         "getAudioSettings", "setAudioSettings", "getTransitionSettings", "setTransitionSettings", "getMediaCacheSettings", "setMediaCacheSettings",
         "mediaCacheState", "clearMediaCache", "songCover", "coverCacheState", "clearCoverCache",
         "readLyricCache", "writeLyricCache", "lyricCacheState", "clearLyricCache",
-        "listExportLyrics", "readExportLyrics", "shareLyricArchive", "getSleepTimer", "setSleepTimer"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
-    private let picker = LocalImportPicker()
+        "listExportLyrics", "readExportLyrics", "shareLyricArchive", "getSleepTimer", "setSleepTimer",
+        "readLocalFolders", "beginFolderImport", "readFolderImport", "prepareFolderImport", "finishFolderImport", "cancelFolderImport", "removeLocalFolder"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
+    let picker = LocalImportPicker()
     let lyricFileShare = LyricFileShare()
-    private var importing = false
+    var importing = false
+    var folders: FolderImportBridge!
     private let gateway = GatewayClient()
     var engine: PlaybackEngine!
     private var requests: [String: Task<Void, Never>] = [:]
     public override func load() {
         DispatchQueue.main.async {
             self.engine = PlaybackEngine(gateway: self.gateway, usesStereoOutput: true)
+            self.folders = FolderImportBridge(plugin: self)
             self.engine.mediaCacheChanged = { [weak self] in self?.notifyListeners("mediaCache", data: [:]) }
             self.engine.emit = { [weak self] state in self?.notifyListeners("playback", data: state) }
             self.engine.sleepTimer.changed = { [weak self] in
@@ -225,7 +228,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         }
     } }
     private func chooseFiles(_ call: CAPPluginCall, lyrics: Bool, readBytes: Bool = false) { run(call) {
-        guard !self.importing, let controller = self.bridge?.viewController else { throw MobileFailure("import-busy") }
+        guard !self.importing, self.folders?.token == nil, let controller = self.bridge?.viewController else { throw MobileFailure("import-busy") }
         if lyrics && !LocalMediaLibrary.validID(call.getString("id") ?? "") { throw MobileFailure("invalid-local-identity") }
         try self.picker.present(on: controller, lyrics: lyrics) { urls in
             self.importing = true

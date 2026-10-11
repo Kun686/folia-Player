@@ -1,5 +1,8 @@
+import { foldersEn, foldersZh, foldersIn } from './localeFolders';
+
 // src/mobile/locale.ts
 export const mobileEn = {
+  folders: foldersEn,
   entitySplitHint: 'Choose member songs, then add new or existing targets. Artists support multiple targets.',
   entityChanged: 'The library changed. Your edit was not saved. Reload before editing again.',
   entityError: 'Could not save. Your input is retained. Check available storage and retry.',
@@ -66,6 +69,7 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  folders: foldersZh,
   entitySplitHint: '选择成员歌曲，再添加新建或已有分类作为目标；歌手可添加多个目标。',
   entityChanged: '音乐库已发生变化，未保存本次修改。重新读取后再编辑。',
   entityError: '保存失败，本次输入已保留。请检查存储空间后重试。',
@@ -132,6 +136,7 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  folders: foldersIn,
   entitySplitHint: 'Pilih lagu anggota, lalu tambahkan target baru atau yang sudah ada. Artis mendukung beberapa target.',
   entityChanged: 'Pustaka berubah. Perubahan belum disimpan. Muat ulang sebelum mengedit.',
   entityError: 'Tidak dapat menyimpan. Masukan dipertahankan. Periksa penyimpanan lalu coba lagi.',

@@ -30,3 +30,14 @@ export interface NativeFolderPlanRequest {
   lyricFormatOrder?: LocalLyricFileFormat[];
   previous?: NativeFolderTrack[];
 }
+export interface NativeFolderRoot {
+  id: string;
+  name: string;
+  ignoredPaths: string[];
+  directories: { path: string; ignored: boolean }[];
+  tracks: { id: string; path: string }[];
+}
+export interface NativeFolderCatalog { revision: string; roots: NativeFolderRoot[] }
+export interface NativeFolderProgress { token: string; rootID: string; name: string; total: number; completed: number; reused: number; path?: string }
+export interface NativeFolderImportOptions { token: string; rootID?: string; pick?: boolean; ignoredPaths?: string[]; order?: LocalLyricFileFormat[] }
+export interface NativeFolderImportResult { rootID: string; count: number; warnings: { path: string; code: string }[] }

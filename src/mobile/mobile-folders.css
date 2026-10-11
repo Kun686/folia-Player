@@ -1,0 +1,24 @@
+/* mobile-folders.css — folder controls use the existing library palette and safe-area shell. */
+.mobile-app .local-sections { overflow-x: auto; scrollbar-width: none; }
+.mobile-app .local-sections button { flex: 1 0 auto; white-space: nowrap; }
+.local-folders { min-width: 0; flex-shrink: 0; }
+.folder-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-block: 12px; }
+.folder-actions button { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--raised); border-radius: 12px; }
+.folder-scope { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.folder-scope > div { min-width: 0; overflow-wrap: anywhere; }
+.folder-choice { display: flex; align-items: center; width: 100%; height: 64px; gap: 12px; padding: 8px 12px; text-align: left; }
+.folder-choice > span { flex: 1; min-width: 0; }
+.folder-choice strong, .folder-choice small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-choice small, .folder-scope small { color: var(--muted); font-size: 12px; }
+.folder-import-status:empty { display: none; }
+.folder-import-status { min-width: 0; flex-shrink: 0; }
+.folder-import-status p { margin-block: 8px; }
+.folder-import-status small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-import-status progress { display: block; width: 100%; margin-block: 8px; accent-color: var(--text); }
+.folder-import-status details { font-size: 13px; }
+.folder-import-status ul { max-height: 160px; overflow: auto; overflow-wrap: anywhere; padding-inline-start: 20px; }
+.folder-import-status summary { min-height: 44px; padding-block: 12px; }
+.local-folders button { min-height: 44px; min-width: 44px; touch-action: manipulation; transition: opacity 100ms ease-out; }
+.local-folders button:active { opacity: .65; }
+.local-folders button:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
+@media (prefers-reduced-motion: reduce) { .local-folders button { transition: none; } }

@@ -20,7 +20,9 @@ export const test = base.extend<{ nativeBridge: void }>({
       sessionStorage.setItem('fixture-sleep', JSON.stringify(sleepTimer)); sleepSubscriber?.({ ...sleepTimer });
     };
     let cacheSubscriber: () => void;
-    let catalogSubscriber: () => void;
+    const catalogSubscribers = new Map<string, () => void>();
+    let catalogCallback = 0;
+    const catalogSubscriber = () => catalogSubscribers.forEach(callback => callback());
     win.fixtureCache = { settings: { enabled: false, limitGB: 5 }, count: 0, bytes: 0, pending: 0, revision: 0, error: null, songs: [] };
     win.fixtureCovers = { bytes: 1048576, count: 1 };
     // This fixture selects provider lyrics; optional cross-provider matching has separate logical coverage.
@@ -46,14 +48,24 @@ export const test = base.extend<{ nativeBridge: void }>({
     const emit = () => { state.revision++; subscriber?.({ ...state }); };
     win.fixtureEmitPlayback = (patch: Record<string, unknown>) => { Object.assign(state, patch); emit(); };
     const methods = ['bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile', 'sharePlaylistFile',
+      'readLocalFolders', 'beginFolderImport', 'readFolderImport', 'prepareFolderImport', 'finishFolderImport', 'cancelFolderImport', 'removeLocalFolder',
       'readLocalLibrary', 'editLocalLibrary', 'localCatalog', 'importAudio', 'localDetails', 'readLocalLyrics', 'readLocalMatch', 'writeLocalMatch', 'selectLocalLyrics', 'importLyrics', 'pickLyricFile', 'saveLocalLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
       'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache', 'listExportLyrics', 'readExportLyrics', 'shareLyricArchive', 'getSleepTimer', 'setSleepTimer'];
     win.Capacitor = {
       PluginHeaders: [{ name: 'FoliaNative', methods: [...methods.map(name => ({ name, rtype: 'promise' })), { name: 'addListener' }, { name: 'removeListener' }] }],
       nativeCallback: (_plugin: string, method: string, options: any, cb: (state: unknown) => void) => {
-        if (method === 'addListener') { if (options.eventName === 'sleepTimer') sleepSubscriber = cb; else if (options.eventName === 'mediaCache') cacheSubscriber = cb as () => void; else if (options.eventName === 'localCatalog') catalogSubscriber = cb as () => void; else if (options.eventName === 'playback') subscriber = cb; } return 'callback-1';
+        if (method === 'addListener' && options.eventName === 'localCatalog') {
+          const id = 'catalog-' + ++catalogCallback; catalogSubscribers.set(id, cb as () => void); return id;
+        }
+        if (method === 'removeListener' && options.eventName === 'localCatalog') catalogSubscribers.delete(options.callbackId);
+        if (method === 'addListener') { if (options.eventName === 'sleepTimer') sleepSubscriber = cb; else if (options.eventName === 'mediaCache') cacheSubscriber = cb as () => void; else if (options.eventName === 'playback') subscriber = cb; } return 'callback-1';
       },
       nativePromise: async (_plugin: string, method: string, options: any) => {
+        if (method === 'readLocalFolders') return win.fixtureFolders ?? { revision: 'empty', roots: [] };
+        if (['beginFolderImport', 'readFolderImport', 'prepareFolderImport', 'finishFolderImport', 'cancelFolderImport', 'removeLocalFolder'].includes(method)) {
+          if (win.fixtureFolderBridge) return win.fixtureFolderBridge(method, options);
+          throw new Error('folder-fixture-not-configured');
+        }
         if (method === 'getSleepTimer') return { ...sleepTimer };
         if (method === 'setSleepTimer') {
           win.fixtureSleepEdits.push(options.edit);

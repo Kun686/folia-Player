@@ -1,4 +1,6 @@
 import type { NativeLibraryOperation, NativeLibrarySnapshot } from '../types/nativeLibrary';
+import type { NativeFolderCatalog, NativeFolderImportOptions, NativeFolderImportResult, NativeFolderProgress } from '../types/nativeFolder';
+import type { NativeFolderLyricContents, NativeFolderLyricFiles } from './nativeFolderLyrics';
 import type { LocalMatchDocument, LocalMatchSnapshot } from '../types/localSongMatch';
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 import type { SongResult, ReplayGainMode, LyricData, OnlineLyricsState } from '../types';
@@ -27,6 +29,13 @@ export interface NativeSleepTimerState { hours: number; minutes: number; enabled
 export type NativeSleepTimerEdit = Partial<Pick<NativeSleepTimerState, 'hours' | 'minutes' | 'enabled'>>;
 export type PlaybackEvent = Omit<PlaybackSnapshot, 'queue' | 'currentSong'> & Partial<Pick<PlaybackSnapshot, 'queue' | 'currentSong'>>;
 export interface FoliaNativePlugin {
+  readLocalFolders(): Promise<NativeFolderCatalog>;
+  beginFolderImport(options: NativeFolderImportOptions): Promise<NativeFolderProgress | { cancelled: true }>;
+  readFolderImport(options: { token: string; index: number }): Promise<NativeFolderLyricFiles>;
+  prepareFolderImport(options: { token: string; index: number; contents: NativeFolderLyricContents; skipped: ('lyric' | 'translation')[] }): Promise<NativeFolderProgress>;
+  finishFolderImport(options: { token: string }): Promise<NativeFolderImportResult>;
+  cancelFolderImport(options: { token: string }): Promise<void>;
+  removeLocalFolder(options: { rootID: string; revision: string }): Promise<void>;
   getSleepTimer(): Promise<NativeSleepTimerState>;
   setSleepTimer(options: { edit: NativeSleepTimerEdit }): Promise<NativeSleepTimerState>;
   addListener(name: 'sleepTimer', listener: (state: NativeSleepTimerState) => void): Promise<PluginListenerHandle>;

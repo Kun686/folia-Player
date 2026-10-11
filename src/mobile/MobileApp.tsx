@@ -9,6 +9,10 @@ import { useCatalog } from './useCatalog';
 import { mobileCollectionKey } from './catalogSession';
 import { useProviders } from './useProviders';
 import { useLocalCatalog } from './useLocalCatalog';
+import { useLocalFolders } from './useLocalFolders';
+import { localFolderView, type FolderScope } from './localFolderBrowser';
+import { filterMobileLocalSongs } from './localLibraryGroups';
+import LocalFolderTools, { FolderImportStatus } from './LocalFolderTools';
 import { useLocalBrowser } from './useLocalBrowser';
 import { useLocalPlaylists } from './useLocalPlaylists';
 import LocalPlaylistToolbar from './LocalPlaylistToolbar';
@@ -55,14 +59,17 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const sleepTimer = useNativeSleepTimer();
   const catalog = useCatalog(provider, !!server && isNative && providerEnabled);
   const local = useLocalCatalog();
+  const folders = useLocalFolders(), [folderScope, setFolderScope] = useState<FolderScope | null>(null);
+  const folderView = useMemo(() => localFolderView(folders.catalog, local.songs, folderScope), [folders.catalog, local.songs, folderScope]);
   const localPlaylists = useLocalPlaylists(local.songs);
   const localBrowser = useLocalBrowser(local.songs, query, localPlaylists.lists, local.snapshot);
   const mediaCache = useMediaCache();
   const isCached = provider === 'cached';
   const isLocal = provider === 'local';
-  const songs = useMemo(() => queueView ? playback.state.queue : isLocal ? localBrowser.songs : isCached ? (mediaCache.state?.songs ?? []).filter(song =>
+  const browsingFolders = isLocal && localBrowser.section === 'folders';
+  const songs = useMemo(() => queueView ? playback.state.queue : browsingFolders ? filterMobileLocalSongs(folderView.songs, query) : isLocal ? localBrowser.songs : isCached ? (mediaCache.state?.songs ?? []).filter(song =>
     `${song.name} ${song.artists.map(a => a.name).join(' ')}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) : catalog.songs,
-  [queueView, playback.state.queue, isLocal, isCached, mediaCache.state?.songs, localBrowser.songs, query, catalog.songs]);
+  [queueView, playback.state.queue, browsingFolders, folderView.songs, isLocal, isCached, mediaCache.state?.songs, localBrowser.songs, query, catalog.songs]);
   const active = playback.state.currentSong;
   const queueWork = async (work: () => Promise<unknown>) => {
     if (queueLock.current) return;
@@ -94,7 +101,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
           <button key={id} disabled={catalog.loggingOut} aria-pressed={provider === id} onClick={() => { setProvider(id); setQueueView(false); setQuery(''); }}>{name}</button>)}
       </nav>
       {isCached ? <div className="account-row"><span>{mediaCache.state?.count ?? 0} {t('mobile.tracks')}</span></div> : isLocal ? <div className="account-row"><span>{local.songs.length} {t('mobile.tracks')}</span>
-        <button disabled={local.busy || !isNative} onClick={() => void local.importAudio()}>{t('mobile.importAudio')}</button></div> :
+        <button disabled={local.busy || folders.busy || !isNative} onClick={() => void local.importAudio()}>{t('mobile.importAudio')}</button></div> :
       <div className="account-row"><span>{catalog.user?.nickname ?? provider.toUpperCase()}</span>
         {catalog.user ? <button disabled={catalog.busy} onClick={() => void catalog.logout().catch(() => setError(true))}>{t('mobile.logout')}</button>
           : <button disabled={!providerEnabled || catalog.loggingOut} onClick={() => setLogin(true)}>{t('mobile.login')}</button>}</div>}
@@ -106,6 +113,9 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       <div className="section-heading"><h2>{queueView ? t('mobile.queue') : t(isCached ? 'options.mediaCache' : isLocal ? 'mobile.local' : 'mobile.playlists')}</h2>
         <button aria-pressed={queueView} onClick={() => setQueueView(!queueView)}>{t('mobile.queue')} · {playback.state.queue.length}</button></div>
       {isLocal && !queueView && <LocalLibraryNav browser={localBrowser} clearQuery={() => setQuery('')} />}
+      {isLocal && !queueView && <FolderImportStatus folders={folders} />}
+      {browsingFolders && !queueView && <LocalFolderTools folders={folders} view={folderView} query={query}
+        select={scope => { setFolderScope(scope); setQuery(''); }} />}
       {isLocal && !queueView && localBrowser.selected?.entityId && <button className="local-entity-edit"
         disabled={local.busy} onClick={() => setEntityId(localBrowser.selected?.entityId)}>
         {t('localMusic.editEntityTitle', { kind: t(localBrowser.selected.type === 'artist' ? 'localMusic.artistLabel' : 'localMusic.albumLabel') })}</button>}
@@ -136,7 +146,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         libraryActions={(song, close) => <LocalSongPlaylistActions song={song} controller={localPlaylists}
           selected={isLocal && !queueView ? localBrowser.selected : undefined} close={close} />}
         remove={isLocal && !queueView ? song => { if (window.confirm(t('mobile.confirmRemove', { name: song.name }))) void local.remove(song); } : undefined} />
-        : <div className="empty"><Music2 size={44} /><p>{t(queueView ? 'mobile.queueEmpty' : isLocal ? (local.songs.length ? 'mobile.empty' : 'mobile.localEmpty') : 'mobile.noSongs')}</p></div>}
+        : browsingFolders && !queueView && !folderView.root ? null : <div className="empty"><Music2 size={44} /><p>{t(queueView ? 'mobile.queueEmpty' : isLocal ? (local.songs.length ? 'mobile.empty' : 'mobile.localEmpty') : 'mobile.noSongs')}</p></div>}
       {!isLocal && !isCached && catalog.more && !queueView && <button disabled={catalog.busy} onClick={() => void catalog.load()}>{t('mobile.more')}</button>}
     </div>
     <PlayerPanel state={playback.state} time={playback.currentTime} visible={playback.visible} light={light}

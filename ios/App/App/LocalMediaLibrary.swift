@@ -21,6 +21,7 @@ actor LocalMediaLibrary {
     let root: URL
     let folderStore: LocalFolderStore
     var folderTransaction: LocalFolderTransaction?
+    var folderImport: LocalFolderImportSession?
     var mediaEpoch = UUID()
     lazy var libraryStore = NativeLibraryStore(root: root)
     lazy var folderScanner = LocalFolderScanner()

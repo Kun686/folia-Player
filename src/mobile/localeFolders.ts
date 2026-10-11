@@ -1,0 +1,43 @@
+// localeFolders.ts — user-facing import outcomes, shared by phone and tablet library surfaces.
+export const foldersEn = {
+  title: 'Folders', count: '{{count}} tracks', ignored: 'Ignored', parent: 'Parent folder', rescan: 'Rescan',
+  removing: 'Removing folder from the library…',
+  restore: 'Restore and rescan', ignore: 'Ignore folder', remove: 'Remove root', reauthorize: 'Choose this folder again',
+  confirmIgnore: 'Remove “{{name}}” from the library and ignore it on future scans? Source files will remain.',
+  confirmRemove: 'Remove “{{name}}” and its songs from Folia? Source files will remain.',
+  progress: 'Importing {{completed}} / {{total}}', importProgress: 'Folder import progress', scanning: 'Choose a folder, or wait for scanning…',
+  complete: '{{count}} tracks in this folder', warnings: '{{count}} import notices', unsupported: 'Audio format cannot be imported on this device.',
+  sidecarUnavailable: 'Optional lyrics or cover could not be loaded.', warningLimit: 'Showing the first 100 notices.',
+  accessRequired: 'Folder access expired. Choose the original folder again to restore access.',
+  changed: 'Files or library changed during import. Previous library retained; please rescan.',
+  cancelled: 'Import cancelled. You can start again.', error: 'Could not finish this folder operation. Check access and free storage, then retry.',
+  empty: 'Import a music folder to browse its tracks and subfolders.',
+};
+export const foldersZh: typeof foldersEn = {
+  title: '文件夹', count: '{{count}} 首歌曲', ignored: '已忽略', parent: '上一级文件夹', rescan: '重新扫描',
+  removing: '正在从曲库移除文件夹…',
+  restore: '恢复并重新扫描', ignore: '忽略此文件夹', remove: '移除根目录', reauthorize: '重新选择此文件夹',
+  confirmIgnore: '从曲库移除“{{name}}”并在以后扫描时忽略？原文件会保留。',
+  confirmRemove: '从 Folia 移除“{{name}}”及其歌曲？原文件会保留。',
+  progress: '正在导入 {{completed}} / {{total}}', importProgress: '文件夹导入进度', scanning: '请选择文件夹，或等待扫描完成…',
+  complete: '此文件夹共有 {{count}} 首歌曲', warnings: '{{count}} 项导入提示', unsupported: '此设备暂不支持导入该音频格式。',
+  sidecarUnavailable: '配套歌词或封面未能读取。', warningLimit: '仅显示前 100 项提示。',
+  accessRequired: '目录访问权限已失效，请重新选择原文件夹恢复访问。',
+  changed: '导入期间文件或曲库发生变化，已保留原曲库，请重新扫描。',
+  cancelled: '导入已取消，可重新开始。', error: '文件夹操作未完成，请检查访问权限和剩余存储后重试。',
+  empty: '导入音乐文件夹后，可浏览歌曲与子目录。',
+};
+export const foldersIn: typeof foldersEn = {
+  title: 'Folder', count: '{{count}} lagu', ignored: 'Diabaikan', parent: 'Folder induk', rescan: 'Pindai ulang',
+  removing: 'Menghapus folder dari pustaka…',
+  restore: 'Pulihkan dan pindai ulang', ignore: 'Abaikan folder', remove: 'Hapus folder utama', reauthorize: 'Pilih folder ini lagi',
+  confirmIgnore: 'Hapus “{{name}}” dari pustaka dan abaikan saat pemindaian berikutnya? Berkas asli tetap disimpan.',
+  confirmRemove: 'Hapus “{{name}}” dan lagunya dari Folia? Berkas asli tetap disimpan.',
+  progress: 'Mengimpor {{completed}} / {{total}}', importProgress: 'Progres impor folder', scanning: 'Pilih folder atau tunggu pemindaian…',
+  complete: '{{count}} lagu dalam folder', warnings: '{{count}} pemberitahuan impor', unsupported: 'Format audio ini belum dapat diimpor pada perangkat ini.',
+  sidecarUnavailable: 'Lirik atau sampul tambahan gagal dimuat.', warningLimit: 'Menampilkan 100 pemberitahuan pertama.',
+  accessRequired: 'Akses folder kedaluwarsa. Pilih folder asli lagi.',
+  changed: 'Berkas atau pustaka berubah saat impor. Pustaka sebelumnya dipertahankan; pindai ulang.',
+  cancelled: 'Impor dibatalkan. Anda dapat memulai lagi.', error: 'Operasi folder gagal. Periksa izin dan ruang penyimpanan, lalu coba lagi.',
+  empty: 'Impor folder musik untuk menelusuri lagu dan subfolder.',
+};
