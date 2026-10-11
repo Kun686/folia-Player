@@ -1,3 +1,5 @@
+import { parseQqSongDetail } from './qqNormalize';
+import { qqLyricSong } from '../../utils/lyrics/providers/qqLyricProtocol';
 import { resolveQqPlayback } from '../../../shared/mobile/providerPlayback';
 import type { SongResult, UnifiedSong } from '../../types';
 import type {
@@ -194,10 +196,7 @@ const getPlaylistTracks = async (
 
 const getSongDetail = async (id: MediaId) => {
     const response = await requestQq<any>('song_info', { songmid: String(id) });
-    const track = response?.response?.songinfo?.data?.track_info;
-    if (!track || typeof track !== 'object') return null;
-    const song = normalizeQqSong(track);
-    return song.qqMid ? song : null;
+    return parseQqSongDetail(response);
 };
 
 const qqSongDetailRequests = new Map<string, Promise<UnifiedSong | null>>();
@@ -259,17 +258,14 @@ const getAudioSource = (song: SongResult, quality: AudioQualityPreference) => re
 
 // Delegates to the existing QRC pipeline, which owns decryption, translation and romanization.
 const getLyrics = async (song: SongResult): Promise<ProviderLyricsResult> => {
-    const sourceRef = song.sourceRef?.kind === 'online' && song.sourceRef.providerId === 'qq'
-        ? song.sourceRef
-        : undefined;
-    const songMid = song.qqMid || sourceRef?.mediaId || '';
-    const songId = sourceRef?.providerData?.songId ?? song.id;
+    const lyricSong = qqLyricSong(song);
+    const songMid = lyricSong.qqMid, songId = lyricSong.id;
     if (!songMid || !songId) {
         console.warn('[QQProvider] lyrics:missing-identity', { hasSongMid: Boolean(songMid), hasSongId: Boolean(songId) });
         return { lyrics: null, isPureMusic: false };
     }
 
-    const lyrics = await fetchQQLyrics({ ...song, id: songId as MediaId, qqMid: songMid });
+    const lyrics = await fetchQQLyrics(lyricSong);
     return { lyrics: lyrics ?? null, isPureMusic: false };
 };
 

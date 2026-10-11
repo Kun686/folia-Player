@@ -30,6 +30,6 @@ await build({
   esbuild: { drop: ['console'] },
   build: {
     target: 'safari17', outDir: 'dist-mobile/native', emptyOutDir: false,
-    lib: { entry: 'src/utils/lyrics/nativeLocalRuntime.ts', name: 'FoliaLocalLyrics', formats: ['iife'], fileName: () => 'lyrics.js' },
+    lib: { entry: 'src/services/onlineMusic/nativeLyricRuntime.ts', name: 'FoliaLocalLyrics', formats: ['iife'], fileName: () => 'lyrics.js' },
   },
 });

@@ -23,7 +23,7 @@ final class NativeCrossfade {
     private let planner = NativeTransitionPlanner()
     private let balance = NativeBalanceCorrection()
     private let profiles: NativeTrackProfiles
-    private let lyrics: NativeLocalLyrics
+    private let lyrics: NativeLyrics
     private var work: Task<Void, Never>?
     private var release: DispatchWorkItem?
     private var revision: UInt64 = 0
@@ -38,10 +38,10 @@ final class NativeCrossfade {
     private(set) var maximumSeconds = 5.0
     var isFading: Bool { fade != nil }
 
-    init(owner: PlaybackEngine, profiler: NativeTrackProfiler = NativeTrackProfiler(), lyrics: NativeLocalLyrics? = nil) {
+    init(owner: PlaybackEngine, profiler: NativeTrackProfiler = NativeTrackProfiler(), lyrics: NativeLyrics? = nil) {
         self.owner = owner
         profiles = NativeTrackProfiles(local: owner.local, profiler: profiler, configuration: owner.mediaNetworkConfiguration ?? .ephemeral, mediaCache: owner.mediaCache)
-        self.lyrics = lyrics ?? NativeLocalLyrics(local: owner.local)
+        self.lyrics = lyrics ?? NativeLyrics(local: owner.local, gateway: owner.gateway)
         profiles.changed = { [weak self] in self?.tick() }
         self.lyrics.changed = { [weak self] in self?.tick() }
     }
@@ -75,7 +75,11 @@ final class NativeCrossfade {
     func removeTail(where matches: ([String: Any]) -> Bool) {
         if let fade, matches(fade.tailSong) { cancel() }
     }
-    func invalidateProvider(_ provider: String) { invalidatePlan(); profiles.invalidateProvider(provider) }
+    func invalidateProvider(_ provider: String) { invalidatePlan(); profiles.invalidateProvider(provider); lyrics.invalidateProvider(provider) }
+    func providerLyricsChanged(_ provider: String) {
+        lyrics.invalidateProvider(provider)
+        if !isFading { invalidatePlan(); tick() }
+    }
     func cancelAnalysis() { profiles.cancel() }
     func mediaAvailable(_ identity: String) { profiles.mediaAvailable(identity); tick() }
     func cacheSettingsChanged() { profiles.resetOnline(); if !isFading { invalidatePlan(); tick() } }

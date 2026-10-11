@@ -18,6 +18,17 @@ async function fixture(fetchImpl: any = vi.fn(async () => new Response('{}')), p
   return { post, fetchImpl, health };
 }
 describe('mobile gateway', () => {
+  it('allows authenticated read-only cloud lyrics through the fixed NetEase backend', async () => {
+    const { post, fetchImpl } = await fixture(vi.fn(async () => new Response('{"code":200,"lyric":"fixture"}')));
+    const response = await post('/mobile/request', { provider: 'netease', path: '/cloud/lyric/get', query: { uid: 9, sid: 42, cookie: 'fixture-session' } });
+    expect(response.status).toBe(200);
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url.origin).toBe('http://netease-api:3000');
+    expect(url.pathname).toBe('/cloud/lyric/get');
+    expect(url.searchParams.get('uid')).toBe('9');
+    expect(init.headers.authorization).toBeUndefined();
+    expect((await post('/mobile/request', { provider: 'netease', path: '/cloud/lyric/get', method: 'POST', body: '{}' })).status).toBe(403);
+  });
   it('advertises only enabled services and rejects disabled API, lyrics and playback', async () => {
     const { post, fetchImpl, health } = await fixture(undefined, ['netease', 'qq']);
     expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['netease', 'qq'] });

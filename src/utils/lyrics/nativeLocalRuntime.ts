@@ -2,6 +2,7 @@ import { Buffer } from 'buffer';
 import { prepareLocalLyrics } from './localPreparation';
 import { parseLyricsByFormat } from './parserCore';
 import { resolveExplicitFileTimedLyricFormat } from './formatDetection';
+import type { LyricData } from '../../types';
 
 // nativeLocalRuntime.ts — original parsers on JavaScriptCore; only planner fields leave this host.
 // This entry runs in its own native context. The original AWLRC/KRC decoders use Buffer when present.
@@ -18,6 +19,11 @@ export function parseJSON(text: string): string {
     const prepared = prepareLocalLyrics({ type: 'local', lrcContent: request.content,
         formatHint: resolveExplicitFileTimedLyricFormat(request.fileName) });
     const lyrics = prepared.kind === 'parsed' ? prepared.lyrics : parseLyricsByFormat(...prepared.args);
+    return plannerLinesJSON(lyrics);
+}
+
+export function plannerLinesJSON(lyrics: LyricData | null): string {
+    const invalid = () => { throw new Error('invalid-local-lyrics'); };
     if (!lyrics) return 'null';
     if (lyrics.lines.length > 2000) invalid();
     // The original planner reads these three fields. Words stay in the visual lyric parser,

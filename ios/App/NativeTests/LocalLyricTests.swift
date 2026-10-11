@@ -9,7 +9,7 @@ import XCTest
     }
 
     func testOriginalLocalLyricFormatsExecuteInJavaScriptCore() async throws {
-        let parser = NativeLocalLyricParser()
+        let parser = NativeLyricParser()
         let rows = try XCTUnwrap(try localLyricFixture()["rows"] as? [[String: Any]])
         XCTAssertEqual(rows.count, 12)
         for row in rows {
@@ -20,7 +20,7 @@ import XCTest
     }
 
     func testLocalLyricParserRejectsOversizeObservesCancellationAndRecovers() async throws {
-        let parser = NativeLocalLyricParser()
+        let parser = NativeLyricParser()
         for text in [String(repeating: "字", count: 700_000), "[00:01.00]" + String(repeating: "a", count: 5000)] {
             do { _ = try await parser.parse(text); XCTFail("Oversize lyrics accepted") } catch {}
         }
@@ -75,7 +75,7 @@ import XCTest
         let sidecar = root.appendingPathComponent("lyrics.lrc")
         try Data("[00:01.00]First".utf8).write(to: sidecar)
         for song in songs { _ = try await local.importLyrics(sidecar, for: XCTUnwrap(song["id"] as? String)) }
-        let lyrics = NativeLocalLyrics(local: local)
+        let lyrics = NativeLyrics(local: local)
         defer { lyrics.cancel() }
         lyrics.update([songs[0]]); lyrics.cancel(); lyrics.update(Array(songs[1...]))
         try await waitForStream { lyrics.value(songs[1]) != nil && lyrics.value(songs[2]) != nil }
@@ -109,7 +109,7 @@ import XCTest
         }
         let suite = "folia.lyric-queue." + UUID().uuidString, storage = UserDefaults(suiteName: suite)!
         defer { storage.removePersistentDomain(forName: suite) }
-        let gateway = FailingGateway(), lyrics = NativeLocalLyrics(local: local)
+        let gateway = FailingGateway(), lyrics = NativeLyrics(local: local)
         let tested = PlaybackEngine(gateway: gateway, storage: storage, local: local, usesStereoOutput: true)
         tested.network.cancel()
         tested.crossfade = NativeCrossfade(owner: tested, profiler: NativeTrackProfiler(cacheDirectory: folder), lyrics: lyrics)

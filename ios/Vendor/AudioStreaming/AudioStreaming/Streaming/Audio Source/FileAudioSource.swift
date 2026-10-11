@@ -7,7 +7,14 @@ import Foundation
 import AVFoundation
 
 final class FileAudioSource: NSObject, CoreAudioStreamSource {
-    weak var delegate: AudioStreamSourceDelegate?
+    private let delegateLock = UnfairLock()
+    private weak var storedDelegate: AudioStreamSourceDelegate?
+    // Folia: cancellation may clear this existential from a different queue. Snapshot both
+    // the weak object and its protocol witness under the lock; never hold it during a callback.
+    var delegate: AudioStreamSourceDelegate? {
+        get { delegateLock.withLock { storedDelegate } }
+        set { delegateLock.withLock { storedDelegate = newValue } }
+    }
 
     var underlyingQueue: DispatchQueue
 

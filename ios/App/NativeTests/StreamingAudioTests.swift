@@ -1,6 +1,6 @@
 import XCTest
 import AVFoundation
-import AudioStreaming
+@testable import AudioStreaming
 @testable import App
 
 // StreamingAudioTests.swift — measure actual post-insert PCM for mono local/HTTP decoding.
@@ -16,6 +16,18 @@ private final class StreamEvents: AudioPlayerDelegate {
     func audioPlayerUnexpectedError(player: AudioPlayer, error: AudioPlayerError) { errors.append(error) }
     func audioPlayerDidCancel(player: AudioPlayer, queuedItems: [AudioEntryId]) { cancelled.append(contentsOf: queuedItems) }
     func audioPlayerDidReadMetadata(player: AudioPlayer, metadata: [String: String]) {}
+}
+
+private final class FileStreamProbe: AudioStreamSourceDelegate, @unchecked Sendable {
+    private let lock = NSLock()
+    private var bytes = 0
+    var receivedBytes: Int { lock.lock(); defer { lock.unlock() }; return bytes }
+    func dataAvailable(source: CoreAudioStreamSource, data: Data) {
+        lock.lock(); bytes += data.count; lock.unlock()
+    }
+    func errorOccurred(source: CoreAudioStreamSource, error: Error) {}
+    func endOfFileOccurred(source: CoreAudioStreamSource) {}
+    func metadataReceived(data: [String: String]) {}
 }
 
 final class OutputMeasurement {
@@ -44,6 +56,30 @@ final class OutputMeasurement {
 }
 
 @MainActor extension NativeTests {
+    func testFileSourceDelegateCancellationDuringReadIsAtomic() async throws {
+        let url = try streamingTone()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let queue = DispatchQueue(label: "folia.file-delegate-regression")
+        let source = FileAudioSource(url: url, underlyingQueue: queue, readSize: 64)
+        let probe = FileStreamProbe()
+        source.delegate = probe
+        queue.sync { source.seek(at: 0) }
+        defer { queue.sync { source.close() } }
+        // Reproduce stop/deinit clearing a protocol-typed weak delegate during CFStream delivery.
+        let changed = expectation(description: "bounded concurrent cancellation")
+        DispatchQueue.global().async {
+            for _ in 0..<200_000 { source.delegate = nil; source.delegate = probe }
+            changed.fulfill()
+        }
+        await fulfillment(of: [changed], timeout: 10)
+        for _ in 0..<500 {
+            if queue.sync(execute: { source.position >= source.length }) { break }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertGreaterThan(probe.receivedBytes, 0)
+        XCTAssertTrue(queue.sync { source.position >= source.length })
+    }
+
     func testEffectUnitRejectsMismatchedFormatsAndOversizedPulls() async throws {
         let node = try await AudioEffectUnit.makeNode()
         let unit = try XCTUnwrap(node.auAudioUnit as? AudioEffectUnit)

@@ -329,3 +329,10 @@ export const normalizeQqCollection = (raw: unknown, type = 'playlist'): Provider
         ]),
     };
 };
+
+export function parseQqSongDetail(response: unknown) {
+    const track = (response as any)?.response?.songinfo?.data?.track_info;
+    if (!track || typeof track !== 'object') return null;
+    const song = normalizeQqSong(track);
+    return song.qqMid ? song : null;
+}

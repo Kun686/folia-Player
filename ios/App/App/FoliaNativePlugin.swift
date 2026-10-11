@@ -60,7 +60,9 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         let provider = try self.provider(call)
         guard let values = call.getObject("values") as? [String: String],
               values.count <= 16, values.values.allSatisfy({ $0.count <= 24000 }) else { throw MobileFailure("invalid-session") }
-        try SecureStore.write("session." + provider, values); call.resolve()
+        try SecureStore.write("session." + provider, values)
+        self.engine.crossfade?.providerLyricsChanged(provider)
+        call.resolve()
     } }
     @objc func clearSession(_ call: CAPPluginCall) { run(call) {
         let provider = try self.provider(call)

@@ -15,7 +15,12 @@ extension PlaybackEngine {
             ref = ["kind": "online", "providerId": provider, "mediaId": id]
             if let variant = raw["variant"] as? String { ref["variant"] = String(variant.prefix(32)) }
             if let metadata = raw["providerData"] as? [String: Any] {
-                ref["providerData"] = metadata.filter { ["hash", "albumId", "albumAudioId", "songMid", "mediaMid", "fileId"].contains($0.key) }
+                var retained = metadata.filter { ["hash", "albumId", "albumAudioId", "songMid", "mediaMid", "fileId"].contains($0.key) }
+                if let value = metadata["songId"], let number = Double(String(describing: value)), number.isFinite,
+                   number > 0, number <= 9_007_199_254_740_991, number.rounded(.towardZero) == number {
+                    retained["songId"] = Int(number)
+                }
+                ref["providerData"] = retained
             }
         } else { throw MobileFailure("invalid-identity") }
         var album = song["album"] as? [String: Any] ?? [:]

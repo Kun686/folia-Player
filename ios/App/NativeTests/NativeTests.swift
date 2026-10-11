@@ -7,11 +7,13 @@ final class FailingGateway: GatewayClient {
     var count = 0
     var code = "unavailable"
     override func resolve(_ song: [String: Any]) async throws -> URL { count += 1; throw MobileFailure(code) }
+    override func send(_ path: String, body: [String: Any]? = nil) async throws -> [String: Any] { throw MobileFailure("fixture-no-lyrics") }
 }
 final class AudioFixtureGateway: GatewayClient {
     let url: URL
     var resolved: [String] = []
     init(url: URL) { self.url = url }
+    override func send(_ path: String, body: [String: Any]? = nil) async throws -> [String: Any] { throw MobileFailure("fixture-no-lyrics") }
     override func resolve(_ song: [String: Any]) async throws -> URL {
         let id = (song["sourceRef"] as? [String: Any])?["mediaId"] as? String ?? ""
         resolved.append(id)
@@ -24,6 +26,7 @@ final class RefreshingAudioGateway: GatewayClient {
     let missingURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
     var count = 0
     init(validURL: URL) { self.validURL = validURL }
+    override func send(_ path: String, body: [String: Any]? = nil) async throws -> [String: Any] { throw MobileFailure("fixture-no-lyrics") }
     override func resolve(_ song: [String: Any]) async throws -> URL {
         count += 1
         return count == 1 ? missingURL : validURL

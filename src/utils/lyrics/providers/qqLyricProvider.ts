@@ -7,10 +7,8 @@ import { getMobileRuntime, providerFetch } from '../../../services/mobileRuntime
  */
 
 import { SongResult } from '../../../types';
-import { parseLyricsByFormat } from '../parserCore';
-import { detectTimedLyricFormat } from '../formatDetection';
 import { qrcDecrypt } from './qrcDecrypt';
-import { applyDetectedChorusEffects, applyNeteaseChorusByTime } from '../chorusEffects';
+import { qqRequestPayload, qqLyricParams, parseQQLyricText } from './qqLyricProtocol';
 import type { NeteaseChorusRange } from '../chorusEffects';
 import { getOriginalCoverUrl } from '../../coverUrl';
 
@@ -20,25 +18,7 @@ const isElectron = typeof window !== 'undefined' && (window as any).electron;
  * Sends a POST request to u.y.qq.com via proxy or directly in Electron.
  */
 async function requestQQ(method: string, module: string, param: any): Promise<any> {
-  const payload = {
-    comm: {
-      ct: 11,
-      cv: "1003006",
-      v: "1003006",
-      os_ver: "15",
-      phonetype: "24122RKC7C",
-      rom: "Redmi/miro/miro:15/AE3A.240806.005/OS2.0.102.0.VOMCNXM:user/release-keys",
-      tmeAppID: "qqmusiclight",
-      nettype: "NETWORK_WIFI",
-      udid: "0",
-      uid: "0",
-    },
-    request: {
-      method,
-      module,
-      param,
-    },
-  };
+  const payload = qqRequestPayload(method, module, param);
 
   const targetUrl = 'https://u.y.qq.com/cgi-bin/musicu.fcg';
   const url = isElectron ? targetUrl : `/api/lyric-proxy?url=${encodeURIComponent(targetUrl)}`;
@@ -64,28 +44,6 @@ async function requestQQ(method: string, module: string, param: any): Promise<an
   }
 
   return data.request.data;
-}
-
-/**
- * Encodes string to Base64 in UTF-8.
- */
-function toBase64(str: string): string {
-  try {
-    return btoa(unescape(encodeURIComponent(str)));
-  } catch {
-    return btoa(
-      encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
-        String.fromCharCode(parseInt(p1, 16))
-      )
-    );
-  }
-}
-
-/**
- * Detects if a lyric string is in QRC format.
- */
-function detectIsQrc(content: string): boolean {
-  return content.includes('(') && content.includes(')') && /\[\d+,\d+\]/.test(content);
 }
 
 /**
@@ -158,26 +116,7 @@ export async function fetchQQLyrics(
     throw new Error('Missing song ID or mid');
   }
 
-  const artistsStr = song.artists?.map(a => a.name).join(', ') || '';
-  
-  const param = {
-    albumName: toBase64(song.album?.name || ''),
-    crypt: 1,
-    ct: 19,
-    cv: 2111,
-    interval: Math.floor(song.durationMs / 1000),
-    lrc_t: 0,
-    qrc: 1,
-    qrc_t: 0,
-    roma: 1,
-    roma_t: 0,
-    singerName: toBase64(artistsStr),
-    songID: Number(song.id),
-    songName: toBase64(song.name),
-    trans: 1,
-    trans_t: 0,
-    type: 0,
-  };
+  const param = qqLyricParams(song);
 
   try {
     const data = await requestQQ("GetPlayLyricInfo", "music.musichallSong.PlayLyricInfo", param);
@@ -193,18 +132,7 @@ export async function fetchQQLyrics(
     const decryptedTrans = encryptedTransHex ? await qrcDecrypt(encryptedTransHex) : '';
     const decryptedRomanization = encryptedRomanizationHex ? await qrcDecrypt(encryptedRomanizationHex) : '';
 
-    const isQrc = detectIsQrc(decryptedLyric);
-    const format = isQrc ? 'qrc' : detectTimedLyricFormat(decryptedLyric);
-
-    const parsed = parseLyricsByFormat(format, decryptedLyric, decryptedTrans, {}, decryptedRomanization);
-    if (!parsed) {
-      return null;
-    }
-    parsed.isWordByWord = isQrc;
-    if (options.chorusRanges && options.chorusRanges.length > 0) {
-      return applyNeteaseChorusByTime(parsed, options.chorusRanges);
-    }
-    return applyDetectedChorusEffects(parsed, decryptedLyric);
+    return parseQQLyricText(decryptedLyric, decryptedTrans, decryptedRomanization, options);
   } catch (error) {
     console.error('[QQMusic] Fetch lyrics failed:', error);
     return null;

@@ -134,7 +134,7 @@
     },
     "AudioStreaming/Streaming/Audio Source/FileAudioSource.swift": {
       "upstreamSHA256": "68656144c1a28412e29c01586a00bbe28038ee378697b49ebeab9afaf872f541",
-      "vendoredSHA256": "68656144c1a28412e29c01586a00bbe28038ee378697b49ebeab9afaf872f541"
+      "vendoredSHA256": "3f69bca9cdf03cec9128c6b60986df7e48d3e95374691f143ad25967dc2ad5f9"
     },
     "AudioStreaming/Streaming/Audio Source/Mp4/Mp4Restructure.swift": {
       "upstreamSHA256": "3726d152ae5c41f0375ad38c7c988c9b3cac82af22818c6cde54efe41beafa4b",

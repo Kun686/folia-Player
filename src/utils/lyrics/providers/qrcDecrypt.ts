@@ -362,12 +362,8 @@ async function decompressDeflate(bytes: Uint8Array): Promise<string> {
   return new TextDecoder('utf-8').decode(result);
 }
 
-/**
- * Decrypts QQ Music QRC lyrics string.
- * Supports Hex-encoded strings or raw Uint8Array.
- * Returns plain text XML-formatted QRC string.
- */
-export async function qrcDecrypt(encryptedHexOrBytes: string | Uint8Array): Promise<string> {
+// Shared original transformation; decompression belongs to the browser or native host.
+export function qrcDecryptBytes(encryptedHexOrBytes: string | Uint8Array): Uint8Array {
   let encryptedBytes: Uint8Array;
   if (typeof encryptedHexOrBytes === 'string') {
     const hex = encryptedHexOrBytes.trim();
@@ -380,7 +376,7 @@ export async function qrcDecrypt(encryptedHexOrBytes: string | Uint8Array): Prom
     throw new Error('No data to decrypt');
   }
 
-  const QRC_KEY = new TextEncoder().encode('!@#)(*$%123ZXC!@!@#)(NHL');
+  const QRC_KEY = Uint8Array.from('!@#)(*$%123ZXC!@!@#)(NHL', character => character.charCodeAt(0));
   const schedule = tripledes_key_setup(QRC_KEY, 0); // 0 = DECRYPT
 
   const decryptedBytes = new Uint8Array(encryptedBytes.length);
@@ -395,5 +391,15 @@ export async function qrcDecrypt(encryptedHexOrBytes: string | Uint8Array): Prom
     decryptedBytes.set(decryptedBlock.subarray(0, block.length), i);
   }
 
-  return await decompressDeflate(decryptedBytes);
+  return decryptedBytes;
+}
+
+// The browser keeps its existing decompression behavior; native hosts reuse the same decrypted bytes.
+/**
+ * Decrypts QQ Music QRC lyrics string.
+ * Supports Hex-encoded strings or raw Uint8Array.
+ * Returns plain text XML-formatted QRC string.
+ */
+export async function qrcDecrypt(encryptedHexOrBytes: string | Uint8Array): Promise<string> {
+  return await decompressDeflate(qrcDecryptBytes(encryptedHexOrBytes));
 }

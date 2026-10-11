@@ -1,3 +1,21 @@
+--- a/AudioStreaming/Streaming/Audio Source/FileAudioSource.swift
++++ b/AudioStreaming/Streaming/Audio Source/FileAudioSource.swift
+@@ -7,7 +7,14 @@
+ import AVFoundation
+ 
+ final class FileAudioSource: NSObject, CoreAudioStreamSource {
+-    weak var delegate: AudioStreamSourceDelegate?
++    private let delegateLock = UnfairLock()
++    private weak var storedDelegate: AudioStreamSourceDelegate?
++    // Folia: cancellation may clear this existential from a different queue. Snapshot both
++    // the weak object and its protocol witness under the lock; never hold it during a callback.
++    var delegate: AudioStreamSourceDelegate? {
++        get { delegateLock.withLock { storedDelegate } }
++        set { delegateLock.withLock { storedDelegate = newValue } }
++    }
+ 
+     var underlyingQueue: DispatchQueue
+ 
 --- a/AudioStreaming/Streaming/AudioPlayer/AudioPlayer.swift
 +++ b/AudioStreaming/Streaming/AudioPlayer/AudioPlayer.swift
 @@ -152,6 +152,10 @@

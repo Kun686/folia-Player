@@ -1,3 +1,4 @@
+import { getProcessedLyricPayload } from '../utils/lyrics/neteasePayload';
 import { getMobileRuntime, providerFetch } from './mobileRuntime';
 import { NeteaseUser, NeteasePlaylist, NoCopyrightRecommendation, SongPrivilege, SongResult } from "../types";
 import { readProviderSessionValue, removeProviderSessionValue, writeProviderSessionValue } from './onlineMusic/providerStorage';
@@ -544,25 +545,6 @@ export const getOnlineSongCacheKey = (
   return `${kind}_${song.id}`;
 };
 
-const getProcessedLyricPayload = (response: any) => {
-  if (!response) return { type: 'netease' as const };
-  if (response.lrc || response.yrc || response.tlyric || response.ytlrc || response.romalrc || response.yromalrc) {
-    return { type: 'netease' as const, ...response };
-  }
-  if (response.data && (response.data.lrc || response.data.yrc || response.data.tlyric || response.data.ytlrc || response.data.romalrc || response.data.yromalrc)) {
-    return { type: 'netease' as const, ...response.data };
-  }
-
-  const lyricText = response.lyric || response.data?.lyric || response.data?.lrc || response.data?.lyrics;
-  if (typeof lyricText === 'string') {
-    return {
-      type: 'netease' as const,
-      lrc: { lyric: lyricText },
-    };
-  }
-
-  return { type: 'netease' as const, ...response };
-};
 
 export const neteaseApi = {
   // --- Login ---

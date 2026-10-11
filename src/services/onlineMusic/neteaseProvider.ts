@@ -1,3 +1,4 @@
+import { extractCloudLyricText } from '../../utils/lyrics/neteasePayload';
 import { resolveNeteasePlayback } from '../../../shared/mobile/providerPlayback';
 import type { SongResult, UnifiedSong } from '../../types';
 import { OnlineProviderError } from '../../types/onlineMusic';
@@ -134,9 +135,6 @@ const noteLoginStatusCheck = (summary: string): void => {
     lastLoginStatusCheck = `${formatDiagnosticClock(Date.now())} ${summary}`;
 };
 
-const extractCloudLyricText = (response: any): string => (
-    response?.lrc || response?.data?.lrc || response?.lyric || response?.data?.lyric || ''
-);
 
 const neteaseChorusRangesCache = new Map<string, Promise<Array<{ startTime: number; endTime: number }>>>();
 
