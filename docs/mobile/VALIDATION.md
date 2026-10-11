@@ -1,23 +1,40 @@
 # 移动候选验证记录
 
-## 本地歌单与收藏：mobile.25 开发源码
+## mobile.25：本地歌单与收藏（当前已安装开发候选）
 
-2026-10-12。复用原歌单服务，新增移动存储和触摸操作，详见 [LOCAL_PLAYLISTS.md](LOCAL_PLAYLISTS.md)。
+2026-10-12，准确源码 `12f83db4f9ead5fa7c9d5c5888f7073d8092f1ec`。
+复用原歌单服务，新增移动存储和触摸操作，详见 [LOCAL_PLAYLISTS.md](LOCAL_PLAYLISTS.md)。
 
 - PASS：TypeScript；94 项相关逻辑回归，包含移动存储 9 项、原桌面歌单／M3U、
   原本地音乐删除、目录动作和首页分组。此前 236 项合跑的并发用例失败已记录，未称为全通过。
 - PASS：21 项 WebKit，phone／ipad／ipad-narrow 覆盖歌单／收藏、刷新恢复、排序／队列、
   混合队列只保存本地歌曲、写入失败保留输入／重试、分类和搜索。
+  另外 `mobile.spec.ts` 的 51 项播放器、队列、歌词等回归通过；合计 72 项。
 - PASS_NATIVE_SIMULATOR：iPad Pro 11-inch M5 / iPadOS26.5，3 项 XCTest；
   完整目录拒绝缺失／损坏／身份不匹配元数据，原导入恢复与失败清理仍正常。
   独立验证 Bundle ID；没有覆盖个人手机 App。
-- 当前个人手机仍是 mobile.24。mobile.25 构建／实际容器／安装及真机反馈分别追加，
-  自动测试不作为这些项目通过的依据。
+- PASS_SIMULATOR_INTERACTION：最终签名 iPad 容器实际新建 `Playlist QA`、添加历史合成验收音 1、收藏；
+  终止进程后重新启动，两份列表均保留该歌曲。歌单播放观察到时间 00:09／00:12 与歌词动画，
+  返回队列仅包含该歌；横屏队列／保存对话框与转回竖屏已检查。没有音质听感或真实平台证据。
+- PASS_BUILD：`npm run ios:sync`、Simulator Release 本地签名和 iPhone Release 开发签名构建。
+  首个 `CODE_SIGNING_ALLOWED=NO` 的模拟器包虽然编译成功，但启动时 Keychain 不可用；
+  恢复 Xcode 默认模拟器签名后启动与以上操作正常，没有更改或绕过安全存储代码。
+- PASS_PACKAGE：3,020 项源码输入冻结，120 项资源与同步目录、签名 App 逐项一致；
+  IPA 逐文件、开发签名／profile／设备绑定核验通过。不含 XCTest 和诊断脚本。
+  源码指纹 `54f10f57ec953216341b4309a40ad4826f05ea9c68115ee696cd7e84d995f3e7`。
+- PASS_CI：[准确源码 Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38165236499)。
+- PASS_INSTALL：iPhone XS Max / iOS18.7.10 原位更新 `app.folia.personal`，启动成功并回读 build25。
+  没有卸载个人 App；本版手机登录／在线播放未复测，本地新功能真机 NOT_RUN。
+- 交付：`移动端交付/Folia-0.7.16-mobile.25-54f10f57-development.ipa`，7,952,115 字节，
+  SHA256 `a30623823da1cd2d6d3bdb41a0c57aa429f62665f33ffc115b19f93e5e91b61a`。
+  比 mobile.24 增加 4,874 字节；旧包摘要复核未变。新增歌单数据库与旧存储分开，原位回退不删除它。
 
 证据：`.mobile-test-results/local-playlists-{regression-unit,regression-webkit,final3-typecheck,native}.log`、
-`local-playlists-native.xcresult`。M3U 移动文件流程、稳定实体编辑和完整 Automix 仍未交付。
+`local-playlists-native.xcresult`、`local-playlists-player-webkit.log`、`mobile25-*`。
+模拟器已关闭，个人 App 留给用户使用。M3U 移动文件流程、稳定实体编辑和完整 Automix 仍未交付；
+物理 iPad、网易云长期锁屏及外设／性能矩阵仍 NOT_RUN，完整移植保持 IN_PROGRESS。
 
-## mobile.24：本地专辑／歌手浏览（当前开发候选）
+## mobile.24：本地专辑／歌手浏览
 
 2026-10-12，准确源码 `e2ba4becc33d6a7bb0ae30a6dc0a989dfab0d0ba`。
 

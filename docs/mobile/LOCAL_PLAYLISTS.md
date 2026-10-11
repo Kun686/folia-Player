@@ -29,11 +29,17 @@
 - 延迟读取／第二连接测试曾出现 `TransactionInactiveError`；显式独立事务、先取得写锁后再读原生目录，
   修正后 9 项通过。中途类型检查发现所用 Dexie API 不在当前类型定义中，已改用现有 `Table.get` 与 Promise 参数。
 - 初始移动与原桌面歌单／M3U 合跑 236 项中 235 项通过、上述并发项失败；这不是全通过记录。
-  最终相关回归结果另记于 [VALIDATION.md](VALIDATION.md)。
+  最终 94 项相关逻辑回归通过，包含原本地删除／目录动作／分组调用方，详见 [VALIDATION.md](VALIDATION.md)。
 - WebKit 使用真实 IndexedDB，只有原生目录／播放接口用既有 fixture。覆盖创建、去重、重命名、排序、
   歌单队列、收藏／刷新恢复、删除音频后的清理、删除歌单保留音频、混合队列过滤和 quota 失败重试。
 - iPad Pro 11-inch M5 / iPadOS26.5，3 项原生 XCTest 通过：完整目录保护、导入恢复／安全身份、失败导入清理。
   结果为 `.mobile-test-results/local-playlists-native.xcresult`；不代表物理设备交互或真实音乐平台验收。
+- WebKit 歌单与分类 21 项、播放器／队列／歌词回归 51 项通过。
+- 最终 mobile.25 签名 iPad 容器已实际创建歌单、添加歌曲、收藏；终止重启后两份列表仍保留歌曲。
+  从歌单播放时观察到进度与歌词动画，返回队列只包含该曲；横屏保存对话框和恢复竖屏已操作检查。
+  使用之前导入的合成 WAV；物理设备听感与真实平台不在该证据范围。
+- 已原位安装并启动个人 iPhone、回读 build25；本地新功能的手机验收仍 NOT_RUN。
+  `mobile25-playlists-{created,restored,landscape}.png` 和 `mobile25-playlist-queue.png` 保存模拟器观察。
 
 M3U 手机导入／系统分享、曲库稳定实体编辑、文件夹导入／管理仍未接入；不能称为完整本地曲库对齐。
 大曲库耗时、长期存储保留与实体 iPad 仍为 NOT_RUN。
