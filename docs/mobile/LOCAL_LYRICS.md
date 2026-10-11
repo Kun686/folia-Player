@@ -6,6 +6,10 @@
 后续源码修复系统选择器不能导入 GBK／加密 KRC 的缺口，复用原字节解码器并增加校验后保存；
 实际模拟器选择器与重启证据见 [LOCAL_LYRIC_IMPORT.md](LOCAL_LYRIC_IMPORT.md)。该修复尚未更新个人 iPhone。
 
+后续源码进一步保留独立的导入／内嵌正文并接回原来源控件；前台和原生规划共用原选择与内嵌准备逻辑。
+实际标签迁移、系统选择器、来源切换与重启记录见 [LOCAL_LYRIC_SOURCES.md](LOCAL_LYRIC_SOURCES.md)。
+本地在线匹配和元数据／封面管理仍待移植；该源码阶段同样没有更新个人 iPhone。
+
 ## 复用与修复
 
 - 原 `LocalFileLyricAdapter` 的 FIA／AWLRC 优先级、合并时间轴拆分和格式选择提取到

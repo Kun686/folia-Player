@@ -4,6 +4,9 @@
 修复系统文件选择器导入 GBK 文本与加密 KRC 失败的问题。个人 iPhone 未更新，仍为
 [mobile.11](VALIDATION.md)；本阶段不改变 `BUILD_RECORD.json` 或已交付 IPA 的身份。
 
+后续开发源码已补齐导入／内嵌两份歌词的独立保存、来源切换与旧数据迁移，见
+[LOCAL_LYRIC_SOURCES.md](LOCAL_LYRIC_SOURCES.md)；本页保留文件解码阶段的历史测试范围。
+
 ## 实现与复用
 
 - 原生旧导入只尝试 UTF-8／UTF-16，无法等价处理原桌面支持的 GBK、加密 KRC。
