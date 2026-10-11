@@ -8,7 +8,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     public let jsName = "FoliaNative"
     public let pluginMethods: [CAPPluginMethod] = ["bootstrap", "configure", "health", "saveSession", "clearSession",
         "request", "cancelRequests", "setQueue", "editQueue", "selectQueue", "command", "getState", "shareQR", "copyText", "shareLyricFile", "sharePlaylistFile",
-        "localCatalog", "importAudio", "localDetails", "importLyrics", "pickLyricFile", "saveLocalLyrics", "readLocalLyrics", "selectLocalLyrics", "readLocalMatch", "writeLocalMatch", "removeLocal", "audioLevels",
+        "localCatalog", "importAudio", "localDetails", "importLyrics", "pickLyricFile", "saveLocalLyrics", "readLocalLyrics", "selectLocalLyrics", "readLocalMatch", "writeLocalMatch", "readLocalLibrary", "editLocalLibrary", "removeLocal", "audioLevels",
         "getAudioSettings", "setAudioSettings", "getTransitionSettings", "setTransitionSettings", "getMediaCacheSettings", "setMediaCacheSettings",
         "mediaCacheState", "clearMediaCache", "songCover", "coverCacheState", "clearCoverCache",
         "readLyricCache", "writeLyricCache", "lyricCacheState", "clearLyricCache",

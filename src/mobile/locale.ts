@@ -1,5 +1,11 @@
 // src/mobile/locale.ts
 export const mobileEn = {
+  entitySplitHint: 'Choose member songs, then add new or existing targets. Artists support multiple targets.',
+  entityChanged: 'The library changed. Your edit was not saved. Reload before editing again.',
+  entityError: 'Could not save. Your input is retained. Check available storage and retry.',
+  entityReload: 'Reload library',
+  entityGone: 'This group no longer exists. Close and choose another.',
+
   playlistTransferError: 'Could not read, import or share the playlist. Please retry.',
   choosePlaylistFile: 'Choose M3U file', importMatchedSongs: 'Import matched songs', sharePlaylistFile: 'Share M3U8 file',
   playlistFileHint: 'Playlists contain references, not audio. Import music first. Matching uses original filenames; ambiguous names are skipped. UTF-8 M3U/M3U8, up to 2 MB and 10,000 entries.',
@@ -60,6 +66,12 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  entitySplitHint: '选择成员歌曲，再添加新建或已有分类作为目标；歌手可添加多个目标。',
+  entityChanged: '音乐库已发生变化，未保存本次修改。重新读取后再编辑。',
+  entityError: '保存失败，本次输入已保留。请检查存储空间后重试。',
+  entityReload: '重新读取音乐库',
+  entityGone: '此分类已不存在，请关闭并重新选择。',
+
   playlistTransferError: '读取、导入或分享歌单失败，请重试。',
   choosePlaylistFile: '选择 M3U 文件', importMatchedSongs: '导入匹配歌曲', sharePlaylistFile: '分享 M3U8 文件',
   playlistFileHint: '歌单只包含引用，不包含音频。请先导入音乐；按原始文件名匹配，同名且无法区分的歌曲会跳过。支持 UTF-8 M3U／M3U8，最多 2 MB、10,000 条。',
@@ -120,6 +132,12 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  entitySplitHint: 'Pilih lagu anggota, lalu tambahkan target baru atau yang sudah ada. Artis mendukung beberapa target.',
+  entityChanged: 'Pustaka berubah. Perubahan belum disimpan. Muat ulang sebelum mengedit.',
+  entityError: 'Tidak dapat menyimpan. Masukan dipertahankan. Periksa penyimpanan lalu coba lagi.',
+  entityReload: 'Muat ulang pustaka',
+  entityGone: 'Grup ini tidak tersedia. Tutup dan pilih yang lain.',
+
   playlistTransferError: 'Playlist tidak dapat dibaca, diimpor, atau dibagikan. Silakan coba lagi.',
   choosePlaylistFile: 'Pilih file M3U', importMatchedSongs: 'Impor lagu yang cocok', sharePlaylistFile: 'Bagikan file M3U8',
   playlistFileHint: 'Playlist berisi referensi, bukan audio. Impor musik terlebih dahulu. Nama file ambigu dilewati. UTF-8 M3U/M3U8, maksimal 2 MB dan 10.000 entri.',

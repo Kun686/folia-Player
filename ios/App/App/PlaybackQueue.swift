@@ -70,7 +70,7 @@ extension PlaybackEngine {
         promotePreparedItem()
         guard expectedRevision == queueRevision else { throw MobileFailure("queue-changed") }
         guard songs.count <= 1000, currentIndex == -1 || songs.indices.contains(currentIndex) else { throw MobileFailure("invalid-queue") }
-        let validated = try songs.map(Self.sanitizedSong)
+        let validated = try songs.map(Self.sanitizedSong).map(canonicalLocalSong)
         let song = currentSong
         if currentIndex >= 0 {
             guard let currentRef = song?["sourceRef"] as? NSDictionary,

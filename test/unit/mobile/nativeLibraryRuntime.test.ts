@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { NativeLibraryInput, NativeLibraryOperation, NativeLibraryRecord } from '../../../src/types/nativeLibrary';
-import { snapshotJSON, mutateJSON } from '../../../src/mobile/nativeLibraryRuntime';
+import { snapshotJSON, mutateJSON, projectJSON } from '../../../src/mobile/nativeLibraryRuntime';
 
 // nativeLibraryRuntime.test.ts — durable identities, explicit metadata replacement, damaged-state rejection and original edit semantics.
 const one = '00000000-0000-0000-0000-000000000001', two = '00000000-0000-0000-0000-000000000002';
@@ -100,6 +100,32 @@ describe('native local-library runtime', () => {
     expect(() => edit(initial, { type: 'merge', entityId: artist, sourceIds: [album] })).toThrow();
     expect(() => edit(initial, { type: 'artists', entityId: artist, songIds: [one], targets: [{ displayName: 'D' }], mode: 'invalid' as 'append' })).toThrow();
     expect(initial).toEqual(before);
+  });
+
+  it('updates one matched field without discarding the other manually split field', () => {
+    const initial = read(), artist = assignment(initial, one).artistEntityIds[0], album = assignment(initial, one).albumEntityId!;
+    const split = edit(edit(initial, { type: 'split', entityId: album, songIds: [one], displayName: 'Solo album' }),
+      { type: 'artists', entityId: artist, songIds: [one], mode: 'replace', targets: [{ displayName: 'Solo singer' }] });
+    const updated = inputs.map(input => input.songId === one ? { ...input, artistNames: ['AC/DC'],
+      artistOrigin: 'manual-match' as const, artistRevision: 'artist-only' } : input);
+    const changed = read(split, updated);
+    expect(assignment(changed, one).albumEntityId).toBe(assignment(split, one).albumEntityId);
+    expect(assignment(changed, one).albumOrigin).toBe('split');
+    expect(display(changed, assignment(changed, one).artistEntityIds[0]).displayName).toBe('AC/DC');
+    expect(assignment(changed, two)).toEqual(assignment(split, two));
+    expect(read(changed, updated)).toEqual(changed);
+  });
+
+  it('projects renamed artist/album while retaining original tags, cover and native identity', () => {
+    const initial = read(), artist = assignment(initial, one).artistEntityIds[0];
+    const record = edit(initial, { type: 'rename', entityId: artist, displayName: 'Renamed' });
+    const base = { id: one, name: 'Original', artists: [{ name: 'Artist A', id: '' }], album: { name: 'Album', id: '', coverUrl: 'cover' },
+      durationMs: 1000, sourceRef: { kind: 'local', mediaId: one } };
+    const projected = JSON.parse(projectJSON(JSON.stringify({ record, songs: [base], bases: [base], documents: {} })));
+    expect(projected.songs[0]).toMatchObject({ id: one, artists: [{ name: 'Renamed', entityId: artist }],
+      album: { name: 'Album', coverUrl: 'cover' }, sourceRef: base.sourceRef });
+    expect(projected.songs[0].localRef).toBeUndefined();
+    expect(projected.editorSongs[0].importedMetadata.artistNames).toEqual(['Artist A']);
   });
 
   it('rejects corrupt documents, redirect cycles and duplicate native IDs instead of recreating empty state', () => {

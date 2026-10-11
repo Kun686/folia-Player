@@ -13,9 +13,9 @@ extension LocalMediaLibrary {
         guard let base = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw MobileFailure("invalid-local-identity") }
         return base
     }
-    func displayedSong(_ id: String, base: [String: Any]? = nil) throws -> [String: Any] {
+    func matchedSong(_ id: String, base: [String: Any]? = nil, record: LyricSource? = nil) throws -> [String: Any] {
         var song = try base ?? importedSong(id)
-        if let doc = try matchDocument(lyricSource(id)) {
+        if let doc = try matchDocument(record ?? lyricSource(id)) {
             if let title = doc["title"] as? String { song["name"] = title }
             if let names = doc["artistNames"] as? [String] { song["artists"] = names.map { ["id": "", "name": $0] } }
             var album = song["album"] as? [String: Any] ?? [:]
@@ -43,11 +43,19 @@ extension LocalMediaLibrary {
         let fileName = try base["importedFileName"] as? String ?? resolve(id).lastPathComponent
         var result: [String: Any] = ["base": base, "fileName": fileName, "lyrics": lyrics]
         if let document = try matchDocument(record) { result["document"] = document }
+        let library = try librarySnapshot()
+        result["libraryRevision"] = library["revision"]
+        result["assignment"] = (library["assignments"] as? [[String: Any]])?.first { $0["songId"] as? String == id }
         if let data = try cover(id) { result["embeddedCover"] = "data:image/jpeg;base64," + data.base64EncodedString() }
         return result
     }
-    func writeLocalMatch(_ id: String, token: String, document: [String: Any], source: String?) async throws -> [String: Any] {
+    func writeLocalMatch(_ id: String, token: String, document: [String: Any], source: String?,
+                         libraryRevision: String? = nil, metadata: String = "online", updateArtists: Bool = true,
+                         updateAlbum: Bool = true, protectOrigins: [String] = []) async throws -> [String: Any] {
         guard source == nil || ["local", "embedded", "online"].contains(source!) else { throw MobileFailure("invalid-lyrics-source") }
+        guard ["keep", "online", "imported"].contains(metadata),
+              protectOrigins.allSatisfy({ ["import", "auto-match", "manual-match", "manual", "split"].contains($0) })
+        else { throw MobileFailure("invalid-local-match") }
         _ = try resolve(id)
         guard lyricToken(id) == token else { throw MobileFailure("local-lyrics-changed") }
         let text = try await lyricImportParser.localMatchDocument(document)
@@ -63,8 +71,32 @@ extension LocalMediaLibrary {
             let available = source == "local" ? (record.contentIsEmbedded == true ? "" : record.content) : record.embeddedContent ?? ""
             guard !available.isEmpty else { throw MobileFailure("lyrics-source-unavailable") }
         }
+        let current = try librarySnapshot()
+        if let libraryRevision, current["revision"] as? String != libraryRevision { throw MobileFailure("local-library-changed") }
+        let assignment = (current["assignments"] as? [[String: Any]])?.first { $0["songId"] as? String == id }
+        let original = try importedSong(id), prior = try lyricSource(id)
+        var input = try libraryInput(id, base: original, record: prior)
+        if metadata != "keep" {
+            let matched = try matchedSong(id, base: original, record: record)
+            let origin = metadata == "imported" ? "import" : (document["titleOrigin"] as? String == "auto-match" ? "auto-match" : "manual-match")
+            let revision = UUID().uuidString
+            if metadata == "imported" || (updateArtists && !protectOrigins.contains(assignment?["artistOrigin"] as? String ?? "")) {
+                input["artistNames"] = ((metadata == "imported" ? original : matched)["artists"] as? [[String: Any]] ?? []).compactMap { $0["name"] as? String }
+                input["artistRevision"] = revision; input["artistOrigin"] = origin
+            }
+            if metadata == "imported" || (updateAlbum && !protectOrigins.contains(assignment?["albumOrigin"] as? String ?? "")) {
+                input["albumName"] = ((metadata == "imported" ? original : matched)["album"] as? [String: Any])?["name"] as? String ?? ""
+                input["albumRevision"] = revision; input["albumOrigin"] = origin
+            }
+        }
+        record.libraryMetadataJSON = String(data: try JSONSerialization.data(withJSONObject: input), encoding: .utf8)
+        // Compute and validate the new projection before the sole atomic commit; no two-file partial transaction.
+        let projected = try librarySnapshot(overrides: [id: record])
+        guard let song = (projected["songs"] as? [[String: Any]])?.first(where: { $0["id"] as? String == id })
+        else { throw MobileFailure("invalid-local-identity") }
+        try Task.checkCancellation()
         try writeLyricSources(record, id: id)
         lyricEditTokens[id] = UUID().uuidString
-        return try displayedSong(id)
+        return song
     }
 }

@@ -27,14 +27,24 @@ export function reconcileNativeLibrary(record: NativeLibraryRecord, inputs: Nati
     return [resolved.entity.id];
   }))];
   const nextSources = inputs.map(input => {
-    const key = JSON.stringify([input.artistNames, input.albumName ?? '', input.origin, input.metadataRevision]);
+    const artistOrigin = input.artistOrigin ?? input.origin, albumOrigin = input.albumOrigin ?? input.origin;
+    const artistRevision = input.artistRevision ?? input.metadataRevision, albumRevision = input.albumRevision ?? input.metadataRevision;
+    const key = JSON.stringify([input.artistNames, input.albumName ?? '', input.origin, input.metadataRevision,
+      artistRevision, albumRevision, artistOrigin, albumOrigin]);
+    const priorKey = sources.get(input.songId), prior = priorKey ? JSON.parse(priorKey) as unknown[] : undefined;
     const current = assignments.get(input.songId);
-    if (!current || sources.get(input.songId) !== key) {
-      // A new metadata revision is an explicit match/restore, already protected by native revision checks.
+    const sameArtists = prior && JSON.stringify([prior[0], prior[6] ?? prior[2], prior[4] ?? prior[3]])
+      === JSON.stringify([input.artistNames, artistOrigin, artistRevision]);
+    const sameAlbum = prior && JSON.stringify([prior[1], prior[7] ?? prior[2], prior[5] ?? prior[3]])
+      === JSON.stringify([input.albumName ?? '', albumOrigin, albumRevision]);
+    if (!current || !sameArtists || !sameAlbum) {
+      // Only explicitly supplied metadata fields replace manual relationships; lyric/cover-only edits preserve both.
       const next: LocalLibraryAssignment = { songId: input.songId,
-        artistEntityIds: resolve('artist', input.artistNames, current?.artistEntityIds ?? []),
-        albumEntityId: input.albumName ? resolve('album', [input.albumName], current?.albumEntityId ? [current.albumEntityId] : [])[0] : undefined,
-        artistOrigin: input.origin, albumOrigin: input.origin, updatedAt: 0 };
+        artistEntityIds: current && sameArtists ? current.artistEntityIds : resolve('artist', input.artistNames, current?.artistEntityIds ?? []),
+        albumEntityId: current && sameAlbum ? current.albumEntityId
+          : input.albumName ? resolve('album', [input.albumName], current?.albumEntityId ? [current.albumEntityId] : [])[0] : undefined,
+        artistOrigin: current && sameArtists ? current.artistOrigin : artistOrigin,
+        albumOrigin: current && sameAlbum ? current.albumOrigin : albumOrigin, updatedAt: 0 };
       assignments.set(input.songId, next);
     }
     return { songId: input.songId, key };

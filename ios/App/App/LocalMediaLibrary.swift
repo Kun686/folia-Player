@@ -13,8 +13,10 @@ actor LocalMediaLibrary {
         var lyricsSource: String? = nil
         var contentIsEmbedded: Bool? = nil
         var matchJSON: String? = nil
+        var libraryMetadataJSON: String? = nil
     }
     let root: URL
+    lazy var libraryStore = NativeLibraryStore(root: root)
     var lyricEditTokens: [String: String] = [:]
     let lyricImportParser = NativeLyricParser()
     init(root: URL? = nil) {
@@ -27,6 +29,14 @@ actor LocalMediaLibrary {
         return root.appendingPathComponent(id, isDirectory: true)
     }
     func catalog(requireComplete: Bool = false) throws -> [[String: Any]] {
+        do { return try librarySnapshot()["songs"] as? [[String: Any]] ?? [] }
+        catch {
+            if requireComplete { throw error }
+            // Damaged or in-flight imports must not rewrite relationships or prevent access to playable files.
+            return try rawCatalog(requireComplete: false)
+        }
+    }
+    func rawCatalog(requireComplete: Bool) throws -> [[String: Any]] {
         if !requireComplete && !FileManager.default.fileExists(atPath: root.path) { return [] }
         let directories: [URL]
         do { directories = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) }
@@ -46,7 +56,8 @@ actor LocalMediaLibrary {
                         throw MobileFailure("local-library-incomplete")
                     }
                 }
-                return (try? displayedSong(url.lastPathComponent, base: base)) ?? base
+                if requireComplete { return try matchedSong(url.lastPathComponent, base: base) }
+                return (try? matchedSong(url.lastPathComponent, base: base)) ?? base
             }.sorted { ($0["name"] as? String ?? "").localizedStandardCompare($1["name"] as? String ?? "") == .orderedAscending }
     }
     func resolve(_ id: String) throws -> URL {
@@ -105,7 +116,7 @@ actor LocalMediaLibrary {
         }
         guard source.content.utf8.count <= 2_000_000, (source.embeddedContent?.utf8.count ?? 0) <= 2_000_000,
               (source.embeddedTranslation?.utf8.count ?? 0) <= 2_000_000,
-              (source.fileName?.utf8.count ?? 0) <= 1024, (source.matchJSON?.utf8.count ?? 0) <= 3_000_000,
+              (source.fileName?.utf8.count ?? 0) <= 1024, (source.matchJSON?.utf8.count ?? 0) <= 3_000_000, (source.libraryMetadataJSON?.utf8.count ?? 0) <= 131_072,
               source.lyricsSource == nil || ["local", "embedded", "online"].contains(source.lyricsSource!) else { throw MobileFailure("invalid-lyrics") }
         return source
     }

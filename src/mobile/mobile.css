@@ -1,6 +1,7 @@
 @import "../index.css";
 @import "./mobile-shell.css";
 @import "./mobile-player.css";
+@import "./mobile-entities.css";
 /* src/mobile/mobile.css — dialogs and original tool surfaces. */
 .mobile-audio-dialog[role=dialog] { position: fixed; inset: 0; z-index: 200; color: #f4f4f5; }
 .mobile-audio-dialog[data-daylight=true] { color: #18181b; }

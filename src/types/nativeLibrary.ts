@@ -8,6 +8,10 @@ export interface NativeLibraryInput {
   albumName?: string;
   origin: Extract<LocalLibraryAssignmentOrigin, 'import' | 'auto-match' | 'manual-match'>;
   metadataRevision: string;
+  artistRevision?: string;
+  albumRevision?: string;
+  artistOrigin?: NativeLibraryInput['origin'];
+  albumOrigin?: NativeLibraryInput['origin'];
 }
 export interface NativeLibraryRecord {
   version: 1;
@@ -21,3 +25,11 @@ export type NativeLibraryOperation =
   | { type: 'split'; entityId: string; songIds: string[]; displayName: string }
   | { type: 'move'; entityId: string; songIds: string[]; targetId: string }
   | { type: 'artists'; entityId: string; songIds: string[]; targets: LocalLibrarySplitTarget[]; mode: LocalLibraryArtistAssignmentMode };
+
+export interface NativeLibrarySnapshot {
+  revision: string;
+  entities: LocalLibraryEntity[];
+  assignments: LocalLibraryAssignment[];
+  songs: import('../types').SongResult[];
+  editorSongs: import('../types').LocalSong[];
+}

@@ -28,6 +28,7 @@ type EntityEditorWorkspaceProps = {
     memberSongs: LocalSong[];
     isDaylight: boolean;
     pending: boolean;
+    splitHint?: string;
     onRename: (displayName: string) => Promise<boolean>;
     onMerge: (sourceEntityId: string, mergeIntoCurrent: boolean) => Promise<boolean>;
     onSplit: (
@@ -43,6 +44,7 @@ export const EntityEditorWorkspace = ({
     memberSongs,
     isDaylight,
     pending,
+    splitHint,
     onRename,
     onMerge,
     onSplit,
@@ -190,7 +192,7 @@ export const EntityEditorWorkspace = ({
                     </label>
                     <p className="text-[13px] opacity-60 leading-relaxed">
                         {splitMode
-                            ? t('localMusic.entitySplitHint', { kind: entityKindLabel })
+                            ? (splitHint ?? t('localMusic.entitySplitHint', { kind: entityKindLabel }))
                             : t('localMusic.entityMergeHint', { kind: entityKindLabel })
                         }
                     </p>

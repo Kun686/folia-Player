@@ -1,23 +1,21 @@
 # 移动候选验证记录
 
-## 实体编辑共享规则／原生存储：开发源码，尚未接入个人 App
+## mobile.27 实体编辑：已通过接线验证，准备打包
 
-2026-10-12，详见 [LOCAL_ENTITIES.md](LOCAL_ENTITIES.md)。复用原改名、合并、拆分及孤立实体清理规则，
-保留桌面 Dexie 事务；新增原生原子文档存储，无新依赖。个人安装包仍为下述 mobile.26。
+2026-10-12，详见 [LOCAL_ENTITIES.md](LOCAL_ENTITIES.md)。原版改名、合并、拆分已接入完整原生曲库、
+匹配保护与原生队列，复用原编辑面板及展示映射，无新依赖；个人安装包此时仍为 mobile.26。
 
-- PASS：最终 TypeScript、42 项逻辑、`ios:sync`；输入校验、人工关系保留、事务回滚和原曲库行为均有相关测试。
-- PASS_NATIVE_SIMULATOR：前一轮实现的 5 项 JavaScriptCore／文件存储测试通过；
-  首轮文件保护属性断言失败，确认模拟器缺少该属性后明确记为 NOT_RUN_SIMULATOR，没有据此声称策略通过。
-- PASS_NATIVE_DEVICE：最终源码在 iPhone XS Max / iOS18.7.10、独立 `app.folia.validation.App` 下执行 5 项测试通过。
-  实际文件保护属性、重读、旧修订拒绝、损坏保留、真实写权限失败和拆分／删除清理均通过；没有 WebView 参与规则执行。
-  初次一体化 test 启动错宿主、未执行测试，显式 xctestrun 纠正后通过；随后原生提交顺序补强并再次通过。
-- PASS_CLEANUP：本轮独立 QA 包已删除，模拟器已关闭；个人 mobile.26 留给用户使用，未更新或卸载。
-- NOT_IMPLEMENTED：LocalMediaLibrary 持有与完整目录衔接、人工关系匹配保护、队列／锁屏名称更新、原编辑 UI 接线。
-- NOT_RUN：新功能 UI／真实曲库端到端、实际锁屏文件可读性、物理 iPad、大曲库和长期性能。
+- PASS_LOGIC：92 项相关逻辑与原桌面曲库回归；TypeScript 通过。
+- PASS_WEBKIT：33 项独立用例，最后修复窄屏负边距后重跑其中 12 项实体用例通过。
+- PASS_NATIVE_SIMULATOR / PASS_NATIVE_DEVICE：各 14 项测试通过。手机使用独立 QA Bundle；
+  真实 JavaScriptCore、文件保护属性、失败回滚、部分匹配保护与保留音频对象／进度均有断言。
+- PASS_SIMULATOR_INTERACTION：系统选择器实际导入两首带标签的合成 M4A，改名、单曲拆分、横屏及终止重启恢复通过。
+- PASS_CLEANUP：独立 iPhone QA 包已移除，个人 mobile.26 已重新打开；模拟器已关闭。
+- NOT_RUN：用户实际本地音乐、物理 iPad、大曲库性能与长期真机矩阵。完整移植仍 IN_PROGRESS。
 
-证据：`.mobile-test-results/entities-canonical-{unit,typecheck,sync}.log`、`entities-native-fixed.xcresult`、
-`entities-device-final.xcresult`、`entities-device-final-build.log` 和 `entities-device-cleanup.json`。
-完整移植保持 IN_PROGRESS；独立存储测试不是实体编辑成品验收。
+本轮证据：entities-wiring-regression.log、entities-ui-matrix.log、entities-ui-layout-fixed.log、
+entities-integration-fixed.xcresult、entities-wiring-device.xcresult 与 entities-sim-*.jpg，
+均位于 .mobile-test-results。最初用例目标遗漏及测试桩导入／选择器问题均已修正，详情见专题记录。
 
 ## mobile.26：M3U 歌单文件（当前已安装开发候选）
 

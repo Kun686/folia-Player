@@ -15,6 +15,7 @@ import LocalPlaylistToolbar from './LocalPlaylistToolbar';
 import LocalPlaylistDialog from './LocalPlaylistDialog';
 import LocalPlaylistFileDialog from './LocalPlaylistFileDialog';
 import LocalSongPlaylistActions from './LocalSongPlaylistActions';
+import LocalEntityDialog from './LocalEntityDialog';
 import LocalCollections, { LocalLibraryNav } from './LocalCollections';
 import { useAppPreferences } from '../hooks/useAppPreferences';
 import { useThemeSettingsStore } from '../stores/useThemeSettingsStore';
@@ -34,6 +35,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const [provider, setProvider] = useState(initialServer ? 'netease' : 'local');
   const [query, setQuery] = useState('');
   const [settings, setSettings] = useState(false);
+  const [entityId, setEntityId] = useState<string>();
   const [login, setLogin] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [queueView, setQueueView] = useState(false);
@@ -54,7 +56,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const catalog = useCatalog(provider, !!server && isNative && providerEnabled);
   const local = useLocalCatalog();
   const localPlaylists = useLocalPlaylists(local.songs);
-  const localBrowser = useLocalBrowser(local.songs, query, localPlaylists.lists);
+  const localBrowser = useLocalBrowser(local.songs, query, localPlaylists.lists, local.snapshot);
   const mediaCache = useMediaCache();
   const isCached = provider === 'cached';
   const isLocal = provider === 'local';
@@ -104,6 +106,9 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       <div className="section-heading"><h2>{queueView ? t('mobile.queue') : t(isCached ? 'options.mediaCache' : isLocal ? 'mobile.local' : 'mobile.playlists')}</h2>
         <button aria-pressed={queueView} onClick={() => setQueueView(!queueView)}>{t('mobile.queue')} · {playback.state.queue.length}</button></div>
       {isLocal && !queueView && <LocalLibraryNav browser={localBrowser} clearQuery={() => setQuery('')} />}
+      {isLocal && !queueView && localBrowser.selected?.entityId && <button className="local-entity-edit"
+        disabled={local.busy} onClick={() => setEntityId(localBrowser.selected?.entityId)}>
+        {t('localMusic.editEntityTitle', { kind: t(localBrowser.selected.type === 'artist' ? 'localMusic.artistLabel' : 'localMusic.albumLabel') })}</button>}
       {isLocal && !queueView && (localBrowser.section === 'playlists' || localPlaylists.error) &&
         <LocalPlaylistToolbar controller={localPlaylists} selected={localBrowser.selected} />}
       {queueView && <div className="queue-toolbar">
@@ -147,6 +152,8 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
     {settings && <SettingsSheet mediaCache={mediaCache} timer={sleepTimer} server={server} light={light} setLight={setLight}
       saved={value => { if (value === server) location.reload(); else setServer(value); }} close={() => setSettings(false)} />}
     {login && <LoginSheet provider={provider} refresh={catalog.refresh} close={() => setLogin(false)} />}
+    {entityId && local.snapshot && <LocalEntityDialog snapshot={local.snapshot} id={entityId} light={light}
+      close={() => setEntityId(undefined)} selected={id => { localBrowser.select(id); void local.refresh(); }} />}
     {localPlaylists.request && <LocalPlaylistDialog controller={localPlaylists} request={localPlaylists.request} />}
     {localPlaylists.fileRequest && <LocalPlaylistFileDialog controller={localPlaylists} request={localPlaylists.fileRequest} songs={local.songs} />}
   </main>;

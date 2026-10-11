@@ -7,13 +7,15 @@ export function localMatchStorage(snapshot: LocalMatchSnapshot, active: () => bo
   const check = () => { if (!active()) throw new DOMException('Canceled', 'AbortError'); };
   return {
     isCurrent: active,
-    // Native single-song storage has no manually split artist/album entities; no fabricated assignment IDs.
-    assignment: async () => { check(); return undefined; },
+    // Original modal uses this assignment to confirm replacing manually organized artists/albums.
+    assignment: async () => { check(); return snapshot.assignment; },
     apply: async input => {
       check();
       const next = buildLocalMatchDocument(snapshot, input);
       const coverAttempted = input.cover === 'online' && Boolean(input.candidate?.coverUrl);
-      const result = await native.writeLocalMatch({ id: input.songId, token: snapshot.lyrics.token, ...next, cacheCover: coverAttempted });
+      const result = await native.writeLocalMatch({ id: input.songId, token: snapshot.lyrics.token, ...next, cacheCover: coverAttempted,
+        libraryRevision: snapshot.libraryRevision, metadata: input.metadata, updateArtists: Boolean(input.candidate?.artists.length),
+        updateAlbum: Boolean(input.candidate?.album?.name?.trim()), protectOrigins: input.protectOrigins });
       check();
       return { coverAttempted, coverCached: result.coverCached, lyricsApplied: input.lyrics !== 'online' || Boolean(input.onlineLyrics),
         partialLyricsFailure: Boolean(input.lyricsFailed && !input.onlineLyrics) };

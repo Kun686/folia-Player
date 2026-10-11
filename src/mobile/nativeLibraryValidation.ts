@@ -26,11 +26,15 @@ export function readNativeLibraryInputs(value: unknown): NativeLibraryInput[] {
     songId(input.songId); list(input.artistNames, 128).forEach(name => text(name, 512, true));
     if (input.albumName !== undefined) text(input.albumName, 512, true);
     oneOf(input.origin, ['import', 'auto-match', 'manual-match']); text(input.metadataRevision, 128, true);
-    const artistNames = [...new Set((input.artistNames as string[]).flatMap(name => input.origin === 'import'
+    for (const key of ['artistRevision', 'albumRevision']) if (input[key] !== undefined) text(input[key], 128, true);
+    for (const key of ['artistOrigin', 'albumOrigin']) if (input[key] !== undefined) oneOf(input[key], ['import', 'auto-match', 'manual-match']);
+    const artistNames = [...new Set((input.artistNames as string[]).flatMap(name => (input.artistOrigin ?? input.origin) === 'import'
       ? splitLocalLibraryArtistNames(name) : cleanLocalLibraryName(name) ? [cleanLocalLibraryName(name)!] : []))];
     if (artistNames.length > 128) invalid();
     return { songId: input.songId as string, artistNames, albumName: cleanLocalLibraryName(input.albumName as string | undefined),
-      origin: input.origin as NativeLibraryInput['origin'], metadataRevision: input.metadataRevision as string };
+      origin: input.origin as NativeLibraryInput['origin'], metadataRevision: input.metadataRevision as string,
+      artistRevision: input.artistRevision as string | undefined, albumRevision: input.albumRevision as string | undefined,
+      artistOrigin: input.artistOrigin as NativeLibraryInput['origin'] | undefined, albumOrigin: input.albumOrigin as NativeLibraryInput['origin'] | undefined };
   });
   unique(result.map(input => input.songId)); return result;
 }
@@ -64,7 +68,16 @@ export function readNativeLibraryRecord(value: unknown): NativeLibraryRecord {
   });
   unique(assignments.map(assignment => assignment.songId as string));
   const sources = list(record.sources).map(item => {
-    const source = object(item); songId(source.songId); text(source.key, 131072); return source;
+    const source = object(item); songId(source.songId); text(source.key, 131072);
+    const key = list(JSON.parse(source.key as string), 8);
+    if (key.length !== 4 && key.length !== 8) invalid();
+    list(key[0], 128).forEach(name => text(name, 512, true)); text(key[1], 512, true);
+    oneOf(key[2], ['import', 'auto-match', 'manual-match']); text(key[3], 128, true);
+    if (key.length === 8) {
+      text(key[4], 128, true); text(key[5], 128, true);
+      oneOf(key[6], ['import', 'auto-match', 'manual-match']); oneOf(key[7], ['import', 'auto-match', 'manual-match']);
+    }
+    return source;
   });
   unique(sources.map(source => source.songId as string));
   const sourceIds = new Set(sources.map(source => source.songId));

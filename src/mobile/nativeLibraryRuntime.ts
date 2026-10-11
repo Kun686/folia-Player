@@ -1,3 +1,8 @@
+import type { SongResult } from '../types';
+import { applyLocalLibraryEntityDisplay } from '../utils/localLibraryDisplay';
+import { buildLocalLibraryIndex } from '../utils/localLibraryIndex';
+import { projectMobileLocalSongs } from './localSongProjection';
+import type { LocalMatchDocument } from '../types/localSongMatch';
 import type { NativeLibraryRecord } from '../types/nativeLibrary';
 import { mergeLibraryEntities, moveLibraryEntityMembers, renameLibraryEntity, splitLibraryEntity,
   type LocalLibraryEntityChange } from '../services/localLibraryEntityOperations';
@@ -42,4 +47,21 @@ export function mutateJSON(request: string): string {
   const result: NativeLibraryRecord = { ...state, entities: [...entities.values()], assignments: [...assignments.values()] };
   readNativeLibraryRecord(result);
   return JSON.stringify(result);
+}
+
+// Projection accepts only the actor's complete catalog; identity and raw imported tags survive manual naming.
+export function projectJSON(request: string): string {
+  const value = object(JSON.parse(request)), record = readNativeLibraryRecord(value.record);
+  if (!Array.isArray(value.songs) || !Array.isArray(value.bases)) throw new Error('invalid-local-library');
+  const songs = value.songs as SongResult[], bases = value.bases as SongResult[];
+  const documents = object(value.documents), index = buildLocalLibraryIndex(record.entities, record.assignments);
+  const projected = songs.map(song => {
+    if (song.sourceRef?.kind !== 'local' || !index.assignmentsBySongId.has(song.sourceRef.mediaId)) throw new Error('invalid-local-library');
+    const result = applyLocalLibraryEntityDisplay({ ...song, localRef: { songId: song.sourceRef.mediaId } }, record, index);
+    const { localRef: _, ...display } = result;
+    return display;
+  });
+  const editorSongs = projectMobileLocalSongs(bases).map(song => ({ ...song,
+    ...(documents[song.id] as LocalMatchDocument | undefined) }));
+  return JSON.stringify({ songs: projected, editorSongs });
 }

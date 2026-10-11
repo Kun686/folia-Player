@@ -38,14 +38,15 @@ export const test = base.extend<{ nativeBridge: void }>({
     const localSong = { id: '11111111-1111-4111-8111-111111111111', name: '本地测试音乐', artists: [{ id: '', name: '本地歌手' }], album: { id: '', name: '' }, durationMs: 180000,
       sourceRef: { kind: 'local', mediaId: '11111111-1111-4111-8111-111111111111' }, replayGain: { trackGain: -6, albumGain: -3 } };
     let localSongs: any[] = [];
-    win.fixtureSetLocalSongs = (songs: any[]) => { localSongs = structuredClone(songs); catalogSubscriber?.(); };
+    let libraryRecord: unknown = null, libraryRevision = 0;
+    win.fixtureSetLocalSongs = (songs: any[]) => { localSongs = structuredClone(songs); libraryRevision++; catalogSubscriber?.(); };
     let lyric = '[00:00.00]测试本地歌词\n[00:10.00]第二句';
     win.fixturePlayback = state;
     win.fixtureCommands = [];
     const emit = () => { state.revision++; subscriber?.({ ...state }); };
     win.fixtureEmitPlayback = (patch: Record<string, unknown>) => { Object.assign(state, patch); emit(); };
     const methods = ['bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile', 'sharePlaylistFile',
-      'localCatalog', 'importAudio', 'localDetails', 'readLocalLyrics', 'readLocalMatch', 'writeLocalMatch', 'selectLocalLyrics', 'importLyrics', 'pickLyricFile', 'saveLocalLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
+      'readLocalLibrary', 'editLocalLibrary', 'localCatalog', 'importAudio', 'localDetails', 'readLocalLyrics', 'readLocalMatch', 'writeLocalMatch', 'selectLocalLyrics', 'importLyrics', 'pickLyricFile', 'saveLocalLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
       'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache', 'listExportLyrics', 'readExportLyrics', 'shareLyricArchive', 'getSleepTimer', 'setSleepTimer'];
     win.Capacitor = {
       PluginHeaders: [{ name: 'FoliaNative', methods: [...methods.map(name => ({ name, rtype: 'promise' })), { name: 'addListener' }, { name: 'removeListener' }] }],
@@ -135,6 +136,30 @@ export const test = base.extend<{ nativeBridge: void }>({
         }
         if (method === 'health') return { protocol: 1, providers: ['netease', 'qq'] };
         if (method === 'bootstrap') return { server: win.fixtureNoServer ? '' : 'https://fixture.invalid', sessions: {} };
+        if (method === 'readLocalLibrary' || method === 'editLocalLibrary') {
+          const path = '/src/mobile/nativeLibraryRuntime.ts';
+          // Init scripts execute in the browser; prevent the test runner's CommonJS transform from rewriting import().
+          const runtime = await new Function('path', 'return import(path)')(new URL(path, location.href).href);
+          const inputs = localSongs.map(song => ({ songId: song.id, artistNames: song.artists.map((artist: any) => artist.name),
+            albumName: song.album.name, origin: 'import', metadataRevision: '' }));
+          if (method === 'editLocalLibrary') {
+            if (win.fixtureEntityPending) await new Promise<void>(resolve => { win.fixtureFinishEntity = resolve; });
+            if (win.fixtureEntityFailure) throw new Error('disk-full');
+            if (options.revision !== String(libraryRevision) || win.fixtureEntityConflict) throw new Error('local-library-changed');
+            libraryRecord = JSON.parse(runtime.mutateJSON(JSON.stringify({ version: 1, record: libraryRecord, inputs,
+              operation: options.operation, idSeed: crypto.randomUUID(), now: Date.now() })));
+            libraryRevision++;
+          }
+          const record = JSON.parse(runtime.snapshotJSON(JSON.stringify({ version: 1, record: libraryRecord, inputs })));
+          const projected = JSON.parse(runtime.projectJSON(JSON.stringify({ record, songs: localSongs, bases: localSongs, documents: {} })));
+          if (method === 'editLocalLibrary') {
+            const byId = new Map(projected.songs.map((song: any) => [song.id, song]));
+            state.queue = state.queue.map(song => byId.get(song.id) ?? song);
+            if (state.currentSong) state.currentSong = byId.get(state.currentSong.id) ?? state.currentSong;
+            state.queueRevision++; emit(); catalogSubscriber?.();
+          }
+          return { ...projected, entities: record.entities, assignments: record.assignments, revision: String(libraryRevision) };
+        }
         if (method === 'localCatalog') return { songs: localSongs };
         if (method === 'importAudio') {
           localSongs = win.fixtureMany ? [localSong, ...[2, 3].map(i => ({ ...localSong, name: '本地音乐' + i,
@@ -143,6 +168,7 @@ export const test = base.extend<{ nativeBridge: void }>({
           return { songs: localSongs, failures: [] };
         }
         if (method === 'readLocalMatch') return {
+          libraryRevision: String(libraryRevision), assignment: win.fixtureLocalAssignment,
           base: structuredClone(localSong), fileName: 'original.m4a',
           lyrics: { token: 'local-token', ...(win.fixtureLocalLyric || { content: lyric }) },
           document: win.fixtureMatchDocument,

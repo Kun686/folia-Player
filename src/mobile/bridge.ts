@@ -1,3 +1,4 @@
+import type { NativeLibraryOperation, NativeLibrarySnapshot } from '../types/nativeLibrary';
 import type { LocalMatchDocument, LocalMatchSnapshot } from '../types/localSongMatch';
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 import type { SongResult, ReplayGainMode, LyricData, OnlineLyricsState } from '../types';
@@ -32,8 +33,10 @@ export interface FoliaNativePlugin {
   listExportLyrics(): Promise<{ token: string; entries: { key: string; song?: SongResult }[] }>;
   readExportLyrics(options: { key: string; token: string }): Promise<Pick<Awaited<ReturnType<FoliaNativePlugin['readLyricCache']>>, 'payload'>>;
   shareLyricArchive(options: { fileName: string; data: string; token?: string }): Promise<{ completed: boolean }>;
+  readLocalLibrary(): Promise<NativeLibrarySnapshot>;
+  editLocalLibrary(options: { revision: string; operation: NativeLibraryOperation }): Promise<NativeLibrarySnapshot>;
   readLocalMatch(options: { id: string }): Promise<LocalMatchSnapshot>;
-  writeLocalMatch(options: { id: string; token: string; document: LocalMatchDocument; source: 'local' | 'embedded' | 'online' | null; cacheCover: boolean }): Promise<{ coverCached: boolean }>;
+  writeLocalMatch(options: { id: string; token: string; document: LocalMatchDocument; source: 'local' | 'embedded' | 'online' | null; cacheCover: boolean; libraryRevision?: string; metadata: 'keep' | 'online' | 'imported'; updateArtists: boolean; updateAlbum: boolean; protectOrigins?: string[] }): Promise<{ coverCached: boolean }>;
   addListener(name: 'localCatalog', listener: () => void): Promise<PluginListenerHandle>;
   readLocalLyrics(options: { id: string }): Promise<LocalLyricSnapshot>;
   selectLocalLyrics(options: { id: string; token: string; source: 'local' | 'embedded' | 'online' }): Promise<LocalLyricSnapshot>;

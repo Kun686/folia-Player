@@ -25,7 +25,7 @@ final class NativeLibraryStore {
     }
 
     // Reads and compares immediately before committing, without suspension between validation and the atomic write.
-    func apply(inputs: [[String: Any]], expectedRevision: String, operation: [String: Any]) throws -> Snapshot {
+    func apply(inputs: [[String: Any]], expectedRevision: String, operation: [String: Any], beforeCommit: (Snapshot) throws -> Void = { _ in }) throws -> Snapshot {
         let baseline = try readRequest(inputs: inputs)
         guard try revision(baseline) == expectedRevision else { throw MobileFailure("local-library-changed") }
         var request = baseline
@@ -37,10 +37,19 @@ final class NativeLibraryStore {
         updated["record"] = record
         // Validate the complete response before the commit; no throwing work may report failure after a successful write.
         let result = Snapshot(revision: try revision(updated), record: record)
+        try beforeCommit(result)
         try Task.checkCancellation()
         try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true,
             attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication])
         try data.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        return result
+    }
+
+    func project(_ snapshot: Snapshot, songs: [[String: Any]], bases: [[String: Any]], documents: [String: Any]) throws -> [String: Any] {
+        var result = try evaluate("projectJSON", ["record": snapshot.record, "songs": songs, "bases": bases, "documents": documents])
+        result["revision"] = snapshot.revision
+        result["entities"] = snapshot.record["entities"]
+        result["assignments"] = snapshot.record["assignments"]
         return result
     }
 

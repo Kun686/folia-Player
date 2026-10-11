@@ -59,6 +59,9 @@ final class PlaybackEngine {
     var lastSave = Date.distantPast
     var resumeAfterInterruption = false
     var restoredPosition: Double = 0
+    var localMetadata: [String: [String: Any]] = [:]
+    var localMetadataRequest = 0
+    var libraryRefreshTask: Task<Void, Never>?
 
     init(gateway: GatewayClient, storage: UserDefaults = .standard, local: LocalMediaLibrary = LocalMediaLibrary(),
          usesStereoOutput: Bool = false, mediaNetworkConfiguration: URLSessionConfiguration? = nil, mediaCache: NativeMediaCache? = nil,
@@ -78,6 +81,10 @@ final class PlaybackEngine {
         player.actionAtItemEnd = .advance
         player.automaticallyWaitsToMinimizeStalling = true
         restore()
+        libraryRefreshTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            _ = try? await self.refreshLocalLibrary()
+        }
         restoreAudioSettings()
         crossfade = NativeCrossfade(owner: self)
         restoreTransitionSettings()
@@ -113,7 +120,7 @@ final class PlaybackEngine {
     func setQueue(_ songs: [[String: Any]], at position: Int) throws {
         guard !songs.isEmpty, songs.count <= 1000, songs.indices.contains(position) else { throw MobileFailure("invalid-queue") }
         sleepTimer.reconcile()
-        queue = try songs.map(Self.sanitizedSong); failures = 0; intentToPlay = true
+        queue = try songs.map(Self.sanitizedSong).map(canonicalLocalSong); failures = 0; intentToPlay = true
         select(position)
     }
     func nextIndex(_ delta: Int = 1, automatic: Bool = false) -> Int? {
@@ -288,6 +295,7 @@ final class PlaybackEngine {
     }
     deinit {
         crossfade?.cancel()
+        libraryRefreshTask?.cancel()
         task?.cancel(); preload?.cancel(); stalledRecovery?.cancel(); network.cancel()
         streamTimer?.cancel(); stream?.dispose(); preparedStream?.entry.dispose()
         streamOutput?.close()
