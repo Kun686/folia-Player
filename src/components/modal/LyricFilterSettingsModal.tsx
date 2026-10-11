@@ -72,6 +72,7 @@ const LyricFilterSettingsModal: React.FC<LyricFilterSettingsModalProps> = ({
     const [previewLyrics, setPreviewLyrics] = useState<LyricData | null>(null);
     const [isLoadingPreview, setIsLoadingPreview] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [failure, setFailure] = useState<'load' | 'save' | null>(null);
 
     useEffect(() => {
         if (!isOpen) {
@@ -85,6 +86,7 @@ const LyricFilterSettingsModal: React.FC<LyricFilterSettingsModalProps> = ({
         setDraftStaffAbsorbMode(initialStaffAbsorbMode);
         setDraftStaffPattern(initialStaffPattern);
         setIsLoadingPreview(true);
+        setFailure(null);
         let active = true;
 
         loadPreviewLyrics()
@@ -93,6 +95,7 @@ const LyricFilterSettingsModal: React.FC<LyricFilterSettingsModalProps> = ({
                     setPreviewLyrics(lyrics);
                 }
             })
+            .catch(() => { if (active) setFailure('load'); })
             .finally(() => {
                 if (active) {
                     setIsLoadingPreview(false);
@@ -139,6 +142,7 @@ const LyricFilterSettingsModal: React.FC<LyricFilterSettingsModalProps> = ({
         }
 
         setIsSaving(true);
+        setFailure(null);
         try {
             await onSave({
                 pattern: draftPattern.trim(),
@@ -149,6 +153,8 @@ const LyricFilterSettingsModal: React.FC<LyricFilterSettingsModalProps> = ({
                 staffPattern: draftStaffPattern.trim(),
             });
             onClose();
+        } catch {
+            setFailure('save');
         } finally {
             setIsSaving(false);
         }
@@ -165,6 +171,9 @@ const LyricFilterSettingsModal: React.FC<LyricFilterSettingsModalProps> = ({
                     className="fixed inset-0 z-[140] backdrop-blur-xl p-3 sm:p-5"
                     style={{ backgroundColor: overlayBackground }}
                     onClick={onClose}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={t('lyricFilter.title')}
                 >
                     <motion.div
                         {...panelMotion}
@@ -172,11 +181,12 @@ const LyricFilterSettingsModal: React.FC<LyricFilterSettingsModalProps> = ({
                         className={`mx-auto flex h-full max-w-6xl flex-col overflow-hidden rounded-[32px] border ${borderColor} ${glassBg} shadow-[0_24px_80px_rgba(0,0,0,0.28)]`}
                         onClick={(event) => event.stopPropagation()}
                     >
-                        <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 sm:px-6">
+                        <div data-lyric-filter-header className="flex items-center justify-between border-b border-white/10 px-4 py-4 sm:px-6">
                             <div className="flex min-w-0 items-center gap-3">
                                 <button
                                     type="button"
                                     onClick={onClose}
+                                    aria-label={t('ui.close')}
                                     className="h-10 w-10 rounded-full border border-white/10 bg-white/5 flex items-center justify-center transition-colors hover:bg-white/10"
                                     style={{ color: 'var(--text-primary)' }}
                                 >
@@ -213,7 +223,8 @@ const LyricFilterSettingsModal: React.FC<LyricFilterSettingsModalProps> = ({
                             </div>
                         </div>
 
-                        <div className="grid flex-1 gap-0 overflow-hidden lg:grid-cols-[1.15fr_0.85fr]">
+                        {failure && <p role="alert" className="px-4 py-2">{t(`lyricFilter.${failure}Error`)}</p>}
+                        <div data-lyric-filter-body className="grid flex-1 gap-0 overflow-hidden lg:grid-cols-[1.15fr_0.85fr]">
                             <div className={`flex min-h-0 flex-col border-b ${borderColor} lg:border-b-0 lg:border-r`}>
                                 <div className="flex items-center justify-between px-4 py-4 sm:px-6">
                                     <div>

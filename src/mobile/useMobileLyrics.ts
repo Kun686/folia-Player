@@ -6,20 +6,24 @@ import { resolveLocalSongLyrics } from '../utils/lyrics/localSongLyrics';
 import { localLyricsFromSnapshot } from '../utils/lyrics/localLyricSnapshot';
 import { native } from './bridge';
 import { useMobileCover } from './useMobileCover';
+import { useLyricDisplay } from './useLyricDisplay';
 
 // src/mobile/useMobileLyrics.ts — reuse the original local parser and online Omni pipeline.
 export function useMobileLyrics(song?: SongResult, editing = false) {
-  const [lyrics, setLyrics] = useState<LyricData | null>(null);
+  const [loaded, setLoaded] = useState<{ key: string | undefined; lyrics: LyricData | null }>();
   const cover = useMobileCover(song);
   const [error, setError] = useState(false);
   const [version, setVersion] = useState(0);
   const key = JSON.stringify(song?.sourceRef);
+  const rawLyrics = loaded?.key === key ? loaded?.lyrics ?? null : null;
+  const lyrics = useLyricDisplay(rawLyrics, song);
   const wasEditing = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (editing) wasEditing.current = key;
     const skipAutoMatch = wasEditing.current === key && key !== undefined;
     if (!editing) wasEditing.current = undefined;
     let active = true;
+    const setLyrics = (value: LyricData | null) => { if (active) setLoaded({ key, lyrics: value }); };
     if (!editing) setLyrics(null);
     setError(false);
     const load = async () => {
@@ -42,5 +46,5 @@ export function useMobileLyrics(song?: SongResult, editing = false) {
     void load().catch(() => { if (active) setError(true); });
     return () => { active = false; };
   }, [key, version, editing]);
-  return { lyrics, cover, error, refresh: () => setVersion(v => v + 1) };
+  return { lyrics, rawLyrics, cover, error, refresh: () => setVersion(v => v + 1) };
 }

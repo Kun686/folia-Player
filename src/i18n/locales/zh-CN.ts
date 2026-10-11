@@ -1350,6 +1350,8 @@ export default {
     "example": "示例：",
     "invalidRegex": "正则无效：{{error}}",
     "ruleSectionTitle": "逐行过滤规则",
+    "loadError": "歌词预览加载失败，请关闭后重新打开。",
+    "saveError": "歌词设置保存失败，请重试。",
   },
   "lyricStaff": {
     "title": "开头制作人员信息",

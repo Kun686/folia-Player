@@ -45,6 +45,7 @@ const LyricFilterRuleSection: React.FC<LyricFilterRuleSectionProps> = ({
                     type="button"
                     onClick={onToggle}
                     aria-label={t('lyricFilter.enableFilter')}
+                    aria-pressed={isEnabled}
                     className={`mt-0.5 h-6 w-12 shrink-0 rounded-full p-1 transition-colors ${!isEnabled ? toggleOffBackgroundClass : ''}`}
                     style={{ backgroundColor: isEnabled ? 'var(--text-secondary)' : undefined }}
                 >
@@ -55,6 +56,7 @@ const LyricFilterRuleSection: React.FC<LyricFilterRuleSectionProps> = ({
                 value={pattern}
                 onChange={(event) => onPatternChange(event.target.value)}
                 placeholder={t('lyricFilter.inputPlaceholder')}
+                aria-label={t('lyricFilter.regexPattern')}
                 disabled={!isEnabled}
                 rows={3}
                 className={`mt-4 w-full resize-none rounded-2xl border px-4 py-3 text-sm outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${inputBg}`}

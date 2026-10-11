@@ -3,6 +3,7 @@ import { motion, AnimatePresence, MotionValue, useMotionValueEvent } from 'frame
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { LyricData, Theme } from '../../types';
+import { findLatestActiveLineIndex } from '../../utils/appPlaybackHelpers';
 
 interface LyricsTimelineModalProps {
     isOpen: boolean;
@@ -60,17 +61,18 @@ const LyricsTimelineModal: React.FC<LyricsTimelineModalProps> = ({
 
     // Track active line
     useMotionValueEvent(currentTime, "change", (latest) => {
-        if (!lyrics || !lyrics.lines) return;
-        const index = lyrics.lines.findIndex(line => latest >= line.startTime && latest <= line.endTime);
-        if (index !== -1 && index !== activeLineIndex) {
+        if (!isOpen || !lyrics || !lyrics.lines) return;
+        const index = findLatestActiveLineIndex(lyrics.lines, latest);
+        if (index !== activeLineIndex) {
             setActiveLineIndex(index);
         }
     });
 
     // Reset activeLineIndex when lyrics change (e.g., when switching songs)
     useEffect(() => {
-        setActiveLineIndex(-1);
-    }, [lyrics]);
+        const position = currentTime.get();
+        setActiveLineIndex(isOpen && lyrics ? findLatestActiveLineIndex(lyrics.lines, position) : -1);
+    }, [lyrics, currentTime, isOpen]);
 
     // Close on Escape key
     useEffect(() => {
@@ -141,7 +143,7 @@ const LyricsTimelineModal: React.FC<LyricsTimelineModalProps> = ({
                 // Allow some time for the scroll event to fire and be ignored
                 isAutoScrolling.current = true;
                 // Add a small timeout to clear the flag in case the scroll event doesn't fire (e.g. already at position)
-                setTimeout(() => {
+                scrollTimeoutRef.current = setTimeout(() => {
                     isAutoScrolling.current = false;
                 }, 1000);
             }
@@ -173,7 +175,7 @@ const LyricsTimelineModal: React.FC<LyricsTimelineModalProps> = ({
             const container = scrollContainerRef.current;
             const activeItem = activeItemRef.current;
 
-            setTimeout(() => {
+            const timeout = setTimeout(() => {
                 const containerHeight = container.clientHeight;
                 const itemOffsetTop = activeItem.offsetTop;
                 const itemHeight = activeItem.clientHeight;
@@ -185,6 +187,7 @@ const LyricsTimelineModal: React.FC<LyricsTimelineModalProps> = ({
                     behavior: 'auto'
                 });
             }, 100);
+            return () => clearTimeout(timeout);
         }
     }, [isOpen]);
 
@@ -221,6 +224,9 @@ const LyricsTimelineModal: React.FC<LyricsTimelineModalProps> = ({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     data-folia-keyboard-window="true"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={t('timeline.title')}
                     className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md"
                     onClick={onClose}
                 >
@@ -228,7 +234,7 @@ const LyricsTimelineModal: React.FC<LyricsTimelineModalProps> = ({
                         initial={{ scale: 0.9, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         exit={{ scale: 0.9, opacity: 0 }}
-                        className={`w-[90vw] max-w-4xl h-[80vh] ${glassBg} border ${borderColor} rounded-2xl p-8 relative flex flex-col`}
+                        className={`lyrics-timeline-panel w-[90vw] max-w-4xl h-[80vh] ${glassBg} border ${borderColor} rounded-2xl p-8 relative flex flex-col`}
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header */}
@@ -236,6 +242,7 @@ const LyricsTimelineModal: React.FC<LyricsTimelineModalProps> = ({
                             <h2 className={`text-2xl font-bold ${headerText}`}>{t('timeline.title')}</h2>
                             <button
                                 onClick={onClose}
+                                aria-label={t('ui.close')}
                                 className={`p-2 ${closeBtnHover} rounded-full transition-colors`}
                             >
                                 <X size={24} className={closeIconColor} />
@@ -247,7 +254,7 @@ const LyricsTimelineModal: React.FC<LyricsTimelineModalProps> = ({
                             ref={scrollContainerRef}
                             onScroll={handleScroll}
                             onTouchMove={handleScroll}
-                            className="flex-1 overflow-y-auto overflow-x-hidden px-8 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent"
+                            className="lyrics-timeline-list flex-1 overflow-y-auto overflow-x-hidden px-8 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent"
                             style={{
                                 scrollbarWidth: 'thin',
                                 scrollbarColor: 'rgba(255,255,255,0.2) transparent'
@@ -269,6 +276,8 @@ const LyricsTimelineModal: React.FC<LyricsTimelineModalProps> = ({
                                         return (
                                             <div
                                                 key={dot.id}
+                                                data-lyric-start={dot.startTime}
+                                                data-lyric-active={isActive}
                                                 ref={isActive ? activeItemRef : null}
                                                 className="relative w-full flex items-center mb-20"
                                                 style={{ zIndex: isActive ? 20 : 1 }}
@@ -367,6 +376,7 @@ const LyricsTimelineModal: React.FC<LyricsTimelineModalProps> = ({
                                                         opacity: isActive ? 1 : 0.7
                                                     }}
                                                     transition={{ duration: 0.3 }}
+                                                    data-timeline-mobile-line
                                                     className="hidden max-md:block absolute left-6 right-0"
                                                 >
                                                     <div

@@ -106,6 +106,25 @@ h1, h2, p { margin: 0; } h1 { font-size: 32px; letter-spacing: -.04em; } h2 { fo
 .mobile-lyric-timing .w-16 { width: auto; }
 .mobile-lyric-timing input { width: 80px; padding: 8px; }
 .mobile-lyric-offset { --text-primary: var(--text); }
+.mobile-lyric-filter { --text-primary: var(--text); --text-secondary: var(--muted); }
+.mobile-lyric-filter > div, .mobile-lyrics-timeline > div { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+.mobile-lyric-filter button:not(.h-6), .mobile-lyrics-timeline button { min-height: 44px; min-width: 44px; touch-action: manipulation; }
+.mobile-lyric-filter button.h-6 { position: relative; }
+.mobile-lyric-filter button.h-6::before { content: ''; position: absolute; inset: -10px 0; }
+.mobile-lyric-filter textarea { font-size: 16px; }
+.mobile-lyric-filter [data-staff-policy-group] button, .mobile-lyric-filter [data-staff-absorb-group] button { font-size: 12px; padding-inline: 4px; }
+.mobile-lyric-filter [data-lyric-filter-header] { flex-wrap: wrap; gap: 8px; }
+.mobile-lyrics-timeline .lyrics-timeline-panel { width: 100%; height: 100%; max-height: 100%; padding: 16px; }
+.mobile-lyrics-timeline .lyrics-timeline-list { padding-inline: 8px; min-height: 0; }
+.mobile-lyrics-timeline [data-lyric-start] p { overflow-wrap: anywhere; }
+@media (max-width: 767px) {
+  .mobile-lyrics-timeline [data-timeline-mobile-line] { position: relative; left: auto; right: auto; width: calc(100% - 24px); margin-left: 24px; }
+}
+@media (max-width: 1023px) {
+  .mobile-lyric-filter [data-lyric-filter-body] { display: flex; flex-direction: column; overflow-y: auto; }
+  .mobile-lyric-filter [data-lyric-filter-body] > div { flex-shrink: 0; overflow: visible; }
+  .mobile-lyric-filter [data-lyric-filter-body] > div:first-child > div:last-child { max-height: 28dvh; overflow-y: auto; }
+}
 .mobile-lyric-offset > div { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
 .mobile-lyric-offset button { min-width: 44px; min-height: 44px; flex-shrink: 0; white-space: nowrap; touch-action: manipulation; }
 .mobile-lyric-match [data-online-lyric-match] { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }

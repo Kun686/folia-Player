@@ -1351,6 +1351,8 @@ export default {
     "example": "Example:",
     "invalidRegex": "Invalid regex: {{error}}",
     "ruleSectionTitle": "Line filter rules",
+    "loadError": "Could not load the lyric preview. Close and reopen to retry.",
+    "saveError": "Could not save the lyric settings. Please try again.",
   },
   "lyricStaff": {
     "title": "Opening credits",

@@ -1,21 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { MotionValue } from 'framer-motion';
-import type { LyricData, OnlineLyricsState, SongResult } from '../types';
+import type { LyricData, OnlineLyricsState, SongResult, Theme } from '../types';
 import type { OnlineLyricsStorage } from '../services/onlineLyricsStorage';
 import { getMobileRuntime } from '../services/mobileRuntime';
 import OnlineLyricMatchModal from '../components/modal/OnlineLyricMatchModal';
 import GlobalLyricOffsetModal from '../components/modal/settings/GlobalLyricOffsetModal';
 import LyricTimelineOffsetControl from '../components/panelTab/LyricTimelineOffsetControl';
 import LocalLyricTools from './LocalLyricTools';
+import LyricDisplaySettings from './LyricDisplaySettings';
+import LyricsTimelineModal from '../components/modal/LyricsTimelineModal';
 import { getLyricProviderLabel, getSongNativeLyricProviderSource } from '../utils/lyrics/lyricSourceLabels';
 import { LYRIC_IMPORT_ACCEPT } from '../utils/lyrics/lyricFileDecoding';
 import { importMobileOnlineLyrics, resetMobileOnlineLyrics, scopedLyricStorage, switchMobileOnlineLyrics } from './onlineLyricEditor';
 
 // LyricTools.tsx — original lyric operations and timing controls, keyed to the displayed song by the parent.
 const sources = ['netease', 'qq'] as const;
-export default function LyricTools({ song, time, lyricTime, lyrics, offsetMs, onOffsetChange, light, visible, close }: {
+export default function LyricTools({ song, time, lyricTime, lyrics, rawLyrics, duration, onSeek, theme, offsetMs, onOffsetChange, light, visible, close }: {
   song: SongResult; time: MotionValue<number>; lyricTime: MotionValue<number>; lyrics: LyricData | null;
+  rawLyrics: LyricData | null; duration: number; onSeek(position: number): void; theme: Theme;
   offsetMs: number; onOffsetChange(value: number): void; light: boolean; visible: boolean; close(): void;
 }) {
   const { t } = useTranslation(), input = useRef<HTMLInputElement>(null), active = useRef(true), locked = useRef(false);
@@ -23,6 +26,7 @@ export default function LyricTools({ song, time, lyricTime, lyrics, offsetMs, on
   const [selection, setSelection] = useState<OnlineLyricsState | null>(null);
   const [matching, setMatching] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(false);
   const [calibrating, setCalibrating] = useState(false);
+  const [displaySettings, setDisplaySettings] = useState(false), [timeline, setTimeline] = useState(false);
   const [retry, setRetry] = useState(0);
   const online = song.sourceRef?.kind === 'online';
   useEffect(() => {
@@ -44,6 +48,10 @@ export default function LyricTools({ song, time, lyricTime, lyrics, offsetMs, on
     catch { if (active.current) setError(true); }
     finally { locked.current = false; if (active.current) setBusy(false); }
   };
+  if (displaySettings) return <LyricDisplaySettings lyrics={rawLyrics} title={song.name} light={light} close={() => setDisplaySettings(false)} />;
+  if (timeline) return <div className="mobile-lyrics-timeline"><LyricsTimelineModal isOpen={visible} lyrics={lyrics}
+    currentTime={lyricTime} duration={duration} onSeek={onSeek} onClose={() => setTimeline(false)}
+    isDaylight={light} theme={theme} primaryColor={theme.primaryColor} secondaryColor={theme.secondaryColor} accentColor={theme.accentColor} /></div>;
   if (matching && storage) return <div className="mobile-lyric-match">
     <OnlineLyricMatchModal song={song} storage={storage} sources={sources} currentTime={time} isDaylight={light}
       onClose={() => setMatching(false)} onMatch={dismiss} />
@@ -74,6 +82,8 @@ export default function LyricTools({ song, time, lyricTime, lyrics, offsetMs, on
     </fieldset> : song.sourceRef?.kind === 'local' && <LocalLyricTools key={song.sourceRef.mediaId}
       id={song.sourceRef.mediaId} light={light} time={time} onDone={dismiss} />}
     <div className="mobile-lyric-timing">
+      <button onClick={() => setTimeline(true)}>{t('timeline.title')}</button>
+      <button onClick={() => setDisplaySettings(true)} disabled={!rawLyrics}>{t('lyricFilter.title')}</button>
       <LyricTimelineOffsetControl offsetMs={offsetMs} onOffsetChange={onOffsetChange} isDaylight={light} />
       <button onClick={() => setCalibrating(true)}>{t('options.globalLyricTimelineOffset')}</button>
     </div>

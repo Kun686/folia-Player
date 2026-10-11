@@ -38,8 +38,7 @@ const getStoredNeteaseLyrics = (song: SongResult | null): LyricData | null => {
 // Creates the App-level lyric setter that applies filtering and render-hint normalization.
 // The staff-credit policy stays here rather than in the parser: it is a display decision that
 // depends on the finished timeline, and the parse/cache layer must not bake it in.
-export const createLyricsSetter = (
-    setLyricsState: Dispatch<SetStateAction<LyricData | null>>,
+export const createLyricsProcessor = (
     lyricFilterPattern: string,
     currentSongFullRef?: MutableRefObject<SongResult | null>,
     staffOptions?: LyricStaffPolicyOptions,
@@ -47,7 +46,7 @@ export const createLyricsSetter = (
     let lastSongId: number | string | null = null;
     let cachedNeteaseChorusRanges: NeteaseChorusRange[] | null = null;
 
-    return (incomingLyrics: LyricData | null) => {
+    return (incomingLyrics: LyricData | null): LyricData | null => {
         // Lyrics already on screen (e.g. re-applied after an automix cancel) re-enter from
         // their pre-transform source, so the extension transform below never stacks.
         const nextLyrics = untransformedLyrics(incomingLyrics);
@@ -102,9 +101,20 @@ export const createLyricsSetter = (
             // the chain, so it sees the lines that actually survived filtering.
             processed = applyLyricWordSegmentation(processed, getLyricSegmentationRecord());
             // Extension layers (Folium `lyrics.transform`) see the finished lyrics once per load.
-            setLyricsState(applyLyricsTransform(ensureLyricDataRenderHints(processed)));
+            return applyLyricsTransform(ensureLyricDataRenderHints(processed));
         } else {
-            setLyricsState(null);
+            return null;
         }
     };
+};
+
+// Keep the desktop setter contract; mobile can consume the same display pipeline without a second playback store.
+export const createLyricsSetter = (
+    setLyricsState: Dispatch<SetStateAction<LyricData | null>>,
+    lyricFilterPattern: string,
+    currentSongFullRef?: MutableRefObject<SongResult | null>,
+    staffOptions?: LyricStaffPolicyOptions,
+) => {
+    const process = createLyricsProcessor(lyricFilterPattern, currentSongFullRef, staffOptions);
+    return (lyrics: LyricData | null) => setLyricsState(process(lyrics));
 };
