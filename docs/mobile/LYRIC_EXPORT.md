@@ -1,6 +1,6 @@
 # 原版单曲歌词导出移植
 
-2026-10-11，开发源码接入当前歌曲的 `.fia` 和增强型 LRC 导出。
+2026-10-11，开发源码 `e11a083347294b1b1eef556b5c339669d66db2b5` 接入当前歌曲的 `.fia` 和增强型 LRC 导出。
 个人 iPhone 仍运行 mobile.12；本阶段不安装、不重启手机，也不改变播放器和动画参数。
 完整移植保持 IN_PROGRESS，批量导出仍待接入。
 
@@ -30,8 +30,15 @@
   覆盖源选择、原始行、分词、平台隔离、文件命名、取消、迟到结果和存储／分享失败。
 - PASS：3 个 WebKit 视口的实际组件检查，覆盖两种格式、取消、错误重试、不改变播放位置、
   切歌关闭和 390×400 低高度窗口关闭。桥接结果受控，不代表系统分享或真实平台测试。
-- 日志及截图位于 `.mobile-test-results/export-logic.log`、`export-typecheck.log`、
-  `export-ui-final.log`、`lyric-export-*.png`。iOS 编译与资源核对结果另记，未运行前不标 PASS。
+- PASS：通用 iOS Release 编译，3,052 个冻结源码输入在资源同步及编译后保持一致；
+  119 个资源与 `dist-mobile`、iOS 同步目录及编译后 App 逐字节一致。
+- PASS：[对应准确源码 CI](https://github.com/Kun686/folia-Player/actions/runs/38126683098)。
+- 日志及截图位于 `.mobile-test-results/export-logic-final.log`、`export-typecheck-final.log`、
+  `export-ui-final.log`、`lyric-export-*.png`、`export-source-sync.log`、`export-device-build.log`。
+  `export-build-record.json` 保存编译、资源及身份；`export-final-evidence.json` 保存证据摘要。
+- 编译产物是未签名的 `app.folia.validation.export`，未生成 IPA、未安装或启动；
+  没有启动模拟器、没有执行原生 XCTest，不能把编译通过当作原生交互通过。
+  `docs/mobile/BUILD_RECORD.json` 未变，继续描述个人 mobile.12。
 - NOT_RUN：原生分享界面、存储到文件、文件回导、临时文件实际生命周期与物理 iPad。
   手机上的真实平台反馈只覆盖已安装的 mobile.12，不覆盖此开发功能。
 

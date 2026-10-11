@@ -57,6 +57,20 @@ final class RefreshingAudioGateway: GatewayClient {
             XCTAssertThrowsError(try GatewayClient.validatedServer(value))
         }
     }
+    func testLyricSharePreservesUTF8AndAcceptsOriginalFormats() throws {
+        let content = "[00:02.00]原始歌词 🎵\n[00:02.00]Translation\n"
+        XCTAssertEqual(try LyricFileShare.validate(fileName: "歌曲 - 作者.lrc", content: content), Data(content.utf8))
+        let document = "{\"lyrics\":{\"lines\":[]}}\n"
+        XCTAssertEqual(try LyricFileShare.validate(fileName: "01 Original.fia", content: document), Data(document.utf8))
+    }
+    func testLyricShareRejectsPathsControlCharactersAndOversizedUTF8() {
+        for name in ["", ".hidden.lrc", "../song.lrc", "folder/song.lrc", "folder\\song.lrc", "x:y.lrc",
+                     "x\n.lrc", "x\u{0}.lrc", "song.mp3", String(repeating: "歌", count: 84) + ".lrc"] {
+            XCTAssertThrowsError(try LyricFileShare.validate(fileName: name, content: "lyrics"), name)
+        }
+        XCTAssertThrowsError(try LyricFileShare.validate(fileName: "song.lrc", content: ""))
+        XCTAssertThrowsError(try LyricFileShare.validate(fileName: "song.lrc", content: String(repeating: "歌", count: 5_333_334)))
+    }
     func testQueueRequiresPlatformIdentity() {
         let player = engine()
         XCTAssertThrowsError(try player.setQueue([["id": 42]], at: 0))

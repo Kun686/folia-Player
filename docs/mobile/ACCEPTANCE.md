@@ -65,7 +65,7 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | 单曲／全局歌词时间校准 | PASS（WebKit 及 iPad 模拟器设置恢复）；真机校准 NOT_RUN | 原控件、预览／应用／取消、来源隔离、歌词点击反向映射、迟到加载；已随 mobile.12 安装，见 LYRIC_TIMING.md |
 | 原歌词过滤、制作人员策略与时间线 | PASS（开发源码自动测试及 iPad 模拟器短测）；真机及真实平台 NOT_RUN | 186 项逻辑、39 项移动 WebKit、9 项桌面组件；实际容器预览／保存／重启恢复与原生 10 秒跳转，原始正文及音频不变。尚未收入个人 mobile.12 安装包，见 LYRIC_DISPLAY.md |
 | 原精细分词编辑与布局接线 | PASS（开发源码回归及编译）；原生交互 NOT_RUN | 复用原编辑器／存储／分词，补移动输入、复制、失败重试和迟到隔离；Partita 保留逐字 timing。通用 iOS 编译未签名且未安装，见 LYRIC_SEGMENTATION.md |
-| 原单曲 `.fia`／LRC 导出 | PASS（开发源码逻辑与 WebKit）；原生操作 NOT_RUN | 复用原导出器、原始源选择、分词与校准，接系统分享；未安装到个人手机，见 LYRIC_EXPORT.md |
+| 原单曲 `.fia`／LRC 导出 | PASS（开发源码逻辑、WebKit 与编译）；原生操作 NOT_RUN | 32 项逻辑、3 个视口、固定源码 iOS 编译及准确源码 CI 通过；复用原导出器、原始源选择、分词与校准，接系统分享。未安装到个人手机，见 LYRIC_EXPORT.md |
 | 本地 GBK／加密 KRC 文件导入 | PASS（自动测试、iPad 模拟器实际选择器／重启及 iPhone 原生专项）；iPhone 选择器手工验收 NOT_RUN | 原解码、失败保留、编辑令牌与原子保存；历史 UI／原生及本轮 17 项中的对应测试见 VALIDATION.md。Partita 裁切已在 WebKit 修正，原生视觉待验；见 LOCAL_LYRIC_IMPORT.md |
 | 本地导入／内嵌歌词来源切换 | PASS（自动测试、iPad 模拟器短测及 iPhone 原生专项）；真机界面操作 NOT_RUN | 独立正文、标签迁移、来源恢复、失败保留；历史基线与本轮专项分别记录。多标签采集仍未完成，见 LOCAL_LYRIC_SOURCES.md |
 | 本地歌曲完整匹配与元数据／封面选择 | PASS（自动测试及 iPhone 原生专项）；真实平台 NOT_RUN | 原完整弹窗与共享规则；iPhone 测试覆盖实际播放期间保存、并发／删除／过期拒绝和后台歌词。HTTPS 阻塞已解除，但尚未执行真实在线候选保存；iPad 历史短测仅覆盖导入与「不使用在线数据」，见 LOCAL_MATCH.md |

@@ -19,7 +19,8 @@
 通用 iOS Release 编译通过，3,045 个冻结输入和 115 个资源核对一致；
 没有启动模拟器、没有安装或重启手机。系统剪贴板与分词编辑的真机交互 NOT_RUN，
 完整证据及各批测试范围见 [LYRIC_SEGMENTATION.md](LYRIC_SEGMENTATION.md)。
-后续源码接入原单曲歌词导出，32 项逻辑和 3 个 WebKit 视口通过；未安装到个人手机，
+后续源码 `e11a083` 接入原单曲歌词导出，32 项逻辑、3 个 WebKit 视口和准确源码 CI 通过。
+通用 iOS Release 编译通过，3,052 个冻结输入、119 个资源核对一致；未签名、未安装或启动，
 系统分享实际操作尚未验证，详见 [LYRIC_EXPORT.md](LYRIC_EXPORT.md)。
 
 
