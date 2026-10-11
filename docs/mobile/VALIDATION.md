@@ -1,23 +1,34 @@
 # 移动候选验证记录
 
-## mobile.27 实体编辑：已通过接线验证，准备打包
+## mobile.27：本地专辑／艺术家编辑（当前已安装开发候选）
 
 2026-10-12，详见 [LOCAL_ENTITIES.md](LOCAL_ENTITIES.md)。原版改名、合并、拆分已接入完整原生曲库、
-匹配保护与原生队列，复用原编辑面板及展示映射，无新依赖；个人安装包此时仍为 mobile.26。
+匹配保护与原生队列，复用原编辑面板及展示映射，无新依赖。
+准确源码 `e98b13e8671ff6c9afd9db3b014f49e4a425b706`，个人 iPhone 已原位更新并启动。
 
 - PASS_LOGIC：92 项相关逻辑与原桌面曲库回归；TypeScript 通过。
 - PASS_WEBKIT：33 项独立用例，最后修复窄屏负边距后重跑其中 12 项实体用例通过。
 - PASS_NATIVE_SIMULATOR / PASS_NATIVE_DEVICE：各 14 项测试通过。手机使用独立 QA Bundle；
   真实 JavaScriptCore、文件保护属性、失败回滚、部分匹配保护与保留音频对象／进度均有断言。
 - PASS_SIMULATOR_INTERACTION：系统选择器实际导入两首带标签的合成 M4A，改名、单曲拆分、横屏及终止重启恢复通过。
-- PASS_CLEANUP：独立 iPhone QA 包已移除，个人 mobile.26 已重新打开；模拟器已关闭。
-- NOT_RUN：用户实际本地音乐、物理 iPad、大曲库性能与长期真机矩阵。完整移植仍 IN_PROGRESS。
+- PASS_BUILD：`npm run ios:sync` 与 iPhone Release 开发签名构建；88 项已测试的原生输入（含共享 JS）摘要未变。
+- PASS_PACKAGE：3,043 项源码输入、121 项资源、同步资源／签名 App／IPA 逐文件核验通过；
+  开发签名、profile、设备绑定和签名证书一致。源码指纹 `7c875d02b67592f5d943e03528a7ba58aeb5ae7029bf2b6f7824e73bd35f1975`。
+- PASS_CI：[准确源码 Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38172209182)。
+- PASS_INSTALL：iPhone XS Max / iOS18.7.10 原位更新 `app.folia.personal`，启动成功并回读 `bundleVersion: 27`。
+- 交付：`移动端交付/Folia-0.7.16-mobile.27-7c875d02-development.ipa`，7,992,943 字节，
+  SHA256 `8d9277a7a30125ea8eaec3c4769eb132c691329c8cfbb061869ae9e5c27f5f0b`。
+  比 mobile.26 增加 37,109 字节；mobile.26 原包保留且摘要未变。关系文档仍为版本 1，无音频文件改写。
+- PASS_CLEANUP：独立 iPhone QA 包已移除，模拟器已关闭，个人 mobile.27 留给用户使用。
+- NOT_RUN：本版手机在线复测、用户实际本地音乐、物理 iPad、大曲库性能与长期真机矩阵。
+  mobile.24 在线播放用户确认仅为历史证据；用户暂无本地歌曲，不要求重复确认无样本项目。完整移植仍 IN_PROGRESS。
 
 本轮证据：entities-wiring-regression.log、entities-ui-matrix.log、entities-ui-layout-fixed.log、
 entities-integration-fixed.xcresult、entities-wiring-device.xcresult 与 entities-sim-*.jpg，
-均位于 .mobile-test-results。最初用例目标遗漏及测试桩导入／选择器问题均已修正，详情见专题记录。
+均位于 .mobile-test-results；打包、安装、回读和 CI 证据为 mobile27-*。
+最初用例目标遗漏及测试桩导入／选择器问题均已修正，详情见专题记录。
 
-## mobile.26：M3U 歌单文件（当前已安装开发候选）
+## mobile.26：M3U 歌单文件（历史候选）
 
 2026-10-12，准确源码 `4b6d81ad6e7dc575c36cbe19ccdeee73c6e77233`。
 原版 M3U 解析／匹配／序列化接入移动导入与系统分享，详见 [LOCAL_PLAYLIST_FILES.md](LOCAL_PLAYLIST_FILES.md)。

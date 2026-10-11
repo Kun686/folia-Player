@@ -1,6 +1,6 @@
 # 本地艺术家／专辑实体移植
 
-2026-10-12，实体编辑已完成端到端接线，准备汇入 mobile.27；个人手机在此记录时仍为 mobile.26。
+2026-10-12，实体编辑已完成端到端接线，汇入 mobile.27 并原位安装于个人 iPhone，已启动且回读 build27。
 下述原生／WebKit／模拟器交互分别记录，不能替代用户曲库与物理 iPad 验收。完整移动移植仍 IN_PROGRESS。
 
 ## 复用与实现选择
@@ -84,6 +84,13 @@ actor 串行持有存储。磁盘损坏、未知文档版本和读写失败均�
 entities-ui-layout-fixed.log、entities-integration-fixed.xcresult、entities-wiring-device.xcresult、
 entities-wiring-native-inputs.json、entities-sim-*.jpg、entities-ui-record-final.json。
 独立 iPhone QA 包已删除，模拟器已关闭。
+
+## mobile.27 交付
+
+准确源码 `e98b13e8671ff6c9afd9db3b014f49e4a425b706`；3,043 项输入与 121 项资源、签名、IPA 一致性通过。
+`ios:sync`、iPhone Release 构建和 [准确源码 CI](https://github.com/Kun686/folia-Player/actions/runs/38172209182) 通过。
+88 项原生测试输入（含生成的共享 JS）在最终打包时摘要一致。iPhone XS Max / iOS18.7.10 原位更新并启动，
+设备回读 build27；mobile.26 原包摘要未变，可原位回退。构建和安装记录见 mobile27-* 与 [VALIDATION.md](VALIDATION.md)。
 
 ## 验收边界与未完成项
 
