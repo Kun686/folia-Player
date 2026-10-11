@@ -1,10 +1,10 @@
 {
-  "version": "0.7.16-mobile.13",
+  "version": "0.7.16-mobile.14",
   "baseline": "d824c0b854e54d5411cb072092999823e9bd7071",
   "repository": "https://github.com/Kun686/folia-Player",
   "history": "snapshot import; upstream history retained at source repository",
   "captured": "2026-10-11",
-  "sourceFingerprint": "36e29a5659c53f7775e90cd67c273b2a8e40e331e7a45befa8bfee1ecafd632e",
+  "sourceFingerprint": "b58b898cab83825da91e282a5ac9f5eaa6fb4906052a3b1ee494c7519d3b3928",
   "files": {
     ".all-contributorsrc": "e05f605a8137d493ed345485fa98b1d54fa9cdcf8983c0cfd9ca25639e46d468",
     ".editorconfig": "e0a1440140170db3cdc9464527dc96b2ac0b77c84936f9d78a8a9b2c6b07f7eb",
@@ -302,7 +302,7 @@
     "img/visualizer.png": "5f395a4f024d9406923c111add8fad919b31b967f67ada5487e6909d39673563",
     "index.html": "1c033828016895f9759b3039baae8ced3b6f7d34ab6540d1a60de3bbc311bb67",
     "ios/.gitignore": "2b7132a9943d2622e51e656897ca5162f56b121b40b423dedce1fbc699dba88a",
-    "ios/App/App.xcodeproj/project.pbxproj": "59d4e1af40e116138d282606a695992ad8fad982194f14c38232c06dc0955d80",
+    "ios/App/App.xcodeproj/project.pbxproj": "7817c4bd4cc26b358e6ac60d2d6fe54f70d5d4c8f87e57a8fcae24efcad4a365",
     "ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist": "dfa0f9bb85b95ccba9c6811adadf8cb407fb5d52088e89db83ebc308ec448542",
     "ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved": "f6fa6e3297400ca97c3c332ed09d04c29ea807606cc966bb1a3f6a4b8d03ca39",
     "ios/App/App.xcodeproj/xcshareddata/xcschemes/App.xcscheme": "d862a323ddbadf6edb649834838ccd229dd75a5cb4cc8e3a0844b9e9682fd696",
@@ -1725,7 +1725,7 @@
     "src/mobile/LyricDisplaySettings.tsx": "73b8e96be317cf4807f0fac1d94af031ad8264e069e85ec984f9b448ac656643",
     "src/mobile/LyricExportDialog.tsx": "920542d98383fdfa45b2a17071c65d9c1c37bc9f152fb2f03355cccad7c90276",
     "src/mobile/LyricSegmentationEditor.tsx": "84cd1c2aa18b7076928a767b8cd245444439b867d003ca9e3799739eb359aacd",
-    "src/mobile/LyricTools.tsx": "bba3b470ca01644b38641adb1d52967407619d0c054da17818bd50b3fca274eb",
+    "src/mobile/LyricTools.tsx": "4f86169a4faca4d4dedfaf162adb86b5601cc36e5e856e4a2d27ad1e30302e29",
     "src/mobile/MediaCacheControls.tsx": "ce4f5cf82a03c97e694c14f957d0d262ee6d4536262321fe4bf71138f05c2a26",
     "src/mobile/MobileApp.tsx": "714d11e62bf778bb9617cd0596f2b6b7d10b2db0882cb8fe2009901572cf09ec",
     "src/mobile/PlayerPanel.tsx": "170dffd71847cb1d00113506329c6d14643351046e731c1e3d0f58b488d6fe36",
@@ -2310,7 +2310,7 @@
     "test/mobile-ui/local-sources.spec.ts": "f31ed016081f38d15e7926c561590f5b1a14b6c658b69bee087c8b142c09b3e9",
     "test/mobile-ui/lyric-display.spec.ts": "ae1272b64819997ea1106f13dad98920625c00158418329b7583a0ed2ebdf381",
     "test/mobile-ui/lyric-timing.spec.ts": "c50983edfee9e5996666654173e527eb721ed7534eb0d5d73c14d079ca79df48",
-    "test/mobile-ui/lyricExport.spec.ts": "8fd3ae3c15b19acbf9cbb450cd3f2053866ee07b10b87d9e413172fa771a0b43",
+    "test/mobile-ui/lyricExport.spec.ts": "9c117f59185e0cda651caee0aeafb3f1941dd9007406ae9b3a87d38bc6ec683b",
     "test/mobile-ui/mobile.spec.ts": "5b25de0afdf66a4964dd89924f5d5be25e4f841df2b50aca835830c22cc19b47",
     "test/mobile-ui/modulation-reference.spec.ts": "cc896d4bafa1b701c06ac2a3c9feef32980911a38a077bc64242bbed492afc5f",
     "test/mobile-ui/noise-reference.spec.ts": "a953c9a51393a3caf2d3f60d9f3240dcb099f4a748f675c5ae713259203a8c83",
@@ -2955,8 +2955,8 @@
     "worker/segment-lyrics.ts": "24a415da99e571e5625e668ce8d9088d533b59355ea5fd0fd6aa94022dc32af6",
     "wrangler.jsonc": "e9467fdd338eb90fa42c597eebcf4ffffb075726539d6a6306c06f8e1713f6ba"
   },
-  "buildNumber": 13,
+  "buildNumber": 14,
   "configuration": "Release",
-  "sourceCommit": "82fb471fa8abad391f1171aae53d12ad140f87b0",
+  "sourceCommit": "a5de02f0a28f31dc9ceda443e7e22babc169087a",
   "sourceFingerprintAlgorithm": "sha256 of UTF-8 compact JSON files map with sorted keys; all tracked regular files excluding docs/** and Markdown files; file contents captured from the clean source commit"
 }

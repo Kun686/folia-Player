@@ -1,6 +1,34 @@
 # 移动候选验证记录
 
-## mobile.13：歌词显示、分词及文件导出（当前开发候选）
+## mobile.14：在线歌词文件置灰修复（当前开发候选）
+
+2026-10-11 已原位安装并启动于 iPhone XS Max／iOS18.7.10，设备回读 build 14。
+源码 `a5de02f0a28f31dc9ceda443e7e22babc169087a`，
+[对应 CI](https://github.com/Kun686/folia-Player/actions/runs/38127928420) PASS。
+依据用户在 mobile.13 的实际反馈：在线歌曲文件选择器打开，但 `.fia`／`.lrc` 灰色不可选。
+移动在线导入移除 HTML `accept` 扩展名过滤，避免 WebKit 的文档类型映射禁选歌词文件；
+文件内容及大小继续由已有 `importMobileOnlineLyrics` 和原解析器校验。没有新增依赖、原生接口或存储迁移。
+
+- PASS：类型检查、13 项导入／导出逻辑测试（2 文件）。
+- PASS：6 项 WebKit 测试（手机、宽 iPad、窄 iPad）。覆盖触摸发起选择、无类型过滤、
+  实际导出的 FIA／LRC 经原解析器回导、空文件失败保留原歌词，以及播放状态不变。
+  使用受控原生桥；`setFiles` 绕过系统选择器，不能验证 iOS 文件是否置灰。
+- PASS：clean Release 个人签名构建、签名校验、证书与描述文件匹配、设备授权和有效期；无 XCTest 残留。
+  本次没有 Swift 实现变更，未重复运行原生专项；此前 mobile.13 的 2 项输入检查保留其版本边界。
+- PASS：2,948 个冻结源码输入一致；119 个打包、同步和签名 App 资源逐文件一致，IPA 与签名 App 一致。
+  指纹 `b58b898cab83825da91e282a5ac9f5eaa6fb4906052a3b1ee494c7519d3b3928`。
+- 交付：`移动端交付/Folia-0.7.16-mobile.14-b58b898c-development.ipa`，8,046,225 字节，
+  SHA256 `a4822dd624ac79b4feb65373e5b7a90fb5ecc78ac44724fe87e5e28cfd6360ce`。
+  BUILD_RECORD.json 保存准确源码；mobile.13 安装包哈希复核未变，保留回退。个人 App 未卸载。
+- NOT_RUN／待用户复测：新版 iPhone 系统选择器与真实文件回导；不能以浏览器通过宣布故障已解决。
+  mobile.13 的会话、播放及导出反馈不自动视为 mobile.14 的新版用户确认。
+  完整移植和其他长期、硬件、精确时序验收继续保留原状态。
+
+本地证据前缀 `.mobile-test-results/mobile14-`：`test-evidence.json`、`source-record.json`、
+`package-check.json`、`device-install.json`、`device-launch.json`、`device-app.json`、`source-ci.json`。
+回退可使用保留的 mobile.13 原位安装；该版仍有已知的在线歌词选择置灰问题，无需卸载或清除数据。
+
+## mobile.13：歌词显示、分词及文件导出（历史候选）
 
 2026-10-11 已在 iPhone XS Max／iOS18.7.10 原位安装并启动，设备回读 build 13。
 源码 `82fb471fa8abad391f1171aae53d12ad140f87b0`，
@@ -67,7 +95,7 @@
 - NOT_RUN：本阶段真机 UI、真实在线 App 链路、长期播放、150ms 显示误差与持续性能。
   完整移植保持 IN_PROGRESS；失败修复、证据及回退见 [LYRIC_DISPLAY.md](LYRIC_DISPLAY.md)。
 
-## mobile.12：歌词管理、完整本地匹配与 Partita 适配（当前开发候选）
+## mobile.12：歌词管理、完整本地匹配与 Partita 适配（历史候选）
 
 2026-10-11 已在 iPhone XS Max／iOS18.7.10 原位安装并启动，设备回读 build 12。
 源码 `17cb06a1fb325b1b3478a0371e18d823935cf558`，

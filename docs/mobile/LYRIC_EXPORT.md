@@ -5,7 +5,8 @@
 随后功能汇入 mobile.13，已原位安装并启动，设备回读 build 13。新增 2 项 iPhone 原生输入检查通过；
 用户反馈导出可用、升级后两平台会话与播放正常；在线歌曲回导时 `.fia`／`.lrc` 被置灰，
 回导记为 FAIL_USER_REPORTED。mobile.14 取消移动在线导入的扩展名过滤，继续由原解析器和大小限制校验；
-系统选择器修复效果待真机复测，详见 [VALIDATION.md](VALIDATION.md)。
+mobile.14 已原位安装、启动并确认 build 14；6 项 WebKit 用例覆盖导出后回导及无效文件保留已有歌词。
+这些用例的文件注入不验证 iOS 系统选择器；修复效果仍待真机复测，详见 [VALIDATION.md](VALIDATION.md)。
 完整移植保持 IN_PROGRESS，批量导出仍待接入。
 
 ## 复用与行为
