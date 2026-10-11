@@ -195,6 +195,8 @@ mobile.6之后的源码已优化连续调参的素材复用和播放中的分支
 - 原生快照驱动前台 MotionValue 歌词时钟；隐藏／后台不挂载歌词视觉层，回前台读取原生状态。
   默认 Classic；复用原 VisualizerRenderer、14 模式注册表、背景注册表、参数面板和资产恢复。
   使用现有外观短码／JSON 编解码器导入、导出和应用自定义主题，不需要配置同步服务器。
+  后续源码复用原 Theme Park 完成全局自定义主题编辑、草稿预览和手动 AI JSON 流程，
+  已通过独立 QA 验证、尚未更新个人 App；自动 AI 生成与歌曲主题缓存仍待接入，见 [THEME_PARK.md](THEME_PARK.md)。
   开发源码补齐原字体／字幕控件、字号字重、备用字体与透明度；复用原偏好恢复和 FontFace 加载器，
   WebKit 上传字体保存为字节并兼容旧 Blob。取消与存储失败不会替换当前字体，详见 TYPOGRAPHY.md。
   AUAudioUnit + Accelerate处理双声道解码PCM，向原渲染器提供5个频段和频谱；旧AVQueuePlayer/tap路径保留作回退。

@@ -4,6 +4,10 @@
 文件夹导入／管理已随该版本加入；后续全目录重扫仅完成独立 QA 验证，详见 [LOCAL_FOLDER_RESCAN.md](LOCAL_FOLDER_RESCAN.md)。
 本版真实本地曲库及手机在线复测仍 NOT_RUN，历史反馈不自动算作新版本验收。
 
+后续 Theme Park 自定义主题编辑已在独立 QA 验证，个人 mobile.28 未更新：
+14 项逻辑、15 项移动 WebKit、1 项桌面组件与 iPad 模拟器触摸／旋转／保存／重启恢复通过，
+真实设备新入口及自动 AI 生成功能未验收，见 [THEME_PARK.md](THEME_PARK.md)。
+
 mobile.26 接入 M3U 导入／系统分享，28 项逻辑、33 项独立 WebKit、3 项原生模拟器测试通过；
 最终 iPad 模拟器已实际完成系统分享存储、文件选择、导入及终止重启恢复。使用合成音频和旧本机 ID 引用，
 不代表跨设备文件或手机新功能验收，见 [LOCAL_PLAYLIST_FILES.md](LOCAL_PLAYLIST_FILES.md)。
@@ -33,7 +37,7 @@ mobile.26 接入 M3U 导入／系统分享，28 项逻辑、33 项独立 WebKit�
 mobile.21 的 1 分钟锁屏定时暂停及手动继续获用户确认；未区分具体音源，
 逐平台定时矩阵、其他时长和物理 iPad 保持 NOT_RUN。
 
-当前已安装候选为 0.7.16-mobile.26（build26），2026-10-12 已原位更新、启动并回读构建号。
+此前 mobile.26 的安装证据：2026-10-12 已原位更新、启动并回读构建号。
 准确源码 `4b6d81ad6e7dc575c36cbe19ccdeee73c6e77233` 的 CI、签名、资源和 IPA 核验通过；
 iPad 模拟器系统 M3U 分享／选择及重启恢复证据见 VALIDATION.md，mobile.25 安装包保留。
 本版手机登录／在线播放没有复测，本地新功能真机 NOT_RUN；物理 iPad 和长期验收未覆盖。
@@ -146,7 +150,8 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | FLAC／SYLT 内嵌歌词和独立翻译 | PASS（源码逻辑、实际文件原生专项）；真机选择器／显示 NOT_RUN | 43项逻辑、iOS26.5修正前41项原生、iOS18.7.10修正后10项专项；同一10个实际音频样本与桌面结果对照，系统无Vorbis标签仍读取文件。已随mobile.20安装；不代表Ogg导入或全部编码，见 EMBEDDED_FORMATS.md |
 | 本地歌曲完整匹配与元数据／封面选择 | PASS（自动测试及 iPhone 原生专项）；真实平台 NOT_RUN | 原完整弹窗与共享规则；iPhone 测试覆盖实际播放期间保存、并发／删除／过期拒绝和后台歌词。HTTPS 阻塞已解除，但尚未执行真实在线候选保存；iPad 历史短测仅覆盖导入与「不使用在线数据」，见 LOCAL_MATCH.md |
 | 完整 Automix | IN_PROGRESS；尚未接入 | 官方Apple1.30.0已解除DFT阻塞；真实人声30秒片段iPhone数值通过，退出点同为23.65秒、PCM最大差1单位；耗时41.4秒／峰值1.08GiB。原近静音样本相对误差FAIL保留。实际分轨手势／听感、播放争用及长期性能待测；未改模型／个人App依赖，见AUTOMIX_MUSIC.md |
-| 其余桌面编辑工具／AI | NOT_IMPLEMENTED | 仍待移植，完整移植目标未完成 |
+| 原 Theme Park 全局自定义编辑 | PASS（自动检查及独立 iPad 模拟器 QA）；个人 App NOT_RUN | 原配色／信息／内容／手动 JSON、触摸预览、失败重试及保存恢复；见 THEME_PARK.md |
+| 自动 AI 生成／歌曲主题缓存及其余桌面工具 | NOT_IMPLEMENTED | 仍待移植，手动 JSON 编辑不能替代完整 AI 功能；完整移植目标未完成 |
 
 音频格式由AudioStreaming、系统AudioToolbox及获批的Ogg／Vorbis决定；Ogg目前不支持拖动。
 实际支持情况需按设备和编码测试，不能仅凭文件扩展名判定。
