@@ -1,6 +1,8 @@
 # 完整 Automix 原生推理依赖评估
 
-2026-10-11。当前为待批准的验证方案，尚未安装以下新依赖或下载模型。个人 App 仍为 mobile.15。
+2026-10-11。用户已批准下述固定版本的独立推理验证，并要求优先改善移动布局与旋转表现。
+运行库ZIP与两个模型已下载并核对固定字节数和SHA256；尚未接入个人App。
+本次批准不包含自编运行库、转换模型、安装Python或直接启用生产Automix。
 
 ## 为什么需要运行库
 
@@ -53,6 +55,30 @@ htdemucs 分轨及分轨手势执行。原版由 Node／Python 独立进程推�
 - 服务器推理改变离线能力、延迟与运维边界，不作为本次移动端原生方案的默认替代。
 - 仅开启无模型兼容分支不能满足完整移植目标；可保留作为原版的正常运行时回退，不能把它标为交付完成。
 - 验证包和下载资产可独立清理；未通过时不改个人 App、原队列或现有曲库。不修改已保存的歌曲和凭据。
+
+## 2026-10-11 独立验证结果
+
+- PASS：官方ZIP52,138,597字节及两个原模型全部通过上述SHA256与字节数校验。
+  使用ZIP中的macOS arm64静态库和公开C++接口建立独立命令行宿主，代码见
+  `dev/mobile/automix-runtime-probe.cpp`；未安装Python，未链接Extensions，未修改模型或个人App依赖。
+- PASS（单样本数值）：Beat This! 使用原 `melSpectrogram`，输入661,059个22,050Hz采样，
+  含220Hz正弦与120bpm衰减1000Hz脉冲，得到原契约`[1,1500,128]`张量。
+  ORT Apple1.24.2与已安装的Node1.30.0在CPU、2线程、关闭CPU arena下，两条1500点输出逐值相等，
+  maxAbs与RMSE均0；原 `beatsFromLogits` 的61个拍点与小节线结果相同。
+  这是合成输入的运行库一致性验证，不是真实音乐识别质量验收。
+- RESOURCE_CONCERN：该macOS进程加载约286ms、单段推理约625ms；`getrusage`进程峰值RSS
+  为1,228,849,152字节（约1.14GiB）。不能外推为iPhone用量或稳定性；尚未测连续推理、取消和播放争用。
+- BLOCKED_COMPATIBILITY：htdemucs在建立会话时失败：
+  `Node (/dft_istft/DFT_6) Op (DFT) [ShapeInferenceError] is_onesided and inverse attributes cannot be enabled at the same time`。
+  因此此固定候选不满足完整Automix接入门槛，停止后续手机接入；未用换模型或改图绕过失败。
+- NOT_RUN：iOS原生推理、htdemucs输出、分轨混音、真实音乐听感、功耗、内存警告、取消／后台调度及App体积增量。
+  需要先评估具备该DFT兼容性的较新Apple运行库；自编运行库仍须单独说明与批准。
+
+本地证据：`.mobile-test-results/automix-probe/assets-verified.json`、`beat_this-load.log`、
+`htdemucs-load.log`、`beat-inference.log`、`beat-comparison.json`及固定原始输入／输出。
+构建示例：`xcrun clang++ -std=c++17 -O2 -mmacosx-version-min=14.0 -I <archive>/Headers
+dev/mobile/automix-runtime-probe.cpp <archive>/onnxruntime.xcframework/macos-arm64_x86_64/onnxruntime.framework/Versions/A/onnxruntime
+-framework Foundation -o <probe>`。只在校验固定资产后执行，使用`codex-bounded 60`限制每次加载／推理。
 
 ## 一手来源与本地核查记录
 
