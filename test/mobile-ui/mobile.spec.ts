@@ -1,8 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+const lyricSamples = JSON.parse(readFileSync(new URL('../../ios/App/NativeTests/OnlineLyricReference.json', import.meta.url), 'utf8'));
+const qqLyricReply = lyricSamples.find((row: any) => row.name === 'qq-qrc').steps.at(-1).input.responses[0].body;
 
 // test/mobile-ui/mobile.spec.ts — native bridge fixture exercises real Omni adapters and UI.
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
+  await page.addInitScript(({ qqLyricReply }) => {
     const win = window as any;
     win.CapacitorCustomPlatform = { name: 'ios' };
     let subscriber: (state: unknown) => void;
@@ -39,6 +42,7 @@ test.beforeEach(async ({ page }) => {
       nativePromise: async (_plugin: string, method: string, options: any) => {
         if (method === 'readLyricCache') return { token: lyricToken, payload: structuredClone(lyricCache[JSON.stringify(options.song.sourceRef)] || {}) };
         if (method === 'writeLyricCache') {
+          if (win.fixtureLyricWriteFailure) throw new Error('disk-full');
           if (options.token !== lyricToken) throw new Error('lyric-cache-changed');
           const key = JSON.stringify(options.song.sourceRef);
           lyricCache[key] = { ...lyricCache[key], [options.field]: options.value };
@@ -111,6 +115,16 @@ test.beforeEach(async ({ page }) => {
         if (method !== 'request') return {};
         const path = options.payload.path as string;
         let body: any = { code: 200 };
+        if (path === 'https://u.y.qq.com/cgi-bin/musicu.fcg' && win.fixtureLyricTools) {
+          const request = JSON.parse(options.payload.body).request;
+          if (request.method === 'DoSearchForQQMusicLite') {
+            return { status: 200, body: JSON.stringify({ code: 0, request: { code: 0, data: { body: { item_song: [
+              { id: 43, mid: 'qq-test', title: 'QQ 匹配候选', singer: [{ id: 1, name: '测试歌手' }], album: { id: 1, name: '样本专辑' }, interval: 180 },
+            ] } } } }), headers: {} };
+          }
+          if (win.fixtureLyricDelay) await new Promise<void>(resolve => { win.fixtureReleaseLyrics = resolve; });
+          return { status: 200, body: qqLyricReply, headers: {} };
+        }
         const profile = cookie ? { userId: 9, nickname: '测试用户', avatarUrl: '' } : null;
         if (path.startsWith('/login/qr/key')) body = { code: 200, data: { unikey: 'key' } };
         else if (path.startsWith('/login/qr/create')) body = { code: 200, data: { qrimg: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=' } };
@@ -129,7 +143,7 @@ test.beforeEach(async ({ page }) => {
         return { status: 200, body: JSON.stringify(body), headers: { 'content-type': 'application/json' } };
       },
     };
-  });
+  }, { qqLyricReply });
 });
 test('native transition resumes original animations from elapsed audio time without replaying snapshots', async ({ page }, info) => {
   await page.addInitScript(() => {
@@ -584,4 +598,91 @@ test('online lyric cache survives reload and offline refresh, then clears indepe
   await expect.poll(() => page.evaluate(() => sessionStorage.getItem('fixture-lyric-cache'))).toBeNull();
   await expect.poll(() => page.evaluate(() => (window as any).fixtureCovers.bytes)).toBe(1048576);
   await expect.poll(() => page.evaluate(() => (window as any).fixturePlayback.playing)).toBe(true);
+});
+
+test('original online lyric import, source switch, QQ match and reset keep playback intact', async ({ page }, info) => {
+  await page.goto('/mobile.html');
+  await page.getByRole('textbox', { name: '搜索歌曲' }).fill('测试');
+  await page.getByRole('button', { name: '搜索歌曲', exact: true }).click();
+  await page.getByRole('button', { name: '播放 测试歌曲', exact: true }).click();
+  await page.getByRole('button', { name: '歌词与动效', exact: true }).click();
+  await page.getByLabel('歌词动画', { exact: true }).selectOption('still');
+  await page.locator('.visual-settings > header').getByRole('button', { name: '关闭', exact: true }).click();
+  await page.evaluate(() => { (window as any).fixtureLyricTools = true; });
+  const tools = page.getByRole('dialog', { name: '歌词', exact: true });
+  const open = () => page.getByRole('button', { name: '歌词', exact: true }).click();
+  const lyric = (text: string) => page.locator('.lyric-stage').getByText(text, { exact: true });
+  await open();
+  const input = tools.getByLabel('导入歌词', { exact: true });
+  await input.setInputFiles({ name: '我的歌词.lrc', mimeType: 'text/plain', buffer: Buffer.from('[00:00.00]手动导入歌词\n[00:20.00]保留第二句') });
+  await expect(tools).toBeHidden(); await expect(lyric('手动导入歌词')).toBeVisible();
+  await open(); await expect(tools.getByRole('button', { name: '导入', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await tools.getByRole('button', { name: '网易云音乐', exact: true }).click();
+  await expect(lyric('测试歌词')).toBeVisible();
+  await open(); await tools.getByRole('button', { name: '导入', exact: true }).click();
+  await expect(lyric('手动导入歌词')).toBeVisible();
+  await open(); await tools.getByRole('button', { name: '在线匹配', exact: true }).click();
+  const match = page.getByRole('dialog', { name: '匹配歌词', exact: true });
+  await match.getByRole('button', { name: 'QQ 音乐', exact: true }).click();
+  await expect(match.getByRole('button', { name: /QQ 匹配候选/ })).toBeVisible();
+  await expect(match.getByText('合成测试', { exact: true })).toBeVisible();
+  await page.screenshot({ path: '.mobile-test-results/lyric-match-' + info.project.name + '.png' });
+  const originalViewport = page.viewportSize()!;
+  await page.setViewportSize({ width: originalViewport.width, height: 420 });
+  await match.getByRole('textbox', { name: '搜索', exact: true }).focus();
+  await expect(match.getByRole('button', { name: '保存', exact: true })).toBeInViewport();
+  await page.setViewportSize(originalViewport);
+  await page.evaluate(() => { (window as any).fixtureLyricWriteFailure = true; });
+  await match.getByRole('button', { name: '保存', exact: true }).click();
+  await expect(match.getByRole('alert')).toBeVisible();
+  await page.evaluate(() => { (window as any).fixtureLyricWriteFailure = false; });
+  await match.getByRole('button', { name: '保存', exact: true }).click();
+  await expect(match).toBeHidden(); await expect(lyric('合成测试')).toBeVisible();
+  await open(); await expect(tools.getByText('我的歌词.lrc')).toBeVisible();
+  page.once('dialog', dialog => dialog.accept());
+  await tools.getByRole('button', { name: '恢复原始歌词', exact: true }).click();
+  await expect(lyric('测试歌词')).toBeVisible();
+  const state = await page.evaluate(() => (window as any).fixturePlayback);
+  expect(state.playing).toBe(true); expect(state.queue).toHaveLength(1); expect(state.index).toBe(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+for (const action of ['close', 'change song'] as const) test('pending lyric match discards late result after ' + action, async ({ page }) => {
+  await page.goto('/mobile.html');
+  await page.getByRole('textbox', { name: '搜索歌曲' }).fill('测试');
+  await page.getByRole('button', { name: '搜索歌曲', exact: true }).click();
+  await page.getByRole('button', { name: '播放 测试歌曲', exact: true }).click();
+  await page.evaluate(() => { (window as any).fixtureLyricTools = true; });
+  await page.getByRole('button', { name: '歌词', exact: true }).click();
+  await page.getByRole('button', { name: '在线匹配', exact: true }).click();
+  const match = page.getByRole('dialog', { name: '匹配歌词', exact: true });
+  await match.getByRole('button', { name: 'QQ 音乐', exact: true }).click();
+  await expect(match.getByText('合成测试', { exact: true })).toBeVisible();
+  await page.evaluate(() => { (window as any).fixtureLyricDelay = true; });
+  await match.getByRole('button', { name: '保存', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => typeof (window as any).fixtureReleaseLyrics)).toBe('function');
+  if (action === 'close') {
+    await match.getByRole('button', { name: '取消', exact: true }).last().click();
+    await expect(page.getByRole('dialog', { name: '歌词', exact: true })).toBeVisible();
+  } else {
+    await page.evaluate(() => {
+      const win = window as any, song = win.fixturePlayback.currentSong;
+      win.fixtureEmitPlayback({ currentSong: { ...song, id: 99, name: '新歌曲',
+        sourceRef: { ...song.sourceRef, mediaId: '99' } } });
+    });
+    await expect(match).toBeHidden();
+    await expect(page.getByRole('dialog', { name: '歌词', exact: true })).toBeHidden();
+  }
+  await page.evaluate(() => (window as any).fixtureReleaseLyrics());
+  // A subsequent real worker parse must complete without the discarded result changing its selection.
+  if (action === 'change song') await page.getByRole('button', { name: '歌词', exact: true }).click();
+  const tool = page.getByRole('dialog', { name: '歌词', exact: true });
+  await tool.getByLabel('导入歌词', { exact: true }).setInputFiles({
+    name: 'latest.lrc', mimeType: 'text/plain', buffer: Buffer.from('[00:00.00]最终选择'),
+  });
+  await expect(tool).toBeHidden();
+  const cache = await page.evaluate(() => JSON.parse(sessionStorage.getItem('fixture-lyric-cache') || '{}'));
+  const records = Object.values(cache) as any[];
+  expect(records.every(record => !record.state?.hasOnlineOverride && !record.state?.matchedLyricsSource)).toBe(true);
+  expect(records.some(record => record.state?.importedLyrics?.lines[0]?.fullText === '最终选择')).toBe(true);
 });

@@ -1,12 +1,13 @@
-import React, { useEffect, useState, useRef } from 'react';
+import type { MotionValue } from 'framer-motion';
+import type { OnlineLyricsStorage } from '../../services/onlineLyricsStorage';
+import { useOnlineLyricMatch } from '../../hooks/useOnlineLyricMatch';
+import React, { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, Loader2, Music, Search, X } from 'lucide-react';
-import type { OnlineLyricsState, SongResult } from '../../types';
+import type { SongResult } from '../../types';
 import { formatSongName } from '../../utils/songNameFormatter';
-import { loadOnlineLyricsState, saveOnlineLyricsState } from '../../utils/onlineLyricsState';
 import { calculateMatchScore } from '../../utils/lyrics/matchScore';
-import { buildLyricSearchQuery } from '../../utils/lyrics/searchQuery';
-import { fetchLyricsForMatchSource, LYRIC_MATCH_SOURCES, searchLyricsByMatchSource } from '../../utils/lyrics/lyricMatchSources';
+import { LYRIC_MATCH_SOURCES } from '../../utils/lyrics/lyricMatchSources';
 import { getLyricMatchSourceLabel, type LyricMatchSource } from './lyricMatchResultHelpers';
 import {
     getMatchResultCoverUrl,
@@ -16,7 +17,6 @@ import {
 import { LyricPreviewPanel } from './LyricPreviewPanel';
 import { getProviderSongMetadata } from '../../services/onlineMusic/songMetadata';
 import { getSizedCoverUrl } from '../../utils/coverUrl';
-import { hasRenderableLyrics } from '../../utils/lyrics/validity';
 
 // src/components/modal/OnlineLyricMatchModal.tsx
 
@@ -25,9 +25,12 @@ interface OnlineLyricMatchModalProps {
     onClose: () => void;
     onMatch: () => void;
     isDaylight: boolean;
+    storage?: OnlineLyricsStorage;
+    sources?: readonly LyricMatchSource[];
+    currentTime?: MotionValue<number>;
 }
 
-const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onClose, onMatch, isDaylight }) => {
+const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onClose, onMatch, isDaylight, storage, sources = LYRIC_MATCH_SOURCES, currentTime }) => {
     const { t } = useTranslation();
     const isMouseDownOnOverlayRef = useRef(false);
     const bgClass = isDaylight ? 'bg-white/90 border-white/20' : 'bg-zinc-900/95 border-white/10';
@@ -41,121 +44,11 @@ const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onC
     const closeBtnHover = isDaylight ? 'hover:bg-zinc-200/50' : 'hover:bg-white/10';
     const cancelBtnBg = isDaylight ? 'bg-zinc-100/80 hover:bg-zinc-200' : 'bg-white/5 hover:bg-white/10';
 
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState<SongResult[]>([]);
-    const [selectedResult, setSelectedResult] = useState<SongResult | null>(null);
-    const [isSearching, setIsSearching] = useState(false);
-    const [isMatching, setIsMatching] = useState(false);
-    const [source, setSource] = useState<LyricMatchSource>('netease');
-
-    const songInfo = React.useMemo(() => {
-        const metadata = getProviderSongMetadata(song);
-        return {
-            title: song.name || '',
-            artist: metadata.artists.map(item => item.name).join(', '),
-            album: metadata.album?.name || '',
-            durationMs: metadata.durationMs,
-        };
-    }, [song]);
-
-    const handleSearch = async (query = searchQuery) => {
-        const q = query.trim();
-        if (!q) {
-            return;
-        }
-
-        setIsSearching(true);
-        setSearchResults([]);
-        setSelectedResult(null);
-        try {
-            const results = await searchLyricsByMatchSource(source, q, songInfo);
-            setSearchResults(results);
-            if (results.length > 0) {
-                setSelectedResult(results[0]);
-            }
-        } catch (error) {
-            console.error('Online lyric search failed', error);
-        } finally {
-            setIsSearching(false);
-        }
-    };
-
-    useEffect(() => {
-        let isCurrent = true;
-
-        const metadata = getProviderSongMetadata(song);
-        const artist = metadata.artists.map(item => item.name).join(', ');
-        const album = metadata.album?.name || '';
-        const initialQuery = buildLyricSearchQuery(song.name, artist, album);
-        setSearchQuery(initialQuery);
-        setIsSearching(true);
-        setSearchResults([]);
-        setSelectedResult(null);
-
-        void (async () => {
-            try {
-                const results = await searchLyricsByMatchSource(source, initialQuery, songInfo);
-
-                if (!isCurrent) {
-                    return;
-                }
-
-                setSearchResults(results);
-                if (results.length > 0) {
-                    setSelectedResult(results[0]);
-                }
-            } catch (error) {
-                if (isCurrent) {
-                    console.error('Online lyric search failed', error);
-                }
-            } finally {
-                if (isCurrent) {
-                    setIsSearching(false);
-                }
-            }
-        })();
-
-        return () => {
-            isCurrent = false;
-        };
-    }, [song, source]);
-
-    const handleConfirm = async () => {
-        if (!selectedResult) {
-            return;
-        }
-
-        setIsMatching(true);
-        try {
-            const processed = await fetchLyricsForMatchSource(source, selectedResult);
-
-            if (!processed || (!hasRenderableLyrics(processed.lyrics) && !processed.isPureMusic)) {
-                alert(t('localMusic.noLyricsAvailable'));
-                return;
-            }
-
-            if (processed) {
-                const previousState = await loadOnlineLyricsState(song);
-                const nextState: OnlineLyricsState = {
-                    lyricsSource: 'online',
-                    importedLyrics: previousState?.importedLyrics ?? null,
-                    importedLyricsName: previousState?.importedLyricsName ?? null,
-                    hasOnlineOverride: true,
-                    onlineOverrideLyrics: processed.lyrics,
-                    matchedSongId: selectedResult.id,
-                    matchedIsPureMusic: processed.isPureMusic,
-                    matchedLyricsSource: source,
-                    matchedLyricsProviderPlatform: processed.matchedLyricsProviderPlatform,
-                };
-                await saveOnlineLyricsState(song, nextState);
-                onMatch();
-            }
-        } catch (error) {
-            console.error('Online lyric match failed', error);
-        } finally {
-            setIsMatching(false);
-        }
-    };
+    const { source, setSource, searchQuery, setSearchQuery, searchResults, setSearchResults, selectedResult, setSelectedResult,
+        isSearching, isMatching, error, handleSearch, handleConfirm } = useOnlineLyricMatch(song, sources, onMatch, storage);
+    const metadata = getProviderSongMetadata(song);
+    const songInfo = { title: song.name || '', artist: metadata.artists.map(item => item.name).join(', '),
+        album: metadata.album?.name || '', durationMs: metadata.durationMs };
 
     const handleOverlayMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
         isMouseDownOnOverlayRef.current = event.target === event.currentTarget;
@@ -168,7 +61,7 @@ const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onC
     };
 
     return (
-        <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onMouseDown={handleOverlayMouseDown} onClick={handleBackdropClick}>
+        <div role="dialog" aria-modal="true" aria-label={t('localMusic.matchLyrics')} data-online-lyric-match className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onMouseDown={handleOverlayMouseDown} onClick={handleBackdropClick}>
             <div
                 className={`w-full max-w-5xl max-h-[85vh] overflow-hidden rounded-3xl border ${bgClass} shadow-2xl flex flex-col`}
                 onClick={event => event.stopPropagation()}
@@ -178,16 +71,16 @@ const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onC
                         <h2 className={`text-lg font-semibold ${textPrimary}`}>{t('localMusic.matchLyrics')}</h2>
                         <p className={`text-sm mt-1 ${textSecondary}`}>{song.name}</p>
                     </div>
-                    <button onClick={onClose} className={`p-2 rounded-full transition-colors ${closeBtnHover}`}>
+                    <button aria-label={t('localMusic.cancel')} onClick={onClose} className={`p-2 rounded-full transition-colors ${closeBtnHover}`}>
                         <X size={18} className={textPrimary} />
                     </button>
                 </div>
 
-                <div className="flex-1 flex min-h-0 overflow-hidden">
+                <div data-match-body className="flex-1 flex min-h-0 overflow-hidden">
                     {/* LEFT PANEL */}
-                    <div className={`w-[62%] flex flex-col border-r ${borderColor} p-6 gap-5 min-h-0`}>
+                    <div data-match-results className={`w-[62%] flex flex-col border-r ${borderColor} p-6 gap-5 min-h-0`}>
                         <div className={`flex border-b ${borderColor} pb-2 gap-4`}>
-                            {LYRIC_MATCH_SOURCES
+                            {sources
                                 .map(id => ({ id, label: getLyricMatchSourceLabel(id) }))
                                 .map(t => {
                                 const isSelected = source === t.id;
@@ -199,7 +92,9 @@ const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onC
                                 return (
                                     <button
                                         key={t.id}
+                                        disabled={isMatching}
                                         onClick={() => {
+                                            if (source === t.id) return;
                                             setSelectedResult(null);
                                             setSearchResults([]);
                                             setSource(t.id as any);
@@ -216,6 +111,8 @@ const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onC
                             <div className={`flex-1 flex items-center gap-3 rounded-2xl border px-4 py-3 ${inputBg}`}>
                                 <Search size={18} className={textSecondary} />
                                 <input
+                                    aria-label={t('localMusic.search')}
+                                    disabled={isMatching}
                                     value={searchQuery}
                                     onChange={event => setSearchQuery(event.target.value)}
                                     onKeyDown={event => {
@@ -228,7 +125,7 @@ const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onC
                             </div>
                             <button
                                 onClick={() => void handleSearch()}
-                                disabled={isSearching}
+                                disabled={isSearching || isMatching}
                                 className={`px-4 rounded-2xl text-sm font-medium transition-colors ${searchBtnBg}`}
                             >
                                 {isSearching ? <Loader2 size={16} className="animate-spin" /> : t('localMusic.search')}
@@ -255,7 +152,9 @@ const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onC
                                     return (
                                         <button
                                             key={resultKey}
-                                            onClick={() => setSelectedResult(result)}
+                                            disabled={isMatching}
+                                        aria-pressed={isSelected}
+                                        onClick={() => setSelectedResult(result)}
                                             className={`w-full text-left border rounded-2xl p-4 transition-colors ${isSelected ? resultItemSelected : resultItemBg}`}
                                         >
                                             <div className="flex items-start gap-4">
@@ -290,7 +189,7 @@ const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onC
                     </div>
 
                     {/* RIGHT PANEL: Centered-style preview with lower-half LyricPreviewPanel */}
-                    <div className={`w-[38%] flex flex-col items-center justify-between px-6 py-6 border-l ${borderColor} min-h-0 overflow-hidden`}>
+                    <div data-match-preview className={`w-[38%] flex flex-col items-center justify-between px-6 py-6 border-l ${borderColor} min-h-0 overflow-hidden`}>
                         {/* Upper section: Cover and Info centered (Scrollable when height is constrained) */}
                         <div className="flex flex-col items-center justify-start w-full flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
                             {/* Cover Image */}
@@ -332,6 +231,7 @@ const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onC
                         {/* Lyric Preview Panel */}
                         <div className="w-full h-28 flex-shrink-0 mt-4 flex flex-col">
                             <LyricPreviewPanel
+                                currentTime={currentTime}
                                 selectedResult={selectedResult}
                                 source={source}
                                 isDaylight={isDaylight}
@@ -340,13 +240,14 @@ const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onC
                     </div>
                 </div>
 
+                {error && <p role="alert" className="px-6 py-2 text-sm">{t(error)}</p>}
                 <div className={`px-6 py-5 border-t ${borderColor} flex justify-end gap-3`}>
                     <button onClick={onClose} className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${cancelBtnBg} ${textPrimary}`}>
                         {t('localMusic.cancel')}
                     </button>
                     <button
                         onClick={() => void handleConfirm()}
-                        disabled={!selectedResult || isMatching}
+                        disabled={!selectedResult || isMatching || isSearching}
                         className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${searchBtnBg} disabled:opacity-50`}
                     >
                         {isMatching ? t('localMusic.matching') : t('options.save')}

@@ -5,6 +5,7 @@ import { ChevronRight, FileJson, FileText, PackageOpen, Upload } from 'lucide-re
 import { useTranslation } from 'react-i18next';
 import ThemedDialog from '../shared/ThemedDialog';
 import type { LyricExportFormat } from '../../services/lyricExport/types';
+import { LYRIC_IMPORT_ACCEPT } from '../../utils/lyrics/lyricFileDecoding';
 
 // src/components/panelTab/LyricFileDialog.tsx
 // The lyric file dialog behind the panel's import / export button: import a file, export this song
@@ -14,9 +15,6 @@ import type { LyricExportFormat } from '../../services/lyricExport/types';
 // Portalled to <body>: the panel root has a backdrop filter, which would otherwise turn the
 // dialog's fixed overlay into one sized and clipped to the panel. React events still bubble to the
 // panel root through the portal, where they are stopped, so clicking in here never closes the panel.
-
-/** Every format the local-file adapter reads, `.fia` included. */
-const LYRIC_IMPORT_ACCEPT = '.lrc,.vtt,.ttml,.qrc,.yrc,.krc,.txt,.fia,.json';
 
 type LyricFileDialogProps = {
     isOpen: boolean;

@@ -16,6 +16,7 @@ import { useNativeAudio } from './useNativeAudio';
 import VisualSettings from './VisualSettings';
 import AudioControls from './AudioControls';
 import TransitionControls from './TransitionControls';
+import OnlineLyricTools from './OnlineLyricTools';
 import TransitionOverlays from './TransitionOverlays';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -31,6 +32,7 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
   const { t } = useTranslation();
   const [visualSettings, setVisualSettings] = useState(false);
   const [transitionSettings, setTransitionSettings] = useState(false);
+  const [lyricToolsFor, setLyricToolsFor] = useState<string | null>(null);
   const audioSettingsOpen = useAudioSettingsStore(s => s.isAudioEqualizerOpen);
   const mode = useVisualizerSettingsStore(s => s.visualizerMode);
   const appearance = useMobileTheme();
@@ -67,8 +69,11 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
     void native.command({ action: 'seek', position }).catch(() => setError(true));
   }, []);
   const song = state.currentSong;
-  const { lyrics, cover, error: lyricsError, refresh } = useMobileLyrics(song ?? undefined);
-  const rendering = visible && (expanded || wide) && !visualSettings && !audioSettingsOpen && !transitionSettings;
+  const lyricSongKey = JSON.stringify(song?.sourceRef);
+  const lyricTools = lyricToolsFor === lyricSongKey;
+  useEffect(() => { setLyricToolsFor(null); }, [lyricSongKey]);
+  const { lyrics, cover, error: lyricsError, refresh } = useMobileLyrics(song ?? undefined, lyricTools);
+  const rendering = visible && (expanded || wide) && !visualSettings && !audioSettingsOpen && !transitionSettings && !lyricTools;
   const audio = useNativeAudio(rendering, state.playing);
   const importLyrics = async () => {
     if (song?.sourceRef?.kind !== 'local') return;
@@ -118,12 +123,14 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
         unavailable={state.playing && state.audioProcessingAvailable === false} effects={state.audioEffects} replayGain={song?.replayGain} />
       <div className="player-options"><button onClick={() => setVisualSettings(true)}>{t('mobile.visuals')}</button>
         <button onClick={() => setTransitionSettings(true)}>{t('options.transitionSettings')}</button>
+        {song?.sourceRef?.kind === 'online' && <button onClick={() => setLyricToolsFor(lyricSongKey)}>{t('localMusic.lyrics')}</button>}
         {song?.sourceRef?.kind === 'local' && <button onClick={() => void importLyrics()}>{t('mobile.importLyrics')}</button>}</div>
       {song && !lyrics?.lines.length && <p className="muted">{t('mobile.noLyrics')}</p>}
       {(state.error || error || lyricsError) && <p role="alert">{t('mobile.error')} {state.error}</p>}
     </div>
     <TransitionControls light={light} theme={light ? appearance.theme.light : appearance.theme.dark}
       open={transitionSettings} setOpen={setTransitionSettings} />
+    {lyricTools && song?.sourceRef?.kind === 'online' && <OnlineLyricTools key={JSON.stringify(song.sourceRef)} song={song} time={time} light={light} close={() => setLyricToolsFor(null)} />}
     {visualSettings && <VisualSettings light={light} appearance={appearance} close={() => setVisualSettings(false)} />}
   </section>;
 }

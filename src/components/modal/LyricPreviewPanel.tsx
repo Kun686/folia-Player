@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2, Music, Sparkles, Languages } from 'lucide-react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, type MotionValue } from 'framer-motion';
 import { SongResult, LyricData, Line } from '../../types';
 import { findLatestActiveLineIndex } from '../../utils/appPlaybackHelpers';
 import { fetchLyricsForMatchSource } from '../../utils/lyrics/lyricMatchSources';
@@ -14,6 +14,7 @@ interface LyricPreviewPanelProps {
     selectedResult: SongResult | null;
     source: LyricMatchSource;
     isDaylight: boolean;
+    currentTime?: MotionValue<number>;
 }
 
 type RemoteLyricDisplay = {
@@ -61,6 +62,7 @@ export const LyricPreviewPanel: React.FC<LyricPreviewPanelProps> = ({
     selectedResult,
     source,
     isDaylight,
+    currentTime,
 }) => {
     const { t } = useTranslation();
     const [isLoading, setIsLoading] = useState(false);
@@ -261,7 +263,7 @@ export const LyricPreviewPanel: React.FC<LyricPreviewPanelProps> = ({
 
     // 订阅全局时间，触发极高性能的 DOM 直接高亮更新与滚动
     useEffect(() => {
-        const timeValue = (window as any).__folia_current_time;
+        const timeValue = currentTime ?? (window as any).__folia_current_time;
         if (!timeValue || !lyricData || !lyricData.lines || lyricData.lines.length === 0) {
             return;
         }
@@ -289,7 +291,7 @@ export const LyricPreviewPanel: React.FC<LyricPreviewPanelProps> = ({
         return () => {
             unsubscribe();
         };
-    }, [lyricData, updateLineProgress, updateScroll]);
+    }, [lyricData, updateLineProgress, updateScroll, currentTime]);
 
     // 窗口大小变更自适应重新测量
     useEffect(() => {
@@ -313,13 +315,13 @@ export const LyricPreviewPanel: React.FC<LyricPreviewPanelProps> = ({
             }
             requestAnimationFrame(() => {
                 measureScrollTargets();
-                const timeValue = (window as any).__folia_current_time;
+                const timeValue = currentTime ?? (window as any).__folia_current_time;
                 const latest = timeValue ? timeValue.get() : 0;
                 updateLineProgress(latest);
                 updateScroll(latest);
             });
         }
-    }, [measureScrollTargets, updateLineProgress, updateScroll, words.length]);
+    }, [measureScrollTargets, updateLineProgress, updateScroll, words.length, currentTime]);
 
     // 重置 word refs，防止多句词汇索引混淆
     useEffect(() => {
@@ -367,7 +369,7 @@ export const LyricPreviewPanel: React.FC<LyricPreviewPanelProps> = ({
     const hasTranslation = lyricData.lines?.some(line => !!line.translation);
     const hasRomanization = lyricData.lines?.some(line => !!line.romanization);
 
-    const timeValue = (window as any).__folia_current_time;
+    const timeValue = currentTime ?? (window as any).__folia_current_time;
     const initialVal = timeValue ? timeValue.get() : 0;
 
     let subLineText = '';

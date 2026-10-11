@@ -12,6 +12,9 @@
 
 import { krcDecrypt } from './providers/krcDecrypt';
 
+/** Every format the local-file adapter reads, `.fia` included. */
+export const LYRIC_IMPORT_ACCEPT = '.lrc,.vtt,.ttml,.qrc,.yrc,.krc,.txt,.fia,.json';
+
 const KRC_MAGIC = [0x6b, 0x72, 0x63, 0x31]; // "krc1"
 
 const startsWith = (bytes: Uint8Array, prefix: readonly number[]): boolean => (

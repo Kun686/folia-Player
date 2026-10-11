@@ -1,3 +1,4 @@
+import { parseImportedOnlineLyrics, importOnlineLyricSelection, selectOnlineLyricSource } from '../utils/onlineLyricEdits';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import type { MotionValue } from 'framer-motion';
@@ -1005,25 +1006,9 @@ export function useLibraryPlaybackController({
         }
 
         try {
-            const importedLyrics = fileName.toLowerCase().endsWith('.txt')
-                ? await LyricParserFactory.parse({ type: 'embedded', textContent: content })
-                : await LyricParserFactory.parse({
-                    type: 'local',
-                    lrcContent: content,
-                    formatHint: resolveExplicitFileTimedLyricFormat(fileName),
-                });
+            const importedLyrics = await parseImportedOnlineLyrics(content, fileName);
             const previousState = await loadOnlineLyricsState(currentSong);
-            const nextState: OnlineLyricsState = {
-                lyricsSource: 'imported',
-                importedLyrics,
-                importedLyricsName: fileName,
-                hasOnlineOverride: previousState?.hasOnlineOverride ?? false,
-                onlineOverrideLyrics: previousState?.onlineOverrideLyrics ?? null,
-                matchedSongId: previousState?.matchedSongId,
-                matchedIsPureMusic: previousState?.matchedIsPureMusic,
-                matchedLyricsSource: previousState?.matchedLyricsSource,
-                matchedLyricsProviderPlatform: previousState?.matchedLyricsProviderPlatform,
-            };
+            const nextState = importOnlineLyricSelection(previousState, importedLyrics, fileName);
             await saveOnlineLyricsState(currentSong, nextState);
 
             const updatedSong = { ...currentSong, onlineLyricsState: nextState };
@@ -1044,17 +1029,7 @@ export function useLibraryPlaybackController({
         }
 
         const previousState = await loadOnlineLyricsState(currentSong);
-        const nextState: OnlineLyricsState = {
-            lyricsSource: source,
-            importedLyrics: previousState?.importedLyrics ?? null,
-            importedLyricsName: previousState?.importedLyricsName ?? null,
-            hasOnlineOverride: previousState?.hasOnlineOverride ?? false,
-            onlineOverrideLyrics: previousState?.onlineOverrideLyrics ?? null,
-            matchedSongId: previousState?.matchedSongId,
-            matchedIsPureMusic: previousState?.matchedIsPureMusic,
-            matchedLyricsSource: previousState?.matchedLyricsSource,
-            matchedLyricsProviderPlatform: previousState?.matchedLyricsProviderPlatform,
-        };
+        const nextState = selectOnlineLyricSource(previousState, source);
 
         if (source === 'imported' && !nextState.importedLyrics) {
             return;

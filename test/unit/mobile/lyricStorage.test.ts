@@ -68,4 +68,16 @@ describe('original lyric loader with native storage', () => {
     await expect(storage.writeState({ lyricsSource: 'online' })).rejects.toThrow('lyric-cache-changed');
     expect(mocks.write).toHaveBeenCalledWith({ song, token: 'generation', field: 'state', value: { lyricsSource: 'online' } });
   });
+  it('keeps the owning provider lyric separate from an automatic override and skips rematching after an edit', async () => {
+    const alternate = { lines: [{ startTime: 0, endTime: 3, fullText: '另一来源', words: [] }] };
+    mocks.match.mockResolvedValue({ lyrics: alternate, source: 'qq', id: 'alternate' });
+    const cb = callbacks();
+    await loadOnlineSongLyrics(song, null, undefined, cb, await openNativeLyricsStorage(song, () => true));
+    expect(cb.onLyrics).toHaveBeenLastCalledWith(alternate);
+    expect(mocks.write).toHaveBeenCalledWith({ song, token: 'generation', field: 'lyrics', value: lyrics });
+    expect(mocks.write).not.toHaveBeenCalledWith(expect.objectContaining({ field: 'lyrics', value: alternate }));
+    mocks.match.mockClear();
+    await loadOnlineSongLyrics(song, null, undefined, callbacks(), await openNativeLyricsStorage(song, () => true), { skipAutoMatch: true });
+    expect(mocks.match).not.toHaveBeenCalled();
+  });
 });
