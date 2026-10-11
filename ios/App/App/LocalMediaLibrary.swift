@@ -81,15 +81,24 @@ actor LocalMediaLibrary {
         return source
     }
     func details(_ id: String) throws -> [String: Any] {
-        let folder = try directory(id)
         _ = try resolve(id)
         var result: [String: Any] = [:]
         if let source = try? lyricSource(id) {
             result["content"] = source.content
             if let fileName = source.fileName { result["fileName"] = fileName }
         }
-        if let data = try? Data(contentsOf: folder.appendingPathComponent("cover.jpg")) { result["cover"] = "data:image/jpeg;base64," + data.base64EncodedString() }
+        if let data = try? cover(id) { result["cover"] = "data:image/jpeg;base64," + data.base64EncodedString() }
         return result
+    }
+    func cover(_ id: String) throws -> Data? {
+        _ = try resolve(id)
+        let url = try directory(id).appendingPathComponent("cover.jpg")
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let values = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey, .isSymbolicLinkKey])
+        guard values.isRegularFile == true, values.isSymbolicLink != true, let bytes = values.fileSize, bytes <= 2_000_000 else {
+            throw MobileFailure("invalid-cover")
+        }
+        return try Data(contentsOf: url)
     }
     func remove(_ id: String) throws { try FileManager.default.removeItem(at: directory(id)) }
 

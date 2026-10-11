@@ -8,6 +8,7 @@ test.beforeEach(async ({ page }) => {
     let subscriber: (state: unknown) => void;
     let cacheSubscriber: () => void;
     win.fixtureCache = { settings: { enabled: false, limitGB: 5 }, count: 0, bytes: 0, pending: 0, revision: 0, error: null, songs: [] };
+    win.fixtureCovers = { bytes: 1048576, count: 1 };
     let cookie = false;
     const effects = { highpass: 20, lowpass: 20000, drive: 0, crush: 0, wow: 0, noise: 0, width: 1, space: 0, punch: 0 };
     win.fixtureTransition = { enabled: false, mode: 'automix', crossfadeMaxSec: 5 };
@@ -24,13 +25,19 @@ test.beforeEach(async ({ page }) => {
     const emit = () => { state.revision++; subscriber?.({ ...state }); };
     win.fixtureEmitPlayback = (patch: Record<string, unknown>) => { Object.assign(state, patch); emit(); };
     const methods = ['bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR',
-      'localCatalog', 'importAudio', 'localDetails', 'importLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache'];
+      'localCatalog', 'importAudio', 'localDetails', 'importLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache'];
     win.Capacitor = {
       PluginHeaders: [{ name: 'FoliaNative', methods: [...methods.map(name => ({ name, rtype: 'promise' })), { name: 'addListener' }, { name: 'removeListener' }] }],
       nativeCallback: (_plugin: string, method: string, options: any, cb: (state: unknown) => void) => {
         if (method === 'addListener') { if (options.eventName === 'mediaCache') cacheSubscriber = cb as () => void; else subscriber = cb; } return 'callback-1';
       },
       nativePromise: async (_plugin: string, method: string, options: any) => {
+        if (method === 'songCover') return { url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=' };
+        if (method === 'coverCacheState') return { ...win.fixtureCovers };
+        if (method === 'clearCoverCache') {
+          if (win.fixtureCoverFailure) throw new Error('cache-clear-failed');
+          win.fixtureCovers = { bytes: 0, count: 0 }; return {};
+        }
         if (method === 'getMediaCacheSettings') return structuredClone(win.fixtureCache.settings);
         if (method === 'mediaCacheState') return structuredClone(win.fixtureCache);
         if (method === 'setMediaCacheSettings') {
@@ -495,6 +502,16 @@ test('original cache controls retain offline songs and recover from rejected edi
   if (await back.isVisible()) await back.click();
   await page.getByRole('button', { name: '服务器与外观', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '服务器与外观' });
+  await expect(dialog.getByText('封面: 1.0 MB', { exact: true })).toBeVisible();
+  await page.evaluate(() => { (window as any).fixtureCoverFailure = true; });
+  await dialog.getByRole('button', { name: '清除封面缓存', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toHaveText('缓存操作失败，请检查网络或可用空间。');
+  await expect(dialog.getByText('封面: 1.0 MB', { exact: true })).toBeVisible();
+  await page.evaluate(() => { (window as any).fixtureCoverFailure = false; });
+  await dialog.getByRole('button', { name: '清除封面缓存', exact: true }).click();
+  await expect(dialog.getByText('封面: 0.0 MB', { exact: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureCache.count)).toBe(1);
+  await expect.poll(() => page.evaluate(() => (window as any).fixturePlayback.playing)).toBe(true);
   const toggle = dialog.getByRole('switch');
   await expect(toggle).toHaveAttribute('aria-checked', 'false');
   await toggle.click();

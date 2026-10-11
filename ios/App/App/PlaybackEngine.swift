@@ -20,6 +20,8 @@ final class PlaybackEngine {
     let storage: UserDefaults
     let local: LocalMediaLibrary
     let mediaCache: NativeMediaCache
+    let coverCache: NativeCoverCache
+    let artwork: PlaybackArtwork
     var mediaCacheEpoch = 0
     var mediaCacheChanged: (() -> Void)?
     var mediaCachePurges: [String: Task<Void, Error>] = [:]
@@ -57,7 +59,8 @@ final class PlaybackEngine {
     var restoredPosition: Double = 0
 
     init(gateway: GatewayClient, storage: UserDefaults = .standard, local: LocalMediaLibrary = LocalMediaLibrary(),
-         usesStereoOutput: Bool = false, mediaNetworkConfiguration: URLSessionConfiguration? = nil, mediaCache: NativeMediaCache? = nil) {
+         usesStereoOutput: Bool = false, mediaNetworkConfiguration: URLSessionConfiguration? = nil, mediaCache: NativeMediaCache? = nil,
+         coverCache: NativeCoverCache? = nil) {
         self.usesStereoOutput = usesStereoOutput
         self.mediaNetworkConfiguration = mediaNetworkConfiguration?.copy() as? URLSessionConfiguration
         let cacheSettings = storage.data(forKey: "folia.media-cache").flatMap { try? JSONDecoder().decode(NativeMediaCacheSettings.self, from: $0) } ?? NativeMediaCacheSettings()
@@ -65,6 +68,9 @@ final class PlaybackEngine {
         self.gateway = gateway
         self.storage = storage
         self.local = local
+        let covers = coverCache ?? NativeCoverCache(configuration: mediaNetworkConfiguration ?? .ephemeral)
+        self.coverCache = covers; self.artwork = PlaybackArtwork(cache: covers, local: local)
+        artwork.changed = { [weak self] in self?.updateNowPlaying() }
         player.actionAtItemEnd = .advance
         player.automaticallyWaitsToMinimizeStalling = true
         restore()
@@ -203,7 +209,14 @@ final class PlaybackEngine {
     func invalidateProvider(_ provider: String) {
         mediaCacheEpoch += 1
         let previous = mediaCachePurges[provider]
-        mediaCachePurges[provider] = Task { [mediaCache] in _ = try? await previous?.value; try await mediaCache.clear(provider: provider) }
+        mediaCachePurges[provider] = Task { [mediaCache, coverCache] in
+            _ = try? await previous?.value
+            // One failed filesystem deletion must not prevent the other category from being invalidated.
+            var failure: Error?
+            do { try await coverCache.clear(provider: provider) } catch { failure = error }
+            do { try await mediaCache.clear(provider: provider) } catch { failure = failure ?? error }
+            if let failure { throw failure }
+        }
         crossfade?.invalidateProvider(provider)
         removeSongs { ($0["sourceRef"] as? [String: Any])?["providerId"] as? String == provider }
     }

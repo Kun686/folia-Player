@@ -21,6 +21,9 @@ export interface NativeAudioSettings { volume: number; isMuted: boolean; equaliz
 export interface NativeTransitionSettings { enabled: boolean; mode: 'crossfade' | 'automix'; crossfadeMaxSec: number }
 export type PlaybackEvent = Omit<PlaybackSnapshot, 'queue' | 'currentSong'> & Partial<Pick<PlaybackSnapshot, 'queue' | 'currentSong'>>;
 export interface FoliaNativePlugin {
+  songCover(options: { song: SongResult }): Promise<{ url?: string }>;
+  coverCacheState(): Promise<{ bytes: number; count: number }>;
+  clearCoverCache(): Promise<void>;
   getMediaCacheSettings(): Promise<NativeMediaCacheSettings>;
   setMediaCacheSettings(options: { settings: NativeMediaCacheSettings }): Promise<NativeMediaCacheSettings>;
   mediaCacheState(): Promise<NativeMediaCacheState>;

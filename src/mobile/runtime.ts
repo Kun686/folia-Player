@@ -8,6 +8,7 @@ const persistenceErrors = new Map<string, unknown>();
 const generations = new Map<string, number>();
 const pending = new Map<string, string>();
 const generation = (provider: string) => generations.get(provider) ?? 0;
+let coverGeneration = 0;
 const enqueueSave = (provider: string) => {
   const values = { ...sessions[provider] };
   persistence = persistence.then(() => native.saveSession({ provider, values })).then(() => { persistenceErrors.delete(provider); }).catch(error => { persistenceErrors.set(provider, error); });
@@ -53,6 +54,17 @@ export async function initializeRuntime() {
   const state = await native.bootstrap();
   sessions = state.sessions;
   installMobileRuntime({ fetch: request,
+    covers: {
+      load: async song => {
+        const provider = song.sourceRef?.kind === 'online' ? song.sourceRef.providerId : 'local';
+        const epoch = generation(provider), covers = coverGeneration;
+        const result = await native.songCover({ song });
+        if (epoch !== generation(provider) || (provider !== 'local' && covers !== coverGeneration)) throw new DOMException('Canceled', 'AbortError');
+        return result.url ?? null;
+      },
+      usage: async () => (await native.coverCacheState()).bytes,
+      clear: () => { coverGeneration++; return native.clearCoverCache(); },
+    },
     read: (provider, key) => sessions[provider]?.[key] ?? null,
     write: (provider, key, value) => {
       sessions[provider] ??= {};

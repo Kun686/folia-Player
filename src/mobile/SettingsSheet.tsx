@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { native, isNative } from './bridge';
 import MediaCacheControls from './MediaCacheControls';
+import CoverCacheControls from './CoverCacheControls';
 import type { useMediaCache } from './useMediaCache';
 import { cancelProvider, clearProvider } from './runtime';
 
@@ -41,6 +42,7 @@ export default function SettingsSheet({ mediaCache, server, light, setLight, sav
       <option value="dark">{t('mobile.dark')}</option><option value="light">{t('mobile.light')}</option>
     </select></label>
     <MediaCacheControls cache={mediaCache} light={light} />
+    <CoverCacheControls />
     <p className="muted">{t('mobile.limited')}</p>
   </section></div>;
 }

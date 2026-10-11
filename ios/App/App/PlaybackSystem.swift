@@ -137,14 +137,17 @@ extension PlaybackEngine {
         }
     }
     func updateNowPlaying() {
+        artwork.update(currentSong, allowNetwork: intentToPlay || outputIsPlaying)
         guard let song = currentSong else { MPNowPlayingInfoCenter.default().nowPlayingInfo = nil; return }
         let artists = (song["artists"] as? [[String: Any]] ?? []).compactMap { $0["name"] as? String }.joined(separator: " / ")
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = [
+        var info: [String: Any] = [
             MPMediaItemPropertyTitle: song["name"] as? String ?? "Folia",
             MPMediaItemPropertyArtist: artists,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: playbackPosition,
             MPMediaItemPropertyPlaybackDuration: playbackDuration,
             MPNowPlayingInfoPropertyPlaybackRate: usesStereoOutput ? (outputIsPlaying ? (stream?.rate ?? 1) : 0.0) : Double(player.rate),
             MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue]
+        if let image = artwork.image { info[MPMediaItemPropertyArtwork] = image }
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
 }

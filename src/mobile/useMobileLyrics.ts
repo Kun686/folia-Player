@@ -4,24 +4,25 @@ import { omni } from '../services/onlineMusic/omni';
 import { LocalFileLyricAdapter } from '../utils/lyrics/adapters/LocalFileLyricAdapter';
 import { resolveExplicitFileTimedLyricFormat } from '../utils/lyrics/formatDetection';
 import { native } from './bridge';
+import { useMobileCover } from './useMobileCover';
 
 // src/mobile/useMobileLyrics.ts — reuse the original local parser and online Omni pipeline.
 export function useMobileLyrics(song?: SongResult) {
   const [lyrics, setLyrics] = useState<LyricData | null>(null);
-  const [cover, setCover] = useState<string>();
+  const cover = useMobileCover(song);
   const [error, setError] = useState(false);
   const [version, setVersion] = useState(0);
   const key = JSON.stringify(song?.sourceRef);
   useEffect(() => {
     let active = true;
-    setLyrics(null); setCover(song?.album.coverUrl); setError(false);
+    setLyrics(null); setError(false);
     const load = async () => {
       if (!song) return;
       if (song.sourceRef?.kind === 'local') {
         const detail = await native.localDetails({ id: song.sourceRef.mediaId });
         const result = detail.content ? await new LocalFileLyricAdapter().parse({ type: 'local', lrcContent: detail.content,
           formatHint: resolveExplicitFileTimedLyricFormat(detail.fileName) }) : null;
-        if (active) { setLyrics(result); setCover(detail.cover); }
+        if (active) setLyrics(result);
       } else {
         const result = await omni.getLyrics(song);
         if (active) setLyrics(result.lyrics);

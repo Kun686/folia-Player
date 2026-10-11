@@ -31,6 +31,7 @@ import { clearSessionValues, putSessionValue, readSession } from './repositories
 import { readThemeRegistryEntries, writeThemeRegistryEntries } from './repositories/themeRegistryRepository';
 import { clearCoverAssets, getCoverAssetUsage } from './binaryAssetStore';
 import { clearLocalCoverBinaries } from './localCoverBinaryStore';
+import { getMobileRuntime } from './mobileRuntime';
 import {
   cancelLocalCoverAssetMigration,
   resetLocalCoverAssetRuntime,
@@ -140,6 +141,7 @@ export const getThemeRegistryEntries = readThemeRegistryEntries;
 export const upsertThemeRegistryEntries = writeThemeRegistryEntries;
 
 export const clearCache = async (preserveKeys: string[] = []): Promise<void> => {
+  if (!preserveKeys.some(key => key.startsWith('cover_'))) await getMobileRuntime()?.covers?.clear();
   try {
     await clearCacheTables(preserveKeys);
     if (hasElectronAudioCacheBridge() && !preserveKeys.some(key => key.startsWith('audio_'))) {
@@ -152,10 +154,11 @@ export const clearCache = async (preserveKeys: string[] = []): Promise<void> => 
 };
 
 export const getCacheUsage = async (): Promise<number> => {
+  const nativeCoverSize = await getMobileRuntime()?.covers?.usage() ?? 0;
   try {
     const browserSize = await getBrowserCacheUsage();
     const audioSize = hasElectronAudioCacheBridge() ? await window.electron!.getAudioCacheUsage() : 0;
-    return browserSize + audioSize + await getCoverAssetUsage();
+    return browserSize + audioSize + await getCoverAssetUsage() + nativeCoverSize;
   } catch {
     return 0;
   }
@@ -169,6 +172,7 @@ export const getCacheUsageByCategory = async (): Promise<{
   analysis: number;
   mediaCount: number;
 }> => {
+  const nativeCoverSize = await getMobileRuntime()?.covers?.usage() ?? 0;
   try {
     const usage = await getBrowserCacheUsageByCategory();
     if (hasElectronAudioCacheStatsBridge()) {
@@ -179,6 +183,7 @@ export const getCacheUsageByCategory = async (): Promise<{
       usage.media += await window.electron!.getAudioCacheUsage();
     }
     usage.cover += await getCoverAssetUsage();
+    usage.cover += nativeCoverSize;
     return usage;
   } catch {
     return { playlist: 0, lyrics: 0, cover: 0, media: 0, analysis: 0, mediaCount: 0 };
@@ -186,6 +191,7 @@ export const getCacheUsageByCategory = async (): Promise<{
 };
 
 export const clearCacheByCategory = async (category: CacheCategory): Promise<void> => {
+  if (category === 'cover') await getMobileRuntime()?.covers?.clear();
   try {
     await clearBrowserCacheByCategory(category);
     if (category === 'media' && hasElectronAudioCacheBridge()) {

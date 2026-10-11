@@ -1,11 +1,22 @@
 import type { ReplayGainInfo, SongResult } from '../../types';
 import type { MigrationResult } from '../../utils/lyrics/renderHints';
 import { getCachedAudioBlob, hasCachedAudio, saveAudioBlob } from '../audioCache';
-import { getCachedCoverUrl, hasCachedCover, saveCoverBlob } from '../coverCache';
+import { getCachedCoverUrl, hasCachedCover, saveCoverBlob, loadCachedOrFetchCover } from '../coverCache';
+import { getMobileRuntime } from '../mobileRuntime';
 import { getFromCache, saveToCache } from '../db';
 import { getLegacySongResourceCacheKeys, getSongResourceCacheKey, type SongResourceKind } from './resourceKeys';
 
 // src/services/onlineMusic/resourceCache.ts
+
+// The mobile host shares these bytes with lock-screen artwork; browser callers retain their existing store.
+// Only blob: URLs transfer ownership to the caller and must be revoked on replacement/unmount.
+export const loadSongCover = async (song: SongResult): Promise<string | null> => {
+    const mobile = getMobileRuntime()?.covers;
+    if (mobile) return mobile.load(song);
+    const cached = await getCachedSongCoverUrl(song);
+    return cached ?? (song.album.coverUrl
+        ? loadCachedOrFetchCover(getSongResourceCacheKey('cover', song), song.album.coverUrl) : null);
+};
 
 const identityMigration = <T>(value: T): MigrationResult<T> => ({ value, changed: false });
 

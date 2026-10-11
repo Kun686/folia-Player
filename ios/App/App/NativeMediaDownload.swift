@@ -5,14 +5,16 @@ struct DownloadedMedia: Sendable { let url: URL; let fileExtension: String; let 
 final class NativeMediaDownload: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
     private let configuration: URLSessionConfiguration
     private let maximumBytes: Double
+    private let resourceTimeout: TimeInterval
     private let lock = NSLock()
     private var continuation: CheckedContinuation<DownloadedMedia, Error>?
     private var session: URLSession?
     private var file: DownloadedMedia?
     private var started = false, cancelled = false
     private var redirects = 0
-    init(configuration: URLSessionConfiguration = .ephemeral, maximumBytes: Double = .greatestFiniteMagnitude) {
-        self.configuration = configuration; self.maximumBytes = maximumBytes; super.init()
+    init(configuration: URLSessionConfiguration = .ephemeral, maximumBytes: Double = .greatestFiniteMagnitude,
+         resourceTimeout: TimeInterval = 600) {
+        self.configuration = configuration; self.maximumBytes = maximumBytes; self.resourceTimeout = resourceTimeout; super.init()
     }
     func read(_ url: URL) async throws -> DownloadedMedia {
         let request = try NativeMediaTransport.request(url)
@@ -24,7 +26,7 @@ final class NativeMediaDownload: NSObject, URLSessionDownloadDelegate, @unchecke
                 }
                 started = true; self.continuation = continuation
                 let queue = OperationQueue(); queue.maxConcurrentOperationCount = 1; queue.qualityOfService = .utility
-                let session = URLSession(configuration: NativeMediaTransport.configuration(configuration, resourceTimeout: 600),
+                let session = URLSession(configuration: NativeMediaTransport.configuration(configuration, resourceTimeout: resourceTimeout),
                                          delegate: self, delegateQueue: queue)
                 self.session = session
                 let task = session.downloadTask(with: request)

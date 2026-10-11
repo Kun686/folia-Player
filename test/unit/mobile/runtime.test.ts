@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // test/unit/mobile/runtime.test.ts — verify late network replies cannot recreate cleared credentials.
 const native = vi.hoisted(() => ({
   bootstrap: vi.fn(), saveSession: vi.fn(), clearSession: vi.fn(), request: vi.fn(), cancelRequests: vi.fn(),
+  songCover: vi.fn(), coverCacheState: vi.fn(), clearCoverCache: vi.fn(),
 }));
 vi.mock('../../../src/mobile/bridge', () => ({ native }));
 describe('mobile secure runtime', () => {
@@ -54,5 +55,30 @@ describe('mobile secure runtime', () => {
     await runtime.initializeRuntime();
     getMobileRuntime()!.write('qq', 'cookie', 'new');
     await expect(runtime.flushSessions()).rejects.toThrow('secure-storage');
+  });
+  it.each(['logout', 'clear'])('rejects a cover response delivered after %s', async action => {
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    await runtime.initializeRuntime();
+    let complete!: (result: unknown) => void;
+    native.songCover.mockImplementation(() => new Promise(resolve => { complete = resolve; }));
+    const song = { sourceRef: { kind: 'online', providerId: 'qq', mediaId: '42' } } as any;
+    const covers = getMobileRuntime()!.covers!;
+    const assertion = expect(covers.load(song)).rejects.toMatchObject({ name: 'AbortError' });
+    if (action === 'logout') await runtime.clearProvider('qq'); else await covers.clear();
+    complete({ url: 'data:image/jpeg;base64,old' });
+    await assertion;
+  });
+  it('uses native cover bytes and exposes the original cover category usage', async () => {
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    await runtime.initializeRuntime();
+    native.songCover.mockResolvedValue({ url: 'data:image/jpeg;base64,fixture' });
+    native.coverCacheState.mockResolvedValue({ bytes: 1024, count: 1 });
+    const covers = getMobileRuntime()!.covers!;
+    const song = { sourceRef: { kind: 'local', mediaId: 'local' } } as any;
+    await expect(covers.load(song)).resolves.toBe('data:image/jpeg;base64,fixture');
+    await expect(covers.usage()).resolves.toBe(1024);
+    expect(native.songCover).toHaveBeenCalledWith({ song });
   });
 });

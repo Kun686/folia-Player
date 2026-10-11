@@ -10,7 +10,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         "request", "cancelRequests", "setQueue", "editQueue", "selectQueue", "command", "getState", "shareQR",
         "localCatalog", "importAudio", "localDetails", "importLyrics", "removeLocal", "audioLevels",
         "getAudioSettings", "setAudioSettings", "getTransitionSettings", "setTransitionSettings", "getMediaCacheSettings", "setMediaCacheSettings",
-        "mediaCacheState", "clearMediaCache"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
+        "mediaCacheState", "clearMediaCache", "songCover", "coverCacheState", "clearCoverCache"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
     private let picker = LocalImportPicker()
     private var importing = false
     private let gateway = GatewayClient()
@@ -129,6 +129,25 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func mediaCacheState(_ call: CAPPluginCall) { run(call) {
         Task { @MainActor in
             call.resolve(await self.engine.mediaCache.summary())
+        }
+    } }
+    @objc func songCover(_ call: CAPPluginCall) { run(call) {
+        guard let raw = call.getObject("song") else { throw MobileFailure("invalid-cover-identity") }
+        let song = try PlaybackEngine.sanitizedSong(raw)
+        Task { @MainActor in
+            do {
+                let data = try await self.engine.coverCache.cover(song, local: self.engine.local)
+                call.resolve(data.map { ["url": "data:image/jpeg;base64," + $0.base64EncodedString()] } ?? [:])
+            } catch { call.reject((error as? MobileFailure)?.code ?? "cover-unavailable") }
+        }
+    } }
+    @objc func coverCacheState(_ call: CAPPluginCall) { run(call) {
+        Task { @MainActor in call.resolve(await self.engine.coverCache.summary()) }
+    } }
+    @objc func clearCoverCache(_ call: CAPPluginCall) { run(call) {
+        Task { @MainActor in
+            do { try await self.engine.coverCache.clear(); call.resolve() }
+            catch { call.reject("cache-clear-failed") }
         }
     } }
     @objc func clearMediaCache(_ call: CAPPluginCall) { run(call) {
