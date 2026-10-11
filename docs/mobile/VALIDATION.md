@@ -1,6 +1,34 @@
 # 移动候选验证记录
 
-## mobile.23：心象字号滑块触摸修复（当前开发候选）
+## mobile.24：本地专辑／歌手浏览（当前开发候选）
+
+2026-10-12，准确源码 `e2ba4becc33d6a7bb0ae30a6dc0a989dfab0d0ba`。
+
+- 复用原版分组、名称规则与专辑排序，加入本地分类导航、组内搜索和按显示范围播放；
+  修复文件选择完成与原生切歌事件间的歌词导入竞态。没有新增依赖、原生播放或服务器改动。
+- PASS：TypeScript、17 项逻辑、78 项 WebKit 回归；之后加强同任务切走／切回测试并修正取消误报，
+  15 项导入专项通过；长标题详情补充后 9 项分组专项通过。专项包含前述用例，数量不简单相加。
+  原始失败与修复边界见 [LOCAL_BROWSING.md](LOCAL_BROWSING.md)。
+- PASS_SIMULATOR_INTERACTION：最终版本的 iPad Pro 11-inch M5 / iPadOS26.5 容器，
+  四首已有合成 WAV 的专辑、返回、艺术家、组内搜索和播放操作正常；搜索后原生队列仅含该首，
+  观察到 12 秒曲目播放结束。无真实平台账户，不将模拟器结果视为用户真机验收。
+- PASS_BUILD：最终源码 `npm run ios:sync`、iPad Simulator Release 与个人 iPhone Release 签名构建。
+- PASS_PACKAGE：3,009 项源码输入冻结，120 项资源与同步目录、签名 App 一致；
+  IPA 逐文件、开发证书／profile／设备绑定通过，不含 XCTest 或临时诊断脚本。
+  源码指纹 `3235c154329d7e0b15c54f1a0adb616241a2ecc64375ce3a3f8d45c44fad2c53`。
+- PASS_CI：[准确源码 Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38163353026)。
+- PASS_INSTALL：iPhone XS Max / iOS18.7.10 原位更新 `app.folia.personal`，启动成功，回读 build24。
+  从未卸载个人 App；本版真实平台及新分类操作待用户反馈。
+- 交付：`移动端交付/Folia-0.7.16-mobile.24-3235c154-development.ipa`，7,947,241 字节，
+  SHA256 `0b366f3f6729b6c35f33b0e3711d544625239e83d3573d66b125b42bb4676980`。
+  比 mobile.23 增加 3,197 字节；旧包摘要复核未变，没有存储格式迁移。
+- NOT_RUN：新入口真机使用、真实大曲库性能、物理 iPad、网易云长时间锁屏与完整异常／性能矩阵。
+  稳定曲库实体编辑、本地歌单／M3U 与完整 Automix 生产接入仍待完成。
+
+证据：`.mobile-test-results/mobile24-*`、`local-collections-*`、`local-import-same-task-*`。
+本轮模拟器已停止，个人 iPhone App 留给用户使用。
+
+## mobile.23：心象字号滑块触摸修复
 
 2026-10-12，准确源码 `169d0618c33cab4b14a37dee0df9df75d1582c4e`。
 

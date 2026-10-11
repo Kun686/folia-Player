@@ -17,7 +17,12 @@
 另修复切歌后旧歌词文件选择结果提交的竞态。17 项逻辑、78 项 WebKit 回归及 15 项补充导入专项通过，
 专项包含重复回归；详情及尚缺的实体编辑、歌单能力见 [LOCAL_BROWSING.md](LOCAL_BROWSING.md)。
 
-当前交付是 **0.7.16-mobile.23 开发候选**，支持 iOS/iPadOS 17+。
+当前交付是 **0.7.16-mobile.24 开发候选**，支持 iOS/iPadOS 17+。
+准确源码 `e2ba4becc33d6a7bb0ae30a6dc0a989dfab0d0ba`；2026-10-12 原位更新个人 iPhone、启动并回读 build24。
+3,009 项源码输入、120 项资源、签名／IPA 和准确源码 CI 已核验；最终 iPad 模拟器容器已实际操作分类、搜索、播放并确认队列范围。
+本版真机反馈待收集；mobile.23 安装包保留，没有存储格式迁移，详见 [VALIDATION.md](VALIDATION.md)。
+
+此前 **mobile.23** 的证据：
 准确源码 `169d0618c33cab4b14a37dee0df9df75d1582c4e`；2026-10-12 原位更新个人 iPhone、启动并回读 build23。
 本版修复 mobile.22 用户报告的心象字号拖不动：仅调整字体／字幕滑块触摸处理，保留原字号范围、存储和 mobile.19 外观。
 3,003 项源码输入、120 项资源、签名／IPA 和准确源码 CI 已核验；
@@ -73,7 +78,7 @@ mobile.17自动回归及iPad实际模拟器操作通过；iPhone模拟器部分�
 服务器配置不再是使用 App 的前提。真实平台与真机完整验收尚未完成，不能作为已验收安装包发布。
 
 历史 mobile.12 已原位安装并启动于 iPhone XS Max / iOS18.7.10，其源码提交及安装包摘要见
-VALIDATION.md；BUILD_RECORD.json 现描述 mobile.23；mobile.22 及更早安装包保留用于回退。
+VALIDATION.md；BUILD_RECORD.json 现描述 mobile.24；mobile.23 及更早安装包保留用于回退。
 新增包含原歌词时间校准、GBK／KRC 导入、内嵌／导入歌词来源管理、本地完整匹配及 Partita 长词适配。
 本轮 142 项移动逻辑与 17 项 iPhone 原生专项通过；界面结果沿用各功能阶段证据，
 不代表真实平台 App 链路、全部原生动画表现或长期真机验收已完成。
