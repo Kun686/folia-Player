@@ -3,6 +3,9 @@
 日期：2026-10-10。版本：0.7.16-mobile.1。目标仓库：Kun686/folia-Player。
 当前阶段按用户选择只部署内部服务，暂不配置域名和 TLS。
 
+最新运行网关已于 2026-10-11 更新至 `6078c7c`，见文末“在线歌词路由更新”。
+以下 2026-10-10 账户验证是历史证据，不代表会话目前仍有效。
+
 ## 部署事实
 
 - Debian 13.2 amd64，Docker 29.8.2，Compose 5.6.0。
@@ -74,3 +77,29 @@ GitHub Mobile checks 已通过： https://github.com/Kun686/folia-Player/actions
 
 脱敏证据位于服务器 /opt/folia-player/evidence/20261010-restart-validation.json。
 真实账户会话跨重启、实际运行版本回滚、证书更新仍为 NOT_RUN；本次验证不能把这些项目改为 PASS。
+
+## 在线歌词路由更新
+
+2026-10-11，current 指向 `/opt/folia-player/releases/20261011-lyrics-6078c7c`。
+源码提交 `6078c7c40d69be3c2bcc2b0d7ff76ee33528b71e`，归档 SHA256：
+`58e35bbe5c23a1c68b84b6a8473fc1b44fcc27da17acc6004fbd4673601c7212`。
+相对原服务器部署的生产输入仅改变 `deploy/mobile/policy.mjs` 一行：增加只读 `/cloud/lyric/get`。
+
+- 新网关镜像：`sha256:851ce6cbeb2deae61912e33153e7f4774170a2a35fdf1470786708e4ebea644d`。
+- 旧网关镜像：`sha256:a9b850a4dcbe8d4056689eed293ec90ee34388468c82de993f66562525971ad0`。
+- Node 基础镜像摘要与依赖锁保持不变；镜像按不可变 ID 写入原配置，不使用浮动 tag 部署。
+- 新网关 healthy；无认证访问 401，认证能力列表只含 netease、qq；云盘歌词路由已加入。
+- 仍仅映射 `127.0.0.1:17863`；没有新增域名、TLS、平台端口或容器权限。
+- `shared/mobile.env` 除后端镜像行外逐行一致，权限仍为 0600。QQ／网易云容器 ID、镜像、启动时间
+  前后相同；其他正在运行的应用容器 ID／镜像前后相同，nginx 服务 active。没有重新验证其他站点 HTTP。
+- 回退材料位于 `/opt/folia-player/evidence/20261011-online-lyrics/`：旧／新后端镜像归档及其摘要、
+  `previous.env`（0600）、旧 release 路径与镜像 ID、构建日志、脱敏 `deployment.json`。
+  原 release 和 QQ 命名卷保留。实际执行回滚仍为 NOT_RUN。
+- 本地 `online-lyrics-server-deployment.json` 的输入 SHA256 已与当前源码及打包歌词运行时逐项对照。
+
+真实平台检查详见 [ONLINE_LYRICS.md](ONLINE_LYRICS.md)：网易云 50 行歌词，QQ 63 行歌词，QQ 旧队列
+身份补齐后的结果一致。QQ 首次检索无结果，换检索词后通过，首次原因未确定；失败证据保留。
+执行环境为服务器 Node vm 加 App 共享适配器，不等于真实 iPhone／iPad 端到端或锁屏验收。
+
+探针首次用 `docker cp` 写入只读容器被 Docker 拒绝，随后改用 `docker exec` 的标准输入写入既有
+`/tmp` tmpfs；没有关闭 read_only。两轮探针退出时均删除临时运行文件，未保存歌词正文或账户会话。

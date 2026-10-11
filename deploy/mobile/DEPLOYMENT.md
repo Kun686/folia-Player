@@ -3,6 +3,7 @@
 2026-10-10 已完成首台服务器的内部部署，当前只启用网易云和 QQ。
 按用户选择暂不配置域名与 HTTPS；App 的生产网络仍要求受信任 HTTPS，不为内部验证关闭 TLS 校验。
 详细结果见 docs/mobile/SERVER_VALIDATION.md。三个 Node API 运行在服务器／NAS，不在 iOS 内运行。
+2026-10-11 内部网关已更新到 `6078c7c`，增加云盘歌词只读路由；平台镜像和凭据未变。
 
 ## 固定版本
 
@@ -90,3 +91,11 @@ shared/mobile.env 为权限 0600 的凭据与不可变镜像配置；evidence �
 脚本只输出状态、数量和错误码，不输出 Cookie、二维码 key、播放签名 URL。
 MOBILE_SMOKE_SCOPE=qq 或 netease 可定向运行；匿名接口失败会如实报 FAIL。
 扫码生成通过只说明二维码可用，不代表已登录或真实设备播放通过。
+
+只读歌词适配器补验可使用 `dev/mobile/server-lyrics-smoke.mjs`，与当前 App 打包的
+`dist-mobile/native/lyrics.js` 一起传入网关 `/tmp` tmpfs。通过 `docker exec -i ... sh -c 'cat > /tmp/...'`
+输入文件；只读容器可能拒绝 `docker cp`，不为探针修改容器安全选项。
+执行 `node /tmp/server-lyrics-smoke.mjs /tmp/folia-lyrics.js`，结束后删除这两个临时文件。
+可用 `MOBILE_LYRIC_SCOPE=qq` 和 `MOBILE_LYRIC_QUERY=晴天` 做已验证的 QQ 定向检查。
+该探针复用认证令牌但不登录账户，只输出数量、状态、运行时摘要；失败返回非零，不使用模拟响应。
+源码／运行时应记录 SHA256，具体真实接口验证和未覆盖边界见 ONLINE_LYRICS.md。
