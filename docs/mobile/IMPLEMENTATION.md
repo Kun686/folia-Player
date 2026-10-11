@@ -1,21 +1,24 @@
 # Folia iPhone / iPad 实现与安装
 
-当前交付是 **0.7.16-mobile.10 开发候选**，支持 iOS/iPadOS 17+。源码基线为
+当前交付是 **0.7.16-mobile.11 开发候选**，支持 iOS/iPadOS 17+。源码基线为
 d824c0b854e54d5411cb072092999823e9bd7071；移动分支发布到 Kun686/folia-Player，服务器内部部署记录见 SERVER_VALIDATION.md。
 按用户最新要求优先移植原播放器、歌词和动效，同时支持本地导入与网易云／QQ。
 服务器配置不再是使用 App 的前提。真实平台与真机完整验收尚未完成，不能作为已验收安装包发布。
 
-mobile.10 已安装并启动于 iPhone XS Max / iOS18.7.10，设备回读 build 10。
+mobile.11 已安装并启动于 iPhone XS Max / iOS18.7.10，设备回读 build 11，源码提交及安装包摘要见
+BUILD_RECORD.json 和 VALIDATION.md。mobile.10 的旧安装包保留用于回退。
 当前原生队列使用一个共享系统输出，整体音效和最终音量只处理一次，待播仍独立解析／缓冲。
 原 Crossfade 调度、设置和歌曲分析已接入，默认仍关闭。原音频缓存现已接入，默认关闭、5GB 上限；
 开启时完整缓存用于原分析和离线播放，关闭且没有缓存时保持原在线前缀策略。
-142 项模拟器原生回归、13 项真机专项、51 项逻辑和 27 项 UI 通过，证据见 VALIDATION.md。
-此安装包未包含后续的封面／歌词持久缓存；缓存边界见 [MEDIA_CACHE.md](MEDIA_CACHE.md)。
+mobile.10 阶段的 142 项模拟器原生回归、13 项真机专项、51 项逻辑和 27 项 UI 证据见 VALIDATION.md；
+这些历史次数不计入 mobile.11 的本轮结果。音频缓存边界见 [MEDIA_CACHE.md](MEDIA_CACHE.md)。
 
 2026-10-11 后续开发源码已接入原版 ReplayGain、共用封面缓存和完整在线歌词持久存储，分别见
 [REPLAYGAIN.md](REPLAYGAIN.md)、[COVERS.md](COVERS.md)、[LYRIC_CACHE.md](LYRIC_CACHE.md)。
 歌词阶段最终通过 148 项逻辑、9 项 WebKit 界面、212 项模拟器原生及 23 项 iPhone 专项；
-个人包仍为 mobile.10。完整 Automix、原版其余编辑工具、真实平台长期测试与性能验收仍待完成。
+这些功能现已包含在 mobile.11。新增的在线歌词操作见 [LYRIC_TOOLS.md](LYRIC_TOOLS.md)，
+其最终回归为 136 项逻辑、15 项 WebKit 界面、15 项 iPhone 原生专项。
+完整 Automix、原版其余编辑工具、真实平台长期测试与性能验收仍待完成。
 
 此前附加音效开发见 [EFFECT_PARITY.md](EFFECT_PARITY.md)：DSP、组合链、线程交接和tap共32项测试通过；
 组合阶段Debug全部70项、Release相关8项回归通过，随后实际tap接线9项通过。

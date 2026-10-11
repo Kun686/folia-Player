@@ -1,6 +1,35 @@
 # 移动候选验证记录
 
-## mobile.10：原版音频缓存（当前开发候选）
+## mobile.11：歌词操作、共用资源缓存与后续播放移植（当前开发候选）
+
+2026-10-11 已完成 Release 开发签名构建、安装和启动，iPhone XS Max／iOS18.7.10 回读 build 11。
+本候选汇集 mobile.10 后的原版过渡执行／歌词规划、ReplayGain、共用封面与完整歌词缓存，以及在线歌曲
+导入歌词、网易云／QQ 匹配、来源切换和恢复入口。复用和功能边界见 [LYRIC_TOOLS.md](LYRIC_TOOLS.md)、
+[LYRIC_CACHE.md](LYRIC_CACHE.md)、[COVERS.md](COVERS.md)、[REPLAYGAIN.md](REPLAYGAIN.md)。
+
+- 源码：`5742c7080db908922ceff34f7d6cfee6eb007fc0`；[对应 CI](https://github.com/Kun686/folia-Player/actions/runs/38110304508) PASS。
+- 最终类型检查、136 项逻辑、资源构建和同步 PASS：`lyric-tools-final-sync.log`。
+- WebKit 手机／宽 iPad／窄 iPad 15 项 PASS，39.8 秒：`lyric-tools-final-ui.log`，包含真实 Worker 的文件解析
+  和原 QQ QRC 解密。网络和原生桥接为受控响应；不是 App 到真实平台的验收。
+- iPhone 独立 QA 宿主原生 15 项 PASS，11.256 秒：`lyric-tools-device.log`／`.xcresult`。
+  完整歌词缓存、取消／来源优先级、本地／在线解析和实际双解码衔接。QA 签名及 xctestrun 独立核对，已卸载。
+- 前一源码阶段的模拟器 212 项、iPhone 23 项回归见 LYRIC_CACHE.md；本阶段没有改动 Swift 播放实现，
+  不把该历史全量数量计作再次运行。
+- 2900 个源码输入，指纹 `37ed3c1bc48a94548db5a0a3a4d86ccb537771f43abd6c5b7b5e3f90211633ff`。
+  本次覆盖所有已跟踪的普通文件，排除文档目录与 Markdown；相比旧记录扩大了来源核对范围。
+  `BUILD_RECORD.json` 及交付目录的 `Folia-mobile11-source.json` 保存完整输入摘要。
+- 安装包 `Folia-0.7.16-mobile.11-37ed3c1b-development.ipa`，7,891,544 字节，SHA256
+  `54e1041f220df7a3a47ad114598ec44e9ee81cf3622d9bee8c0a5ef6a6c27f0a`。
+  App 普通文件 16,813,363 字节；IPA 比 mobile.10 增加 303,010 字节，包含多个阶段的代码、资源与签名变化。
+- `mobile11-package-check.json`：个人签名、设备授权、iPhone／iPad target、后台音频、全部源码输入、
+  117 项前端资源和 ZIP 字节一致性均 PASS，不含 XCTest。前端及原生版本均为 mobile.11／build 11。
+- `mobile11-device-{install,launch,app}.json` 记录安装、启动和设备版本；更新保留 App 数据，没有卸载个人 App。
+  mobile.10 安装包已复核原 SHA256，继续保留用于回退。
+- **NOT_RUN**：新歌词入口的真实账号 App 联机、系统文件选择器手动验收、实体 iPad、30 分钟锁屏、耳机／蓝牙、
+  150ms 歌词视觉误差、持续温升和内存。完整 Automix、模型分轨／表现手势及剩余原版编辑工具仍未完成。
+  mobile.11 是个人开发候选，不是完整移植已验收的最终版；可信 HTTPS 入口仍按用户选择暂缓。
+
+## mobile.10：原版音频缓存（已保留的上一候选）
 
 沿用原开关（默认关闭）、5GB 默认上限、0 无上限及 LRU。原生自然 EOF 或完成交叉淡化后缓存，
 手动跳过不缓存；启用时原过渡分析可以提前下载完整音频。完整缓存优先于网关解析，缓存与
