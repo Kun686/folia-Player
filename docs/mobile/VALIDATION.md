@@ -1,5 +1,18 @@
 # 移动候选验证记录
 
+## 后续开发源码：多标签内嵌歌词与独立翻译（未更新个人 iPhone）
+
+2026-10-11，将原桌面标签选择规则提取共享；原生收集多 USLT／iTunes 歌词、保留翻译、升级旧扫描，
+并沿用前台解析和导出流程。没有新依赖，个人 App 和 BUILD_RECORD 仍为 mobile.19。
+
+- PASS：类型检查；4 文件／28 项逻辑；增加翻译导出断言后单独复跑 7 项（不重复计数）；3 项 WebKit 视口。
+- PASS：移动资源构建／同步；临时 iPhone 17 Pro／iOS26.5 Simulator Release 原生 23 项，0 失败，6.640 秒。
+  首次命令遗漏 testability，模块导入失败，未执行测试；第二次仅给测试传入 ENABLE_TESTABILITY=YES／ONLY_ACTIVE_ARCH=YES 后通过。
+- 样本覆盖实际 MP3 多 USLT 及 M4A 多 iTunes 标签、翻译持久化、旧扫描升级、旧正文来源判断、并发令牌、
+  超限和取消，以及既有导入／匹配／原生歌词规划。详情与证据见 [EMBEDDED_METADATA.md](EMBEDDED_METADATA.md)。
+- 未接入：FLAC／Vorbis、SYLT 原生采集；NOT_RUN：本阶段真机 UI、真实平台链路及长期性能。
+  完整移植保持 IN_PROGRESS，本阶段不生成新 IPA。
+
 ## mobile.19：半透明与动态背景跟随（当前开发候选）
 
 2026-10-11 已原位安装并启动于 iPhone XS Max／iOS18.7.10，设备回读 build 19。
@@ -21,8 +34,9 @@
 - 交付：`移动端交付/Folia-0.7.16-mobile.19-5054ffab-development.ipa`，7,858,287字节，
   SHA256 `47cfd9cadd0b48a306f0994ada5eeb7691db2c4b578e9383b388b8bbfa649df3`。
   个人App未卸载，mobile.18回退包摘要复核未变。BUILD_RECORD绑定构建源码；无新依赖及Swift播放修改。
-- NOT_RUN：mobile.19真机材质／动态背景反馈（已请求）、物理iPad和长期性能；本轮未重跑原生XCTest。
-  完整移植仍IN_PROGRESS。内嵌多标签功能工作稿单独保存在忽略的证据目录，尚未接线／测试，不包含于本包。
+- 用户反馈：“先这样吧”，当前外观按此保留；未逐项确认动态材质、旋转或全部交互。
+- NOT_RUN：物理iPad和长期性能；mobile.19材质阶段未重跑原生XCTest。
+  完整移植仍IN_PROGRESS。后续内嵌多标签源码与测试不包含于本包，分别记录。
 
 证据：`.mobile-test-results/mobile19-*`；私人交付目录含安装包、源码／构建JSON、说明与原生冷暖对照截图。
 测试HTTP服务已停止，任务启动的模拟器已关闭，任务构建与测试进程已清理。

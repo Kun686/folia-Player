@@ -65,13 +65,16 @@ describe('mobile current lyric export', () => {
     });
     it('reads the selected embedded source and names the sidecar after the imported audio', async () => {
         io.local.mockResolvedValue({ token: 'a', lyricsSource: 'embedded', content: '[00:01.00]Wrong source',
-            fileName: 'wrong.lrc', embeddedContent: '[00:02.00]Embedded original\n[00:05.00]Next' });
+            fileName: 'wrong.lrc', embeddedContent: '[00:02.00]Embedded original\n[00:05.00]Next',
+            embeddedTranslation: '[00:02.00]内嵌翻译\n[00:05.00]下一句' });
         const local = { ...song('qq'), importedFileName: '01 Original.flac', sourceRef: { kind: 'local', mediaId: 'test-local' } } as SongResult;
         await exportMobileSongLyrics(local, 'fia', () => true);
         const file = io.share.mock.lastCall![0], document = JSON.parse(file.content);
         expect(file.fileName).toBe('01 Original.fia'); expect(document.source).toBe('embedded');
-        expect(document.lyrics.lines.some((line: any) => line.fullText === 'Embedded original')).toBe(true);
+        expect(document.lyrics.lines.find((line: any) => line.fullText === 'Embedded original')?.translation).toBe('内嵌翻译');
         expect(file.content).not.toContain('Wrong source'); expect(io.cache).not.toHaveBeenCalled();
+        await exportMobileSongLyrics(local, 'lrc', () => true);
+        expect(io.share.mock.lastCall![0].content).toContain('内嵌翻译');
     });
     it('never shares missing or instrumental lyrics, including an explicit no-lyrics match', async () => {
         for (const payload of [{}, { lyrics: raw, state: { hasOnlineOverride: true, onlineOverrideLyrics: null, matchedIsPureMusic: true } }]) {

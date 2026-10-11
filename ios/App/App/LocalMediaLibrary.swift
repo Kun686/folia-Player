@@ -7,7 +7,9 @@ actor LocalMediaLibrary {
         var content: String
         var fileName: String?
         var embeddedContent: String? = nil
+        var embeddedTranslation: String? = nil
         var embeddedScanned: Bool? = nil
+        var embeddedScanVersion: Int? = nil
         var lyricsSource: String? = nil
         var contentIsEmbedded: Bool? = nil
         var matchJSON: String? = nil
@@ -89,6 +91,7 @@ actor LocalMediaLibrary {
             source = LyricSource(content: text, fileName: nil)
         }
         guard source.content.utf8.count <= 2_000_000, (source.embeddedContent?.utf8.count ?? 0) <= 2_000_000,
+              (source.embeddedTranslation?.utf8.count ?? 0) <= 2_000_000,
               (source.fileName?.utf8.count ?? 0) <= 1024, (source.matchJSON?.utf8.count ?? 0) <= 3_000_000,
               source.lyricsSource == nil || ["local", "embedded", "online"].contains(source.lyricsSource!) else { throw MobileFailure("invalid-lyrics") }
         return source
@@ -162,9 +165,10 @@ actor LocalMediaLibrary {
             let allMetadata = try await asset.load(.metadata)
             if let info = await NativeReplayGainInfo.read(allMetadata) { song["replayGain"] = info.dictionary }
             song["replayGainScanned"] = true
-            if let text = try? await Self.embeddedLyricText(allMetadata) {
+            if let embedded = try? await Self.embeddedLyrics(allMetadata, parser: lyricImportParser), let text = embedded.lyrics {
                 let lyrics = LyricSource(content: text, fileName: nil, embeddedContent: text,
-                    embeddedScanned: true, contentIsEmbedded: true)
+                    embeddedTranslation: embedded.translationLyrics, embeddedScanned: true,
+                    embeddedScanVersion: Self.embeddedScanVersion, contentIsEmbedded: true)
                 try JSONEncoder().encode(lyrics).write(to: folder.appendingPathComponent("lyrics.json"), options: .atomic)
             }
             try Task.checkCancellation()

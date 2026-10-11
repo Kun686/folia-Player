@@ -96,7 +96,7 @@ import AVFoundation
         defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: audio) }
         let local = LocalMediaLibrary(root: root), song = try await local.importAudio(audio), id = try XCTUnwrap(song["id"] as? String)
         let metadata = try await AVURLAsset(url: audio).load(.metadata)
-        do { _ = try await LocalMediaLibrary.embeddedLyricText(metadata); XCTFail("Oversize tag accepted") }
+        do { _ = try await LocalMediaLibrary.embeddedLyrics(metadata, parser: NativeLyricParser()); XCTFail("Oversize tag accepted") }
         catch { XCTAssertEqual((error as? MobileFailure)?.code, "lyrics-too-large") }
         let legacy = root.appendingPathComponent(id).appendingPathComponent("lyrics.txt")
         try Data("[00:00.00]Kept import".utf8).write(to: legacy)

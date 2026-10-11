@@ -7,6 +7,7 @@ export interface LocalLyricSnapshot {
     content?: string;
     fileName?: string;
     embeddedContent?: string;
+    embeddedTranslation?: string;
     lyricsSource?: 'local' | 'embedded' | 'online';
     matched?: LocalMatchDocument;
     token: string;
@@ -17,6 +18,7 @@ export function localLyricsFromSnapshot(snapshot: LocalLyricSnapshot): LocalSong
         hasLocalLyrics: Boolean(snapshot.content), localLyricsContent: snapshot.content,
         localLyricsFormat: resolveExplicitFileTimedLyricFormat(snapshot.fileName),
         hasEmbeddedLyrics: Boolean(snapshot.embeddedContent), embeddedLyricsContent: snapshot.embeddedContent,
+        embeddedTranslationLyricsContent: snapshot.embeddedTranslation,
         lyricsSource: snapshot.lyricsSource,
     };
 }

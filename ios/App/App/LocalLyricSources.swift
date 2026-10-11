@@ -2,17 +2,6 @@ import AVFoundation
 
 // LocalLyricSources.swift — retain imported and embedded payloads in one atomic record, with revocable edits.
 extension LocalMediaLibrary {
-    static func embeddedLyricText(_ metadata: [AVMetadataItem]) async throws -> String? {
-        for item in metadata where item.identifier == .id3MetadataUnsynchronizedLyric || item.identifier == .iTunesMetadataLyrics {
-            let value = try await item.load(.stringValue)
-            try Task.checkCancellation()
-            if let value, !value.isEmpty {
-                guard value.utf8.count <= 2_000_000 else { throw MobileFailure("lyrics-too-large") }
-                return value
-            }
-        }
-        return nil
-    }
     func lyricToken(_ id: String) -> String {
         if let token = lyricEditTokens[id] { return token }
         let token = UUID().uuidString; lyricEditTokens[id] = token; return token
@@ -21,6 +10,7 @@ extension LocalMediaLibrary {
         var result: [String: Any] = ["content": record.contentIsEmbedded == true ? "" : record.content, "token": lyricToken(id)]
         if let name = record.fileName { result["fileName"] = name }
         if let text = record.embeddedContent { result["embeddedContent"] = text }
+        if let translation = record.embeddedTranslation { result["embeddedTranslation"] = translation }
         if let source = record.lyricsSource { result["lyricsSource"] = source }
         if let match = record.matchJSON, let data = match.data(using: .utf8) { result["matched"] = try? JSONSerialization.jsonObject(with: data) }
         return result
@@ -29,11 +19,11 @@ extension LocalMediaLibrary {
     func readLyricSources(_ id: String) async throws -> [String: Any] {
         let audio = try resolve(id), expected = lyricToken(id)
         var record = try lyricSource(id) ?? LyricSource(content: "", fileName: nil)
-        if record.embeddedScanned != true {
-            let embedded: String?
+        if (record.embeddedScanVersion ?? 0) < Self.embeddedScanVersion {
+            let embedded: EmbeddedLyrics
             do {
                 let metadata = try await AVURLAsset(url: audio).load(.metadata)
-                embedded = try await Self.embeddedLyricText(metadata)
+                embedded = try await Self.embeddedLyrics(metadata, parser: lyricImportParser)
             } catch {
                 // Optional tag failures must not hide saved imports or prevent replacing them.
                 // Leave the scan pending so a transient metadata failure can recover on the next read.
@@ -47,8 +37,9 @@ extension LocalMediaLibrary {
             guard lyricToken(id) == expected else { throw MobileFailure("local-lyrics-changed") }
             let legacy = !FileManager.default.fileExists(atPath: try directory(id).appendingPathComponent("lyrics.json").path)
             // Keep the compatibility text intact so a previous build can still read migrated embedded lyrics.
-            if legacy && !record.content.isEmpty && record.content == embedded { record.contentIsEmbedded = true }
-            record.embeddedContent = embedded; record.embeddedScanned = true
+            if legacy && !record.content.isEmpty && record.content == embedded.legacyContent { record.contentIsEmbedded = true }
+            record.embeddedContent = embedded.lyrics; record.embeddedTranslation = embedded.translationLyrics
+            record.embeddedScanned = true; record.embeddedScanVersion = Self.embeddedScanVersion
             try writeLyricSources(record, id: id)
         }
         return lyricSnapshot(record, id: id)

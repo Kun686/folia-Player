@@ -17,7 +17,7 @@ export function sourcesJSON(text: string): string {
     const raw = JSON.parse(text);
     if (raw?.version !== 1 || !raw.snapshot) throw new Error('invalid-local-lyrics');
     const snapshot = raw.snapshot;
-    for (const key of ['content', 'embeddedContent']) {
+    for (const key of ['content', 'embeddedContent', 'embeddedTranslation']) {
         if (snapshot[key] !== undefined && (typeof snapshot[key] !== 'string' || snapshot[key].length > 2_000_000)) throw new Error('invalid-local-lyrics');
     }
     if (snapshot.fileName !== undefined && (typeof snapshot.fileName !== 'string' || snapshot.fileName.length > 1024)) throw new Error('invalid-local-lyrics');
@@ -26,7 +26,7 @@ export function sourcesJSON(text: string): string {
     if (source === 'local') return parseJSON(JSON.stringify({ version: 1, content: snapshot.content, fileName: snapshot.fileName }));
     if (source === 'online') return plannerLinesJSON(song.matchedLyrics ?? null);
     if (source !== 'embedded') return 'null';
-    const args = prepareEmbeddedLyrics({ type: 'embedded', textContent: snapshot.embeddedContent });
+    const args = prepareEmbeddedLyrics({ type: 'embedded', textContent: snapshot.embeddedContent, translationContent: snapshot.embeddedTranslation });
     return plannerLinesJSON(args ? parseLyricsByFormat(...args) : null);
 }
 export function parseJSON(text: string): string {

@@ -17,6 +17,14 @@ actor NativeLyricParser {
         guard data.count <= 262144 else { throw MobileFailure("invalid-local-lyrics") }
         return data == Data("null".utf8) ? nil : data
     }
+    func embeddedTags(_ tags: [[String: String]]) throws -> EmbeddedLyrics {
+        let input = try JSONSerialization.data(withJSONObject: ["version": 1, "tags": tags])
+        let data = try call("embeddedTagsJSON", input: input, limit: 24_300_000, inputLimit: 24_300_000)
+        let result = try JSONDecoder().decode(EmbeddedLyrics.self, from: data)
+        guard (result.lyrics?.utf8.count ?? 0) <= 2_000_000,
+              (result.translationLyrics?.utf8.count ?? 0) <= 2_000_000 else { throw MobileFailure("lyrics-too-large") }
+        return result
+    }
     func localMatchDocument(_ document: [String: Any]) throws -> String {
         let input = try JSONSerialization.data(withJSONObject: document)
         let result = try call("localMatchJSON", input: input, limit: 3_000_000, inputLimit: 8_000_000)

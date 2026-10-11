@@ -5,7 +5,7 @@ test('local and embedded sources switch independently and a fresh import selects
     await page.addInitScript(() => {
         const w = window as any; w.fixtureNoServer = true;
         w.fixtureLocalLyric = { content: '[00:00.00]导入的本地歌词', fileName: 'original.lrc',
-            embeddedContent: '[00:00.00]音频内嵌歌词\n[00:00.00]Embedded translation', lyricsSource: 'local' };
+            embeddedContent: '[00:00.00]音频内嵌歌词', embeddedTranslation: '[00:00.00]Embedded translation', lyricsSource: 'local' };
     });
     await page.goto('/mobile.html');
     await page.getByRole('button', { name: '导入音乐', exact: true }).click();
@@ -27,6 +27,7 @@ test('local and embedded sources switch independently and a fresh import selects
     await page.evaluate(() => { (window as any).fixtureLocalSaveFailure = false; });
     await embedded.tap(); await expect(dialog).toBeHidden();
     await expect(stage.getByText('音频内嵌歌词', { exact: true })).toBeVisible();
+    await expect(stage.getByText('Embedded translation', { exact: true })).toBeVisible();
     await open(); await expect(embedded).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => embedded.evaluate(node => getComputedStyle(node).boxShadow)).not.toBe('none');
     await expect(dialog.getByText('original.lrc', { exact: true })).toBeVisible();

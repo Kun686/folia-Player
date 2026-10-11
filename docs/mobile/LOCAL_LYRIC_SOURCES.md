@@ -1,5 +1,8 @@
 # 移动端导入／内嵌歌词来源
 
+本文保留最初来源管理阶段的记录。当前个人 App 为 mobile.19；后续未发包源码的多标签与独立翻译
+见 [EMBEDDED_METADATA.md](EMBEDDED_METADATA.md)，其中包含新的扫描版本及聚合大小限制。
+
 2026-10-11，开发源码 `49ef998c299a6ba3c36d0e7ad24550c880b92a75`。
 本阶段补齐本地文件歌词与音频内嵌歌词的独立保存、切换及恢复，沿用原版选择和解析语义。
 个人 iPhone 仍为 mobile.11；没有新 IPA，`BUILD_RECORD.json` 未改变。
@@ -61,7 +64,8 @@
 已在后续源码 `375f50a` 接入，见 [LOCAL_MATCH.md](LOCAL_MATCH.md)；真实平台链路仍未验收。
 本阶段测试只覆盖实际存在的导入／内嵌来源，不能当作后续匹配功能的验证。
 **NOT_IMPLEMENTED**：全部桌面歌词工具和完整 Automix。
-原解析器支持的多语言／翻译语义已复用，但移动音频标签采集尚未完整移植多 USLT／多标签／Vorbis 矩阵。
+当时未完成的多 USLT／iTunes 歌词择优与独立翻译已在后续源码补齐，见 [EMBEDDED_METADATA.md](EMBEDDED_METADATA.md)。
+FLAC／Vorbis、SYLT 原生采集和其他文件编码矩阵仍未完成。
 
 **NOT_RUN**：本阶段 iPhone 安装、物理 iPhone／iPad 手动操作、真实平台 App 在线链路、30 分钟锁屏、
 耳机／蓝牙／网络切换、≤150ms 歌词显示误差、持续温升与内存。既有 Partita 长词裁切问题仍单独待查。

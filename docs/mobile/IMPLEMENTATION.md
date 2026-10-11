@@ -28,7 +28,8 @@ mobile.17自动回归及iPad实际模拟器操作通过；iPhone模拟器部分�
 交互回归35项、增强对比度3项通过；Playwright材质合成限制下3项像素测试明确跳过，原生Safari模拟器独立对照确认模糊。
 签名、资源和准确源码CI通过。用户要求进一步半透明、跟随背景变化；mobile.19已原位安装并回读build19：
 底色降至18%，减弱高光与阴影；原生对照发现的磨砂旧帧问题通过画面合成层修正。
-最终29项界面回归通过、7项明确跳过；原生Safari冷暖背景对照通过，个人真机质感反馈待确认。
+最终29项界面回归通过、7项明确跳过；原生Safari冷暖背景对照通过。用户回复“先这样吧”，当前外观按此保留；
+该反馈不等于全部动态材质、旋转或长期性能验收。
 测试次数、分阶段修正和桌面已知预期失败见 [VALIDATION.md](VALIDATION.md)，布局见 [FULLSCREEN_LAYOUT.md](FULLSCREEN_LAYOUT.md)。
 包含旧缓存身份随歌曲读取恢复。独立Automix推理验证遇到htdemucs／ORT兼容性阻塞，详见[AUTOMIX_RUNTIME_DECISION.md](AUTOMIX_RUNTIME_DECISION.md)。
 按用户最新要求优先移植原播放器、歌词和动效，同时支持本地导入与网易云／QQ。
@@ -54,6 +55,10 @@ mobile.10 阶段的 142 项模拟器原生回归、13 项真机专项、51 项�
 这些功能现已包含在 mobile.11。新增的在线歌词操作见 [LYRIC_TOOLS.md](LYRIC_TOOLS.md)，
 其最终回归为 136 项逻辑、15 项 WebKit 界面、15 项 iPhone 原生专项。
 完整 Automix、原版其余编辑工具、真实平台长期测试与性能验收仍待完成。
+
+mobile.19 之后的开发源码已补齐本地多 USLT／iTunes 歌词择优、独立翻译保存／显示／导出及旧扫描升级。
+复用原桌面选择规则，无新依赖；类型检查、28 项相关逻辑、7 项导出复核、3 项 WebKit 和 23 项原生专项通过，
+测试次数不重复相加。尚未打入个人手机，FLAC／Vorbis 与 SYLT 原生采集仍待补齐，见 [EMBEDDED_METADATA.md](EMBEDDED_METADATA.md)。
 
 此前附加音效开发见 [EFFECT_PARITY.md](EFFECT_PARITY.md)：DSP、组合链、线程交接和tap共32项测试通过；
 组合阶段Debug全部70项、Release相关8项回归通过，随后实际tap接线9项通过。
