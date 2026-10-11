@@ -179,6 +179,7 @@ test('original ReplayGain control restores, applies touch selections and rolls b
   await page.getByRole('button', { name: '导入音乐', exact: true }).click();
   await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
   const controls = page.locator('.replay-gain-controls');
+  await page.locator('.replay-gain-disclosure summary').click();
   await expect(controls.getByText('T -6.0 dB / A -3.0 dB')).toBeVisible();
   await expect(controls.getByRole('button', { name: '单曲', exact: true })).toHaveAttribute('aria-pressed', 'true');
   const album = controls.getByRole('button', { name: '专辑', exact: true });
@@ -350,6 +351,7 @@ test('local playback without server and original visualizer registry', async ({ 
   await page.screenshot({ path: '.mobile-test-results/local-visuals-' + info.project.name + '.png' });
   if (info.project.name !== 'ipad') await page.getByRole('button', { name: '返回音乐库' }).click();
   page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: '歌曲操作 本地测试音乐', exact: true }).click();
   await page.getByRole('button', { name: '移除 本地测试音乐', exact: true }).click();
   await expect(page.getByRole('button', { name: '播放 本地测试音乐', exact: true })).toHaveCount(0);
   expect(errors).toEqual([]);

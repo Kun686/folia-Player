@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMotionValueEvent, type MotionValue } from 'framer-motion';
-import { Play, Pause, SkipBack, SkipForward, ChevronDown } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, ChevronDown, Music2, Repeat } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import VisualizerRenderer from '../components/visualizer/VisualizerRenderer';
 import { useVisualizerSettingsStore } from '../stores/useVisualizerSettingsStore';
@@ -10,7 +10,7 @@ import { useThemeSettingsStore } from '../stores/useThemeSettingsStore';
 import { useMobileTheme } from './useMobileTheme';
 import { useTypographySettingsStore } from '../stores/useTypographySettingsStore';
 import { buildVisualizerTheme } from '../components/app/presentation/buildVisualizerTheme';
-import { findLatestActiveLineIndex } from '../utils/appPlaybackHelpers';
+import { findLatestActiveLineIndex, formatTime } from '../utils/appPlaybackHelpers';
 import { useMobileLyrics } from './useMobileLyrics';
 import { useNativeAudio } from './useNativeAudio';
 import VisualSettings from './VisualSettings';
@@ -28,8 +28,8 @@ import { native, type PlaybackSnapshot } from './bridge';
 
 // src/mobile/PlayerPanel.tsx — original registry renderers consume the native clock and decoded audio.
 const MobileVisualizer = memo(VisualizerRenderer);
-export default function PlayerPanel({ state, time, visible, light, expanded, collapse }: {
-  state: PlaybackSnapshot; time: MotionValue<number>; visible: boolean; light: boolean; expanded: boolean; collapse: () => void;
+export default function PlayerPanel({ state, time, visible, light, expanded, split, collapse }: {
+  state: PlaybackSnapshot; time: MotionValue<number>; visible: boolean; light: boolean; expanded: boolean; split: boolean; collapse: () => void;
 }) {
   const { t } = useTranslation();
   const [visualSettings, setVisualSettings] = useState(false);
@@ -59,13 +59,6 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
   })));
   const [line, setLine] = useState(-1);
   const lineRef = useRef(-1);
-  const [wide, setWide] = useState(matchMedia('(min-width: 850px)').matches);
-  useEffect(() => {
-    const media = matchMedia('(min-width: 850px)');
-    const changed = () => setWide(media.matches);
-    media.addEventListener('change', changed);
-    return () => media.removeEventListener('change', changed);
-  }, []);
   const [error, setError] = useState(false);
   const song = state.currentSong;
   const { lyricTime, offsetMs, setOffsetMs, toPlaybackTime } = useLyricClock(song, time);
@@ -78,7 +71,7 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
   const lyricTools = lyricToolsFor === lyricSongKey;
   useEffect(() => { setLyricToolsFor(null); }, [lyricSongKey]);
   const { lyrics, rawLyrics, cover, error: lyricsError, segmentation, refresh } = useMobileLyrics(song ?? undefined, lyricTools);
-  const rendering = visible && (expanded || wide) && !visualSettings && !audioSettingsOpen && !transitionSettings && !lyricTools;
+  const rendering = visible && (expanded || split) && !visualSettings && !audioSettingsOpen && !transitionSettings && !lyricTools;
   const audio = useNativeAudio(rendering, state.playing);
   const importLyrics = async () => {
     if (song?.sourceRef?.kind !== 'local') return;
@@ -97,7 +90,10 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
   const command = (action: 'play' | 'pause' | 'next' | 'previous' | 'seek' | 'repeat', position?: number, mode?: string) =>
     void native.command({ action, position, mode }).catch(() => setError(true));
   return <section className={'player-panel ' + (expanded ? 'expanded' : '')} aria-label={t('mobile.play')}>
-    <button className="player-collapse" onClick={collapse} aria-label={t('mobile.back')}><ChevronDown /></button>
+    <header className="player-heading">
+      <button className="player-collapse" onClick={collapse} aria-label={t('mobile.back')}><ChevronDown /></button>
+      <span>{t('mobile.nowPlaying')}</span>
+    </header>
     <div className="lyric-stage">
       {song && rendering ? <MobileVisualizer mode={mode} currentTime={lyricTime} lines={lyrics?.lines ?? NO_LYRIC_LINES} currentLineIndex={line}
         constrainLyricsToStage
@@ -109,21 +105,27 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
         : <div className="empty-lyrics"><span>Folia</span><p>{song ? t('mobile.noLyrics') : t('mobile.noSongs')}</p></div>}
       <TransitionOverlays visible={visible} stageVisible={rendering} song={song} cover={cover} light={light}
         theme={light ? appearance.theme.light : appearance.theme.dark} />
+      {song && !lyrics?.lines.length && <p className="lyric-notice" role="status">{t('mobile.noLyrics')}</p>}
     </div>
     <div className="player-controls">
-      <h2>{song?.name ?? 'Folia'}</h2><p>{song?.artists.map(a => a.name).join(' / ')}</p>
-      <input type="range" aria-label={t('mobile.position')} min={0} max={state.duration || 1} step={0.1}
+      <div className="track-heading">
+        <div className="track-art" aria-hidden="true">{cover ? <img src={cover} alt="" /> : <Music2 />}</div>
+        <div className="track-description"><h2>{song?.name ?? 'Folia'}</h2><p>{song?.artists.map(a => a.name).join(' / ') || 'Folia'}</p></div>
+        <div className="repeat-choice"><Repeat size={16} aria-hidden="true" /><select aria-label={t('mobile.repeat')} value={state.repeat} onChange={e => command('repeat', undefined, e.target.value)}>
+          {(['off', 'all', 'one'] as const).map(mode => <option key={mode} value={mode}>{t('mobile.' + mode)}</option>)}
+        </select></div>
+      </div>
+      <div className="playback-progress"><input type="range" aria-label={t('mobile.position')} min={0} max={state.duration || 1} step={0.1}
         value={Math.min(state.position, state.duration || 1)} disabled={!song || !state.duration}
         onChange={e => command('seek', Number(e.target.value))} />
+        <div className="playback-times" aria-hidden="true"><span>{formatTime(state.position)}</span><span>{formatTime(state.duration)}</span></div>
+      </div>
       <div className="transport">
         <button onClick={() => command('previous')} aria-label={t('mobile.previous')} disabled={!song}><SkipBack /></button>
         <button className="primary-play" onClick={() => command(state.playing ? 'pause' : 'play')} aria-label={t(state.playing ? 'mobile.pause' : 'mobile.play')} disabled={!song && !state.queue.length}>
           {state.playing ? <Pause /> : <Play />}
         </button>
         <button onClick={() => command('next')} aria-label={t('mobile.next')} disabled={!song}><SkipForward /></button>
-        <select aria-label={t('mobile.repeat')} value={state.repeat} onChange={e => command('repeat', undefined, e.target.value)}>
-          {(['off', 'all', 'one'] as const).map(mode => <option key={mode} value={mode}>{t('mobile.' + mode)}</option>)}
-        </select>
       </div>
       <AudioControls light={light} theme={light ? appearance.theme.light : appearance.theme.dark}
         unavailable={state.playing && state.audioProcessingAvailable === false} effects={state.audioEffects} replayGain={song?.replayGain} />
@@ -131,7 +133,6 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
         <button onClick={() => setTransitionSettings(true)}>{t('options.transitionSettings')}</button>
         {song && <button onClick={() => setLyricToolsFor(lyricSongKey)}>{t('localMusic.lyrics')}</button>}
         {song?.sourceRef?.kind === 'local' && <button onClick={() => void importLyrics()}>{t('mobile.importLyrics')}</button>}</div>
-      {song && !lyrics?.lines.length && <p className="muted">{t('mobile.noLyrics')}</p>}
       {(state.error || error || lyricsError) && <p role="alert">{t('mobile.error')} {state.error}</p>}
     </div>
     <TransitionControls light={light} theme={light ? appearance.theme.light : appearance.theme.dark}

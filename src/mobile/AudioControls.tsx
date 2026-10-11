@@ -41,9 +41,11 @@ export default function AudioControls({ light, theme, unavailable, effects, repl
       <output>{Math.round(audio.volume * 100)}%</output>
       <button disabled={!status.ready} onClick={audio.openAudioEqualizer}>{t('ui.equalizerTitle')}</button>
     </div>
+    <details className="replay-gain-disclosure"><summary>{t('localMusic.replayGainTitle')}</summary>
     <fieldset disabled={!status.ready} className="replay-gain-controls">
       <ReplayGainControl isDaylight={light} values={replayGain} mode={replayGainMode} onChangeMode={setReplayGainMode} />
     </fieldset>
+    </details>
     {message && <p role="alert">{message}</p>}
     {!status.ready && status.error && <button onClick={() => setAttempt(a => a + 1)}>{t('mobile.retry')}</button>}
     <AudioEqualizerDialog isDaylight={light} theme={theme} mobileLayout commitOnInput statusMessage={message} />

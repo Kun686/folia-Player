@@ -1,5 +1,6 @@
 // src/mobile/locale.ts
 export const mobileEn = {
+  nowPlaying: 'Now playing',
   clearMediaCache: "Clear audio cache",
   clearCoverCache: "Clear cover cache",
   clearLyricCache: "Clear lyric cache",
@@ -44,6 +45,7 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  nowPlaying: '正在播放',
   clearMediaCache: "清除音频缓存",
   clearCoverCache: "清除封面缓存",
   clearLyricCache: "清除歌词缓存",
@@ -88,6 +90,7 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  nowPlaying: 'Sedang diputar',
   clearMediaCache: "Hapus cache audio",
   clearCoverCache: "Hapus cache sampul",
   clearLyricCache: "Hapus cache lirik",
