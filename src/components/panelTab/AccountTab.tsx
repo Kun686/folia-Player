@@ -9,6 +9,7 @@ import { useLibraryAccountProviders, useLibraryAccountSelector } from '../../lib
 import { canLogoutProvider } from '../../library/core/model/accountRules';
 import { useOnlineProviderAccountStore } from '../../stores/useOnlineProviderAccountStore';
 import { omni } from '../../services/onlineMusic/omni';
+import { AUDIO_QUALITY_OPTIONS } from '../../utils/audioQualityOptions';
 
 interface AccountTabProps {
     user: ProviderUser | null;
@@ -22,16 +23,6 @@ interface AccountTabProps {
     isSyncing: boolean;
     onNavigateHome: () => void;
 }
-
-const AUDIO_QUALITY_OPTIONS: Array<{
-    value: AudioQualityPreference;
-    labelKey: string;
-}> = [
-    { value: 'standard', labelKey: 'account.qualityStandard' },
-    { value: 'high', labelKey: 'account.qualityExhigh' },
-    { value: 'lossless', labelKey: 'account.qualityLossless' },
-    { value: 'hires', labelKey: 'account.qualityHires' },
-];
 
 const selectLogoutPending = (snapshot: LibraryAccountSnapshot) => snapshot.logout.status === 'pending';
 

@@ -35,10 +35,11 @@ class GatewayClient: NSObject, URLSessionTaskDelegate {
         guard (200..<300).contains(http.statusCode) else { throw MobileFailure(object["code"] as? String ?? "network") }
         return object
     }
-    func resolve(_ song: [String: Any]) async throws -> NativeAudioSource {
+    func resolve(_ song: [String: Any], quality: String = "standard") async throws -> NativeAudioSource {
+        guard NativeAudioSettings.audioQualities.contains(quality) else { throw MobileFailure("invalid-audio-settings") }
         guard let ref = song["sourceRef"] as? [String: Any], let provider = ref["providerId"] as? String,
               ["netease", "qq", "kugou"].contains(provider) else { throw MobileFailure("invalid-identity") }
-        let source = try await send("/mobile/resolve", body: ["song": song, "quality": "standard",
+        let source = try await send("/mobile/resolve", body: ["song": song, "quality": quality,
             "session": try SecureStore.read("session." + provider)])
         try Task.checkCancellation()
         return try Self.audioSource(source, song: song)

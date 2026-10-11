@@ -4,6 +4,7 @@ import type { SongResult, ReplayGainMode, LyricData, OnlineLyricsState } from '.
 import type { AudioEqualizerSettings } from '../utils/audioEqualizer';
 import type { NativeTransitionCue } from './nativeTransitionCue';
 import type { LocalLyricSnapshot } from '../utils/lyrics/localLyricSnapshot';
+import type { AudioQualityPreference } from '../types/onlineMusic';
 
 // src/mobile/bridge.ts — native owns transport secrets, playback and queue state.
 export interface PlaybackSnapshot {
@@ -19,7 +20,7 @@ export interface NativeMediaCacheState {
   settings: NativeMediaCacheSettings; count: number; bytes: number; pending: number;
   revision: number; error: string | null; songs: SongResult[];
 }
-export interface NativeAudioSettings { volume: number; isMuted: boolean; equalizer: AudioEqualizerSettings; replayGainMode: ReplayGainMode }
+export interface NativeAudioSettings { volume: number; isMuted: boolean; equalizer: AudioEqualizerSettings; replayGainMode: ReplayGainMode; audioQuality: AudioQualityPreference }
 export interface NativeTransitionSettings { enabled: boolean; mode: 'crossfade' | 'automix'; crossfadeMaxSec: number }
 export interface NativeSleepTimerState { hours: number; minutes: number; enabled: boolean; deadlineMs: number | null; revision: number }
 export type NativeSleepTimerEdit = Partial<Pick<NativeSleepTimerState, 'hours' | 'minutes' | 'enabled'>>;

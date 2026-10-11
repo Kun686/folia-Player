@@ -677,7 +677,20 @@ describe('qqProvider', () => {
         expect(result).toEqual({ lyrics: { lines: [], isWordByWord: true }, isPureMusic: false });
     });
 
-    it('resolves song detail and degrades authenticated playback quality until a URL exists', async () => {
+    it.each([
+        ['standard', '128', 'standard'], ['high', '320', 'high'],
+        ['lossless', 'flac', 'lossless'], ['hires', 'flac', 'lossless'],
+    ] as const)('maps QQ %s to %s and reports resolved %s without inventing a Hi-Res tier', async (quality, apiQuality, resolvedQuality) => {
+        requestMock.mockResolvedValueOnce({ data: { playUrl: { '003rJSwm3TechU': { url: 'https://audio.example.test/song' } } } });
+        await expect(qqProvider.playback!.getAudioSource(normalizeQqSong(SEARCH_ITEM), quality)).resolves.toMatchObject({
+            url: 'https://audio.example.test/song', quality: resolvedQuality,
+        });
+        expect(requestMock).toHaveBeenCalledExactlyOnceWith('music_play', {
+            songmid: '003rJSwm3TechU', mediaId: '001MediaMidFixture', quality: apiQuality,
+        });
+    });
+
+    it.each(['lossless', 'hires'] as const)('resolves song detail and degrades authenticated %s playback until a URL exists', async (quality) => {
         requestMock
             .mockResolvedValueOnce({ response: { songinfo: { data: { track_info: SEARCH_ITEM } } } })
             .mockResolvedValueOnce({ data: { playUrl: { '003rJSwm3TechU': { url: '' } } } })
@@ -686,7 +699,7 @@ describe('qqProvider', () => {
         await expect(qqProvider.playback!.getSongDetail('003rJSwm3TechU')).resolves.toMatchObject({
             qqMid: '003rJSwm3TechU',
         });
-        await expect(qqProvider.playback!.getAudioSource(normalizeQqSong(SEARCH_ITEM), 'lossless')).resolves.toEqual({
+        await expect(qqProvider.playback!.getAudioSource(normalizeQqSong(SEARCH_ITEM), quality)).resolves.toEqual({
             url: 'https://audio.example.test/song.mp3',
             fetchedAt: expect.any(Number),
             quality: 'high',

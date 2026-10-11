@@ -43,7 +43,7 @@ extension PlaybackEngine {
         if let ref = song["sourceRef"] as? [String: Any], ref["kind"] as? String == "local", let id = ref["mediaId"] as? String {
             do { return try await local.resolve(id) } catch { throw MobileFailure("local-file-missing") }
         }
-        return try await gateway.resolve(song).url
+        return try await gateway.resolve(song, quality: audioSettings.audioQuality).url
     }
     var currentIsLocal: Bool {
         (currentSong?["sourceRef"] as? [String: Any])?["kind"] as? String == "local"

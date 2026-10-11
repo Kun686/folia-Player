@@ -44,13 +44,15 @@ const song: UnifiedSong = {
 describe('neteaseProvider', () => {
     beforeEach(() => vi.clearAllMocks());
 
-    it('maps semantic high quality to the NetEase exhigh value', async () => {
+    it.each([
+        ['standard', 'standard'], ['high', 'exhigh'], ['lossless', 'lossless'], ['hires', 'hires'],
+    ] as const)('maps %s playback preference to NetEase %s', async (quality, level) => {
         vi.mocked(neteaseApi.getSongUrl).mockResolvedValue({ data: [{ url: 'http://music.test/song.mp3' }] } as any);
-        await expect(neteaseProvider.playback!.getAudioSource(song, 'high')).resolves.toMatchObject({
+        await expect(neteaseProvider.playback!.getAudioSource(song, quality)).resolves.toMatchObject({
             url: 'https://music.test/song.mp3',
-            quality: 'high',
+            quality,
         });
-        expect(neteaseApi.getSongUrl).toHaveBeenCalledWith(42, 'exhigh');
+        expect(neteaseApi.getSongUrl).toHaveBeenCalledWith(42, level);
     });
 
     it('maps NetEase track gain from the URL response and keeps negative dB values', async () => {

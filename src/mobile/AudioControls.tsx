@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Volume2, VolumeX } from 'lucide-react';
+import { ChevronDown, Volume2, VolumeX } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
@@ -11,6 +11,7 @@ import { isNeutralAudioEffects } from '../utils/audioEffects';
 import ReplayGainControl from '../components/panelTab/ReplayGainControl';
 import { usePlaybackStore } from '../stores/usePlaybackStore';
 import type { ReplayGainInfo } from '../types';
+import { AUDIO_QUALITY_OPTIONS } from '../utils/audioQualityOptions';
 
 // src/mobile/AudioControls.tsx — existing store/actions/dialog; AVPlayer owns the audible settings.
 export default function AudioControls({ light, theme, unavailable, effects, replayGain }: {
@@ -24,6 +25,7 @@ export default function AudioControls({ light, theme, unavailable, effects, repl
   const setReplayGainMode = usePlaybackStore(s => s.setReplayGainMode);
   const audio = useAudioSettingsStore(useShallow(s => ({
     volume: s.volume, isMuted: s.isMuted, enabled: s.audioEqualizerSettings.enabled,
+    audioQuality: s.audioQuality, setAudioQuality: s.setAudioQuality,
     effectsRequested: s.audioEqualizerSettings.enabled && !isNeutralAudioEffects(s.audioEqualizerSettings.effects),
     handleSetVolume: s.handleSetVolume, handleToggleMute: s.handleToggleMute, openAudioEqualizer: s.openAudioEqualizer,
   })));
@@ -41,6 +43,19 @@ export default function AudioControls({ light, theme, unavailable, effects, repl
       <output>{Math.round(audio.volume * 100)}%</output>
       <button disabled={!status.ready} onClick={audio.openAudioEqualizer}>{t('ui.equalizerTitle')}</button>
     </div>
+    <label className="quality-controls">{t('account.audioQuality')}
+      <span className="quality-choice">
+        <select disabled={!status.ready} value={audio.audioQuality} aria-describedby="mobile-quality-hint"
+          onChange={event => {
+            const option = AUDIO_QUALITY_OPTIONS.find(option => option.value === event.target.value);
+            if (option) audio.setAudioQuality(option.value);
+          }}>
+          {AUDIO_QUALITY_OPTIONS.map(option => <option key={option.value} value={option.value}>{t(option.labelKey)}</option>)}
+        </select>
+        <ChevronDown size={16} aria-hidden="true" />
+      </span>
+    </label>
+    <p id="mobile-quality-hint" className="quality-hint">{t('mobile.audioQualityHint')}</p>
     <details className="replay-gain-disclosure"><summary>{t('localMusic.replayGainTitle')}</summary>
     <fieldset disabled={!status.ready} className="replay-gain-controls">
       <ReplayGainControl isDaylight={light} values={replayGain} mode={replayGainMode} onChangeMode={setReplayGainMode} />

@@ -7,16 +7,18 @@ import { usePlaybackStore } from '../../../src/stores/usePlaybackStore';
 // Real store actions, delayed native responses and failure recovery; no provider/account fixtures.
 const bridge = vi.hoisted(() => ({ getAudioSettings: vi.fn(), setAudioSettings: vi.fn() }));
 vi.mock('../../../src/mobile/bridge', () => ({ native: bridge }));
-const settings = () => ({ volume: 0.6, isMuted: true, equalizer: structuredClone(DEFAULT_AUDIO_EQUALIZER_SETTINGS), replayGainMode: 'track' as const });
+const settings = () => ({ volume: 0.6, isMuted: true, equalizer: structuredClone(DEFAULT_AUDIO_EQUALIZER_SETTINGS), replayGainMode: 'track' as const, audioQuality: 'standard' as const });
 const settle = async () => { await new Promise(resolve => setTimeout(resolve, 0)); };
 beforeEach(() => { vi.resetAllMocks(); bridge.getAudioSettings.mockResolvedValue(settings()); });
 describe('native audio settings synchronization', () => {
   it('restores native state without sending stale local defaults back', async () => {
+    useAudioSettingsStore.getState().setAudioQuality('hires');
     const report = vi.fn(), disconnect = connectAudioSettings(report);
     await settle();
     expect(useAudioSettingsStore.getState().volume).toBe(0.6);
     expect(useAudioSettingsStore.getState().isMuted).toBe(true);
     expect(usePlaybackStore.getState().replayGainMode).toBe('track');
+    expect(useAudioSettingsStore.getState().audioQuality).toBe('standard');
     expect(bridge.setAudioSettings).not.toHaveBeenCalled();
     expect(report).toHaveBeenLastCalledWith(true, false);
     disconnect();
@@ -31,10 +33,12 @@ describe('native audio settings synchronization', () => {
     store.handleSetVolume(0.2); store.handleSetVolume(0.8); store.handleToggleMute();
     store.handleSetAudioEqualizerSettings({ ...store.audioEqualizerSettings, enabled: true, gains: Array(10).fill(3) });
     usePlaybackStore.getState().setReplayGainMode('album');
+    store.setAudioQuality('lossless'); store.setAudioQuality('hires');
     expect(bridge.setAudioSettings).toHaveBeenCalledTimes(1);
     resolve({ ...settings(), volume: 0.2 }); await settle();
     expect(bridge.setAudioSettings).toHaveBeenCalledTimes(2);
-    expect(bridge.setAudioSettings.mock.calls[1][0].settings).toMatchObject({ volume: 0.8, isMuted: false, equalizer: { enabled: true, gains: Array(10).fill(3) }, replayGainMode: 'album' });
+    expect(bridge.setAudioSettings.mock.calls[1][0].settings).toMatchObject({ volume: 0.8, isMuted: false, equalizer: { enabled: true, gains: Array(10).fill(3) }, replayGainMode: 'album', audioQuality: 'hires' });
+    expect(useAudioSettingsStore.getState().audioQuality).toBe('hires');
     expect(useAudioSettingsStore.getState().volume).toBe(0.8);
     disconnect();
   });
@@ -63,6 +67,15 @@ describe('native audio settings synchronization', () => {
     bridge.setAudioSettings.mockRejectedValue(new Error('invalid-audio-settings'));
     usePlaybackStore.getState().setReplayGainMode('album'); await settle();
     expect(usePlaybackStore.getState().replayGainMode).toBe('track');
+    expect(bridge.setAudioSettings).toHaveBeenCalledTimes(1); disconnect();
+  });
+  it('rolls a rejected quality preference back without changing other settings', async () => {
+    const report = vi.fn(), disconnect = connectAudioSettings(report); await settle();
+    bridge.setAudioSettings.mockRejectedValue(new Error('invalid-audio-settings'));
+    useAudioSettingsStore.getState().setAudioQuality('lossless'); await settle();
+    expect(useAudioSettingsStore.getState().audioQuality).toBe('standard');
+    expect(useAudioSettingsStore.getState().volume).toBe(0.6);
+    expect(report).toHaveBeenLastCalledWith(true, true);
     expect(bridge.setAudioSettings).toHaveBeenCalledTimes(1); disconnect();
   });
 });

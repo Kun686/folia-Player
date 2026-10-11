@@ -58,6 +58,11 @@ input[type=range] { width: 100%; padding: 0; accent-color: var(--text); }
 .volume-controls button { flex-shrink: 0; padding-inline: 10px; font-size: 12px; background: transparent; }
 .replay-gain-disclosure summary { cursor: pointer; min-height: 44px; padding-block: 12px; font-size: 12px; color: var(--muted); touch-action: manipulation; }
 .replay-gain-disclosure .replay-gain-controls { margin-top: 0; margin-bottom: 8px; }
+.sheet .quality-controls { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0 0; font-size: 13px; }
+.quality-choice { position: relative; max-width: 65%; }
+.quality-choice select { appearance: none; font-size: 16px; height: 44px; width: 100%; padding: 10px 36px 10px 12px; }
+.quality-choice svg { position: absolute; right: 12px; top: 14px; pointer-events: none; }
+.quality-hint { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 8px 0; }
 .player-error { position: absolute; z-index: 6; left: calc(var(--safe-left) + 16px); right: calc(var(--safe-right) + 16px); bottom: calc(var(--safe-bottom) + 152px); margin: auto; padding: 12px !important; max-width: 560px; background: var(--raised); border-radius: 12px; font-size: 13px; }
 @media (min-width: 600px) and (max-height: 599px) {
   .player-controls { display: grid; grid-template-columns: minmax(120px, 1fr) auto; align-items: center; gap: 16px; padding: 4px 20px 8px; max-width: 720px; border-radius: 999px; bottom: calc(var(--safe-bottom) + 8px); }

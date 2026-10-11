@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+开发源码音质设置已通过 123 项逻辑／provider、9 项 WebKit、11 项 iPhone QA 自动测试；
+保留当前播放、暂停、本地预加载、缓存及正在交叉淡化的曲目，详见 [AUDIO_QUALITY.md](AUDIO_QUALITY.md)。
+真实 QQ／网易云各档返回音质、权限回退和个人安装包端到端复测均为 NOT_RUN。
+
 开发源码的个人歌单分页已通过受控第 101 个歌单、失败重试、搜索并发及平台切换测试，
 共 114 项逻辑／provider 与 12 项 WebKit；真实账户歌单完整性仍为 NOT_RUN。
 没有把受控数据当作上游验收，详见 [CATALOG_PAGING.md](CATALOG_PAGING.md)。

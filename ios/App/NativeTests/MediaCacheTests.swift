@@ -106,6 +106,8 @@ import XCTest
         let engine = PlaybackEngine(gateway: gateway, storage: storage, usesStereoOutput: true, mediaCache: cache)
         engine.network.cancel()
         defer { engine.stop(); engine.clearOutput(); storage.removePersistentDomain(forName: "folia.cache-playback") }
+        var settings = engine.audioSettings; settings.audioQuality = "hires"
+        _ = try engine.setAudioSettings(settings.dictionary)
         try engine.setQueue([song], at: 0)
         try await waitForStream { engine.outputIsPlaying && engine.playbackPosition > 0.1 }
         XCTAssertNotNil(engine.stream?.cachedMedia)

@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+2026-10-12 后续源码已接通原版四档音质偏好与原生播放地址请求，保留当前播放、缓存优先及原平台回退规则。
+123 项逻辑／provider、9 项 WebKit、11 项 iPhone QA 自动测试通过；真实平台音质与个人包更新仍待完成，
+见 [AUDIO_QUALITY.md](AUDIO_QUALITY.md)。
+
 2026-10-12 后续源码已补齐超过 100 个个人歌单的分页入口，隔离账户刷新与搜索请求，
 并修正网易云错误响应被当成空歌单的问题。114 项相关逻辑／provider、12 项 WebKit 通过；
 真实大歌单账户待验，尚未更新个人包，见 [CATALOG_PAGING.md](CATALOG_PAGING.md)。

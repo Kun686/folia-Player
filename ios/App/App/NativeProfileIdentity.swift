@@ -1,6 +1,7 @@
 import Foundation
 
 // NativeProfileIdentity.swift — standard-quality representation identity, independent of expiring CDN addresses.
+// "standard" is a legacy namespace: retain existing song-based audio/lyric/profile caches across quality edits.
 struct NativeProfileIdentity {
     let key: String
     let localID: String?

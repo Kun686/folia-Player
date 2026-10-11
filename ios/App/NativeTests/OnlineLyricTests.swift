@@ -23,7 +23,7 @@ final class LyricFixtureGateway: GatewayClient, @unchecked Sendable {
         let (reply, count) = lock.withLock { requests.append(body); return (responder, requests.count) }
         return try await reply(body, count)
     }
-    override func resolve(_ song: [String: Any]) async throws -> NativeAudioSource {
+    override func resolve(_ song: [String: Any], quality: String = "standard") async throws -> NativeAudioSource {
         guard let audioURL else { throw MobileFailure("fixture-audio-missing") }; return NativeAudioSource(url: audioURL)
     }
 }

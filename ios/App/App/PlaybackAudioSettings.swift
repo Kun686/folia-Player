@@ -30,11 +30,13 @@ struct NativeEqualizerSettings: Codable {
     }
 }
 struct NativeAudioSettings: Codable {
+    static let audioQualities = ["standard", "high", "lossless", "hires"]
     var volume = 1.0
     var isMuted = false
     var equalizer = NativeEqualizerSettings()
     var replayGainMode = "off"
-    private enum CodingKeys: String, CodingKey { case volume, isMuted, equalizer, replayGainMode }
+    var audioQuality = "standard"
+    private enum CodingKeys: String, CodingKey { case volume, isMuted, equalizer, replayGainMode, audioQuality }
     init() {}
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -42,9 +44,11 @@ struct NativeAudioSettings: Codable {
         isMuted = try values.decode(Bool.self, forKey: .isMuted)
         equalizer = try values.decode(NativeEqualizerSettings.self, forKey: .equalizer)
         replayGainMode = try values.decodeIfPresent(String.self, forKey: .replayGainMode) ?? "off"
+        audioQuality = try values.decodeIfPresent(String.self, forKey: .audioQuality) ?? "standard"
     }
     func validate() throws {
-        guard volume.isFinite, (0...1).contains(volume), ["off", "track", "album"].contains(replayGainMode) else { throw MobileFailure("invalid-audio-settings") }
+        guard volume.isFinite, (0...1).contains(volume), ["off", "track", "album"].contains(replayGainMode),
+              Self.audioQualities.contains(audioQuality) else { throw MobileFailure("invalid-audio-settings") }
         try equalizer.validate()
     }
     var dictionary: [String: Any] {
@@ -61,10 +65,22 @@ extension PlaybackEngine {
         catch { throw MobileFailure("invalid-audio-settings") }
         try settings.validate()
         let data = try JSONEncoder().encode(settings)
+        let qualityChanged = audioSettings.audioQuality != settings.audioQuality
         audioSettings = settings
         storage.set(data, forKey: "folia.audio")
         applyAudioSettings()
+        if qualityChanged { refreshPreparedQuality() }
         return audioSettings.dictionary
+    }
+    // Keep audible decks and song-based caches; only unplayed online preparation follows a new preference.
+    private func refreshPreparedQuality() {
+        guard crossfade?.isFading != true else { return }
+        promotePreparedItem()
+        guard let next = nextIndex(automatic: true),
+              let song = queue.indices.contains(next) ? queue[next] : detachedSong,
+              (song["sourceRef"] as? [String: Any])?["kind"] as? String == "online" else { return }
+        discardPrepared()
+        prefetch()
     }
     func restoreAudioSettings() {
         if let data = storage.data(forKey: "folia.audio"), let saved = try? JSONDecoder().decode(NativeAudioSettings.self, from: data),

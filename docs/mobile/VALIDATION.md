@@ -1,5 +1,15 @@
 # 移动候选验证记录
 
+## 原版四档音质的移动适配（2026-10-12）
+
+- PASS：TypeScript、4 文件 123 项逻辑／provider、3 视口共 9 项 WebKit。
+- PASS_DEVICE_AUTOMATED：独立 iPhone XS Max / iOS18.7.10 QA，11 项、0 失败／跳过。
+  覆盖参数、旧设置迁移、迟到请求、已播放／暂停／预加载／交叉淡化保持、缓存优先和本地播放。
+- 初次 WebKit 音质控件仅 27px，修正为 44px 并重测；不影响已接受的播放器画布与控制器外观。
+- QA 已卸载，个人 mobile.20 保留并恢复前台；无新依赖、无服务器改动。
+- NOT_RUN：真实平台实际音质及权限回退、最新 UI 与原生容器联合复测、长期音质播放与物理 iPad。
+  细节及证据见 [AUDIO_QUALITY.md](AUDIO_QUALITY.md)。
+
 ## 个人歌单分页与账户／搜索并发（2026-10-12）
 
 - PASS：TypeScript；3 文件 114 项逻辑／网易云／QQ provider 检查；3 视口共 12 项 WebKit。

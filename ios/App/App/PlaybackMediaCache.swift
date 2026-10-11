@@ -4,6 +4,7 @@ import Foundation
 extension PlaybackEngine {
     @MainActor func prepareMedia(_ song: [String: Any], refresh: Bool = false, position: Double = 0,
                                  output: StreamMixOutput) async throws -> StreamOccurrence {
+        let quality = audioSettings.audioQuality
         let identity = NativeProfileIdentity(song)
         if let provider = identity?.provider { try await mediaCachePurges[provider]?.value }
         try Task.checkCancellation()
@@ -26,7 +27,7 @@ extension PlaybackEngine {
         let source: NativeAudioSource
         if let ref = song["sourceRef"] as? [String: Any], ref["kind"] as? String == "local", let id = ref["mediaId"] as? String {
             source = try await local.audioSource(id)
-        } else { source = try await gateway.resolve(song) }
+        } else { source = try await gateway.resolve(song, quality: quality) }
         try Task.checkCancellation()
         return try await prepareSource(source, position: position, output: output)
     }
