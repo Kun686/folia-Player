@@ -3,6 +3,55 @@ import XCTest
 
 // LyricCacheTests.swift — parsed renderer data survives relaunch; native playback consumes it without a WebView or gateway.
 @MainActor extension NativeTests {
+    func testPlayingLegacyLyricsRecoversIdentityWithoutReplacingSelections() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = NativeLyricCache(root: root)
+        let lyrics: [String: Any] = ["lines": [["startTime": 1, "endTime": 3, "fullText": "用户保存的歌词", "words": []]]]
+        for provider in ["qq", "netease"] {
+            var track = song(provider, "42"); track["cookie"] = "private-cookie"
+            track["album"] = ["name": "专辑", "coverUrl": "https://private.invalid/cover?signature=secret"]
+            let token = try await cache.read(track)["token"] as! String
+            try await cache.write(track, token: token, field: "state", value: ["lyricsSource": "imported", "importedLyrics": lyrics])
+            let file = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: root.appendingPathComponent(provider), includingPropertiesForKeys: nil).first)
+            var record = try NativeLyricExport.record(file); record.removeValue(forKey: "song")
+            try JSONSerialization.data(withJSONObject: record).write(to: file)
+            let snapshot = try await cache.read(track)
+            XCTAssertEqual(snapshot["token"] as? String, token)
+            let repaired = try NativeLyricExport.record(file)
+            XCTAssertEqual(NSDictionary(dictionary: repaired["payload"] as! [String: Any]), NSDictionary(dictionary: record["payload"] as! [String: Any]))
+            XCTAssertNotNil(NativeLyricExport.song(repaired))
+            XCTAssertFalse(String(data: try Data(contentsOf: file), encoding: .utf8)!.contains("private"))
+            let saved = try Data(contentsOf: file)
+            _ = try await cache.read(track)
+            XCTAssertEqual(try Data(contentsOf: file), saved)
+        }
+        let restored = NativeLyricCache(root: root)
+        let inventory = try await restored.exportInventory(knownSongs: [])
+        let items = try XCTUnwrap(inventory["entries"] as? [[String: Any]])
+        XCTAssertEqual(items.count, 2)
+        XCTAssertTrue(items.allSatisfy { $0["song"] != nil })
+    }
+    func testLegacyIdentityRepairPreservesLatestPayloadAndNeverCreatesMissingFiles() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = NativeLyricCache(root: root), track = song("qq", "42")
+        let token = try await cache.read(track)["token"] as! String
+        try await cache.write(track, token: token, field: "lyrics", value: ["lines": []])
+        let file = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: root.appendingPathComponent("qq"), includingPropertiesForKeys: nil).first)
+        var latest = try NativeLyricExport.record(file); latest.removeValue(forKey: "song")
+        latest["payload"] = ["state": ["hasOnlineOverride": true, "matchedIsPureMusic": true, "onlineOverrideLyrics": NSNull()]]
+        try JSONSerialization.data(withJSONObject: latest).write(to: file)
+        let unchanged = try Data(contentsOf: file)
+        XCTAssertThrowsError(try NativeLyricExport.recoverMetadata(song("netease", "42"), at: file))
+        XCTAssertEqual(try Data(contentsOf: file), unchanged)
+        try NativeLyricExport.recoverMetadata(track, at: file)
+        XCTAssertEqual(NSDictionary(dictionary: try NativeLyricExport.record(file)["payload"] as! [String: Any]), NSDictionary(dictionary: latest["payload"] as! [String: Any]))
+        try await cache.clear(provider: "qq")
+        XCTAssertThrowsError(try NativeLyricExport.recoverMetadata(track, at: file))
+        _ = try await cache.read(track)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
+    }
     func testLyricExportInventoryRestoresIdentitiesAndRawSelectionsWithoutSecrets() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

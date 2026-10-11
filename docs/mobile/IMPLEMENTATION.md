@@ -1,6 +1,6 @@
 # Folia iPhone / iPad 实现与安装
 
-当前交付是 **0.7.16-mobile.14 开发候选**，支持 iOS/iPadOS 17+。源码基线为
+当前交付是 **0.7.16-mobile.15 开发候选**，支持 iOS/iPadOS 17+。源码基线为
 d824c0b854e54d5411cb072092999823e9bd7071；移动分支发布到 Kun686/folia-Player，服务器部署记录见 SERVER_VALIDATION.md。
 2026-10-11 已按用户指定接通 `https://music.nb686.cn`，在 mobile.12 中完成以下用户实测：
 HTTPS 与网关认证已验证；用户已确认 iPhone 的真实 QQ 登录成功、可见账号或歌单。
@@ -15,13 +15,15 @@ HTTPS 与网关认证已验证；用户已确认 iPhone 的真实 QQ 登录成�
 原生导出输入检查 2 项通过；用户确认升级后两平台登录保留、播放及导出正常。
 在线歌词导入文件被置灰为已确认问题；mobile.14 取消移动在线导入的扩展名过滤，保留原解析器、
 大小限制及存储逻辑。源码 `a5de02f0a28f31dc9ceda443e7e22babc169087a` 已原位安装、启动并回读 build 14。
-类型检查、13 项逻辑、6 项 WebKit、签名构建和准确源码 CI 通过；真机回导待复测，
+类型检查、13 项逻辑、6 项 WebKit、签名构建和准确源码 CI 通过；用户已确认两种文件均可选择、导入并正常显示，
 见 [LYRIC_EXPORT.md](LYRIC_EXPORT.md)。
+mobile.15 接入原版批量歌词导出，已原位安装并回读 build 15。用户提供清单（18 首导出、2 首跳过）并确认回导显示正常；
+9 首旧缓存缺歌曲身份，导出正文但标注分词／校准不可恢复。详见 [BATCH_LYRIC_EXPORT.md](BATCH_LYRIC_EXPORT.md)。
 按用户最新要求优先移植原播放器、歌词和动效，同时支持本地导入与网易云／QQ。
 服务器配置不再是使用 App 的前提。真实平台与真机完整验收尚未完成，不能作为已验收安装包发布。
 
 历史 mobile.12 已原位安装并启动于 iPhone XS Max / iOS18.7.10，其源码提交及安装包摘要见
-VALIDATION.md；BUILD_RECORD.json 现描述 mobile.14。mobile.13、mobile.12 和 mobile.11 旧安装包保留用于回退。
+VALIDATION.md；BUILD_RECORD.json 现描述 mobile.15；mobile.14 及更早安装包保留用于回退。
 新增包含原歌词时间校准、GBK／KRC 导入、内嵌／导入歌词来源管理、本地完整匹配及 Partita 长词适配。
 本轮 142 项移动逻辑与 17 项 iPhone 原生专项通过；界面结果沿用各功能阶段证据，
 不代表真实平台 App 链路、全部原生动画表现或长期真机验收已完成。

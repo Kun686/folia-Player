@@ -48,7 +48,11 @@ actor NativeLyricCache {
         }
         guard token(id.provider!) == epoch else { throw CancellationError() }
         try Task.checkCancellation()
-        if !raw.isEmpty { try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: path(id).path) }
+        if !raw.isEmpty {
+            // Optional identity repair must not withhold playable lyrics or recreate a deleted cache entry.
+            try? NativeLyricExport.recoverMetadata(song, at: path(id))
+            try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: path(id).path)
+        }
         result["token"] = epoch
         return result
     }

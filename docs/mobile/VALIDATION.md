@@ -20,8 +20,9 @@
 - 交付：`移动端交付/Folia-0.7.16-mobile.15-5bb9d06f-development.ipa`，8,068,760字节，
   SHA256 `77297ae591d3c1c7cdcd90d0e202747f35af1f1b01f6bcad62f6a96986c3aee9`。
   原位安装／启动成功；个人 App 未卸载；保留 mobile.14 且校验哈希未变。
-- NOT_RUN：用户实际批量 ZIP 系统分享、存储与解压回导；已请求真机反馈。物理 iPad、长期性能等保持原状态。
-  mobile.14 的单曲回导用户反馈单独记录，不能自动算作本版批量验收。完整移植仍 IN_PROGRESS。
+- PASS_USER_CONFIRMED：用户提供导出清单（18首、两种格式、2首跳过）并反馈「歌词可以导入显示」。
+  清单有9首旧缓存身份缺失警示；没有独立读取 ZIP 字节、逐首内容或测量时序。物理 iPad、长期性能等保持原状态。
+  批量实测证据为 `mobile15-device-manual.json`；mobile.14 单曲回导单独记录。完整移植仍 IN_PROGRESS。
 
 证据位于 `.mobile-test-results/batch-*` 与 `mobile15-*`，包括原生 xcresult、签名资源检查、
 安装／启动／设备版本回读及 CI。BUILD_RECORD.json 绑定实际构建源码，不绑定后续文档提交。

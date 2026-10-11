@@ -1,6 +1,6 @@
 import Foundation
 
-// NativeLyricExport.swift — bounded, read-only cache inventory; old unidentified lyrics remain exportable.
+// NativeLyricExport.swift — bounded cache identity recovery and read-only export inventory.
 enum NativeLyricExport {
     static func metadata(_ song: [String: Any]) throws -> [String: Any] {
         var clean = try PlaybackEngine.sanitizedSong(song)
@@ -31,6 +31,19 @@ enum NativeLyricExport {
         guard let raw = record["song"] as? [String: Any], let clean = try? metadata(raw),
               NativeProfileIdentity(clean)?.key == record["identity"] as? String else { return nil }
         return clean
+    }
+    // Playback supplies the original identity again. Reload after the parser's await so a concurrent edit wins.
+    static func recoverMetadata(_ rawSong: [String: Any], at file: URL) throws {
+        var current = try record(file)
+        guard song(current) == nil else { return }
+        let clean = try metadata(rawSong)
+        guard NativeProfileIdentity(clean)?.key == current["identity"] as? String else {
+            throw MobileFailure("invalid-lyric-identity")
+        }
+        current["song"] = clean
+        let data = try JSONSerialization.data(withJSONObject: current, options: .sortedKeys)
+        guard data.count <= 8_000_000 else { throw MobileFailure("lyrics-too-large") }
+        try data.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
     static func inventory(root: URL, knownSongs: [[String: Any]]) throws -> [[String: Any]] {
         var known: [String: [String: Any]] = [:]
