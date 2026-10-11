@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+当前个人候选为 mobile.28，已原位安装、启动并回读；签名、源码／资源与准确源码 CI 已核验，详见 [VALIDATION.md](VALIDATION.md)。
+文件夹导入／管理已随该版本加入；后续全目录重扫仅完成独立 QA 验证，详见 [LOCAL_FOLDER_RESCAN.md](LOCAL_FOLDER_RESCAN.md)。
+本版真实本地曲库及手机在线复测仍 NOT_RUN，历史反馈不自动算作新版本验收。
+
 mobile.26 接入 M3U 导入／系统分享，28 项逻辑、33 项独立 WebKit、3 项原生模拟器测试通过；
 最终 iPad 模拟器已实际完成系统分享存储、文件选择、导入及终止重启恢复。使用合成音频和旧本机 ID 引用，
 不代表跨设备文件或手机新功能验收，见 [LOCAL_PLAYLIST_FILES.md](LOCAL_PLAYLIST_FILES.md)。
@@ -116,6 +120,8 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | 不配置服务器进入曲库 | PASS | 浏览器样本及 iPad 模拟器实际启动 |
 | 系统文件选择器多选音频并导入 | PASS | iPad Pro 11-inch (M5) / iPadOS 26.5 Simulator，4 个明确标注的合成 WAV |
 | 本地原生播放与自动跨曲 | PASS | iPad 模拟器实际界面观察；另有独立原生四曲队列测试，无 WebView／网关 |
+| 文件夹系统导入、浏览及单目录管理 | PASS（逻辑、WebKit、两端原生 QA 及模拟器系统选择器）；真实曲库 NOT_RUN | 已随 mobile.28 安装；原生每端 57 项、真实系统选择器导入生成样本，见 LOCAL_FOLDER_FLOW.md |
+| 全部根目录顺序重扫 | PASS（23 项相关逻辑、18 项 WebKit、独立 iPad QA）；个人包尚未接入 | 实际两个目录更新歌词／新增歌曲、重启再重扫与稳定身份通过；失败／取消在受控测试覆盖，见 LOCAL_FOLDER_RESCAN.md |
 | 本地专辑／艺术家浏览与组内搜索播放 | PASS（逻辑、WebKit、最终 iPad 模拟器容器）；真机 NOT_RUN | mobile.24 复用原分组／排序，保留原生歌曲身份；实时元数据变化、长名称及虚拟列表已测，见 LOCAL_BROWSING.md。稳定实体编辑与本地歌单不在本批交付内 |
 | LRC 导入与原歌词渲染 | PASS | 系统选择器实际导入，Classic 歌词与动效展示、Partita 播放态展示 |
 | iPhone／iPad 横竖屏切换 | PASS（mobile.17／18 界面回归及部分实际模拟器）；完整真机矩阵 NOT_RUN | mobile.16分栏已被用户反馈替换，当前为全屏画布及悬浮控制。mobile.17用户反馈“看着还可以”，mobile.19外观暂定保留；不等于逐项旋转和物理iPad、键盘／多任务验收，见 FULLSCREEN_LAYOUT.md |
