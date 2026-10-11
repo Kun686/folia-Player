@@ -1,5 +1,29 @@
 # 移动候选验证记录
 
+## mobile.23：心象字号滑块触摸修复（当前开发候选）
+
+2026-10-12，准确源码 `169d0618c33cab4b14a37dee0df9df75d1582c4e`。
+
+- mobile.22 用户报告「心象，拖不动」，FAIL_USER_REPORTED；手机无字体文件，导入未测。
+  字体／字幕原生滑块加入局部非 passive 监听及 `touch-action: none`，原设置数据与范围保留。
+- PASS：TypeScript、18 项移动 WebKit 回归；干净 iPad Pro 11-inch M5 / iPadOS26.5 容器
+  实际字号双向拖动、透明度拖动、面板滚动及重启恢复通过。诊断过程、失败试改和证据边界见 [TYPOGRAPHY.md](TYPOGRAPHY.md)。
+- PASS_BUILD：最终源码 `npm run ios:sync`、个人 iPhone Release 签名构建。
+  首次漏传开发团队导致签名检查停止，补齐既有 `DEVELOPMENT_TEAM` 后通过；未修改签名保护或生产依赖。
+- PASS_PACKAGE：3,003 项源码输入冻结，120 项生成资源与同步目录、签名 App 一致；
+  IPA 逐文件、开发证书／profile／设备绑定通过，不含 XCTest 或临时诊断脚本。
+  源码指纹 `1784cb25203ca4e8c3298c83c5942c8bc876227ff612f1a2b486f0208b91d1c0`。
+- PASS_CI：[准确源码 Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38161855248)。
+- PASS_INSTALL：iPhone XS Max / iOS18.7.10 原位更新 `app.folia.personal`，启动成功，回读 build23；
+  从未卸载个人 App。用户复测心象字号／歌词变化的问题已发出，结果待反馈。
+- 交付：`移动端交付/Folia-0.7.16-mobile.23-1784cb25-development.ipa`，7,944,044 字节，
+  SHA256 `90c4d11c7d47875b919c9af8c6777fa14b84d331fae9b23967f0185960f90f53`。
+  mobile.22 安装包保留且摘要复核未变；当前没有设置数据迁移。
+- NOT_RUN：本版 iPhone 修复实际操作、真机字体导入、物理 iPad及完整长期／异常矩阵。
+
+证据：`.mobile-test-results/mobile23-*`、`font-size-combined-*`、`font-size-clean-*.png`；
+已停止本轮模拟器，无持续日志或测试服务遗留，个人 iPhone App 留给用户复测。
+
 ## mobile.22：原版字体与字幕设置
 
 2026-10-12，准确源码 `da8f6894419e6b75ddbd62f7197763eb2671bd16`。

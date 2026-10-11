@@ -24,6 +24,9 @@
   截图 `font-size-clean-{drag,restored}.png`，均在忽略目录 `.mobile-test-results/`。
   临时诊断 App 只装于模拟器，未打入个人包；所有模拟器结论不替代 iPhone 用户复测。
 - NOT_RUN：修复后的个人 iPhone 手势／歌词视觉变化、物理 iPad、真机字体文件导入。
+- PASS_INSTALL：mobile.23 已原位更新个人 iPhone、启动并回读 build23；准确源码
+  `169d0618c33cab4b14a37dee0df9df75d1582c4e`，签名、资源／IPA 校验与准确源码 CI 通过。
+  用户复测问题已发出，尚无结果；安装不替代上面的 NOT_RUN。
 
 ## 复用与范围
 
@@ -64,7 +67,7 @@
 | 原生构建 | PASS，`npm run ios:sync`、Release arm64 Simulator；Swift 源码和生产依赖未修改 |
 | 实际容器 | PASS_SIMULATOR_INTERACTION，iPad Pro 11-inch M5 / iPadOS26.5；从系统文件选择器选中本机测试 TTF，设置显示字体名，终止／重开 App 后保留，再恢复内置字体 |
 | 真机 | NOT_RUN，新设置的 iPhone／物理 iPad 文件选择、所有字体格式、巨大中文字体性能及歌词字体视觉对照 |
-| 个人安装 | PASS_INSTALL，后续已制作 mobile.22、原位更新个人 iPhone、启动并回读 build22；`BUILD_RECORD.json` 描述 mobile.22。安装不代表新功能真机操作通过 |
+| 个人安装 | PASS_INSTALL，mobile.22 后已原位更新字号修复 mobile.23、启动并回读 build23；`BUILD_RECORD.json` 描述 mobile.23。安装不代表新功能真机操作通过 |
 
 模拟器正向操作在最后补充取消错误分类之前完成；最终取消路径由上述新增逻辑测试验证，
 最终源码的真实字体上传／刷新恢复由 WebKit 再次验证。不能把模拟器短测视作最终个人包验收。
@@ -96,4 +99,4 @@ FOLIA_TEST_FONT=/path/to/locally-licensed.ttf npm run test:mobile:ui -- test/mob
 
 移动入口可独立撤回；播放器、媒体和账号无迁移。旧 Blob 数据继续可读；新上传会替换该字体记录。
 旧源码不识别 v2 字节记录，回退到旧源码时自定义字体可能回落至内置字体；保留原字体文件，
-再次升级后可重新导入。禁止通过卸载个人 App 回退；已安装 mobile.22，旧 mobile.21 IPA 保留。
+再次升级后可重新导入。禁止通过卸载个人 App 回退；已安装 mobile.23，旧 mobile.22／21 IPA 保留。
