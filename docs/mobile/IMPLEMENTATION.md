@@ -5,7 +5,7 @@
 27 项相关逻辑、15 项 WebKit（最后界面调整另重跑其中 6 项）、模拟器与 iPhone QA 各 57 项原生测试通过。
 iPad 模拟器系统选择器实际导入生成 WAV／LRC，播放、翻译、横屏和重启重扫通过；
 真实文件提供器授权恢复、大曲库和真机手动目录导入仍未验收。
-mobile.28 正在准备打包，个人 App 仍为 mobile.27，详见 [LOCAL_FOLDER_FLOW.md](LOCAL_FOLDER_FLOW.md)。
+已汇入 mobile.28 并原位安装于个人 iPhone，启动并回读 build28；详见 [LOCAL_FOLDER_FLOW.md](LOCAL_FOLDER_FLOW.md)。
 
 实体编辑已接通原版面板、原生曲库、匹配保护与队列，已汇入 mobile.27 并原位安装；
 92 项逻辑、33 项独立 WebKit（最终布局另重跑其中 12 项）、模拟器与 iPhone 各 14 项原生测试通过。
@@ -35,7 +35,13 @@ iPad 模拟器实际完成系统分享保存、选择文件、导入及重启恢
 另修复切歌后旧歌词文件选择结果提交的竞态。17 项逻辑、78 项 WebKit 回归及 15 项补充导入专项通过，
 专项包含重复回归；该阶段记录见 [LOCAL_BROWSING.md](LOCAL_BROWSING.md)，后续歌单与实体编辑见上文。
 
-当前交付是 **0.7.16-mobile.27 开发候选**，支持 iOS/iPadOS 17+。
+当前交付是 **0.7.16-mobile.28 开发候选**，支持 iOS/iPadOS 17+。
+准确源码 `25e69b409b30ac9bebcadb8ed179c8d281c226e8`；2026-10-12 原位更新个人 iPhone，启动并回读 build28。
+3,079 项源码输入、122 项资源、签名／IPA 和准确源码 CI 核验通过；164 项已测原生输入中仅构建号发生变化。
+本版接入系统目录导入与管理，保留已接受的播放器与动效；真实文件提供器、实际曲库和本版手机在线复测仍 NOT_RUN。
+mobile.27 原包保留且摘要未变；完整移植仍 IN_PROGRESS。详见 [VALIDATION.md](VALIDATION.md)。
+
+此前 **mobile.27** 的证据：
 准确源码 `e98b13e8671ff6c9afd9db3b014f49e4a425b706`；2026-10-12 原位更新个人 iPhone，启动并回读 build27。
 3,043 项源码输入、121 项资源、签名／IPA、准确源码 CI 通过。原本地实体编辑现已接入原生曲库与队列；
 本版手机在线复测、用户本地曲库、物理 iPad、大曲库与长期测试仍 NOT_RUN，完整移植仍 IN_PROGRESS。

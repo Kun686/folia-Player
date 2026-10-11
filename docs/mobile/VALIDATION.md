@@ -1,6 +1,31 @@
 # 移动候选验证记录
 
-## 文件夹导入闭环：源码验证通过，mobile.28 待打包
+## mobile.28：系统文件夹导入与管理（当前已安装开发候选）
+
+2026-10-12，准确源码 `25e69b409b30ac9bebcadb8ed179c8d281c226e8`。
+系统目录选择、配套歌词／封面、子目录浏览、重扫、忽略／恢复和移除已汇入个人候选；
+沿用原业务规则和已接受的全屏播放器，没有新增生产依赖。详细测试范围见 [LOCAL_FOLDER_FLOW.md](LOCAL_FOLDER_FLOW.md)。
+
+- PASS_BUILD：`npm run ios:sync` 与 iPhone Release 开发签名构建。164 项已测原生输入中，
+  仅工程构建号由 27 改为 28；其余输入摘要一致。构建保留已有 NativeDeckAnalysis Sendable 警告，未宣称零警告。
+- PASS_PACKAGE：3,079 项冻结源码输入、122 项资源；同步目录、签名 App 与 IPA 逐文件核验通过，
+  签名、profile、设备绑定及证书匹配。源码指纹 `a7bb14b0c167acd4d91d82f79c530c59f92d37349099ce6144f49c0015a6ae62`。
+- PASS_CI：[准确源码 Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38179232026)，
+  vendor、干净依赖安装、TypeScript、mobile 单测与构建通过。
+- PASS_INSTALL：iPhone XS Max / iOS18.7.10 原位更新 `app.folia.personal`，启动成功并回读 `bundleVersion: 28`。
+  未卸载个人 App；独立 QA 包未残留。
+- PASS_CLEANUP：模拟器保持关闭，无本轮构建／测试／日志进程残留；个人 App 保留运行供用户使用。
+- 交付：`移动端交付/Folia-0.7.16-mobile.28-a7bb14b0-development.ipa`，8,135,709 字节，
+  SHA256 `e1d670ccb7168073bac29a9d76c922aada29c6b2afdac813be82c8a7271d5859`。
+  比 mobile.27 增加 142,766 字节；mobile.27 原包保留且摘要未变。
+- NOT_RUN：本版手机在线复测、真实本地音乐、真机系统目录选择、iCloud／NAS 授权恢复、物理 iPad 与大曲库／长期测试。
+  用户暂无本地音乐；不把生成样本和旧版在线反馈写成本版用户验收。完整移植仍 IN_PROGRESS。
+
+本轮证据为 `.mobile-test-results/mobile28-*`，源码／资源清单另保存在 `BUILD_RECORD.json` 和交付目录。
+初次对全部测试输入的比较因已再生成的前端 `public/index.html` 失败；随后单独核验原生输入，
+最终前端以本版源码重新构建并逐文件核对，不沿用旧生成资源的摘要。
+
+## 文件夹导入闭环：开发阶段验证
 
 2026-10-12，复用原文件分类、`.foliaignore`、歌词排序和封面优先级，新增独立 actor 中的完整目录扫描与增量计划。
 TypeScript、69 项逻辑通过；iPad 模拟器和独立 iPhone QA 各 5 项原生测试通过，
@@ -19,7 +44,7 @@ iPad 模拟器中实际用系统 Files 选择生成 WAV／LRC 目录，忽略规
 QA 已移除、个人 App 已打开，前后完整安装记录一致；本轮没有新个人安装包。
 构建描述修正及具体证据见 [LOCAL_FOLDERS.md](LOCAL_FOLDERS.md)。完整移植仍 IN_PROGRESS。
 
-## mobile.27：本地专辑／艺术家编辑（当前已安装开发候选）
+## mobile.27：本地专辑／艺术家编辑（历史候选）
 
 2026-10-12，详见 [LOCAL_ENTITIES.md](LOCAL_ENTITIES.md)。原版改名、合并、拆分已接入完整原生曲库、
 匹配保护与原生队列，复用原编辑面板及展示映射，无新依赖。

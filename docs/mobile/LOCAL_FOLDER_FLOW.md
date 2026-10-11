@@ -3,6 +3,11 @@
 2026-10-12。承接 `LOCAL_FOLDERS.md` 的扫描、原子事务及配套歌词／封面基础层。
 本轮不新增依赖，不改播放器、动效和在线 provider，不更新个人安装包。
 
+后续打包：已汇入 **mobile.28**，2026-10-12 原位更新个人 iPhone 并启动，回读 build28。
+准确源码 `25e69b409b30ac9bebcadb8ed179c8d281c226e8`；签名、资源一致性及
+[准确源码 CI](https://github.com/Kun686/folia-Player/actions/runs/38179232026) 通过。
+下文“个人 App 保持 mobile.27”描述独立 QA 开发阶段；当前交付见 [VALIDATION.md](VALIDATION.md)。
+
 ## 已接入
 
 - 本地音乐增加“文件夹”分类。通过 iOS 系统目录选择器导入，浏览根目录／子目录，搜索范围内歌曲，
