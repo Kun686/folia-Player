@@ -7,7 +7,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "FoliaNativePlugin"
     public let jsName = "FoliaNative"
     public let pluginMethods: [CAPPluginMethod] = ["bootstrap", "configure", "health", "saveSession", "clearSession",
-        "request", "cancelRequests", "setQueue", "editQueue", "selectQueue", "command", "getState", "shareQR",
+        "request", "cancelRequests", "setQueue", "editQueue", "selectQueue", "command", "getState", "shareQR", "copyText",
         "localCatalog", "importAudio", "localDetails", "importLyrics", "pickLyricFile", "saveLocalLyrics", "readLocalLyrics", "selectLocalLyrics", "readLocalMatch", "writeLocalMatch", "removeLocal", "audioLevels",
         "getAudioSettings", "setAudioSettings", "getTransitionSettings", "setTransitionSettings", "getMediaCacheSettings", "setMediaCacheSettings",
         "mediaCacheState", "clearMediaCache", "songCover", "coverCacheState", "clearCoverCache",
@@ -241,6 +241,11 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
                 } catch { call.reject((error as? MobileFailure)?.code ?? "import-failed") }
             }
         }
+    } }
+    @objc func copyText(_ call: CAPPluginCall) { run(call) {
+        guard let text = call.getString("text"), text.utf8.count <= 2_000_000 else { throw MobileFailure("invalid-text") }
+        UIPasteboard.general.string = text
+        call.resolve()
     } }
     @objc func shareQR(_ call: CAPPluginCall) { run(call) {
         guard let raw = call.getString("image"), raw.hasPrefix("data:image/"), raw.count <= 4_000_000,

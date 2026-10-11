@@ -42,7 +42,7 @@ h1, h2, p { margin: 0; } h1 { font-size: 32px; letter-spacing: -.04em; } h2 { fo
   padding: 8px max(16px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); background: var(--raised); border-top: 1px solid var(--border); }
 .mini-title { display: flex; align-items: center; gap: 16px; min-width: 0; flex: 1; text-align: left; }
 .player-panel { display: none; }
-.player-panel.expanded { display: flex; position: fixed; inset: 0; z-index: 30; background: var(--bg); padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); flex-direction: column; }
+.player-panel.expanded { display: flex; position: fixed; inset: 0; z-index: 30; background: var(--bg); padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); flex-direction: column; overflow-y: auto; }
 .player-collapse { margin: 8px 12px; align-self: flex-start; background: transparent; }
 .lyric-stage { position: relative; isolation: isolate; overflow: hidden; flex: 1; min-height: 200px; }
 .lyric-stage > div { position: absolute !important; inset: 0; }
@@ -52,7 +52,7 @@ h1, h2, p { margin: 0; } h1 { font-size: 32px; letter-spacing: -.04em; } h2 { fo
 .empty-lyrics { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 24px; }
 .empty-lyrics span { font-family: Georgia, serif; font-size: 70px; font-style: italic; letter-spacing: -.06em; }
 .empty-lyrics p { color: var(--muted); font-size: 13px; }
-.player-controls { padding: 20px 24px; } .player-controls h2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player-controls { padding: 20px 24px; min-width: 0; flex-shrink: 0; } .player-controls h2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .player-controls p { color: var(--muted); font-size: 13px; margin: 8px 0; } input[type=range] { width: 100%; padding: 0; accent-color: var(--text); }
 .player-options { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 12px; }
 .player-options button { font-size: 12px; }
@@ -145,10 +145,14 @@ h1, h2, p { margin: 0; } h1 { font-size: 32px; letter-spacing: -.04em; } h2 { fo
 @media (min-width: 850px) {
   .mobile-app { display: grid; grid-template-columns: minmax(340px, 42%) minmax(0, 1fr); height: 100dvh; overflow: hidden; }
   .library-panel { width: 100%; max-width: none; overflow-y: auto; margin: 0; border-right: 1px solid var(--border); padding: 36px 28px; }
-  .player-panel, .player-panel.expanded { position: relative; z-index: 1; inset: auto; display: flex; flex-direction: column; min-width: 0; padding: 0 0 env(safe-area-inset-bottom); }
+  .player-panel, .player-panel.expanded { position: relative; z-index: 1; inset: auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; padding: 0 0 env(safe-area-inset-bottom); }
   .mini-player, .player-collapse { display: none; } .player-controls { padding: 30px 40px; }
 }
-@media (max-height: 500px) and (max-width: 849px) { .player-panel.expanded { flex-direction: row; } .player-controls { width: 48%; align-self: center; } }
+/* A reduced portrait viewport must retain full-width controls; landscape controls scroll independently. */
+@media (max-height: 500px) and (min-width: 600px) and (max-width: 849px) {
+  .player-panel.expanded { flex-direction: row; }
+  .player-controls { width: 48%; max-height: 100%; overflow-y: auto; align-self: center; }
+}
 
 /* Original cache controls retain their visual sizes within the mobile settings sheet. */
 .mobile-cache-controls { border: 0; padding: 0; margin-top: 24px; min-width: 0; }
@@ -172,3 +176,16 @@ h1, h2, p { margin: 0; } h1 { font-size: 32px; letter-spacing: -.04em; } h2 { fo
   .mobile-local-match [data-local-match-preview] > div:first-child > div:first-child { width: 64px; height: 64px; }
   .mobile-local-match [data-match-results] > div:last-child { max-height: 24dvh; }
 }
+
+/* Original segmentation surface hosted in a touch sheet; preview owns its scroll area. */
+.sheet.mobile-segmentation { width: min(100%, 840px); height: min(90dvh, 820px); display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+.mobile-segmentation header { flex-shrink: 0; gap: 10px; margin-bottom: 8px; }
+.mobile-segmentation h2 { font-size: 18px; }
+.sheet.mobile-segmentation > p { margin-block: 6px; overflow-wrap: anywhere; flex-shrink: 0; }
+.mobile-segmentation-body { min-height: 0; flex: 1; margin-top: 8px; }
+.mobile-segmentation-body button { min-height: 44px; min-width: 44px; touch-action: manipulation; }
+.mobile-segmentation-import { flex-shrink: 0; max-height: 40dvh; overflow: auto; }
+.mobile-segmentation-import summary { min-height: 44px; padding: 10px 0; cursor: pointer; }
+.sheet .mobile-segmentation-import label { margin-block: 4px; }
+.mobile-segmentation-import textarea { font-size: 16px; resize: vertical; min-height: 72px; }
+@media (max-height: 500px) { .sheet.mobile-segmentation { padding: 12px; } .mobile-segmentation > .muted { display: none; } }

@@ -77,7 +77,7 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
   useEffect(() => { currentLyricSongKey.current = lyricSongKey; return () => { currentLyricSongKey.current = ''; }; }, []);
   const lyricTools = lyricToolsFor === lyricSongKey;
   useEffect(() => { setLyricToolsFor(null); }, [lyricSongKey]);
-  const { lyrics, rawLyrics, cover, error: lyricsError, refresh } = useMobileLyrics(song ?? undefined, lyricTools);
+  const { lyrics, rawLyrics, cover, error: lyricsError, segmentation, refresh } = useMobileLyrics(song ?? undefined, lyricTools);
   const rendering = visible && (expanded || wide) && !visualSettings && !audioSettingsOpen && !transitionSettings && !lyricTools;
   const audio = useNativeAudio(rendering, state.playing);
   const importLyrics = async () => {
@@ -137,7 +137,7 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
     <TransitionControls light={light} theme={light ? appearance.theme.light : appearance.theme.dark}
       open={transitionSettings} setOpen={setTransitionSettings} />
     {lyricTools && song && <LyricTools key={lyricSongKey} song={song} time={time} lyricTime={lyricTime} lyrics={lyrics}
-      rawLyrics={rawLyrics} duration={state.duration} onSeek={seekLyrics} theme={light ? appearance.theme.light : appearance.theme.dark}
+      rawLyrics={rawLyrics} segmentation={segmentation} duration={state.duration} onSeek={seekLyrics} theme={light ? appearance.theme.light : appearance.theme.dark}
       offsetMs={offsetMs} onOffsetChange={setOffsetMs} light={light} visible={visible} close={() => setLyricToolsFor(null)} />}
     {visualSettings && <VisualSettings light={light} appearance={appearance} close={() => setVisualSettings(false)} />}
   </section>;

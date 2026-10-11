@@ -10,15 +10,18 @@ import LyricTimelineOffsetControl from '../components/panelTab/LyricTimelineOffs
 import LocalLyricTools from './LocalLyricTools';
 import LyricDisplaySettings from './LyricDisplaySettings';
 import LyricsTimelineModal from '../components/modal/LyricsTimelineModal';
+import LyricSegmentationEditor from './LyricSegmentationEditor';
+import type { MobileSegmentation } from './useMobileSegmentation';
 import { getLyricProviderLabel, getSongNativeLyricProviderSource } from '../utils/lyrics/lyricSourceLabels';
 import { LYRIC_IMPORT_ACCEPT } from '../utils/lyrics/lyricFileDecoding';
 import { importMobileOnlineLyrics, resetMobileOnlineLyrics, scopedLyricStorage, switchMobileOnlineLyrics } from './onlineLyricEditor';
 
 // LyricTools.tsx — original lyric operations and timing controls, keyed to the displayed song by the parent.
 const sources = ['netease', 'qq'] as const;
-export default function LyricTools({ song, time, lyricTime, lyrics, rawLyrics, duration, onSeek, theme, offsetMs, onOffsetChange, light, visible, close }: {
+export default function LyricTools({ song, time, lyricTime, lyrics, rawLyrics, segmentation, duration, onSeek, theme, offsetMs, onOffsetChange, light, visible, close }: {
   song: SongResult; time: MotionValue<number>; lyricTime: MotionValue<number>; lyrics: LyricData | null;
   rawLyrics: LyricData | null; duration: number; onSeek(position: number): void; theme: Theme;
+  segmentation: MobileSegmentation;
   offsetMs: number; onOffsetChange(value: number): void; light: boolean; visible: boolean; close(): void;
 }) {
   const { t } = useTranslation(), input = useRef<HTMLInputElement>(null), active = useRef(true), locked = useRef(false);
@@ -27,6 +30,7 @@ export default function LyricTools({ song, time, lyricTime, lyrics, rawLyrics, d
   const [matching, setMatching] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(false);
   const [calibrating, setCalibrating] = useState(false);
   const [displaySettings, setDisplaySettings] = useState(false), [timeline, setTimeline] = useState(false);
+  const [segmenting, setSegmenting] = useState(false);
   const [retry, setRetry] = useState(0);
   const online = song.sourceRef?.kind === 'online';
   useEffect(() => {
@@ -49,6 +53,8 @@ export default function LyricTools({ song, time, lyricTime, lyrics, rawLyrics, d
     finally { locked.current = false; if (active.current) setBusy(false); }
   };
   if (displaySettings) return <LyricDisplaySettings lyrics={rawLyrics} title={song.name} light={light} close={() => setDisplaySettings(false)} />;
+  if (segmenting) return <LyricSegmentationEditor lyrics={rawLyrics} title={song.name} segmentation={segmentation}
+    theme={theme} light={light} close={() => setSegmenting(false)} />;
   if (timeline) return <div className="mobile-lyrics-timeline"><LyricsTimelineModal isOpen={visible} lyrics={lyrics}
     currentTime={lyricTime} duration={duration} onSeek={onSeek} onClose={() => setTimeline(false)}
     isDaylight={light} theme={theme} primaryColor={theme.primaryColor} secondaryColor={theme.secondaryColor} accentColor={theme.accentColor} /></div>;
@@ -84,6 +90,7 @@ export default function LyricTools({ song, time, lyricTime, lyrics, rawLyrics, d
     <div className="mobile-lyric-timing">
       <button onClick={() => setTimeline(true)}>{t('timeline.title')}</button>
       <button onClick={() => setDisplaySettings(true)} disabled={!rawLyrics}>{t('lyricFilter.title')}</button>
+      <button onClick={() => setSegmenting(true)} disabled={!rawLyrics}>{t('commandPalette.commands.lyric-segmentation.title')}</button>
       <LyricTimelineOffsetControl offsetMs={offsetMs} onOffsetChange={onOffsetChange} isDaylight={light} />
       <button onClick={() => setCalibrating(true)}>{t('options.globalLyricTimelineOffset')}</button>
     </div>

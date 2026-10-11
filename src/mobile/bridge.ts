@@ -65,6 +65,7 @@ export interface FoliaNativePlugin {
   command(options: { action: 'play' | 'pause' | 'next' | 'previous' | 'seek' | 'repeat'; position?: number; mode?: string }): Promise<void>;
   getState(): Promise<PlaybackSnapshot>;
   shareQR(options: { image: string }): Promise<void>;
+  copyText(options: { text: string }): Promise<void>;
   addListener(name: 'playback', listener: (state: PlaybackEvent) => void): Promise<PluginListenerHandle>;
 }
 export const native = registerPlugin<FoliaNativePlugin>('FoliaNative');

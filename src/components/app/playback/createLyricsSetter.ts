@@ -11,6 +11,7 @@ import { applyDetectedChorusEffects, applyNeteaseChorusByTime } from '../../../u
 import type { NeteaseChorusRange } from '../../../utils/lyrics/chorusEffects';
 import { getPlaybackSongKey } from '../../../utils/appPlaybackGuards';
 import { applyLyricsTransform, untransformedLyrics } from '../../../services/hostExtensionHooks';
+import type { LyricSegmentationRecord } from '../../../types/lyricSegmentation';
 
 // src/components/app/playback/createLyricsSetter.ts
 
@@ -42,6 +43,7 @@ export const createLyricsProcessor = (
     lyricFilterPattern: string,
     currentSongFullRef?: MutableRefObject<SongResult | null>,
     staffOptions?: LyricStaffPolicyOptions,
+    segmentationRecord?: LyricSegmentationRecord | null,
 ) => {
     let lastSongId: number | string | null = null;
     let cachedNeteaseChorusRanges: NeteaseChorusRange[] | null = null;
@@ -99,7 +101,8 @@ export const createLyricsProcessor = (
             // Word segmentation is baked onto the lines here because visualizers receive lines
             // with no song identity and so cannot look up a per-song override themselves. Last in
             // the chain, so it sees the lines that actually survived filtering.
-            processed = applyLyricWordSegmentation(processed, getLyricSegmentationRecord());
+            processed = applyLyricWordSegmentation(processed,
+                segmentationRecord === undefined ? getLyricSegmentationRecord() : segmentationRecord);
             // Extension layers (Folium `lyrics.transform`) see the finished lyrics once per load.
             return applyLyricsTransform(ensureLyricDataRenderHints(processed));
         } else {

@@ -863,6 +863,12 @@ export default {
     "batchDesc": "在命令面板里一次导出所有缓存的歌词"
   },
   "lyricSegmentation": {
+    "saveFailed": "分词保存失败，请重试。",
+    "loadFailed": "分词记录读取失败，请重试。",
+    "importText": "粘贴／编辑分词",
+    "pasteLabel": "分词结果（每行用 / 分隔，或粘贴 JSON）",
+    "applyImport": "保存分词",
+    "mobileHint": "使用分词排版的歌词模式会应用这些词边界。可复制提示词到模型工具，再粘贴结果；App 内 AI 调用尚未接入。",
     "statusDefault": "默认分词",
     "sourceAi": "AI 分词",
     "sourceManual": "手动分词",

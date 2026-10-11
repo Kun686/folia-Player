@@ -7,6 +7,7 @@ import { localLyricsFromSnapshot } from '../utils/lyrics/localLyricSnapshot';
 import { native } from './bridge';
 import { useMobileCover } from './useMobileCover';
 import { useLyricDisplay } from './useLyricDisplay';
+import { useMobileSegmentation } from './useMobileSegmentation';
 
 // src/mobile/useMobileLyrics.ts — reuse the original local parser and online Omni pipeline.
 export function useMobileLyrics(song?: SongResult, editing = false) {
@@ -16,7 +17,8 @@ export function useMobileLyrics(song?: SongResult, editing = false) {
   const [version, setVersion] = useState(0);
   const key = JSON.stringify(song?.sourceRef);
   const rawLyrics = loaded?.key === key ? loaded?.lyrics ?? null : null;
-  const lyrics = useLyricDisplay(rawLyrics, song);
+  const segmentation = useMobileSegmentation(song);
+  const lyrics = useLyricDisplay(rawLyrics, song, segmentation.record);
   const wasEditing = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (editing) wasEditing.current = key;
@@ -46,5 +48,5 @@ export function useMobileLyrics(song?: SongResult, editing = false) {
     void load().catch(() => { if (active) setError(true); });
     return () => { active = false; };
   }, [key, version, editing]);
-  return { lyrics, rawLyrics, cover, error, refresh: () => setVersion(v => v + 1) };
+  return { lyrics, rawLyrics, cover, error, segmentation, refresh: () => setVersion(v => v + 1) };
 }

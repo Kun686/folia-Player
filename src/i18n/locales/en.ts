@@ -863,6 +863,12 @@ export default {
     "batchDesc": "Opens the batch export in the command palette"
   },
   "lyricSegmentation": {
+    "saveFailed": "Could not save segmentation. Please retry.",
+    "loadFailed": "Could not load segmentation. Please retry.",
+    "importText": "Paste or edit segmentation",
+    "pasteLabel": "Segmentation (separate words with / per line, or paste JSON)",
+    "applyImport": "Save segmentation",
+    "mobileHint": "Modes with word-based layouts use these boundaries. Copy the prompt to a model tool and paste its response. In-app AI calls are not connected yet.",
     "statusDefault": "Default segmentation",
     "sourceAi": "AI",
     "sourceManual": "Manual",

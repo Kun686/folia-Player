@@ -39,6 +39,9 @@ type LyricSegmentationSurfaceViewProps = {
     /** The flag the user is part-way through typing, so the matching button can be highlighted. */
     pendingAction?: LyricSegmentationAction | null;
     refocusInput?: () => void;
+    /** Touch hosts supply an input where the desktop command palette normally owns paste. */
+    renderImport?: (onImport: (text: string) => Promise<void>, busy: boolean) => React.ReactNode;
+    writeClipboard?: (text: string) => Promise<void>;
 };
 
 /** Lines the model is asked about. Blank lines are skipped so they cannot shift the row mapping. */
@@ -55,6 +58,8 @@ const LyricSegmentationSurfaceView: React.FC<LyricSegmentationSurfaceViewProps> 
     onSave,
     onReset,
     pendingAction,
+    renderImport,
+    writeClipboard = text => navigator.clipboard.writeText(text),
 }) => {
     const [isRunningAi, setIsRunningAi] = useState(false);
     const [progress, setProgress] = useState<SegmentationProgress | null>(null);
@@ -66,6 +71,7 @@ const LyricSegmentationSurfaceView: React.FC<LyricSegmentationSurfaceViewProps> 
     const abortRef = useRef<AbortController | null>(null);
     const [isImporting, setIsImporting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const operationRef = useRef(false);
     // An in-flight request must not write a record after the surface is gone or the song changed.
     //
     // The setup line is load-bearing, not decoration. The app renders under React.StrictMode
@@ -95,15 +101,16 @@ const LyricSegmentationSurfaceView: React.FC<LyricSegmentationSurfaceViewProps> 
 
     const copy = async (text: string, successKey: string, fallback: string) => {
         try {
-            await navigator.clipboard.writeText(text);
-            setStatusMsg({ type: 'success', text: t(successKey, fallback) });
+            await writeClipboard(text);
+            if (isMountedRef.current) setStatusMsg({ type: 'success', text: t(successKey, fallback) });
         } catch {
-            setError(t('lyricSegmentation.copyFailed', 'Could not write to the clipboard'));
+            if (isMountedRef.current) setError(t('lyricSegmentation.copyFailed', 'Could not write to the clipboard'));
         }
     };
 
     const runAi = async () => {
-        if (!lyrics || segmentableLines.length === 0) return;
+        if (!lyrics || segmentableLines.length === 0 || !isAiAvailable || operationRef.current) return;
+        operationRef.current = true;
         const controller = new AbortController();
         abortRef.current = controller;
         setError(null);
@@ -152,6 +159,7 @@ const LyricSegmentationSurfaceView: React.FC<LyricSegmentationSurfaceViewProps> 
                 setProgress(null);
             }
             abortRef.current = null;
+            operationRef.current = false;
         }
     };
 
@@ -170,7 +178,8 @@ const LyricSegmentationSurfaceView: React.FC<LyricSegmentationSurfaceViewProps> 
     })();
 
     const runImport = async (text: string) => {
-        if (!lyrics) return;
+        if (!lyrics || operationRef.current) return;
+        operationRef.current = true;
         setError(null);
         setIsImporting(true);
         try {
@@ -183,10 +192,19 @@ const LyricSegmentationSurfaceView: React.FC<LyricSegmentationSurfaceViewProps> 
                     `lyricSegmentation.importError.${importError.message}`,
                     importError.row ? `Line ${importError.row} does not match the lyrics` : 'Could not read that segmentation',
                 ).replace('{{row}}', String(importError.row ?? ''))
-                : String(importError));
+                : t('lyricSegmentation.saveFailed', 'Could not save segmentation. Please retry.'));
         } finally {
+            operationRef.current = false;
             if (isMountedRef.current) setIsImporting(false);
         }
+    };
+
+    const reset = async () => {
+        if (operationRef.current) return;
+        operationRef.current = true; setIsImporting(true); setError(null);
+        try { await onReset(); }
+        catch { if (isMountedRef.current) setError(t('lyricSegmentation.saveFailed', 'Could not save segmentation. Please retry.')); }
+        finally { operationRef.current = false; if (isMountedRef.current) setIsImporting(false); }
     };
 
     // One implementation behind both the buttons here and the palette input's flags/paste. Kept in
@@ -249,12 +267,14 @@ const LyricSegmentationSurfaceView: React.FC<LyricSegmentationSurfaceViewProps> 
                 onCancelAi={cancelAi}
                 onCopyPrompt={copyPrompt}
                 onCopyCurrent={() => { void copySegmentation(); }}
-                onReset={() => { setError(null); void onReset(); }}
+                onReset={() => { void reset(); }}
             />
 
             {error && (
                 <div role="alert" className="shrink-0 rounded-lg bg-red-500/15 px-2 py-1.5 text-[11px] text-red-400">{error}</div>
             )}
+
+            {renderImport?.(runImport, isRunningAi || isImporting)}
 
             {/* The one scroll region. Its height comes from flex against the palette's fixed body,
                 so nothing here has to be measured. */}

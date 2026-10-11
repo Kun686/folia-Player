@@ -858,6 +858,12 @@ export default {
     "batchDesc": "Membuka ekspor massal di palet perintah"
   },
   "lyricSegmentation": {
+    "saveFailed": "Gagal menyimpan pemenggalan. Coba lagi.",
+    "loadFailed": "Gagal memuat pemenggalan. Coba lagi.",
+    "importText": "Tempel atau edit pemenggalan",
+    "pasteLabel": "Hasil pemenggalan (pisahkan kata dengan / per baris, atau tempel JSON)",
+    "applyImport": "Simpan pemenggalan",
+    "mobileHint": "Mode dengan tata letak berbasis kata memakai batas ini. Salin prompt ke alat model dan tempel hasilnya. Panggilan AI di aplikasi belum tersedia.",
     "statusDefault": "Segmentasi bawaan",
     "sourceAi": "AI",
     "sourceManual": "Manual",
