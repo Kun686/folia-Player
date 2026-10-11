@@ -142,10 +142,13 @@ const AutomixTransitionAnimation: React.FC<AutomixTransitionAnimationProps> = ({
         // preview comes down this same channel, and it is not this ring's business either to draw
         // it or to cut short whatever this ring is already drawing.
         if (!shouldDrawCue(next, settingsAutomixSettings.transitionAnimation && settingsAutomixSettings.transitionMode === 'automix', 'ring')) return;
+        const running = getActiveTransitionCue();
+        // A resumed cue can expire between receipt and this listener; it must not restart at zero.
+        if (running?.cue !== next) return;
         dismissAnimationRef.current?.cancel();
         dismissAnimationRef.current = null;
         leavingRef.current = false;
-        setRun({ cue: next, startAtMs: 0 });
+        setRun({ cue: next, startAtMs: running.elapsedMs });
     }), [dismiss]);
 
     // When this run is due to be over, on the clock the dismissal check above reads. Derived from

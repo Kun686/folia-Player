@@ -46,6 +46,9 @@ h1, h2, p { margin: 0; } h1 { font-size: 32px; letter-spacing: -.04em; } h2 { fo
 .player-collapse { margin: 8px 12px; align-self: flex-start; background: transparent; }
 .lyric-stage { position: relative; isolation: isolate; overflow: hidden; flex: 1; min-height: 200px; }
 .lyric-stage > div { position: absolute !important; inset: 0; }
+.mobile-transition-card { pointer-events: none; }
+.mobile-transition-card > div { position: absolute; left: 16px; bottom: 16px !important; width: max-content; max-width: calc(100% - 32px); }
+.mobile-transition-card [data-toast-card] { min-width: 0; max-width: 100%; }
 .empty-lyrics { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 24px; }
 .empty-lyrics span { font-family: Georgia, serif; font-size: 70px; font-style: italic; letter-spacing: -.06em; }
 .empty-lyrics p { color: var(--muted); font-size: 13px; }

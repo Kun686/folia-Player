@@ -22,6 +22,7 @@ test.beforeEach(async ({ page }) => {
     let lyric = '[00:00.00]测试本地歌词\n[00:10.00]第二句';
     win.fixturePlayback = state;
     const emit = () => { state.revision++; subscriber?.({ ...state }); };
+    win.fixtureEmitPlayback = (patch: Record<string, unknown>) => { Object.assign(state, patch); emit(); };
     const methods = ['bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR',
       'localCatalog', 'importAudio', 'localDetails', 'importLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache'];
     win.Capacitor = {
@@ -103,6 +104,79 @@ test.beforeEach(async ({ page }) => {
     };
   });
 });
+test('native transition resumes original animations from elapsed audio time without replaying snapshots', async ({ page }, info) => {
+  await page.addInitScript(() => {
+    (window as any).fixtureNoServer = true;
+    localStorage.setItem('folia_transition_animation', 'true');
+    localStorage.setItem('folia_transition_animation_card', 'true');
+  });
+  await page.goto('/mobile.html');
+  await page.getByRole('button', { name: '导入音乐', exact: true }).click();
+  await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
+  const ring = page.locator('div.fixed.inset-0.z-\\[170\\]');
+  const border = page.locator('.mobile-transition-card canvas');
+  await page.evaluate(() => (window as any).fixtureEmitPlayback({ transitionCue: {
+    id: 7, seconds: 20, crossover: 0.5, periodSec: 0.5, plain: false, elapsed: 5,
+  } }));
+  await expect(ring).toBeVisible();
+  await expect(border).toBeVisible();
+  // The original card slides in from the left; measure containment after it enters.
+  await expect.poll(async () => {
+    const stage = await page.locator('.lyric-stage').boundingBox();
+    const card = await page.locator('[data-toast-card]').boundingBox();
+    const frame = await page.locator('.mobile-transition-card > div').boundingBox();
+    return !!stage && !!card && !!frame && Math.abs(frame.width - card.width) < 1
+      && card.x >= stage.x && card.x + card.width <= stage.x + stage.width
+      && card.y + card.height <= stage.y + stage.height;
+  }).toBe(true);
+  await page.screenshot({ path: `.mobile-test-results/transition-animations-${info.project.name}.png` });
+  await page.touchscreen.tap(10, 100);
+  await expect(ring).toHaveCount(0);
+  await page.evaluate(() => {
+    const win = window as any;
+    for (let i = 0; i < 4; i++) win.fixtureEmitPlayback({ transitionCue: {
+      id: 7, seconds: 20, crossover: 0.5, periodSec: 0.5, plain: false, elapsed: 7 + i / 4,
+    } });
+  });
+  await expect(ring).toHaveCount(0);
+  await expect(border).toBeVisible();
+  await page.evaluate(() => (window as any).fixtureEmitPlayback({ transitionCue: null, playing: false }));
+  await expect(border).toHaveCount(0);
+});
+
+test('native transition stops visual work while hidden and resumes near its real end', async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as any).fixtureNoServer = true;
+    localStorage.setItem('folia_transition_animation', 'true');
+    localStorage.setItem('folia_transition_animation_card', 'true');
+  });
+  await page.goto('/mobile.html');
+  await page.getByRole('button', { name: '导入音乐', exact: true }).click();
+  await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
+  const ring = page.locator('div.fixed.inset-0.z-\\[170\\]');
+  const border = page.locator('.mobile-transition-card canvas');
+  await page.evaluate(() => (window as any).fixtureEmitPlayback({ transitionCue: {
+    id: 8, seconds: 10, crossover: 0.5, periodSec: null, plain: false, elapsed: 0,
+  } }));
+  await expect(ring).toBeVisible();
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    (window as any).fixtureEmitPlayback({ transitionCue: {
+      id: 8, seconds: 10, crossover: 0.5, periodSec: null, plain: false, elapsed: 7,
+    } });
+  });
+  await expect(ring).toHaveCount(0); await expect(border).toHaveCount(0);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(ring).toBeVisible(); await expect(border).toBeVisible();
+  // Only three seconds remain; starting the original ten-second animation again fails this bound.
+  await expect(ring).toHaveCount(0, { timeout: 5000 });
+  await expect(border).toHaveCount(0, { timeout: 1500 });
+});
+
 test('original transition settings reach native state and recover from failed edits', async ({ page }, info) => {
   await page.addInitScript(() => { (window as any).fixtureNoServer = true; });
   await page.goto('/mobile.html');
@@ -254,8 +328,11 @@ test('unsupported audio effects are explained without losing the selected origin
   await page.goto('/mobile.html');
   await page.getByRole('button', { name: '导入音乐', exact: true }).click();
   await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
+  // Lyrics remove a status row below these controls; wait for the settled touch target as in the queue test.
+  await expect(page.locator('.player-controls').getByText('暂无歌词', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: '音频效果器', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '音频效果器' });
+  await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'Lo-Fi', exact: true }).click();
   await expect(dialog.getByRole('alert')).toHaveText('当前音频格式不支持附加音效，将继续使用均衡器。');
   expect(await page.evaluate(() => (window as any).fixtureAudio.equalizer.effects.wow)).toBe(0.32);

@@ -67,7 +67,7 @@ const listeners = new Set<TransitionCueListener>();
 let active: { cue: TransitionCue; startedAt: number } | null = null;
 
 /** A blend is starting, or - with null - has finished, however it finished. */
-export const announceTransition = (cue: TransitionCue | null): void => {
+export const announceTransition = (cue: TransitionCue | null, elapsedMs = 0): void => {
     // A demonstration never speaks over the real thing. `active` is the one answer given to anyone
     // who turns up mid-blend, so a ten-second preview landing on top of a twenty-second mix would
     // hand the next renderer the preview's length and have it draw a clock the audio is not on.
@@ -77,7 +77,9 @@ export const announceTransition = (cue: TransitionCue | null): void => {
         const running = getActiveTransitionCue();
         if (running && !running.cue.preview) return;
     }
-    active = cue === null ? null : { cue, startedAt: performance.now() };
+    // A native host can resume while its audio is already partway through this blend.
+    const elapsed = Number.isFinite(elapsedMs) ? Math.max(0, elapsedMs) : 0;
+    active = cue === null ? null : { cue, startedAt: performance.now() - elapsed };
     listeners.forEach(listener => listener(cue));
 };
 

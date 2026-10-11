@@ -234,6 +234,7 @@ final class PlaybackEngine {
          "position": playbackPosition,
          "duration": playbackDuration, "playing": outputIsPlaying,
          "repeat": repeatMode, "error": error ?? "", "revision": revision,
+         "transitionCue": crossfade?.cueSnapshot as Any? ?? NSNull(),
          "audioProcessingAvailable": meter?.processingAvailable() ?? false,
          "audioEffects": meter?.effectState() ?? ["available": false, "pending": false, "error": ""]]
     }

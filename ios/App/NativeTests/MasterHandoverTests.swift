@@ -65,7 +65,13 @@ import AVFoundation
         XCTAssertEqual(tested.stream?.rate, 1)
         XCTAssertEqual(tested.streamOutput?.attachedCount, 2)
         XCTAssertGreaterThan(cue["seconds"] as? Double ?? 0, 1)
+        let firstCue = try XCTUnwrap(tested.snapshot()["transitionCue"] as? [String: Any])
+        try await Task.sleep(nanoseconds: 200_000_000)
+        let nextCue = try XCTUnwrap(tested.snapshot()["transitionCue"] as? [String: Any])
+        XCTAssertEqual(firstCue["id"] as? Int, nextCue["id"] as? Int)
+        XCTAssertGreaterThan(try XCTUnwrap(nextCue["elapsed"] as? Double), try XCTUnwrap(firstCue["elapsed"] as? Double))
         try tested.command("pause")
+        XCTAssertTrue(tested.snapshot()["transitionCue"] is NSNull)
         XCTAssertNil(tested.crossfade?.cueSnapshot); XCTAssertFalse(tested.crossfade!.isFading)
         XCTAssertEqual(tested.streamOutput?.attachedCount, 1)
         let paused = tested.playbackPosition

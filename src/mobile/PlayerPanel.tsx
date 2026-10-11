@@ -16,6 +16,7 @@ import { useNativeAudio } from './useNativeAudio';
 import VisualSettings from './VisualSettings';
 import AudioControls from './AudioControls';
 import TransitionControls from './TransitionControls';
+import TransitionOverlays from './TransitionOverlays';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useVisualizerAssetStore } from '../stores/useVisualizerAssetStore';
@@ -95,6 +96,8 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
         onLyricLineSeek={seekLyrics}
         background={background} visualizerTunings={visualizerTunings} staticMode={staticMode} {...assets} />
         : <div className="empty-lyrics"><span>Folia</span><p>{song ? t('mobile.noLyrics') : t('mobile.noSongs')}</p></div>}
+      <TransitionOverlays visible={visible} stageVisible={rendering} song={song} cover={cover} light={light}
+        theme={light ? appearance.theme.light : appearance.theme.dark} />
     </div>
     <div className="player-controls">
       <h2>{song?.name ?? 'Folia'}</h2><p>{song?.artists.map(a => a.name).join(' / ')}</p>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMotionValue } from 'framer-motion';
 import { native, isNative, type PlaybackSnapshot, type PlaybackEvent } from './bridge';
+import { createNativeTransitionCueSync } from './nativeTransitionCue';
 
 // src/mobile/usePlayback.ts — snapshots correct a foreground-only interpolation clock.
 const initial: PlaybackSnapshot = { queue: [], index: -1, currentSong: null, queueRevision: -1, position: 0, duration: 0, playing: false, repeat: 'off', revision: -1 };
@@ -12,20 +13,23 @@ export function usePlayback() {
   useEffect(() => {
     if (!isNative) return;
     let disposed = false;
+    const transitions = createNativeTransitionCueSync();
     const receive = (event: PlaybackEvent) => {
       const value = { ...snapshot.current.state, ...event, queue: event.queue ?? snapshot.current.state.queue };
       if (disposed || value.revision < snapshot.current.state.revision) return;
       snapshot.current = { state: value, at: performance.now() };
+      if (!document.hidden) transitions.receive(value.transitionCue);
       currentTime.set(value.position); setState(value);
     };
     const subscription = native.addListener('playback', receive);
     const restore = () => {
+      transitions.clear();
       setVisible(!document.hidden);
       if (!document.hidden) void native.getState().then(receive).catch(() => setState(s => ({ ...s, error: 'state-unavailable' })));
     };
     restore();
     document.addEventListener('visibilitychange', restore);
-    return () => { disposed = true; document.removeEventListener('visibilitychange', restore); void subscription.then(s => s.remove()); };
+    return () => { disposed = true; transitions.clear(); document.removeEventListener('visibilitychange', restore); void subscription.then(s => s.remove()); };
   }, [currentTime]);
   useEffect(() => {
     if (!visible) return;

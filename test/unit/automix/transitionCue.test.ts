@@ -56,6 +56,19 @@ describe('shouldDrawCue', () => {
 });
 
 describe('getActiveTransitionCue', () => {
+    it('原生音频已在混音中途时，广播与挂载共用已校准进度', () => {
+        const now = vi.spyOn(performance, 'now').mockReturnValue(1000);
+        let observed = -1;
+        const off = subscribeToTransitionCue(() => { observed = getActiveTransitionCue()?.elapsedMs ?? -1; });
+        announceTransition(CUE, 6000);
+        off();
+        expect(observed).toBe(6000);
+        now.mockReturnValue(4999);
+        expect(getActiveTransitionCue()?.elapsedMs).toBe(9999);
+        now.mockReturnValue(5000);
+        expect(getActiveTransitionCue()).toBeNull();
+    });
+
     it('是 null 直到有混音开始', () => {
         expect(getActiveTransitionCue()).toBeNull();
     });

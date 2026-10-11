@@ -1,6 +1,7 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 import type { SongResult } from '../types';
 import type { AudioEqualizerSettings } from '../utils/audioEqualizer';
+import type { NativeTransitionCue } from './nativeTransitionCue';
 
 // src/mobile/bridge.ts — native owns transport secrets, playback and queue state.
 export interface PlaybackSnapshot {
@@ -9,6 +10,7 @@ export interface PlaybackSnapshot {
   currentSong: SongResult | null; queueRevision: number;
   audioProcessingAvailable?: boolean;
   audioEffects?: { available: boolean; pending: boolean; error?: string };
+  transitionCue?: NativeTransitionCue | null;
 }
 export interface NativeMediaCacheSettings { enabled: boolean; limitGB: number }
 export interface NativeMediaCacheState {
