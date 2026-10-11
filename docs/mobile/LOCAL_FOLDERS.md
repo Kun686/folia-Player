@@ -126,7 +126,7 @@ npm run test:unit -- test/unit/mobile/nativeFolderRuntime.test.ts test/unit/util
   独立字节解码失败的原版跳过／提示规则仍需在最终批次编排中处理。
 
 验证：TypeScript、39 项相关逻辑测试与 ios:sync 通过。最终同源 Simulator / iPhone Release QA 构建通过，
-iPad Pro 11-inch M5 / iPadOS26.5 与 iPhone XS Max / iOS18.7.10 各 50 项 XCTest 通过，无失败或跳过。
+iPad Pro 11-inch M5 / iPadOS26.5 Simulator 与 iPhone XS Max / iOS18.7.10 各 50 项 XCTest 通过，无失败或跳过。
 其中 7 项新增内容测试覆盖原始字节、文件变化／符号链接、超限／取消、翻译和封面持久化、上传保留／磁盘更新、
 sidecar 删除、缺失数据及不可用图片的提示回退；另重跑之前 43 项扫描／事务／曲库／歌词／播放测试。
 前两次模拟器分别通过 48、49 项，随后补上读取增长边界与原版可选封面回退，最终证据以 parity-sim 的 50 项为准。
@@ -134,3 +134,5 @@ sidecar 删除、缺失数据及不可用图片的提示回退；另重跑之前
 本轮仅基础层与受控测试文件，不替代实际系统文件提供器、真实音乐文件夹或管理 UI 验收。
 证据前缀为 `.mobile-test-results/folder-contents-*`；最终采用 parity-sim.xcresult、device.xcresult、parity-inputs.json、
 对应 summary.json 和 cleanup-check.json。个人 App 未更新，BUILD_RECORD.json 仍描述 mobile.27。
+源码 `722594e145a8285a9e9695b462a00a483b114b52` 的
+[Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38176627743) 已通过；随后仅补写本证据链接。
