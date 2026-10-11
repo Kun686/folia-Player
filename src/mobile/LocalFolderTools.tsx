@@ -12,25 +12,6 @@ function Row({ index, style, choices, select }: RowComponentProps<RowProps>) {
     <Folder size={20} /><span><strong>{item.name}</strong><small>{item.ignored ? t('mobile.folders.ignored') : t('mobile.folders.count', { count: item.count })}</small></span><ChevronRight size={18} />
   </button></div>;
 }
-export function FolderImportStatus({ folders }: { folders: LocalFolders }) {
-  const { t } = useTranslation(), progress = folders.progress;
-  return <div className="folder-import-status">
-    {folders.busy && <div role="status"><p>{progress ? t('mobile.folders.progress', { completed: progress.completed, total: progress.total }) : t(folders.canCancel ? 'mobile.folders.scanning' : 'mobile.folders.removing')}</p>
-      {progress?.path && <small>{progress.path}</small>}
-      {progress && <progress aria-label={t('mobile.folders.importProgress')} max={Math.max(1, progress.total)} value={progress.completed} />}
-      {folders.canCancel && <button onClick={folders.cancel}>{t('mobile.cancel')}</button>}</div>}
-    {folders.error && <p role="alert">{t(folders.error === 'folder-access-required' ? 'mobile.folders.accessRequired'
-      : folders.error === 'folder-file-changed' || folders.error === 'local-library-changed' ? 'mobile.folders.changed'
-        : folders.error === 'folder-cancelled' ? 'mobile.folders.cancelled' : 'mobile.folders.error')}</p>}
-    {folders.result && <div role="status"><p>{t('mobile.folders.complete', { count: folders.result.count })}</p>
-      {folders.result.warnings.length > 0 && <details><summary>{t('mobile.folders.warnings', { count: folders.result.warnings.length })}</summary>
-        <ul>{folders.result.warnings.slice(0, 100).map((warning, index) => <li key={index}>{warning.path} — {t(warning.code === 'unsupported-audio'
-          ? 'mobile.folders.unsupported' : 'mobile.folders.sidecarUnavailable')}</li>)}</ul>
-        {folders.result.warnings.length > 100 && <p>{t('mobile.folders.warningLimit')}</p>}
-      </details>}
-    </div>}
-  </div>;
-}
 export default function LocalFolderTools({ folders, view, select, query }: {
   folders: LocalFolders; view: ReturnType<typeof localFolderView>; select(scope: FolderScope | null): void; query: string;
 }) {
@@ -44,6 +25,7 @@ export default function LocalFolderTools({ folders, view, select, query }: {
     </div>}
     <div className="folder-actions">
       <button disabled={folders.busy} onClick={() => void folders.start()}><FolderPlus size={18} />{t('localMusic.importFolder')}</button>
+      {!root && <button disabled={folders.busy || !folders.catalog?.roots.length} onClick={() => void folders.rescanAll()}>{t('mobile.folders.rescanAll')}</button>}
       {root && <>
         <button disabled={folders.busy} onClick={() => void folders.start({ rootID: root.id })}>{t('mobile.folders.rescan')}</button>
         {folders.error === 'folder-access-required' && <button disabled={folders.busy} onClick={() => void folders.start({ rootID: root.id, pick: true })}>{t('mobile.folders.reauthorize')}</button>}

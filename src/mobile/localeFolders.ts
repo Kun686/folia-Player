@@ -1,6 +1,9 @@
 // localeFolders.ts — user-facing import outcomes, shared by phone and tablet library surfaces.
 export const foldersEn = {
   title: 'Folders', count: '{{count}} tracks', ignored: 'Ignored', parent: 'Parent folder', rescan: 'Rescan',
+  rescanAll: 'Rescan all folders', scanWaiting: 'Scanning folder…',
+  batchProgress: 'Scanning {{current}} / {{total}}: {{name}}', batchComplete: 'Rescanned {{completed}} / {{total}} folders',
+  batchStopped: 'Stopped after {{completed}} / {{total}} folders', batchRetained: 'Completed folders were saved; uncompleted folders keep their previous library.',
   removing: 'Removing folder from the library…',
   restore: 'Restore and rescan', ignore: 'Ignore folder', remove: 'Remove root', reauthorize: 'Choose this folder again',
   confirmIgnore: 'Remove “{{name}}” from the library and ignore it on future scans? Source files will remain.',
@@ -15,6 +18,9 @@ export const foldersEn = {
 };
 export const foldersZh: typeof foldersEn = {
   title: '文件夹', count: '{{count}} 首歌曲', ignored: '已忽略', parent: '上一级文件夹', rescan: '重新扫描',
+  rescanAll: '重新扫描全部文件夹', scanWaiting: '正在扫描文件夹…',
+  batchProgress: '正在扫描 {{current}} / {{total}}：{{name}}', batchComplete: '已重新扫描 {{completed}} / {{total}} 个文件夹',
+  batchStopped: '已停止，完成 {{completed}} / {{total}} 个文件夹', batchRetained: '已完成的文件夹已保存，其余文件夹保留原曲库。',
   removing: '正在从曲库移除文件夹…',
   restore: '恢复并重新扫描', ignore: '忽略此文件夹', remove: '移除根目录', reauthorize: '重新选择此文件夹',
   confirmIgnore: '从曲库移除“{{name}}”并在以后扫描时忽略？原文件会保留。',
@@ -29,6 +35,9 @@ export const foldersZh: typeof foldersEn = {
 };
 export const foldersIn: typeof foldersEn = {
   title: 'Folder', count: '{{count}} lagu', ignored: 'Diabaikan', parent: 'Folder induk', rescan: 'Pindai ulang',
+  rescanAll: 'Pindai ulang semua folder', scanWaiting: 'Memindai folder…',
+  batchProgress: 'Memindai {{current}} / {{total}}: {{name}}', batchComplete: '{{completed}} / {{total}} folder dipindai ulang',
+  batchStopped: 'Berhenti setelah {{completed}} / {{total}} folder', batchRetained: 'Folder yang selesai telah disimpan; folder lainnya tetap memakai pustaka sebelumnya.',
   removing: 'Menghapus folder dari pustaka…',
   restore: 'Pulihkan dan pindai ulang', ignore: 'Abaikan folder', remove: 'Hapus folder utama', reauthorize: 'Pilih folder ini lagi',
   confirmIgnore: 'Hapus “{{name}}” dari pustaka dan abaikan saat pemindaian berikutnya? Berkas asli tetap disimpan.',

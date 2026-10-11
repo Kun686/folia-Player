@@ -41,3 +41,15 @@ export interface NativeFolderCatalog { revision: string; roots: NativeFolderRoot
 export interface NativeFolderProgress { token: string; rootID: string; name: string; total: number; completed: number; reused: number; path?: string }
 export interface NativeFolderImportOptions { token: string; rootID?: string; pick?: boolean; ignoredPaths?: string[]; order?: LocalLyricFileFormat[] }
 export interface NativeFolderImportResult { rootID: string; count: number; warnings: { path: string; code: string }[] }
+export interface NativeFolderBatchProgress {
+  total: number;
+  completed: number;
+  root: { id: string; name: string };
+  track?: NativeFolderProgress;
+}
+export interface NativeFolderBatchResult {
+  total: number;
+  completed: (NativeFolderImportResult & { name: string })[];
+  status: 'complete' | 'cancelled' | 'failed';
+  failed?: { id: string; name: string; code: string };
+}
