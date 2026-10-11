@@ -1,6 +1,7 @@
 # 真实服务与真机验收表
 
 后续开发源码已接入 AI／封面主题生成：92 项相关逻辑、48 项 WebKit、10 项独立 iPad 原生 XCTest 通过。
+独立 iPad QA 配置／主题保存和重启恢复及准确源码 CI 已通过；横屏滚动仍 UNVERIFIED。
 尚未调用真实 AI 服务或更新个人 App，见 [AI_THEMES.md](AI_THEMES.md)。
 
 当前个人候选为 mobile.28，已原位安装、启动并回读；签名、源码／资源与准确源码 CI 已核验，详见 [VALIDATION.md](VALIDATION.md)。
