@@ -12,14 +12,18 @@ import type { MobileTheme } from './useMobileTheme';
 import TypographyControls from './TypographyControls';
 import MobileThemeEditor, { type MobileThemeSource } from './MobileThemeEditor';
 import SongThemeControls from './SongThemeControls';
+import ThemeGenerationControls from './ThemeGenerationControls';
+import type { MobileThemeGeneration } from './useMobileThemeGeneration';
+import AISettingsSheet from './AISettingsSheet';
 
 // src/mobile/VisualSettings.tsx — expose existing registry/settings and desktop persistence.
-export default function VisualSettings({ light, close, appearance, visible, themeSource }: {
-  light: boolean; close: () => void; appearance: MobileTheme; visible: boolean; themeSource: MobileThemeSource;
+export default function VisualSettings({ light, close, appearance, visible, themeSource, generation }: {
+  light: boolean; close: () => void; appearance: MobileTheme; visible: boolean; themeSource: MobileThemeSource; generation: MobileThemeGeneration;
 }) {
   const { t } = useTranslation();
   const [uploading, setUploading] = useState(false);
   const [themeEditor, setThemeEditor] = useState(false);
+  const [aiSettings, setAISettings] = useState(false);
   const s = useVisualizerSettingsStore(useShallow(selectVisualizerSettingsSnapshot));
   const staticMode = useThemeSettingsStore(state => state.staticMode);
   const assets = useVisualizerAssetStore(useShallow(state => ({
@@ -30,6 +34,7 @@ export default function VisualSettings({ light, close, appearance, visible, them
   const background = useVisualizerBackgroundConfig();
   const theme = light ? appearance.theme.light : appearance.theme.dark;
   if (themeEditor) return <MobileThemeEditor appearance={appearance} light={light} visible={visible} source={themeSource} close={() => setThemeEditor(false)} />;
+  if (aiSettings) return <AISettingsSheet close={() => setAISettings(false)} />;
   return <div className="sheet-backdrop"><section className="sheet visual-settings" role="dialog" aria-modal="true" aria-label={t('mobile.visuals')}>
     <header><h2>{t('mobile.visuals')}</h2><button disabled={uploading} onClick={close}>{t('mobile.close')}</button></header>
     <fieldset className="visual-settings-content" disabled={uploading}>
@@ -45,6 +50,7 @@ export default function VisualSettings({ light, close, appearance, visible, them
     <label className="check-label"><input type="checkbox" checked={staticMode} onChange={e => useThemeSettingsStore.getState().handleToggleStaticMode(e.target.checked)} />{t('mobile.staticMode')}</label>
     <AppearanceTransfer appearance={appearance} />
     <SongThemeControls appearance={appearance} />
+    <ThemeGenerationControls appearance={appearance} generation={generation} configure={() => setAISettings(true)} />
     <button disabled={appearance.loading} className="mobile-theme-entry" onClick={() => setThemeEditor(true)}>{t('mobile.themeEditor')}</button>
     <TypographyControls theme={theme} onUploading={setUploading} />
     <Suspense fallback={<p>{t('mobile.loading')}</p>}>{entry.renderSettingsPanel?.({

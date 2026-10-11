@@ -1,4 +1,5 @@
 import { readStoredLastAppliedThemePointer, readStoredThemeAutoSwitchEnabled, readStoredThemeAutoGenerateEnabled,
+  type ThemeGenerationSource,
   type ThemePreferenceSwitchState, type LastAppliedThemePointer } from '../services/themePreferences';
 
 // mobileThemePreferences.ts — original preference keys; migrate the old mobile custom selection into its pin preference.
@@ -9,13 +10,14 @@ export function readMobileThemePreferences(hasCustom: boolean): ThemePreferenceS
   return { isCustomThemePreferred: preferred, songThemeAutoSwitchEnabled: autoSwitch,
     songThemeAutoGenerateEnabled: autoSwitch && readStoredThemeAutoGenerateEnabled() };
 }
-export function persistMobileThemeChoice(pointer: LastAppliedThemePointer, prefs: ThemePreferenceSwitchState, custom?: string) {
+export function persistMobileThemeChoice(pointer: LastAppliedThemePointer, prefs: ThemePreferenceSwitchState, custom?: string, source?: ThemeGenerationSource) {
   const values: Record<string, string> = {
     custom_theme_preferred: String(prefs.isCustomThemePreferred),
     theme_auto_switch_enabled: String(prefs.songThemeAutoSwitchEnabled),
     theme_auto_generate_enabled: String(prefs.songThemeAutoGenerateEnabled),
     last_applied_theme_pointer: pointer,
     ...(custom === undefined ? {} : { custom_dual_theme: custom }),
+    ...(source === undefined ? {} : { theme_generation_source: source }),
   };
   const previous = Object.keys(values).map(key => [key, localStorage.getItem(key)] as const);
   try { for (const [key, value] of Object.entries(values)) localStorage.setItem(key, value); }

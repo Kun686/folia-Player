@@ -7,6 +7,7 @@ import { getPlaybackSongKey } from '../utils/appPlaybackGuards';
 import { applyStoredAnimationIntensityToDualTheme, applyStoredAnimationIntensityToTheme } from './themePreferences';
 import { FALLBACK_AI_DUAL_THEME, sanitizeDualTheme, sanitizeTheme } from './themeSanitizer';
 import type { CachedThemeState } from './themeCache';
+import type { SyncedThemeSource } from './sync/syncTypes';
 
 // songThemeCache.ts — acknowledged, atomic local writes using the original cache keys and sync registry, without network sync.
 export const assertThemeIntent = (isCurrent: () => boolean) => {
@@ -31,15 +32,16 @@ export async function rememberSongTheme(value: CachedThemeState, isCurrent: () =
     assertThemeIntent(isCurrent);
   });
 }
-export async function saveEditedSongTheme(song: SongResult, theme: DualTheme, isCurrent: () => boolean): Promise<DualTheme> {
+export async function saveEditedSongTheme(song: SongResult, theme: DualTheme, isCurrent: () => boolean,
+  options: { source?: SyncedThemeSource; remember?: boolean } = {}): Promise<DualTheme> {
   const normalized = applyStoredAnimationIntensityToDualTheme(sanitizeDualTheme(theme));
-  const record = createThemeSyncRecordForSong(song, 'edited');
+  const record = createThemeSyncRecordForSong(song, options.source ?? 'edited');
   // A late song switch aborts all rows together, including the last-used fallback and local sync index.
   await appDatabase.transaction('rw', appDatabase.api_cache, appDatabase.theme_registry, async () => {
     assertThemeIntent(isCurrent);
     await putCacheEntry(`dual_theme_${getPlaybackSongKey(song)}`, normalized);
     if (record) await writeThemeRegistryEntries([record]);
-    await putCacheEntry('last_dual_theme', normalized);
+    if (options.remember !== false) await putCacheEntry('last_dual_theme', normalized);
     assertThemeIntent(isCurrent);
   });
   return normalized;

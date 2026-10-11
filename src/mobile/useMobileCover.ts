@@ -3,7 +3,7 @@ import type { SongResult } from '../types';
 import { loadSongCover } from '../services/onlineMusic/resourceCache';
 
 // useMobileCover.ts — cover failure does not hide lyrics; late results release their own object URL.
-export function useMobileCover(song?: SongResult) {
+export function useMobileCoverState(song?: SongResult) {
   const [value, setValue] = useState<{ key: string; cover: string | undefined }>();
   const key = JSON.stringify([song?.sourceRef, song?.album.coverUrl]);
   useEffect(() => {
@@ -13,8 +13,9 @@ export function useMobileCover(song?: SongResult) {
     if (song) void loadSongCover(song).then(url => {
       if (!active) { release(url); return; }
       owned = url; setValue({ key, cover: url ?? undefined });
-    }).catch(() => { /* Existing placeholder remains available; audio and lyrics are independent. */ });
+    }).catch(() => { if (active) setValue({ key, cover: undefined }); /* Audio and lyrics remain independent. */ });
     return () => { active = false; release(owned); };
   }, [key]);
-  return value?.key === key ? value.cover : undefined;
+  return { cover: value?.key === key ? value.cover : undefined, loading: !!song && value?.key !== key };
 }
+export function useMobileCover(song?: SongResult) { return useMobileCoverState(song).cover; }

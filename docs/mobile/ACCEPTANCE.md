@@ -1,5 +1,8 @@
 # 真实服务与真机验收表
 
+后续开发源码已接入 AI／封面主题生成：92 项相关逻辑、48 项 WebKit、10 项独立 iPad 原生 XCTest 通过。
+尚未调用真实 AI 服务或更新个人 App，见 [AI_THEMES.md](AI_THEMES.md)。
+
 当前个人候选为 mobile.28，已原位安装、启动并回读；签名、源码／资源与准确源码 CI 已核验，详见 [VALIDATION.md](VALIDATION.md)。
 文件夹导入／管理已随该版本加入；后续全目录重扫仅完成独立 QA 验证，详见 [LOCAL_FOLDER_RESCAN.md](LOCAL_FOLDER_RESCAN.md)。
 本版真实本地曲库及手机在线复测仍 NOT_RUN，历史反馈不自动算作新版本验收。
@@ -156,7 +159,8 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | 完整 Automix | IN_PROGRESS；尚未接入 | 官方Apple1.30.0已解除DFT阻塞；真实人声30秒片段iPhone数值通过，退出点同为23.65秒、PCM最大差1单位；耗时41.4秒／峰值1.08GiB。原近静音样本相对误差FAIL保留。实际分轨手势／听感、播放争用及长期性能待测；未改模型／个人App依赖，见AUTOMIX_MUSIC.md |
 | 原 Theme Park 全局自定义编辑 | PASS（自动检查及独立 iPad 模拟器 QA）；个人 App NOT_RUN | 原配色／信息／内容／手动 JSON、触摸预览、失败重试及保存恢复；见 THEME_PARK.md |
 | 原版歌曲主题缓存与自动／手动切换 | PASS（自动检查及独立 iPad 模拟器 QA）；个人 App NOT_RUN | 复用原缓存和偏好，事务保存、迟到隔离、错误重试、外观开关导入导出；见 SONG_THEMES.md |
-| 自动 AI 生成／远端主题同步及其余桌面工具 | NOT_IMPLEMENTED | 仍待移植，手动 JSON 编辑不能替代完整 AI 功能；完整移植目标未完成 |
+| AI／封面主题生成 | PASS（逻辑／WebKit／原生 fixture）；真实服务和个人 App NOT_RUN | 原版提示词／解析／取色、Keychain 配置、取消和自动偏好已接入，见 AI_THEMES.md |
+| 远端主题同步及其余桌面工具 | NOT_IMPLEMENTED | 仍待移植，完整移植目标未完成 |
 
 音频格式由AudioStreaming、系统AudioToolbox及获批的Ogg／Vorbis决定；Ogg目前不支持拖动。
 实际支持情况需按设备和编码测试，不能仅凭文件扩展名判定。

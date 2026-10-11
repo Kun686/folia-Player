@@ -27,10 +27,12 @@ import { useVisualizerAssetStore } from '../stores/useVisualizerAssetStore';
 import { NO_LYRIC_LINES } from '../utils/lyrics/noLyricLines';
 import { native, type PlaybackSnapshot } from './bridge';
 import type { SongResult } from '../types';
+import { useMobileThemeGeneration } from './useMobileThemeGeneration';
 
 // src/mobile/PlayerPanel.tsx — original registry renderers consume the native clock and decoded audio.
 const MobileVisualizer = memo(VisualizerRenderer);
-export default function PlayerPanel({ appearance, state, time, visible, light, expanded, collapse, openQueue, captureSongGuard }: {
+export default function PlayerPanel({ appearance, state, time, visible, light, expanded, collapse, openQueue, captureSongGuard, songEpoch }: {
+  songEpoch: number;
   appearance: MobileTheme;
   state: PlaybackSnapshot; time: MotionValue<number>; visible: boolean; light: boolean; expanded: boolean; collapse: () => void; openQueue: () => void;
   captureSongGuard: (song: SongResult) => () => boolean;
@@ -76,7 +78,8 @@ export default function PlayerPanel({ appearance, state, time, visible, light, e
   useEffect(() => { currentLyricSongKey.current = lyricSongKey; return () => { currentLyricSongKey.current = ''; }; }, []);
   const lyricTools = lyricToolsFor === lyricSongKey;
   useEffect(() => { setLyricToolsFor(null); }, [lyricSongKey]);
-  const { lyrics, rawLyrics, cover, error: lyricsError, segmentation, refresh } = useMobileLyrics(song ?? undefined, lyricTools);
+  const { lyrics, rawLyrics, cover, coverLoading, loading: lyricsLoading, error: lyricsError, segmentation, refresh } = useMobileLyrics(song ?? undefined, lyricTools);
+  const generation = useMobileThemeGeneration(appearance, song, songEpoch, rawLyrics, lyricsLoading, cover, coverLoading, visible);
   const modalOpen = visualSettings || audioSettingsOpen || transitionSettings || lyricTools;
   const rendering = visible && expanded && !modalOpen;
   const { hidden, reveal: revealChrome, focusProps, stageTapProps } = usePlayerChrome(visible && expanded, state.playing,
@@ -131,7 +134,7 @@ export default function PlayerPanel({ appearance, state, time, visible, light, e
       captureSongGuard={captureSongGuard}
       rawLyrics={rawLyrics} segmentation={segmentation} duration={state.duration} onSeek={seekLyrics} theme={light ? appearance.theme.light : appearance.theme.dark}
       offsetMs={offsetMs} onOffsetChange={setOffsetMs} light={light} visible={visible} close={() => setLyricToolsFor(null)} />}
-    {visualSettings && <VisualSettings light={light} appearance={appearance} visible={visible}
+    {visualSettings && <VisualSettings light={light} appearance={appearance} visible={visible} generation={generation}
       themeSource={{ songTitle: song?.name, isPureMusic: !!song?.isPureMusic,
         promptSourceText: (song?.isPureMusic ? song.name : lyrics?.lines.map(line => line.fullText).join('\n')) ?? null }} close={() => setVisualSettings(false)} />}
   </section>;

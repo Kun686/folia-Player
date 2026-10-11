@@ -8,34 +8,40 @@ interface RGB {
     b: number;
 }
 
-const loadImagePixels = (imageUrl: string): Promise<Uint8ClampedArray | null> => (
-    new Promise(resolve => {
+type ImageLoadOptions = { signal?: AbortSignal; timeoutMs?: number };
+// Release image callbacks on completion, cancellation or timeout; unreadable artwork uses the existing empty palette fallback.
+const loadImagePixels = (imageUrl: string, options: ImageLoadOptions = {}): Promise<Uint8ClampedArray | null> => (
+    new Promise((resolve, reject) => {
         const img = new Image();
+        let settled = false;
+        const finish = (pixels: Uint8ClampedArray | null, aborted = false) => {
+            if (settled) return;
+            settled = true; clearTimeout(timer);
+            img.onload = null; img.onerror = null;
+            options.signal?.removeEventListener('abort', abort);
+            img.removeAttribute('src');
+            if (aborted) reject(new DOMException('Aborted', 'AbortError')); else resolve(pixels);
+        };
+        const abort = () => finish(null, true);
+        const timer = setTimeout(() => finish(null), options.timeoutMs ?? 15_000);
+        options.signal?.addEventListener('abort', abort, { once: true });
+        if (options.signal?.aborted) { abort(); return; }
         img.crossOrigin = "Anonymous";
-
         img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-                resolve(null);
-                return;
-            }
-
-            // Resize for performance
-            const width = 50;
-            const height = 50;
-            canvas.width = width;
-            canvas.height = height;
-
-            ctx.drawImage(img, 0, 0, width, height);
-
-            resolve(ctx.getImageData(0, 0, width, height).data);
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                if (!ctx) { finish(null); return; }
+                // Resize for performance
+                const width = 50;
+                const height = 50;
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(img, 0, 0, width, height);
+                finish(ctx.getImageData(0, 0, width, height).data);
+            } catch { finish(null); }
         };
-
-        img.onerror = (e) => {
-            console.warn("Failed to load image for color extraction", e);
-            resolve(null);
-        };
+        img.onerror = () => finish(null);
         img.src = imageUrl;
     })
 );
@@ -105,8 +111,8 @@ const extractVibrantColorsFromPixels = (imageData: Uint8ClampedArray, count: num
     });
 };
 
-export const extractColors = async (imageUrl: string, count: number = 5): Promise<string[]> => {
-    const pixels = await loadImagePixels(imageUrl);
+export const extractColors = async (imageUrl: string, count: number = 5, options?: ImageLoadOptions): Promise<string[]> => {
+    const pixels = await loadImagePixels(imageUrl, options);
     return pixels ? extractVibrantColorsFromPixels(pixels, count) : [];
 };
 

@@ -1,5 +1,8 @@
 # Folia iPhone / iPad 实现与安装
 
+后续源码接入原版 AI／封面主题生成、Keychain 配置、取消与自动生成偏好；92 项逻辑、48 项 WebKit 与10 项独立原生 XCTest 通过。
+真实 AI 服务与真机新入口未验收，个人 mobile.28 未更新，见 [AI_THEMES.md](AI_THEMES.md)。
+
 后续源码已补齐原版“重新扫描全部文件夹”：复用单目录事务，逐目录执行，保留已提交结果并准确显示部分失败／取消。
 23 项逻辑、18 项 WebKit、独立 iPad QA 两目录实际重扫与重启恢复通过；个人 App 保持 mobile.28，
 新入口尚未加入个人安装包，见 [LOCAL_FOLDER_RESCAN.md](LOCAL_FOLDER_RESCAN.md)。
@@ -199,7 +202,8 @@ mobile.6之后的源码已优化连续调参的素材复用和播放中的分支
   已通过独立 QA 验证、尚未更新个人 App，见 [THEME_PARK.md](THEME_PARK.md)。
   后续 `346cb23` 补齐歌曲主题缓存、自动／手动切换、外观短码开关和重启恢复；
   复用原来源标识与偏好，防止迟到请求或切歌后的草稿覆盖新歌曲。
-  独立 iPad QA 已通过，自动 AI 生成与远端主题同步仍待接入，见 [SONG_THEMES.md](SONG_THEMES.md)。
+  独立 iPad QA 已通过，见 [SONG_THEMES.md](SONG_THEMES.md)。后续 AI／封面生成已接入开发源码并通过自动测试，
+  真实服务与远端主题同步仍待验证／接入，见 [AI_THEMES.md](AI_THEMES.md)。
   开发源码补齐原字体／字幕控件、字号字重、备用字体与透明度；复用原偏好恢复和 FontFace 加载器，
   WebKit 上传字体保存为字节并兼容旧 Blob。取消与存储失败不会替换当前字体，详见 TYPOGRAPHY.md。
   AUAudioUnit + Accelerate处理双声道解码PCM，向原渲染器提供5个频段和频谱；旧AVQueuePlayer/tap路径保留作回退。

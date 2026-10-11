@@ -36,6 +36,10 @@ export default function AppearanceTransfer({ appearance }: { appearance: MobileT
       const autoSwitch = typeof config.songThemeAutoSwitchEnabled === 'boolean' ? config.songThemeAutoSwitchEnabled : undefined;
       if (config.theme?.light && config.theme?.dark) appearance.save(config.theme, autoSwitch);
       else if (autoSwitch !== undefined) appearance.setAutoSwitch(autoSwitch);
+      appearance.configureGeneration({
+        enabled: typeof config.songThemeAutoGenerateEnabled === 'boolean' ? config.songThemeAutoGenerateEnabled : undefined,
+        source: config.themeGenerationSource === 'cover' || config.themeGenerationSource === 'ai' ? config.themeGenerationSource : undefined,
+      });
       setError(false); setText('');
     } catch { setError(true); }
   };

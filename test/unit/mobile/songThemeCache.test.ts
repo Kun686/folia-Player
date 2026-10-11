@@ -49,6 +49,13 @@ describe('acknowledged song-theme persistence', () => {
     await putCacheEntry('last_theme', BASE_DUAL_THEME.dark);
     expect(await readLastSongTheme()).toMatchObject({ kind: 'legacy' });
   });
+  it('records generated provenance without replacing the last applied theme when custom is pinned', async () => {
+    await saveEditedSongTheme(song('qq'), theme('Applied'), () => true);
+    await saveEditedSongTheme(song('netease'), theme('Generated'), () => true, { source: 'auto', remember: false });
+    expect(await getCachedThemeStateForSong(song('netease'))).toMatchObject({ theme: { dark: { name: 'Generated' } } });
+    expect(await readLastSongTheme()).toMatchObject({ theme: { dark: { name: 'Applied' } } });
+    expect((await appDatabase.theme_registry.toArray()).some(row => row.source === 'auto')).toBe(true);
+  });
   it('surfaces storage errors in strict editor reads while retaining old best-effort callers', async () => {
     const failedRead = { get: vi.fn().mockRejectedValue(new Error('unavailable')) };
     vi.spyOn(appDatabase, 'table').mockReturnValueOnce(failedRead as never);

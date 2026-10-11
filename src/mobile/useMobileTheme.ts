@@ -7,8 +7,9 @@ import { getPlaybackSongKey } from '../utils/appPlaybackGuards';
 import { getCachedThemeStateForSong, type CachedThemeState } from '../services/themeCache';
 import { assertThemeIntent, normalizeCachedTheme, readLastSongTheme, rememberSongTheme, saveEditedSongTheme } from '../services/songThemeCache';
 import { readStoredLastAppliedThemePointer, resolveCustomThemePreferenceChange, resolveSongThemeAutoSwitchChange,
-  type LastAppliedThemePointer } from '../services/themePreferences';
+  resolveSongThemeAutoGenerateChange, readStoredThemeGenerationSource, type ThemeGenerationSource, type LastAppliedThemePointer } from '../services/themePreferences';
 import { persistMobileThemeChoice, readMobileThemePreferences } from './mobileThemePreferences';
+import type { SyncedThemeSource } from '../services/sync/syncTypes';
 
 // useMobileTheme.ts — original cache and switching semantics, guarded by native song intent and local edit intent.
 const empty: CachedThemeState = { kind: 'none' };
@@ -17,6 +18,7 @@ export function useMobileTheme(song: SongResult | null, songEpoch: number, captu
   const [custom, setCustom] = useState(() => { const saved = readSavedCustomTheme(); return saved ? sanitizeDualTheme(saved) : null; });
   const [mode, setMode] = useState<LastAppliedThemePointer>(readStoredLastAppliedThemePointer);
   const [prefs, setPrefs] = useState(() => readMobileThemePreferences(!!custom));
+  const [generationSource, setGenerationSource] = useState(readStoredThemeGenerationSource);
   const [applied, setApplied] = useState<CachedThemeState>(empty);
   const [cache, setCache] = useState<{ key: string | null; value: CachedThemeState }>({ key: null, value: empty });
   const [loading, setLoading] = useState(false), [error, setError] = useState(false), [reload, setReload] = useState(0);
@@ -75,6 +77,13 @@ export function useMobileTheme(song: SongResult | null, songEpoch: number, captu
     persistMobileThemeChoice(mode, next);
     actionEpoch.current++; preferences.current = next; setPrefs(next); setError(false);
   };
+  const configureGeneration = (value: { enabled?: boolean; source?: ThemeGenerationSource }) => {
+    if (value.enabled === undefined && value.source === undefined) return;
+    const next = value.enabled === undefined ? preferences.current : resolveSongThemeAutoGenerateChange(preferences.current, value.enabled);
+    persistMobileThemeChoice(readStoredLastAppliedThemePointer(), next, undefined, value.source);
+    actionEpoch.current++; preferences.current = next; setPrefs(next); setError(false);
+    if (value.source) setGenerationSource(value.source);
+  };
   const saveSong = async (value: DualTheme, session: SongThemeEditSession) => {
     if (!session.song || !session.ready || saving.current) throw new Error('theme-not-ready');
     assertThemeIntent(session.isCurrent);
@@ -93,6 +102,23 @@ export function useMobileTheme(song: SongResult | null, songEpoch: number, captu
   const cached = cache.key === songKey ? cache.value : empty;
   const beginSongEdit = (): SongThemeEditSession => ({ song, cached, ready: !!song && !loading && !error && cache.key === songKey,
     isCurrent: song ? captureSongGuard(song) : () => false });
+  const beginGeneration = (): SongThemeEditSession => {
+    const session = beginSongEdit(), intent = actionEpoch.current;
+    return { ...session, isCurrent: () => mounted.current && intent === actionEpoch.current && session.isCurrent() };
+  };
+  const saveGenerated = async (value: DualTheme, session: SongThemeEditSession, source: SyncedThemeSource) => {
+    if (!session.song || !session.ready || saving.current) throw new Error('theme-not-ready');
+    assertThemeIntent(session.isCurrent);
+    saving.current = true;
+    try {
+      const apply = !preferences.current.isCustomThemePreferred;
+      const normalized = await saveEditedSongTheme(session.song, value, session.isCurrent, { source, remember: apply });
+      assertThemeIntent(session.isCurrent);
+      if (apply) { persistMobileThemeChoice('ai', preferences.current); setApplied({ kind: 'dual', theme: normalized }); setMode('ai'); }
+      setCache({ key: getPlaybackSongKey(session.song), value: { kind: 'dual', theme: normalized } }); setError(false);
+      return apply;
+    } finally { saving.current = false; }
+  };
   const applySong = async () => {
     const session = beginSongEdit();
     if (!session.ready || cached.kind === 'none') return;
@@ -105,6 +131,7 @@ export function useMobileTheme(song: SongResult | null, songEpoch: number, captu
   const songPair = applied.kind === 'dual' ? applied.theme : applied.kind === 'legacy' ? { light: applied.theme, dark: applied.theme } : BASE_DUAL_THEME;
   return { theme: mode === 'custom' && custom ? custom : mode === 'ai' ? songPair : BASE_DUAL_THEME,
     custom, selected: mode === 'custom', activeSource: mode, select, save, saveSong, applySong, beginSongEdit, cached, loading, error,
-    autoSwitch: prefs.songThemeAutoSwitchEnabled, setAutoSwitch, retry: () => setReload(value => value + 1) };
+    autoSwitch: prefs.songThemeAutoSwitchEnabled, setAutoSwitch, retry: () => setReload(value => value + 1),
+    autoGenerate: prefs.songThemeAutoGenerateEnabled, generationSource, configureGeneration, beginGeneration, saveGenerated };
 }
 export type MobileTheme = ReturnType<typeof useMobileTheme>;
