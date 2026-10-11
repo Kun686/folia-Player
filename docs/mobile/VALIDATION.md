@@ -1,6 +1,38 @@
 # 移动候选验证记录
 
-## mobile.15：原版批量歌词导出（当前开发候选）
+## mobile.16：布局、旋转与安全区（当前开发候选）
+
+2026-10-11 已原位安装并启动于 iPhone XS Max／iOS18.7.10，设备回读 build 16。
+源码 `28449046a4a32db4eed665914455c38fe1d1c839`，
+[准确源码 CI](https://github.com/Kun686/folia-Player/actions/runs/38131736888) PASS。
+按 Apple Design 原则整理字号、留白、按钮层级与触摸区域；复用原 `useMediaQuery`、播放器、歌词和动画组件，未新增依赖。
+宽度至少850且高度至少600时显示曲库／播放器双栏；低高度手机横屏为动画／控件分栏，控件独立滚动。
+旋转不卸载播放器；紧凑模式展开播放器时，底层曲库不可误触。暂无歌词提示移入动画区，避免异步加载导致控件位移。
+音频增益折叠后仍保留全部选项；本地移除入口归入原歌曲菜单并保留确认流程。
+
+- PASS：`npm run typecheck`；`npm run test:mobile:ui -- layout.spec mobile.spec` 最终53项通过、4项跳过（2.2分钟）。
+  明暗主题下8种窗口尺寸、长标题、模拟安全区、44px触摸区域、按钮中心命中、无横向溢出、旋转不发播放指令及设置弹窗均覆盖。
+  4项是iPad项目内跳过重复运行的尺寸矩阵；完整矩阵在phone项目执行。桥接使用fixture，不代表真实平台验收。
+  首次用例的设置名称错误及后续2个真实控件位移失败分别修正，最终通过；模式切换仍有既有`useInsertionEffect`警告，不宣称全套日志无警告。
+- PASS（实际模拟器界面短测）：iPhone 17 Pro／iOS26.5，系统选择器导入合成WAV和LRC，拖动、播放及左右横屏／返回竖屏；
+  iPad Pro 11-inch (M5)／iPadOS26.5，保留既有4首合成音频、竖屏展开和横屏双栏，暂停位置保留，播放后可继续自动跨曲。
+  原生容器截图为`mobile16-{iphone,ipad}-{portrait,landscape}.png`。不代表真机旋转、多任务键盘、逐帧性能或全部动画验收。
+  模拟器首次禁用签名导致Keychain启动失败，已改用Xcode标准模拟器签名；iPad首次安装60秒超时，确认启动完成后重试一次成功。
+- PASS：`ios:sync`、模拟器Release及真机clean Release开发签名构建；签名证书／描述文件／设备授权一致，无XCTest残留。
+  2956个源码输入、119个资源文件一致，IPA逐文件匹配签名App；指纹`d6a065dc1c8e9974593061c8144a0cd46b478ae69d5764115137c83a4fb1a9be`。
+- 交付：`移动端交付/Folia-0.7.16-mobile.16-d6a065dc-development.ipa`，7,933,513字节，
+  SHA256 `fdc7a4a08d5b03132cb0430390879fa056c61052d5fb8aea2a745747c2bb3a4c`。
+  个人App未卸载；mobile.15回退包SHA256复核未变。`BUILD_RECORD.json`绑定构建源码，不绑定后续文档提交。
+- 包含此前`38bf11a`的旧歌词缓存身份按歌曲读取恢复；该阶段9项iPhone QA测试通过，未计作此次布局改动的新测试。
+- 已知遗留显示问题：缺歌手元数据时，原共用切歌提示会显示`ui.unknownArtist`；实际模拟器已观察，未在本次布局移植中改动该组件。
+- NOT_RUN：mobile.16真实QQ／网易云手工旋转反馈、物理iPad、完整键盘／多任务矩阵、歌词误差与温升／长期内存测量。
+  历史用户验收保持原版本边界。完整移植仍IN_PROGRESS。
+
+独立Automix验证：原Beat This!单样本输出与Node参考相等；htdemucs被固定Apple ORT1.24.2的DFT形状检查拒绝，
+完整接入BLOCKED，未加入个人App依赖或修改模型。macOS内存结果不能外推到iPhone，详见[AUTOMIX_RUNTIME_DECISION.md](AUTOMIX_RUNTIME_DECISION.md)。
+本地证据：`.mobile-test-results/mobile16-*`及`automix-probe/`。
+
+## mobile.15：原版批量歌词导出（历史候选）
 
 2026-10-11 已原位安装并启动于 iPhone XS Max／iOS18.7.10，设备回读 build 15。
 源码 `1fc4c216b5ab713459f6c2c19bb51010ae57dd01`，

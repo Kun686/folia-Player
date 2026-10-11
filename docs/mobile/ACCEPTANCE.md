@@ -1,6 +1,8 @@
 # 真实服务与真机验收表
 
-当前已安装候选为 0.7.16-mobile.15（build 15），已启动并回读构建号。
+当前已安装候选为 0.7.16-mobile.16（build 16），已启动并回读构建号。
+mobile.16调整触摸布局、安全区及横竖屏切换；53项界面自动测试及iPhone／iPad实际模拟器短测通过，
+真机旋转反馈尚待确认。独立Automix候选因htdemucs／ORT算子兼容性阻塞，尚未加入App，见VALIDATION.md。
 mobile.13 用户确认两平台登录保留、播放正常、导出可用；在线歌曲导入 `.fia`／`.lrc` 时文件被置灰，
 mobile.14 已修复且用户确认两种文件可选择、导入显示正常。mobile.15 批量 ZIP 用户提供清单并确认回导显示正常，
 分别记为 PASS_USER_CONFIRMED；文件字节与每首歌词未独立检查。
@@ -55,7 +57,7 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | 系统文件选择器多选音频并导入 | PASS | iPad Pro 11-inch (M5) / iPadOS 26.5 Simulator，4 个明确标注的合成 WAV |
 | 本地原生播放与自动跨曲 | PASS | iPad 模拟器实际界面观察；另有独立原生四曲队列测试，无 WebView／网关 |
 | LRC 导入与原歌词渲染 | PASS | 系统选择器实际导入，Classic 歌词与动效展示、Partita 播放态展示 |
-| iPad 横竖屏切换 | PASS | 模拟器竖屏单栏、横屏双栏，截图保存在本地证据目录 |
+| iPhone／iPad 横竖屏切换 | PASS（mobile.16 WebKit及实际模拟器）；真机反馈 NOT_RUN | 明暗主题8尺寸、触摸命中及状态保持；实际iPhone横屏动画／控件分栏、iPad宽横屏曲库／播放区双栏。物理iPad、键盘及多任务完整矩阵未测 |
 | 14 模式、背景、参数与外观短码 | PASS（接入） | 复用原注册表和组件；UI fixture 检查选择、挂载及短码回读，不等于所有动画效果和性能已逐项验收 |
 | Partita 移动端长词正文适配 | PASS（开发源码 WebKit）；原生容器及真机视觉复核 NOT_RUN | 原约 240px 溢出已复现并修正；12 项三视口、旋转、多词、Unicode 与原尺寸专项通过。保留原动画参数，见 PARTITA_FIT.md |
 | 原生音频频谱 | PASS（本地 PCM） | WebKit频谱参考、440Hz实际解码信号、静音恢复和停止读取后的停止分析；未覆盖每种在线流编码 |
@@ -75,7 +77,8 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | 本地 GBK／加密 KRC 文件导入 | PASS（自动测试、iPad 模拟器实际选择器／重启及 iPhone 原生专项）；iPhone 选择器手工验收 NOT_RUN | 原解码、失败保留、编辑令牌与原子保存；历史 UI／原生及本轮 17 项中的对应测试见 VALIDATION.md。Partita 裁切已在 WebKit 修正，原生视觉待验；见 LOCAL_LYRIC_IMPORT.md |
 | 本地导入／内嵌歌词来源切换 | PASS（自动测试、iPad 模拟器短测及 iPhone 原生专项）；真机界面操作 NOT_RUN | 独立正文、标签迁移、来源恢复、失败保留；历史基线与本轮专项分别记录。多标签采集仍未完成，见 LOCAL_LYRIC_SOURCES.md |
 | 本地歌曲完整匹配与元数据／封面选择 | PASS（自动测试及 iPhone 原生专项）；真实平台 NOT_RUN | 原完整弹窗与共享规则；iPhone 测试覆盖实际播放期间保存、并发／删除／过期拒绝和后台歌词。HTTPS 阻塞已解除，但尚未执行真实在线候选保存；iPad 历史短测仅覆盖导入与「不使用在线数据」，见 LOCAL_MATCH.md |
-| Automix、全部桌面编辑工具 | NOT_IMPLEMENTED | 仍待移植，完整移植目标未完成 |
+| 完整 Automix | BLOCKED（固定运行库兼容性）；未接入 | 原Beat This!合成样本与Node参考输出相等；Apple ORT1.24.2无法加载原htdemucs。未改模型、未新增App依赖；见AUTOMIX_RUNTIME_DECISION.md |
+| 其余桌面编辑工具／AI | NOT_IMPLEMENTED | 仍待移植，完整移植目标未完成 |
 
 音频格式由AudioStreaming、系统AudioToolbox及获批的Ogg／Vorbis决定；Ogg目前不支持拖动。
 实际支持情况需按设备和编码测试，不能仅凭文件扩展名判定。
