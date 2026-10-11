@@ -1,6 +1,6 @@
 # 原版字体与字幕设置的移动适配
 
-2026-10-12：开发源码阶段；个人 iPhone 保持已验证的 mobile.21。
+2026-10-12：功能验证后已汇入 mobile.22，原位安装个人 iPhone 并启动；新入口的用户操作反馈待确认。
 本轮补全设置入口与上传字体持久化，不改变已接受的全屏舞台、气泡控制器或动画参数。
 
 ## 复用与范围
@@ -42,7 +42,7 @@
 | 原生构建 | PASS，`npm run ios:sync`、Release arm64 Simulator；Swift 源码和生产依赖未修改 |
 | 实际容器 | PASS_SIMULATOR_INTERACTION，iPad Pro 11-inch M5 / iPadOS26.5；从系统文件选择器选中本机测试 TTF，设置显示字体名，终止／重开 App 后保留，再恢复内置字体 |
 | 真机 | NOT_RUN，新设置的 iPhone／物理 iPad 文件选择、所有字体格式、巨大中文字体性能及歌词字体视觉对照 |
-| 个人安装 | NOT_RUN，本轮没有制作新 IPA 或更新个人 iPhone；`BUILD_RECORD.json` 继续描述 mobile.21 |
+| 个人安装 | PASS_INSTALL，后续已制作 mobile.22、原位更新个人 iPhone、启动并回读 build22；`BUILD_RECORD.json` 描述 mobile.22。安装不代表新功能真机操作通过 |
 
 模拟器正向操作在最后补充取消错误分类之前完成；最终取消路径由上述新增逻辑测试验证，
 最终源码的真实字体上传／刷新恢复由 WebKit 再次验证。不能把模拟器短测视作最终个人包验收。
@@ -74,4 +74,4 @@ FOLIA_TEST_FONT=/path/to/locally-licensed.ttf npm run test:mobile:ui -- test/mob
 
 移动入口可独立撤回；播放器、媒体和账号无迁移。旧 Blob 数据继续可读；新上传会替换该字体记录。
 旧源码不识别 v2 字节记录，回退到旧源码时自定义字体可能回落至内置字体；保留原字体文件，
-再次升级后可重新导入。禁止通过卸载个人 App 回退；个人包仍为 mobile.21，旧 IPA 保留。
+再次升级后可重新导入。禁止通过卸载个人 App 回退；已安装 mobile.22，旧 mobile.21 IPA 保留。

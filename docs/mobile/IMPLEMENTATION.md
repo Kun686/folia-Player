@@ -13,7 +13,13 @@
 已汇入 mobile.21；用户确认 1 分钟锁屏到期暂停、手动继续正常，
 未区分具体音源，逐平台及其他时长待验收，见 [SLEEP_TIMER.md](SLEEP_TIMER.md)。
 
-当前交付是 **0.7.16-mobile.21 开发候选**，支持 iOS/iPadOS 17+。
+当前交付是 **0.7.16-mobile.22 开发候选**，支持 iOS/iPadOS 17+。
+准确源码 `da8f6894419e6b75ddbd62f7197763eb2671bd16`；2026-10-12 原位更新个人 iPhone、启动并回读 build22。
+本版补齐原字体／字幕设置，修复 WebKit 字体持久化、FontFace 释放及恢复取消竞态；保留 mobile.19 外观。
+3,001 项源码输入、120 项资源、签名／IPA 和准确源码 CI 已核验；新设置真机操作待用户确认。
+详见 [TYPOGRAPHY.md](TYPOGRAPHY.md) 和 [VALIDATION.md](VALIDATION.md)，上一版 mobile.21 包保留。
+
+此前 **mobile.21** 的证据：
 准确源码 `6bc2bc6156c144df8b934187133ee522988a2978`；2026-10-12 原位安装、启动并回读 build21。
 2,994 项源码输入、120 项生成资源、签名与 IPA 逐文件核验及准确源码 CI 通过。
 iPad 模拟器实际容器已验证定时编辑／开关、音质选择／重启恢复及原音效设置保持；
@@ -61,7 +67,7 @@ mobile.17自动回归及iPad实际模拟器操作通过；iPhone模拟器部分�
 服务器配置不再是使用 App 的前提。真实平台与真机完整验收尚未完成，不能作为已验收安装包发布。
 
 历史 mobile.12 已原位安装并启动于 iPhone XS Max / iOS18.7.10，其源码提交及安装包摘要见
-VALIDATION.md；BUILD_RECORD.json 现描述 mobile.21；mobile.20 及更早安装包保留用于回退。
+VALIDATION.md；BUILD_RECORD.json 现描述 mobile.22；mobile.21 及更早安装包保留用于回退。
 新增包含原歌词时间校准、GBK／KRC 导入、内嵌／导入歌词来源管理、本地完整匹配及 Partita 长词适配。
 本轮 142 项移动逻辑与 17 项 iPhone 原生专项通过；界面结果沿用各功能阶段证据，
 不代表真实平台 App 链路、全部原生动画表现或长期真机验收已完成。
