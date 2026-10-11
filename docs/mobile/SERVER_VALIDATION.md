@@ -121,7 +121,8 @@ GitHub Mobile checks 已通过： https://github.com/Kun686/folia-Player/actions
   iPhone XS Max 仍安装 mobile.12，devicectl 已成功启动 `app.folia.personal`。
 - PASS（用户真机反馈）：在 mobile.12 配置入口并扫码后，用户明确反馈「已登录，能看到账号或歌单」。
   记录见本地 `.mobile-test-results/qq-device-manual.json`，未采集账户标识或会话。
-  **这证明本次真实登录，不证明歌单完整性、实际播放、歌词或锁屏连续播放；这些结果仍待确认。**
+  随后用户进一步反馈「有声音、歌词正常，拖动和切歌可用」，这些基本操作记为用户真机确认通过。
+  **歌单完整性、精确歌词误差及 30 分钟锁屏自动跨曲仍待验证；不会扩大这次反馈的证据范围。**
 
 部署配置副本为 `deploy/mobile/nginx.host.conf.example`，配置 SHA256：
 `a7c5d4d184184dae20e624a93045df1a7876c9758702824ef85706d99fdaf8a4`。
