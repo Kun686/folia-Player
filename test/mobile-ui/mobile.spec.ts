@@ -9,6 +9,10 @@ test.beforeEach(async ({ page }) => {
     let cacheSubscriber: () => void;
     win.fixtureCache = { settings: { enabled: false, limitGB: 5 }, count: 0, bytes: 0, pending: 0, revision: 0, error: null, songs: [] };
     win.fixtureCovers = { bytes: 1048576, count: 1 };
+    // This fixture selects provider lyrics; optional cross-provider matching has separate logical coverage.
+    localStorage.setItem('auto_use_best_lyric', 'false');
+    let lyricToken = 'initial';
+    let lyricCache = JSON.parse(sessionStorage.getItem('fixture-lyric-cache') || '{}');
     let cookie = false;
     const effects = { highpass: 20, lowpass: 20000, drive: 0, crush: 0, wow: 0, noise: 0, width: 1, space: 0, punch: 0 };
     win.fixtureTransition = { enabled: false, mode: 'automix', crossfadeMaxSec: 5 };
@@ -25,13 +29,25 @@ test.beforeEach(async ({ page }) => {
     const emit = () => { state.revision++; subscriber?.({ ...state }); };
     win.fixtureEmitPlayback = (patch: Record<string, unknown>) => { Object.assign(state, patch); emit(); };
     const methods = ['bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR',
-      'localCatalog', 'importAudio', 'localDetails', 'importLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache'];
+      'localCatalog', 'importAudio', 'localDetails', 'importLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
+      'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache'];
     win.Capacitor = {
       PluginHeaders: [{ name: 'FoliaNative', methods: [...methods.map(name => ({ name, rtype: 'promise' })), { name: 'addListener' }, { name: 'removeListener' }] }],
       nativeCallback: (_plugin: string, method: string, options: any, cb: (state: unknown) => void) => {
         if (method === 'addListener') { if (options.eventName === 'mediaCache') cacheSubscriber = cb as () => void; else subscriber = cb; } return 'callback-1';
       },
       nativePromise: async (_plugin: string, method: string, options: any) => {
+        if (method === 'readLyricCache') return { token: lyricToken, payload: structuredClone(lyricCache[JSON.stringify(options.song.sourceRef)] || {}) };
+        if (method === 'writeLyricCache') {
+          if (options.token !== lyricToken) throw new Error('lyric-cache-changed');
+          const key = JSON.stringify(options.song.sourceRef);
+          lyricCache[key] = { ...lyricCache[key], [options.field]: options.value };
+          sessionStorage.setItem('fixture-lyric-cache', JSON.stringify(lyricCache)); return {};
+        }
+        if (method === 'lyricCacheState') return { count: Object.keys(lyricCache).length, bytes: Object.keys(lyricCache).length ? JSON.stringify(lyricCache).length : 0 };
+        if (method === 'clearLyricCache') {
+          lyricToken += 'x'; lyricCache = {}; sessionStorage.removeItem('fixture-lyric-cache'); return {};
+        }
         if (method === 'songCover') return { url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=' };
         if (method === 'coverCacheState') return { ...win.fixtureCovers };
         if (method === 'clearCoverCache') {
@@ -105,7 +121,11 @@ test.beforeEach(async ({ page }) => {
         else if (path.startsWith('/cloudsearch')) body = path.includes('fail') ? { code: 500 } : { code: 200, result: { songs: [song], songCount: 1 } };
         else if (path.startsWith('/playlist/track/all')) body = { code: 200, songs: [song] };
         else if (path.startsWith('/playlist/detail')) body = { code: 200, playlist: { id: 8, name: '测试歌单', tracks: [song], trackIds: [{ id: 42 }], trackCount: 1 } };
-        else if (path.startsWith('/lyric')) body = { code: 200, lrc: { lyric: '[00:00.00]测试歌词\n[00:10.00]第二句' } };
+        else if (path.startsWith('/lyric')) {
+          win.fixtureLyricRequests = (win.fixtureLyricRequests || 0) + 1;
+          if (win.fixtureOfflineLyrics) throw new Error('offline');
+          body = { code: 200, lrc: { lyric: '[00:00.00]测试歌词\n[00:10.00]第二句' } };
+        }
         return { status: 200, body: JSON.stringify(body), headers: { 'content-type': 'application/json' } };
       },
     };
@@ -220,7 +240,7 @@ test('login, catalog, queue, controls and responsive layout', async ({ page }, i
   await page.getByRole('button', { name: '重新生成二维码' }).click();
   await expect(page.getByRole('img', { name: '扫码登录' })).toBeVisible();
   await expect(page.getByText('已登录', { exact: true })).toBeVisible({ timeout: 10000 });
-  await page.getByRole('button', { name: '关闭', exact: true }).click();
+  await page.getByRole('dialog', { name: '扫码登录' }).getByRole('button', { name: '关闭', exact: true }).click();
   await expect(page.getByText('测试用户', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: '测试歌单', exact: true }).click();
   await expect(page.getByRole('button', { name: '播放 测试歌曲', exact: true })).toBeVisible();
@@ -533,4 +553,35 @@ test('original cache controls retain offline songs and recover from rejected edi
   await dialog.getByRole('button', { name: '关闭', exact: true }).click();
   await expect(page.getByRole('button', { name: '播放 离线缓存歌曲', exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('online lyric cache survives reload and offline refresh, then clears independently', async ({ page }, info) => {
+  const play = async () => {
+    await page.getByRole('textbox', { name: '搜索歌曲' }).fill('测试');
+    await page.getByRole('button', { name: '搜索歌曲', exact: true }).click();
+    await page.getByRole('button', { name: '播放 测试歌曲', exact: true }).click();
+    await page.getByRole('button', { name: '歌词与动效', exact: true }).click();
+    await page.getByLabel('歌词动画', { exact: true }).selectOption('still');
+    await page.locator('.visual-settings > header').getByRole('button', { name: '关闭', exact: true }).click();
+  };
+  await page.goto('/mobile.html'); await play();
+  await expect(page.locator('.lyric-stage').getByText('测试歌词', { exact: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('fixture-lyric-cache'))).toContain('测试歌词');
+  await page.addInitScript(() => {
+    (window as any).fixtureOfflineLyrics = true;
+    localStorage.setItem('auto_use_best_lyric', 'true');
+  });
+  await page.reload(); await play();
+  await expect(page.locator('.lyric-stage').getByText('测试歌词', { exact: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureLyricRequests)).toBe(1);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await page.screenshot({ path: '.mobile-test-results/lyrics-offline-' + info.project.name + '.png' });
+  const back = page.getByRole('button', { name: '返回音乐库', exact: true });
+  if (await back.isVisible()) await back.click();
+  await page.getByRole('button', { name: '服务器与外观', exact: true }).click();
+  page.once('dialog', popup => popup.accept());
+  await page.getByRole('button', { name: '清除歌词缓存', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('fixture-lyric-cache'))).toBeNull();
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureCovers.bytes)).toBe(1048576);
+  await expect.poll(() => page.evaluate(() => (window as any).fixturePlayback.playing)).toBe(true);
 });

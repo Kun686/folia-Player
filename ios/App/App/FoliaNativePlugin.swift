@@ -10,11 +10,12 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         "request", "cancelRequests", "setQueue", "editQueue", "selectQueue", "command", "getState", "shareQR",
         "localCatalog", "importAudio", "localDetails", "importLyrics", "removeLocal", "audioLevels",
         "getAudioSettings", "setAudioSettings", "getTransitionSettings", "setTransitionSettings", "getMediaCacheSettings", "setMediaCacheSettings",
-        "mediaCacheState", "clearMediaCache", "songCover", "coverCacheState", "clearCoverCache"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
+        "mediaCacheState", "clearMediaCache", "songCover", "coverCacheState", "clearCoverCache",
+        "readLyricCache", "writeLyricCache", "lyricCacheState", "clearLyricCache"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
     private let picker = LocalImportPicker()
     private var importing = false
     private let gateway = GatewayClient()
-    private var engine: PlaybackEngine!
+    var engine: PlaybackEngine!
     private var requests: [String: Task<Void, Never>] = [:]
     public override func load() {
         DispatchQueue.main.async {
@@ -23,7 +24,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
             self.engine.emit = { [weak self] state in self?.notifyListeners("playback", data: state) }
         }
     }
-    private func run(_ call: CAPPluginCall, _ work: @escaping () throws -> Void) {
+    func run(_ call: CAPPluginCall, _ work: @escaping () throws -> Void) {
         DispatchQueue.main.async {
             guard self.bridge?.webView?.url?.scheme == "capacitor", self.bridge?.webView?.url?.host == "localhost" else {
                 call.reject("untrusted-origin"); return
@@ -60,9 +61,19 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         let provider = try self.provider(call)
         guard let values = call.getObject("values") as? [String: String],
               values.count <= 16, values.values.allSatisfy({ $0.count <= 24000 }) else { throw MobileFailure("invalid-session") }
+        let previous = try SecureStore.read("session." + provider)
+        let changed = ["cookie", "token", "userid"].contains { (previous[$0] as? String) != values[$0] }
         try SecureStore.write("session." + provider, values)
-        self.engine.crossfade?.providerLyricsChanged(provider)
-        call.resolve()
+        if changed { self.engine.crossfade?.cancelLyricRequests() }
+        Task { @MainActor in
+            do {
+                if changed {
+                    try await self.engine.lyricCache.clear(provider: provider)
+                    self.engine.crossfade?.providerLyricsChanged(provider)
+                }
+                call.resolve()
+            } catch { call.reject("cache-clear-failed") }
+        }
     } }
     @objc func clearSession(_ call: CAPPluginCall) { run(call) {
         let provider = try self.provider(call)

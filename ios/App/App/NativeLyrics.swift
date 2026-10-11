@@ -17,9 +17,16 @@ actor NativeLyricParser {
         guard data.count <= 262144 else { throw MobileFailure("invalid-local-lyrics") }
         return data == Data("null".utf8) ? nil : data
     }
-    func onlineStep(_ input: Data) throws -> Data { try call("stepJSON", input: input) }
+    func onlineStep(_ input: Data) throws -> Data { try call("stepJSON", input: input, limit: 3_000_000) }
+    func cacheDocument(_ payload: [String: Any]) throws -> [String: Any] {
+        let input = try JSONSerialization.data(withJSONObject: ["version": 1, "payload": payload])
+        guard input.count <= 8_000_000,
+              let result = try JSONSerialization.jsonObject(with: call("cacheJSON", input: input, limit: 8_000_000)) as? [String: Any]
+        else { throw MobileFailure("invalid-lyric-cache") }
+        return result
+    }
 
-    private func call(_ method: String, input: Data) throws -> Data {
+    private func call(_ method: String, input: Data, limit: Int = 300000) throws -> Data {
         try Task.checkCancellation()
         guard input.count <= 12_100_000 else { throw MobileFailure("lyrics-too-large") }
         if context == nil {
@@ -39,7 +46,7 @@ actor NativeLyricParser {
         context.exception = nil
         let result = context.objectForKeyedSubscript("FoliaLocalLyrics")?.invokeMethod(method,
             withArguments: [String(decoding: input, as: UTF8.self), inflate])
-        guard context.exception == nil, let text = result?.toString(), let data = text.data(using: .utf8), data.count <= 300000 else {
+        guard context.exception == nil, let text = result?.toString(), let data = text.data(using: .utf8), data.count <= limit else {
             context.exception = nil
             throw MobileFailure("invalid-local-lyrics")
         }
@@ -54,15 +61,16 @@ final class NativeLyrics {
     private let local: LocalMediaLibrary
     private let parser: NativeLyricParser
     private let gateway: GatewayClient
+    private let cache: NativeLyricCache?
     private let session: (String) throws -> [String: Any]
     private var wanted: Set<String> = []
     private var tasks: [String: (UUID, Task<Void, Never>)] = [:]
     private var values: [String: Value] = [:]
     private(set) var revision = 0
     var changed: (() -> Void)?
-    init(local: LocalMediaLibrary, parser: NativeLyricParser = NativeLyricParser(), gateway: GatewayClient = GatewayClient(),
+    init(local: LocalMediaLibrary, parser: NativeLyricParser = NativeLyricParser(), gateway: GatewayClient = GatewayClient(), cache: NativeLyricCache? = nil,
          session: @escaping (String) throws -> [String: Any] = { try SecureStore.read("session." + $0) }) {
-        self.local = local; self.parser = parser; self.gateway = gateway; self.session = session
+        self.local = local; self.parser = parser; self.gateway = gateway; self.session = session; self.cache = cache
     }
     deinit { tasks.values.forEach { $0.1.cancel() } }
     func value(_ song: [String: Any]) -> [[String: Any]]? {
@@ -72,6 +80,7 @@ final class NativeLyrics {
     func invalidate(_ id: String) {
         invalidateKey("local:" + id)
     }
+    func invalidateSong(_ song: [String: Any]) { if let id = NativeProfileIdentity(song) { invalidateKey(id.key) } }
     private func invalidateKey(_ key: String) {
         tasks.removeValue(forKey: key)?.1.cancel(); values.removeValue(forKey: key); wanted.remove(key)
         revision += 1
@@ -91,7 +100,7 @@ final class NativeLyrics {
             guard let identity = identities.first(where: { $0.key == id }),
                   let song = songs.first(where: { NativeProfileIdentity($0)?.key == id }) else { continue }
             let stamp = UUID()
-            let task = Task(priority: .utility) { @MainActor [weak self, local, parser, gateway, session] in
+            let task = Task(priority: .utility) { @MainActor [weak self, local, parser, gateway, session, cache] in
                 let lines: [[String: Any]]?
                 do {
                     if let localID = identity.localID {
@@ -101,7 +110,8 @@ final class NativeLyrics {
                             lines = try JSONSerialization.jsonObject(with: data) as? [[String: Any]]
                         } else { lines = nil }
                     } else {
-                        lines = try await NativeOnlineLyrics.load(song, session: session(identity.provider!), gateway: gateway, parser: parser)
+                        if let cache { lines = try await cache.lines(song, session: session(identity.provider!), gateway: gateway) }
+                        else { lines = try await NativeOnlineLyrics.load(song, session: session(identity.provider!), gateway: gateway, parser: parser) }
                     }
                 } catch { lines = nil }
                 guard let self, !Task.isCancelled, self.wanted.contains(id), self.tasks[id]?.0 == stamp else { return }

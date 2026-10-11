@@ -15,6 +15,7 @@ import { toSafePlaybackUrl } from '../utils/appPlaybackHelpers';
 import { getProviderSongMetadata } from './onlineMusic/songMetadata';
 import { useLyricSettingsStore } from '../stores/useLyricSettingsStore';
 import { saveLyricCacheSongMetadata } from './lyricExport/lyricCacheMetadata';
+import type { OnlineLyricsStorage } from './onlineLyricsStorage';
 
 export async function loadOnlineSongAudioSource(
     song: SongResult,
@@ -82,21 +83,34 @@ export async function loadOnlineSongLyrics(
         onStateChange?: (state: OnlineLyricsState | null) => void;
         onAutoMatchStart?: () => void;
         onDone: () => void;
-    }
+    },
+    storage?: OnlineLyricsStorage,
 ): Promise<void> {
-    const { isCurrent, onLyrics, onPureMusicChange, onStateChange, onAutoMatchStart, onDone } = callbacks;
+    const { onLyrics, onPureMusicChange, onStateChange, onAutoMatchStart, onDone } = callbacks;
+    const isCurrent = () => callbacks.isCurrent() && (storage?.isCurrent() ?? true);
     const lyricCacheKey = getSongResourceCacheKey('lyric', song);
-    const onlineLyricsState = await loadOnlineLyricsState(song);
+    const onlineLyricsState = await (storage ? storage.readState() : loadOnlineLyricsState(song));
+    const persistLyrics = (lyrics: LyricData | null) => {
+        if (!isCurrent()) return;
+        if (storage) void storage.writeLyrics(lyrics).catch(() => undefined);
+        else if (lyrics) { void saveToCache(lyricCacheKey, lyrics); saveLyricCacheSongMetadata(song); }
+    };
+    const persistState = (state: OnlineLyricsState) => storage ? storage.writeState(state) : saveOnlineLyricsState(song, state);
   const initialSettingsLyricSettings = useLyricSettingsStore.getState();
 
     if (!isCurrent()) return;
     onStateChange?.(onlineLyricsState);
 
-    const cachedLyrics = await getSongCacheWithLegacyMigration<LyricData>('lyric', song, migrateLyricDataRenderHints);
+    const cachedLyrics = await (storage ? storage.readLyrics()
+        : getSongCacheWithLegacyMigration<LyricData>('lyric', song, migrateLyricDataRenderHints));
     if (!isCurrent()) return;
     const preferredCachedLyrics = resolveOnlineLyrics(onlineLyricsState, cachedLyrics);
     const hasAuthoritativeLyricsSelection = onlineLyricsState?.lyricsSource === 'imported'
         || Boolean(onlineLyricsState?.hasOnlineOverride);
+    // A saved instrumental match is an authoritative answer, including when its lyric value is null.
+    if (hasAuthoritativeLyricsSelection && !preferredCachedLyrics && onlineLyricsState?.matchedIsPureMusic) {
+        onPureMusicChange?.(true); onLyrics(null); onDone(); return;
+    }
     if (preferredCachedLyrics && (hasAuthoritativeLyricsSelection || !initialSettingsLyricSettings.autoUseBestLyric)) {
         const cachedText = preferredCachedLyrics.lines.map(line => line.fullText).join('\n');
         onPureMusicChange?.(resolveOnlineLyricsPureMusic(onlineLyricsState, cachedText));
@@ -104,6 +118,7 @@ export async function loadOnlineSongLyrics(
         onDone();
         return;
     }
+    if (preferredCachedLyrics && storage) onLyrics(preferredCachedLyrics);
 
     if (prefetched?.lyricRaw?.isPureMusic && !prefetched.lyrics
         && (hasAuthoritativeLyricsSelection || !initialSettingsLyricSettings.autoUseBestLyric)) {
@@ -128,14 +143,14 @@ export async function loadOnlineSongLyrics(
                     : (prefetched.lyricRaw?.isPureMusic || isPureMusicLyricText(effectiveText) || isPureMusicLyricText(prefetched.lyricRaw?.mainLrc))
             );
             onLyrics(effectiveLyrics);
-            saveToCache(lyricCacheKey, prefetched.lyrics);
-            saveLyricCacheSongMetadata(song);
+            persistLyrics(prefetched.lyrics);
             onDone();
             return;
         }
     }
 
-    const processed = prefetched?.lyrics
+    let processed;
+    try { processed = prefetched?.lyrics
         ? {
             mainLrc: prefetched.lyricRaw?.mainLrc ?? null,
             yrcLrc: prefetched.lyricRaw?.yrcLrc ?? null,
@@ -155,6 +170,15 @@ export async function loadOnlineSongLyrics(
                 chorusRanges: result.chorusRanges || [],
             };
         })();
+    } catch (error) {
+        if (!isCurrent()) return;
+        // Cached words/translation remain usable when the optional online refresh is offline.
+        if (preferredCachedLyrics) {
+            onPureMusicChange?.(resolveOnlineLyricsPureMusic(onlineLyricsState, preferredCachedLyrics.lines.map(line => line.fullText).join('\n')));
+            onLyrics(preferredCachedLyrics); onDone(); return;
+        }
+        throw error;
+    }
     const parsedLyrics = processed.lyrics;
 
     if (!isCurrent()) return;
@@ -199,6 +223,7 @@ export async function loadOnlineSongLyrics(
                     }
                     : undefined
             });
+            if (!isCurrent()) return;
             const ownProviderId = song.sourceRef?.kind === 'online' ? song.sourceRef.providerId : null;
             if (bestMatch && 'lyrics' in bestMatch && bestMatch.source !== ownProviderId) {
                 const overrideState: OnlineLyricsState = {
@@ -209,7 +234,8 @@ export async function loadOnlineSongLyrics(
                     matchedLyricsSource: bestMatch.source,
                     matchedLyricsProviderPlatform: bestMatch.matchedLyricsProviderPlatform,
                 };
-                await saveOnlineLyricsState(song, overrideState);
+                await persistState(overrideState);
+                if (!isCurrent()) return;
                 resolvedLyrics = bestMatch.lyrics;
                 finalState = overrideState;
                 onStateChange?.(overrideState);
@@ -219,7 +245,8 @@ export async function loadOnlineSongLyrics(
                 // a best match from the track's own provider (which fails the branch above) then
                 // landed here and had its perfectly good lyrics thrown away as instrumental.
                 const pureMusic = markOnlineLyricsPureMusic(onlineLyricsState);
-                await saveOnlineLyricsState(song, pureMusic);
+                await persistState(pureMusic);
+                if (!isCurrent()) return;
                 resolvedLyrics = null;
                 finalState = pureMusic;
                 onStateChange?.(pureMusic);
@@ -239,13 +266,13 @@ export async function loadOnlineSongLyrics(
     );
 
     if (!resolvedLyrics) {
+        persistLyrics(null);
         onLyrics(null);
         onDone();
         return;
     }
 
     onLyrics(resolvedLyrics);
-    saveToCache(lyricCacheKey, resolvedLyrics);
-    saveLyricCacheSongMetadata(song);
+    persistLyrics(resolvedLyrics);
     onDone();
 }

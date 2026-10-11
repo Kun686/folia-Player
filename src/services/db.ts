@@ -142,6 +142,7 @@ export const upsertThemeRegistryEntries = writeThemeRegistryEntries;
 
 export const clearCache = async (preserveKeys: string[] = []): Promise<void> => {
   if (!preserveKeys.some(key => key.startsWith('cover_'))) await getMobileRuntime()?.covers?.clear();
+  if (!preserveKeys.some(key => key.startsWith('lyric_'))) await getMobileRuntime()?.lyrics?.clear();
   try {
     await clearCacheTables(preserveKeys);
     if (hasElectronAudioCacheBridge() && !preserveKeys.some(key => key.startsWith('audio_'))) {
@@ -155,10 +156,11 @@ export const clearCache = async (preserveKeys: string[] = []): Promise<void> => 
 
 export const getCacheUsage = async (): Promise<number> => {
   const nativeCoverSize = await getMobileRuntime()?.covers?.usage() ?? 0;
+  const nativeLyricSize = await getMobileRuntime()?.lyrics?.usage() ?? 0;
   try {
     const browserSize = await getBrowserCacheUsage();
     const audioSize = hasElectronAudioCacheBridge() ? await window.electron!.getAudioCacheUsage() : 0;
-    return browserSize + audioSize + await getCoverAssetUsage() + nativeCoverSize;
+    return browserSize + audioSize + await getCoverAssetUsage() + nativeCoverSize + nativeLyricSize;
   } catch {
     return 0;
   }
@@ -173,6 +175,7 @@ export const getCacheUsageByCategory = async (): Promise<{
   mediaCount: number;
 }> => {
   const nativeCoverSize = await getMobileRuntime()?.covers?.usage() ?? 0;
+  const nativeLyricSize = await getMobileRuntime()?.lyrics?.usage() ?? 0;
   try {
     const usage = await getBrowserCacheUsageByCategory();
     if (hasElectronAudioCacheStatsBridge()) {
@@ -184,6 +187,7 @@ export const getCacheUsageByCategory = async (): Promise<{
     }
     usage.cover += await getCoverAssetUsage();
     usage.cover += nativeCoverSize;
+    usage.lyrics += nativeLyricSize;
     return usage;
   } catch {
     return { playlist: 0, lyrics: 0, cover: 0, media: 0, analysis: 0, mediaCount: 0 };
@@ -192,6 +196,7 @@ export const getCacheUsageByCategory = async (): Promise<{
 
 export const clearCacheByCategory = async (category: CacheCategory): Promise<void> => {
   if (category === 'cover') await getMobileRuntime()?.covers?.clear();
+  if (category === 'lyrics') await getMobileRuntime()?.lyrics?.clear();
   try {
     await clearBrowserCacheByCategory(category);
     if (category === 'media' && hasElectronAudioCacheBridge()) {

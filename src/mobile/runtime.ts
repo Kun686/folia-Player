@@ -1,5 +1,6 @@
 import { native } from './bridge';
 import { installMobileRuntime } from '../services/mobileRuntime';
+import { openNativeLyricsStorage } from './lyricStorage';
 
 // src/mobile/runtime.ts — memory mirror is hydrated before provider imports; no credential localStorage.
 let sessions: Record<string, Record<string, string>> = {};
@@ -9,6 +10,7 @@ const generations = new Map<string, number>();
 const pending = new Map<string, string>();
 const generation = (provider: string) => generations.get(provider) ?? 0;
 let coverGeneration = 0;
+let lyricGeneration = 0;
 const enqueueSave = (provider: string) => {
   const values = { ...sessions[provider] };
   persistence = persistence.then(() => native.saveSession({ provider, values })).then(() => { persistenceErrors.delete(provider); }).catch(error => { persistenceErrors.set(provider, error); });
@@ -54,6 +56,16 @@ export async function initializeRuntime() {
   const state = await native.bootstrap();
   sessions = state.sessions;
   installMobileRuntime({ fetch: request,
+    lyrics: {
+      open: async song => {
+        const provider = song.sourceRef?.kind === 'online' ? song.sourceRef.providerId : 'local';
+        const epoch = generation(provider), lyrics = lyricGeneration;
+        await persistence;
+        return openNativeLyricsStorage(song, () => epoch === generation(provider) && lyrics === lyricGeneration);
+      },
+      usage: async () => (await native.lyricCacheState()).bytes,
+      clear: () => { lyricGeneration++; return native.clearLyricCache(); },
+    },
     covers: {
       load: async song => {
         const provider = song.sourceRef?.kind === 'online' ? song.sourceRef.providerId : 'local';

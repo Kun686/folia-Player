@@ -2,6 +2,8 @@
 export const mobileEn = {
   clearMediaCache: "Clear audio cache",
   clearCoverCache: "Clear cover cache",
+  clearLyricCache: "Clear lyric cache",
+  confirmClearLyricCache: "Clear online lyrics and saved lyric-source selections? Lyrics imported with local music are kept.",
   confirmClearMediaCache: "Clear cached audio? Imported music is kept and current playback can continue.",
   cachePending: "Caching {{count}} tracks",
   cacheError: "Cache operation failed. Check the network or available storage.",
@@ -41,6 +43,8 @@ export const mobileEn = {
 export const mobileZh: typeof mobileEn = {
   clearMediaCache: "清除音频缓存",
   clearCoverCache: "清除封面缓存",
+  clearLyricCache: "清除歌词缓存",
+  confirmClearLyricCache: "清除在线歌词及其已保存的来源选择？本地音乐导入的歌词会保留。",
   confirmClearMediaCache: "清除缓存的音频？本地导入的音乐会保留，正在播放的歌曲可以继续播放。",
   cachePending: "正在缓存 {{count}} 首歌曲",
   cacheError: "缓存操作失败，请检查网络或可用空间。",
@@ -80,6 +84,8 @@ export const mobileZh: typeof mobileEn = {
 export const mobileIn: typeof mobileEn = {
   clearMediaCache: "Hapus cache audio",
   clearCoverCache: "Hapus cache sampul",
+  clearLyricCache: "Hapus cache lirik",
+  confirmClearLyricCache: "Hapus lirik daring dan pilihan sumber lirik tersimpan? Lirik musik lokal tetap disimpan.",
   confirmClearMediaCache: "Hapus audio cache? Musik impor tetap disimpan dan pemutaran saat ini dapat berlanjut.",
   cachePending: "Menyimpan {{count}} lagu",
   cacheError: "Operasi cache gagal. Periksa jaringan atau ruang penyimpanan.",

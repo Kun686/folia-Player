@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const native = vi.hoisted(() => ({
   bootstrap: vi.fn(), saveSession: vi.fn(), clearSession: vi.fn(), request: vi.fn(), cancelRequests: vi.fn(),
   songCover: vi.fn(), coverCacheState: vi.fn(), clearCoverCache: vi.fn(),
+  readLyricCache: vi.fn(), writeLyricCache: vi.fn(), lyricCacheState: vi.fn(), clearLyricCache: vi.fn(),
 }));
 vi.mock('../../../src/mobile/bridge', () => ({ native }));
 describe('mobile secure runtime', () => {
@@ -80,5 +81,22 @@ describe('mobile secure runtime', () => {
     await expect(covers.load(song)).resolves.toBe('data:image/jpeg;base64,fixture');
     await expect(covers.usage()).resolves.toBe(1024);
     expect(native.songCover).toHaveBeenCalledWith({ song });
+  });
+  it.each(['clear', 'logout'])('revokes native lyric writes and pending reads after %s', async action => {
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    await runtime.initializeRuntime();
+    native.readLyricCache.mockResolvedValue({ token: 'old', payload: {} });
+    const song = { sourceRef: { kind: 'online', providerId: 'qq', mediaId: '42' } } as any;
+    const port = getMobileRuntime()!.lyrics!, storage = await port.open(song);
+    let finish!: (value: unknown) => void;
+    native.readLyricCache.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const pending = port.open(song), assertion = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+    if (action === 'clear') await port.clear(); else await runtime.clearProvider('qq');
+    finish({ token: 'old', payload: {} }); await assertion;
+    expect(storage.isCurrent()).toBe(false);
+    await expect(storage.writeLyrics(null)).rejects.toMatchObject({ name: 'AbortError' });
+    expect(native.writeLyricCache).not.toHaveBeenCalled();
   });
 });

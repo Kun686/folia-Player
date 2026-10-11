@@ -1,4 +1,5 @@
 import type { SongResult } from '../types';
+import type { OnlineLyricsStorage } from './onlineLyricsStorage';
 
 // src/services/mobileRuntime.ts — injected only by the bundled mobile entry.
 export interface MobileRuntime {
@@ -7,6 +8,11 @@ export interface MobileRuntime {
   write(provider: string, key: string, value: string | null): void;
   covers?: {
     load(song: SongResult): Promise<string | null>;
+    usage(): Promise<number>;
+    clear(): Promise<void>;
+  };
+  lyrics?: {
+    open(song: SongResult): Promise<OnlineLyricsStorage>;
     usage(): Promise<number>;
     clear(): Promise<void>;
   };

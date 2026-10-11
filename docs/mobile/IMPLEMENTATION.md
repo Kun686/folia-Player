@@ -10,7 +10,12 @@ mobile.10 已安装并启动于 iPhone XS Max / iOS18.7.10，设备回读 build 
 原 Crossfade 调度、设置和歌曲分析已接入，默认仍关闭。原音频缓存现已接入，默认关闭、5GB 上限；
 开启时完整缓存用于原分析和离线播放，关闭且没有缓存时保持原在线前缀策略。
 142 项模拟器原生回归、13 项真机专项、51 项逻辑和 27 项 UI 通过，证据见 VALIDATION.md。
-完整 Automix、封面／歌词持久缓存、真实平台长期测试与性能验收仍待完成；缓存边界见 [MEDIA_CACHE.md](MEDIA_CACHE.md)。
+此安装包未包含后续的封面／歌词持久缓存；缓存边界见 [MEDIA_CACHE.md](MEDIA_CACHE.md)。
+
+2026-10-11 后续开发源码已接入原版 ReplayGain、共用封面缓存和完整在线歌词持久存储，分别见
+[REPLAYGAIN.md](REPLAYGAIN.md)、[COVERS.md](COVERS.md)、[LYRIC_CACHE.md](LYRIC_CACHE.md)。
+歌词阶段最终通过 148 项逻辑、9 项 WebKit 界面、212 项模拟器原生及 23 项 iPhone 专项；
+个人包仍为 mobile.10。完整 Automix、原版其余编辑工具、真实平台长期测试与性能验收仍待完成。
 
 此前附加音效开发见 [EFFECT_PARITY.md](EFFECT_PARITY.md)：DSP、组合链、线程交接和tap共32项测试通过；
 组合阶段Debug全部70项、Release相关8项回归通过，随后实际tap接线9项通过。

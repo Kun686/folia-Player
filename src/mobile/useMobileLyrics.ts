@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { LyricData, SongResult } from '../types';
-import { omni } from '../services/onlineMusic/omni';
+import { loadOnlineSongLyrics } from '../services/onlinePlayback';
+import { getMobileRuntime } from '../services/mobileRuntime';
 import { LocalFileLyricAdapter } from '../utils/lyrics/adapters/LocalFileLyricAdapter';
 import { resolveExplicitFileTimedLyricFormat } from '../utils/lyrics/formatDetection';
 import { native } from './bridge';
@@ -24,8 +25,13 @@ export function useMobileLyrics(song?: SongResult) {
           formatHint: resolveExplicitFileTimedLyricFormat(detail.fileName) }) : null;
         if (active) setLyrics(result);
       } else {
-        const result = await omni.getLyrics(song);
-        if (active) setLyrics(result.lyrics);
+        const storage = await getMobileRuntime()?.lyrics?.open(song);
+        if (!active) return;
+        await loadOnlineSongLyrics(song, null, undefined, {
+          isCurrent: () => active,
+          onLyrics: value => { if (active) setLyrics(value); },
+          onDone: () => undefined,
+        }, storage);
       }
     };
     void load().catch(() => { if (active) setError(true); });

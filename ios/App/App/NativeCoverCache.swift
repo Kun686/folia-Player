@@ -83,28 +83,13 @@ actor NativeCoverCache {
         }
         return jpeg
     }
-    private func files(provider: String? = nil) -> [(URL, Int, Date)] {
-        (provider.map { [$0] } ?? ["qq", "netease", "kugou"]).flatMap { provider in
-            ((try? FileManager.default.contentsOfDirectory(at: root.appendingPathComponent(provider),
-                includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey, .isRegularFileKey, .isSymbolicLinkKey])) ?? []).compactMap { url in
-                guard url.pathExtension == "jpg", NativeMediaFiles.validKey(url.deletingPathExtension().lastPathComponent),
-                      let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey, .isRegularFileKey, .isSymbolicLinkKey]),
-                      values.isRegularFile == true, values.isSymbolicLink != true else { return nil }
-                return (url, values.fileSize ?? 0, values.contentModificationDate ?? .distantPast)
-            }
-        }
-    }
-    private func prune() throws {
-        let entries = files().sorted { $0.2 < $1.2 }; var total = entries.reduce(0) { $0 + $1.1 }
-        for entry in entries where total > limit { try FileManager.default.removeItem(at: entry.0); total -= entry.1 }
-    }
-    func summary() -> [String: Int] {
-        let entries = files(); return ["count": entries.count, "bytes": entries.reduce(0) { $0 + $1.1 }]
-    }
+    private var files: NativeResourceFiles { NativeResourceFiles(root: root, fileExtension: "jpg") }
+    private func prune() throws { try files.prune(limit: limit) }
+    func summary() -> [String: Int] { files.summary() }
     func clear(provider: String? = nil) throws {
         guard provider == nil || ["qq", "netease", "kugou"].contains(provider!) else { throw MobileFailure("invalid-provider") }
         for provider in provider.map({ [$0] }) ?? ["qq", "netease", "kugou"] { generations[provider, default: 0] += 1 }
         for (key, job) in jobs where provider == nil || job.provider == provider { job.task.cancel(); jobs.removeValue(forKey: key) }
-        for entry in files(provider: provider) { try FileManager.default.removeItem(at: entry.0) }
+        try files.clear(provider: provider)
     }
 }

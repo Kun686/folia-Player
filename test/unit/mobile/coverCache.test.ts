@@ -8,11 +8,13 @@ import type { SongResult } from '../../../src/types';
 
 // coverCache.test.ts — native covers join the original category without a second IndexedDB image copy.
 const covers = { load: vi.fn(), usage: vi.fn(), clear: vi.fn() };
+const lyrics = { open: vi.fn(), usage: vi.fn(), clear: vi.fn() };
 describe('mobile shared cover storage', () => {
   beforeEach(async () => {
     vi.resetAllMocks();
     covers.load.mockResolvedValue('data:image/jpeg;base64,fixture'); covers.usage.mockResolvedValue(1024);
-    installMobileRuntime({ fetch: vi.fn(), read: () => null, write: () => undefined, covers });
+    lyrics.usage.mockResolvedValue(2048);
+    installMobileRuntime({ fetch: vi.fn(), read: () => null, write: () => undefined, covers, lyrics });
     await appDatabase.delete(); await appDatabase.open();
   });
   afterEach(async () => { await appDatabase.delete(); });
@@ -39,5 +41,12 @@ describe('mobile shared cover storage', () => {
   it('does not report a failed native usage read as zero bytes', async () => {
     covers.usage.mockRejectedValue(new Error('cache-read-failed'));
     await expect(getCacheUsageByCategory()).rejects.toThrow('cache-read-failed');
+  });
+  it('counts and clears native lyrics in their original category, leaving covers and local imports alone', async () => {
+    expect((await getCacheUsageByCategory()).lyrics).toBe(2048);
+    await clearCacheByCategory('lyrics');
+    expect(lyrics.clear).toHaveBeenCalledOnce(); expect(covers.clear).not.toHaveBeenCalled();
+    lyrics.clear.mockRejectedValue(new Error('cache-clear-failed'));
+    await expect(clearCacheByCategory('lyrics')).rejects.toThrow('cache-clear-failed');
   });
 });

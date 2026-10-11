@@ -41,7 +41,7 @@ final class NativeCrossfade {
     init(owner: PlaybackEngine, profiler: NativeTrackProfiler = NativeTrackProfiler(), lyrics: NativeLyrics? = nil) {
         self.owner = owner
         profiles = NativeTrackProfiles(local: owner.local, profiler: profiler, configuration: owner.mediaNetworkConfiguration ?? .ephemeral, mediaCache: owner.mediaCache)
-        self.lyrics = lyrics ?? NativeLyrics(local: owner.local, gateway: owner.gateway)
+        self.lyrics = lyrics ?? NativeLyrics(local: owner.local, gateway: owner.gateway, cache: owner.lyricCache)
         profiles.changed = { [weak self] in self?.tick() }
         self.lyrics.changed = { [weak self] in self?.tick() }
     }
@@ -80,6 +80,11 @@ final class NativeCrossfade {
         lyrics.invalidateProvider(provider)
         if !isFading { invalidatePlan(); tick() }
     }
+    func songLyricsChanged(_ song: [String: Any]) {
+        lyrics.invalidateSong(song)
+        if !isFading { invalidatePlan(); tick() }
+    }
+    func cancelLyricRequests() { lyrics.cancel() }
     func cancelAnalysis() { profiles.cancel() }
     func mediaAvailable(_ identity: String) { profiles.mediaAvailable(identity); tick() }
     func cacheSettingsChanged() { profiles.resetOnline(); if !isFading { invalidatePlan(); tick() } }

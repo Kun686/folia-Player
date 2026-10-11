@@ -82,6 +82,8 @@ describe('native online lyric adapter', () => {
         original = (await processNeteaseLyrics(raw)).lyrics;
       }
       expect(last.lines, input.name).toEqual(JSON.parse(plannerLinesJSON(original)));
+      const complete = JSON.parse(stepJSON(JSON.stringify({ ...steps.at(-1)!.input, full: true }), inflate));
+      expect(complete.lyrics, input.name + ': full renderer data').toEqual(original);
       rows.push({ name: input.name, steps });
     }
     if (process.env.FOLIA_ONLINE_LYRIC_REFERENCE === '1') writeFileSync(fixture, JSON.stringify(rows) + '\n');

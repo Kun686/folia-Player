@@ -4,11 +4,12 @@ import { qqLyricParams, qqLyricSong, qqRequestPayload, parseQQLyricText } from '
 import { qrcDecryptBytes } from '../../utils/lyrics/providers/qrcDecrypt';
 import { getProcessedLyricPayload, prepareNeteaseLyrics, extractCloudLyricText } from '../../utils/lyrics/neteasePayload';
 import { parseLyricsByFormat } from '../../utils/lyrics/parserCore';
-import { plannerLinesJSON } from '../../utils/lyrics/nativeLocalRuntime';
+import { onlineLyricResult } from '../../utils/lyrics/nativeCacheRuntime';
 import { parseQqSongDetail } from './qqNormalize';
 
 // nativeLyricRuntime.ts — provider adapter for the independent native host. UI callers keep using Omni.
 export { parseJSON, protocolVersion } from '../../utils/lyrics/nativeLocalRuntime';
+export { cacheJSON } from '../../utils/lyrics/nativeCacheRuntime';
 function fail(code = 'invalid-lyric-response'): never { throw new Error(code); }
 type Reply = { status: number; body: string };
 const readResponse = (response: Reply) => {
@@ -58,7 +59,7 @@ export function stepJSON(text: string, inflate: (base64: string) => string | nul
         const payload = cloud ? { type: 'netease' as const, lrc: { lyric: extractCloudLyricText(raw) } }
             : getProcessedLyricPayload(raw);
         const { args } = prepareNeteaseLyrics(payload);
-        return JSON.stringify({ lines: JSON.parse(plannerLinesJSON(args ? parseLyricsByFormat(...args) : null)) });
+        return onlineLyricResult(args ? parseLyricsByFormat(...args) : null, input.full === true);
     }
 
     let identified = qqLyricSong(song), offset = 0;
@@ -81,7 +82,7 @@ export function stepJSON(text: string, inflate: (base64: string) => string | nul
     const raw = readResponse(responses[offset]);
     if (raw.code !== 0 || raw.request?.code !== 0) fail('lyric-unavailable');
     const data = raw.request.data;
-    if (!data?.lyric) return JSON.stringify({ lines: null });
+    if (!data?.lyric) return onlineLyricResult(null, input.full === true);
     const decrypt = (value: unknown) => {
         if (!value) return '';
         if (typeof value !== 'string' || value.length > 2_000_000 || !/^(?:[a-fA-F0-9]{2})+$/.test(value)) fail();
@@ -89,5 +90,5 @@ export function stepJSON(text: string, inflate: (base64: string) => string | nul
         if (typeof result !== 'string' || result.length > 2_000_000) fail();
         return result;
     };
-    return JSON.stringify({ lines: JSON.parse(plannerLinesJSON(parseQQLyricText(decrypt(data.lyric), decrypt(data.trans), decrypt(data.roma)))) });
+    return onlineLyricResult(parseQQLyricText(decrypt(data.lyric), decrypt(data.trans), decrypt(data.roma)), input.full === true);
 }
