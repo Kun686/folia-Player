@@ -105,7 +105,7 @@ export const test = base.extend<{ nativeBridge: void }>({
           win.fixtureSharedPlaylists = [...(win.fixtureSharedPlaylists || []), options];
           return { completed: !win.fixtureShareCancelled };
         }
-        if (method === 'copyText') { win.fixtureClipboard = options.text; return {}; }
+        if (method === 'copyText') { if (win.fixtureClipboardFailure) throw new Error('clipboard-unavailable'); win.fixtureClipboard = options.text; return {}; }
         if (method === 'readLyricCache') return { token: lyricToken, payload: structuredClone(lyricCache[JSON.stringify(options.song.sourceRef)] || {}) };
         if (method === 'writeLyricCache') {
           if (win.fixtureLyricWriteFailure) throw new Error('disk-full');

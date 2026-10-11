@@ -131,6 +131,8 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
       captureSongGuard={captureSongGuard}
       rawLyrics={rawLyrics} segmentation={segmentation} duration={state.duration} onSeek={seekLyrics} theme={light ? appearance.theme.light : appearance.theme.dark}
       offsetMs={offsetMs} onOffsetChange={setOffsetMs} light={light} visible={visible} close={() => setLyricToolsFor(null)} />}
-    {visualSettings && <VisualSettings light={light} appearance={appearance} close={() => setVisualSettings(false)} />}
+    {visualSettings && <VisualSettings light={light} appearance={appearance} visible={visible}
+      themeSource={{ songTitle: song?.name, isPureMusic: !!song?.isPureMusic,
+        promptSourceText: (song?.isPureMusic ? song.name : lyrics?.lines.map(line => line.fullText).join('\n')) ?? null }} close={() => setVisualSettings(false)} />}
   </section>;
 }

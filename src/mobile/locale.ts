@@ -2,6 +2,9 @@ import { foldersEn, foldersZh, foldersIn } from './localeFolders';
 
 // src/mobile/locale.ts
 export const mobileEn = {
+  themeEditor: 'Theme Park · Custom theme', themeEditorSections: 'Theme editor sections', themePreview: 'Preview theme',
+  themePreviewHint: 'Preview uses sample lyrics and does not change the playing song.',
+  themeSaveError: 'Could not save the theme. Your draft is retained; check storage and retry.',
   folders: foldersEn,
   entitySplitHint: 'Choose member songs, then add new or existing targets. Artists support multiple targets.',
   entityChanged: 'The library changed. Your edit was not saved. Reload before editing again.',
@@ -69,6 +72,9 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  themeEditor: 'Theme Park · 自定义主题', themeEditorSections: '主题编辑分类', themePreview: '预览主题',
+  themePreviewHint: '使用示例歌词预览，不影响正在播放的歌曲。',
+  themeSaveError: '主题保存失败，草稿已保留，请检查存储后重试。',
   folders: foldersZh,
   entitySplitHint: '选择成员歌曲，再添加新建或已有分类作为目标；歌手可添加多个目标。',
   entityChanged: '音乐库已发生变化，未保存本次修改。重新读取后再编辑。',
@@ -136,6 +142,9 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  themeEditor: 'Theme Park · Tema kustom', themeEditorSections: 'Bagian editor tema', themePreview: 'Pratinjau tema',
+  themePreviewHint: 'Pratinjau memakai contoh lirik tanpa mengubah lagu yang diputar.',
+  themeSaveError: 'Tema gagal disimpan. Draf dipertahankan; periksa penyimpanan dan coba lagi.',
   folders: foldersIn,
   entitySplitHint: 'Pilih lagu anggota, lalu tambahkan target baru atau yang sudah ada. Artis mendukung beberapa target.',
   entityChanged: 'Pustaka berubah. Perubahan belum disimpan. Muat ulang sebelum mengedit.',

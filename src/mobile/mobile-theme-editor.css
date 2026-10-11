@@ -1,0 +1,14 @@
+/* mobile-theme-editor.css — touch sizing for original Theme Park panels; player layout is unchanged. */
+.mobile-theme-entry { min-height: 44px; padding: 10px 14px; border-radius: 12px; background: var(--raised); }
+.sheet.mobile-theme-editor { --text-primary: var(--text); --text-secondary: var(--muted); width: min(100%, 680px); text-align: left; }
+.mobile-theme-editor header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mobile-theme-editor h2 { font-size: 18px; }
+.mobile-theme-editor button { min-height: 44px; min-width: 44px; touch-action: manipulation; }
+.mobile-theme-editor > details { margin-block: 16px; }
+.mobile-theme-editor summary { min-height: 44px; padding-block: 12px; }
+.mobile-theme-editor input[type=color] { width: 44px; padding: 2px; }
+.mobile-theme-editor label { margin-block: 12px; }
+.mobile-theme-editor .theme-editor-tabs { display: flex; gap: 4px; margin-block: 16px; }
+.theme-editor-tabs button { flex: 1; min-width: 0; padding: 10px 4px; }
+.theme-editor-tabs button[aria-pressed=true] { box-shadow: inset 0 0 0 2px var(--text); }
+.mobile-theme-preview > div { height: 300px; min-height: 300px; }

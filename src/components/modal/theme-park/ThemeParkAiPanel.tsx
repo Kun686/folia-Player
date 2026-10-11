@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Check, Copy, Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { DualTheme } from '../../../types';
@@ -16,6 +16,8 @@ type ThemeParkAiPanelProps = {
     buildFinalTheme: () => DualTheme;
     fallbackTheme: DualTheme;
     onImportTheme: (theme: DualTheme) => void;
+    writeClipboard?: (text: string) => Promise<void>;
+    maxInputLength?: number;
 };
 
 const ThemeParkAiPanel: React.FC<ThemeParkAiPanelProps> = ({
@@ -25,31 +27,45 @@ const ThemeParkAiPanel: React.FC<ThemeParkAiPanelProps> = ({
     buildFinalTheme,
     fallbackTheme,
     onImportTheme,
+    writeClipboard = text => navigator.clipboard.writeText(text),
+    maxInputLength,
 }) => {
     const { t } = useTranslation();
     const [isPromptCopied, setIsPromptCopied] = useState(false);
     const [isJsonCopied, setIsJsonCopied] = useState(false);
     const [importJsonText, setImportJsonText] = useState('');
     const [importError, setImportError] = useState<string | null>(null);
+    const [copyError, setCopyError] = useState(false);
+    const timers = useRef<Partial<Record<'prompt' | 'json', ReturnType<typeof setTimeout>>>>({});
+    const mounted = useRef(true);
+    useEffect(() => {
+        mounted.current = true;
+        return () => { mounted.current = false; Object.values(timers.current).forEach(clearTimeout); };
+    }, []);
+    const copied = (kind: 'prompt' | 'json') => {
+        if (!mounted.current) return;
+        setCopyError(false);
+        const update = kind === 'prompt' ? setIsPromptCopied : setIsJsonCopied;
+        update(true); clearTimeout(timers.current[kind]);
+        timers.current[kind] = setTimeout(() => update(false), 2000);
+    };
 
     const handleCopyPrompt = async () => {
         try {
             const prompt = `${THEME_GENERATION_PROMPT_PREFIX}\n\n${buildThemeSourcePrompt(promptSourceText || '', isPureMusic, songTitle)}`;
-            await navigator.clipboard.writeText(prompt);
-            setIsPromptCopied(true);
-            window.setTimeout(() => setIsPromptCopied(false), 2000);
+            await writeClipboard(prompt);
+            copied('prompt');
         } catch (error) {
-            console.error('Failed to copy prompt:', error);
+            if (mounted.current) setCopyError(true);
         }
     };
 
     const handleCopyJson = async () => {
         try {
-            await navigator.clipboard.writeText(JSON.stringify(buildFinalTheme(), null, 2));
-            setIsJsonCopied(true);
-            window.setTimeout(() => setIsJsonCopied(false), 2000);
+            await writeClipboard(JSON.stringify(buildFinalTheme(), null, 2));
+            copied('json');
         } catch (error) {
-            console.error('Failed to copy theme JSON:', error);
+            if (mounted.current) setCopyError(true);
         }
     };
 
@@ -62,6 +78,7 @@ const ThemeParkAiPanel: React.FC<ThemeParkAiPanelProps> = ({
         }
 
         try {
+            if (maxInputLength !== undefined && importJsonText.length > maxInputLength) throw new Error('theme-input-too-large');
             const parsed = parseAiThemeJsonInput(importJsonText);
             onImportTheme(sanitizeDualTheme(parsed as DualTheme, fallbackTheme));
             setImportJsonText('');
@@ -72,6 +89,7 @@ const ThemeParkAiPanel: React.FC<ThemeParkAiPanelProps> = ({
 
     return (
         <div className="space-y-4">
+            {copyError && <p role="alert">{t('status.copyFailed')}</p>}
             <div className="space-y-3 rounded-[24px] border border-white/10 p-4">
                 <div>
                     <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
@@ -102,6 +120,8 @@ const ThemeParkAiPanel: React.FC<ThemeParkAiPanelProps> = ({
                     </div>
                 </div>
                 <textarea
+                    aria-label={t('options.pasteJsonHere')}
+                    maxLength={maxInputLength}
                     value={importJsonText}
                     onChange={(event) => {
                         setImportJsonText(event.target.value);

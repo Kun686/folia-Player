@@ -15,8 +15,15 @@ export function useMobileTheme() {
   const select = (value: boolean) => { saveStoredLastAppliedThemePointer(value ? 'custom' : 'default'); setSelected(value); };
   const save = (value: DualTheme) => {
     const normalized = sanitizeDualTheme(value);
+    const previous = localStorage.getItem('custom_dual_theme');
     localStorage.setItem('custom_dual_theme', JSON.stringify(normalized));
-    setCustom(normalized); select(true);
+    try { select(true); }
+    catch (error) {
+      if (previous === null) localStorage.removeItem('custom_dual_theme');
+      else localStorage.setItem('custom_dual_theme', previous);
+      throw error;
+    }
+    setCustom(normalized);
   };
   return { theme: selected && custom ? custom : BASE_DUAL_THEME, custom, selected, select, save };
 }
