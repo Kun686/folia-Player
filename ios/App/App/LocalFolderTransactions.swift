@@ -7,12 +7,14 @@ final class LocalFolderTransaction {
     let epoch: UUID
     let assignments: [String: [String: Any]]
     var pending = 0
+    var warnings: [String: [String]] = [:]
     init(url: URL, revision: String, epoch: UUID, assignments: [String: [String: Any]]) {
         self.url = url; self.revision = revision; self.epoch = epoch; self.assignments = assignments
     }
     var id: String { url.lastPathComponent }
 }
 extension LocalMediaLibrary {
+    func folderPreparationWarnings(_ id: String) throws -> [String: [String]] { try currentFolderUpdate(id).warnings }
     func folderSnapshot() throws -> LocalFolderStore.Snapshot { try folderStore.snapshot(refresh: true) }
     func beginFolderUpdate() throws -> String {
         guard folderTransaction == nil else { throw MobileFailure("folder-busy") }

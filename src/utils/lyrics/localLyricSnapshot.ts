@@ -5,6 +5,7 @@ import { resolveExplicitFileTimedLyricFormat } from './formatDetection';
 // localLyricSnapshot.ts — native storage fields become the original source-selection input.
 export interface LocalLyricSnapshot {
     content?: string;
+    translationContent?: string;
     fileName?: string;
     embeddedContent?: string;
     embeddedTranslation?: string;
@@ -16,6 +17,7 @@ export function localLyricsFromSnapshot(snapshot: LocalLyricSnapshot): LocalSong
     return {
         matchedLyrics: snapshot.matched?.matchedLyrics, matchedIsPureMusic: snapshot.matched?.matchedIsPureMusic,
         hasLocalLyrics: Boolean(snapshot.content), localLyricsContent: snapshot.content,
+        localTranslationLyricsContent: snapshot.translationContent,
         localLyricsFormat: resolveExplicitFileTimedLyricFormat(snapshot.fileName),
         hasEmbeddedLyrics: Boolean(snapshot.embeddedContent), embeddedLyricsContent: snapshot.embeddedContent,
         embeddedTranslationLyricsContent: snapshot.embeddedTranslation,

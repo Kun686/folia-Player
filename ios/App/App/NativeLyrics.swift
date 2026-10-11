@@ -8,12 +8,14 @@ actor NativeLyricParser {
     init(bundle: Bundle = .main) {
         scriptURL = bundle.url(forResource: "lyrics", withExtension: "js", subdirectory: "public/native")
     }
-    func parse(_ content: String, fileName: String? = nil) throws -> Data? {
+    func parse(_ content: String, fileName: String? = nil, translation: String? = nil) throws -> Data? {
         try Task.checkCancellation()
-        guard content.utf8.count <= 2_000_000, (fileName?.utf8.count ?? 0) <= 1024 else { throw MobileFailure("lyrics-too-large") }
+        guard content.utf8.count <= 2_000_000, (translation?.utf8.count ?? 0) <= 2_000_000,
+              (fileName?.utf8.count ?? 0) <= 1024 else { throw MobileFailure("lyrics-too-large") }
         var request: [String: Any] = ["version": 1, "content": content]
         if let fileName { request["fileName"] = fileName }
-        let data = try call("parseJSON", input: JSONSerialization.data(withJSONObject: request))
+        if let translation { request["translationContent"] = translation }
+        let data = try call("parseJSON", input: JSONSerialization.data(withJSONObject: request), inputLimit: 24_300_000)
         guard data.count <= 262144 else { throw MobileFailure("invalid-local-lyrics") }
         return data == Data("null".utf8) ? nil : data
     }

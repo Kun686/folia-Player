@@ -1,5 +1,5 @@
 import { native } from './bridge';
-import { decodeLyricFileBytes } from '../utils/lyrics/lyricFileDecoding';
+import { decodeNativeLyricFile } from './nativeLyricFile';
 import { LocalFileLyricAdapter } from '../utils/lyrics/adapters/LocalFileLyricAdapter';
 import { resolveExplicitFileTimedLyricFormat } from '../utils/lyrics/formatDetection';
 import { hasRenderableLyrics } from '../utils/lyrics/validity';
@@ -11,13 +11,9 @@ export async function importMobileLocalLyrics(id: string, isCurrent: () => boole
   const file = await native.pickLyricFile({ id });
   check();
   if (file.cancelled) return false;
-  if (!file.data || file.data.length > 2_666_668 || !file.fileName || !file.token
-      || new TextEncoder().encode(file.fileName).length > 1024) throw new Error('invalid-lyrics');
-  const bytes = Uint8Array.from(atob(file.data), value => value.charCodeAt(0));
-  if (bytes.length > 2_000_000) throw new Error('lyrics-too-large');
-  const content = await decodeLyricFileBytes(bytes, 2_000_000);
+  if (!file.data || !file.fileName || !file.token) throw new Error('invalid-lyrics');
+  const content = await decodeNativeLyricFile({ data: file.data, fileName: file.fileName });
   check();
-  if (new TextEncoder().encode(content).length > 2_000_000) throw new Error('lyrics-too-large');
   const parsed = await new LocalFileLyricAdapter().parse({ type: 'local', lrcContent: content,
     formatHint: resolveExplicitFileTimedLyricFormat(file.fileName) });
   check();

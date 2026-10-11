@@ -30,7 +30,8 @@ describe('local lyric sources', () => {
     it('rejects malformed snapshots and never silently changes an invalid explicit source', () => {
         for (const snapshot of [{ content: [] }, { embeddedContent: 3 }, { lyricsSource: 'unknown' },
             { embeddedContent: 'x'.repeat(2_000_001) }, { embeddedTranslation: 4 },
-            { embeddedTranslation: 'x'.repeat(2_000_001) }, { fileName: {} }]) {
+            { embeddedTranslation: 'x'.repeat(2_000_001) }, { translationContent: 4 },
+            { translationContent: 'x'.repeat(2_000_001) }, { fileName: {} }]) {
             expect(() => sourcesJSON(JSON.stringify({ version: 1, snapshot }))).toThrow();
         }
         expect(sourcesJSON(JSON.stringify({ version: 1, snapshot: { content: '[00:01.00]local', lyricsSource: 'embedded' } }))).toBe('null');
@@ -43,6 +44,14 @@ describe('local lyric sources', () => {
         const first = parsed.lyrics?.lines.find(line => line.fullText === 'Original');
         expect(first?.translation).toBe('译文');
         expect(parsed.source).toBe('embedded');
+        expect(JSON.parse(sourcesJSON(JSON.stringify({ version: 1, snapshot })))).toEqual(
+            parsed.lyrics?.lines.map(({ startTime, endTime, fullText }) => ({ startTime, endTime, fullText, words: [] })));
+    });
+    it('keeps a separate folder translation in foreground lyrics and native planning', async () => {
+        const snapshot: LocalLyricSnapshot = { token: 'x', content: '[00:00.00]Original\n[00:01.00]End',
+            fileName: 'song.lrc', translationContent: '[00:00.00]译文\n[00:01.00]结束' };
+        const parsed = await resolveLocalSongLyrics(localLyricsFromSnapshot(snapshot), 'local');
+        expect(parsed.lyrics?.lines.find(line => line.fullText === 'Original')?.translation).toBe('译文');
         expect(JSON.parse(sourcesJSON(JSON.stringify({ version: 1, snapshot })))).toEqual(
             parsed.lyrics?.lines.map(({ startTime, endTime, fullText }) => ({ startTime, endTime, fullText, words: [] })));
     });

@@ -10,6 +10,7 @@ extension LocalMediaLibrary {
         var result: [String: Any] = ["content": record.contentIsEmbedded == true ? "" : record.content, "token": lyricToken(id)]
         if let name = record.fileName { result["fileName"] = name }
         if let text = record.embeddedContent { result["embeddedContent"] = text }
+        if let text = record.translationContent { result["translationContent"] = text }
         if let translation = record.embeddedTranslation { result["embeddedTranslation"] = translation }
         if let source = record.lyricsSource { result["lyricsSource"] = source }
         if let match = record.matchJSON, let data = match.data(using: .utf8) { result["matched"] = try? JSONSerialization.jsonObject(with: data) }
@@ -75,10 +76,13 @@ extension LocalMediaLibrary.LyricSource {
     // Shared by normal reads/writes and folder commit validation, before any new index becomes visible.
     func validated() throws -> Self {
         guard content.utf8.count <= 2_000_000, (embeddedContent?.utf8.count ?? 0) <= 2_000_000,
+              (translationContent?.utf8.count ?? 0) <= 2_000_000,
               (embeddedTranslation?.utf8.count ?? 0) <= 2_000_000,
               (fileName?.utf8.count ?? 0) <= 1024, (matchJSON?.utf8.count ?? 0) <= 3_000_000,
               (libraryMetadataJSON?.utf8.count ?? 0) <= 131_072,
-              lyricsSource == nil || ["local", "embedded", "online"].contains(lyricsSource!)
+              lyricsSource == nil || ["local", "embedded", "online"].contains(lyricsSource!),
+              contentOrigin == nil || ["upload", "sidecar"].contains(contentOrigin!),
+              translationOrigin == nil || ["upload", "sidecar"].contains(translationOrigin!)
         else { throw MobileFailure("invalid-lyrics") }
         return self
     }

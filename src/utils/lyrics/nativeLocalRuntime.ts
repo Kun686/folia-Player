@@ -17,13 +17,14 @@ export function sourcesJSON(text: string): string {
     const raw = JSON.parse(text);
     if (raw?.version !== 1 || !raw.snapshot) throw new Error('invalid-local-lyrics');
     const snapshot = raw.snapshot;
-    for (const key of ['content', 'embeddedContent', 'embeddedTranslation']) {
+    for (const key of ['content', 'translationContent', 'embeddedContent', 'embeddedTranslation']) {
         if (snapshot[key] !== undefined && (typeof snapshot[key] !== 'string' || snapshot[key].length > 2_000_000)) throw new Error('invalid-local-lyrics');
     }
     if (snapshot.fileName !== undefined && (typeof snapshot.fileName !== 'string' || snapshot.fileName.length > 1024)) throw new Error('invalid-local-lyrics');
     if (snapshot.lyricsSource !== undefined && !['local', 'embedded', 'online'].includes(snapshot.lyricsSource)) throw new Error('invalid-local-lyrics');
     const song = localLyricsFromSnapshot(snapshot), source = selectLocalSongLyricsSource(song, 'local');
-    if (source === 'local') return parseJSON(JSON.stringify({ version: 1, content: snapshot.content, fileName: snapshot.fileName }));
+    if (source === 'local') return parseJSON(JSON.stringify({ version: 1, content: snapshot.content,
+        translationContent: snapshot.translationContent, fileName: snapshot.fileName }));
     if (source === 'online') return plannerLinesJSON(song.matchedLyrics ?? null);
     if (source !== 'embedded') return 'null';
     const args = prepareEmbeddedLyrics({ type: 'embedded', textContent: snapshot.embeddedContent, translationContent: snapshot.embeddedTranslation });
@@ -31,12 +32,13 @@ export function sourcesJSON(text: string): string {
 }
 export function parseJSON(text: string): string {
     const invalid = () => { throw new Error('invalid-local-lyrics'); };
-    if (typeof text !== 'string' || text.length > 12_100_000) invalid();
+    if (typeof text !== 'string' || text.length > 24_300_000) invalid();
     const request = JSON.parse(text);
     if (!request || request.version !== protocolVersion || typeof request.content !== 'string'
         || request.content.length > 2_000_000
+        || (request.translationContent !== undefined && (typeof request.translationContent !== 'string' || request.translationContent.length > 2_000_000))
         || (request.fileName !== undefined && (typeof request.fileName !== 'string' || request.fileName.length > 1024))) invalid();
-    const prepared = prepareLocalLyrics({ type: 'local', lrcContent: request.content,
+    const prepared = prepareLocalLyrics({ type: 'local', lrcContent: request.content, tLrcContent: request.translationContent,
         formatHint: resolveExplicitFileTimedLyricFormat(request.fileName) });
     const lyrics = prepared.kind === 'parsed' ? prepared.lyrics : parseLyricsByFormat(...prepared.args);
     return plannerLinesJSON(lyrics);

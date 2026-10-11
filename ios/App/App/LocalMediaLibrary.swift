@@ -14,6 +14,9 @@ actor LocalMediaLibrary {
         var contentIsEmbedded: Bool? = nil
         var matchJSON: String? = nil
         var libraryMetadataJSON: String? = nil
+        var translationContent: String? = nil
+        var contentOrigin: String? = nil
+        var translationOrigin: String? = nil
     }
     let root: URL
     let folderStore: LocalFolderStore
@@ -236,6 +239,7 @@ actor LocalMediaLibrary {
         // Keep content and its format hint in one atomic record; a later LRC import cannot inherit a stale YRC hint.
         var record = try lyricSource(id) ?? LyricSource(content: "", fileName: nil)
         record.content = text; record.fileName = source.lastPathComponent; record.lyricsSource = "local"; record.contentIsEmbedded = false
+        record.contentOrigin = "upload"
         try JSONEncoder().encode(record).write(to: directory(id).appendingPathComponent("lyrics.json"), options: .atomic)
         mediaEpoch = UUID()
         lyricEditTokens[id] = UUID().uuidString

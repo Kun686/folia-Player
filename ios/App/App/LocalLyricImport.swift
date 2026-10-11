@@ -39,6 +39,7 @@ extension LocalMediaLibrary {
         guard lyricEditTokens[id] == token else { throw MobileFailure("local-lyrics-changed") }
         var record = try lyricSource(id) ?? LyricSource(content: "", fileName: nil)
         record.content = content; record.fileName = fileName; record.lyricsSource = "local"; record.contentIsEmbedded = false
+        record.contentOrigin = "upload"
         try writeLyricSources(record, id: id)
         lyricEditTokens[id] = UUID().uuidString
         return try details(id)
