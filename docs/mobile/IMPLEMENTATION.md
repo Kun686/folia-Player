@@ -1,17 +1,20 @@
 # Folia iPhone / iPad 实现与安装
 
-当前交付是 **0.7.16-mobile.11 开发候选**，支持 iOS/iPadOS 17+。源码基线为
+当前交付是 **0.7.16-mobile.12 开发候选**，支持 iOS/iPadOS 17+。源码基线为
 d824c0b854e54d5411cb072092999823e9bd7071；移动分支发布到 Kun686/folia-Player，服务器内部部署记录见 SERVER_VALIDATION.md。
 按用户最新要求优先移植原播放器、歌词和动效，同时支持本地导入与网易云／QQ。
 服务器配置不再是使用 App 的前提。真实平台与真机完整验收尚未完成，不能作为已验收安装包发布。
 
-mobile.11 已安装并启动于 iPhone XS Max / iOS18.7.10，设备回读 build 11，源码提交及安装包摘要见
-BUILD_RECORD.json 和 VALIDATION.md。mobile.10 的旧安装包保留用于回退。
+mobile.12 已原位安装并启动于 iPhone XS Max / iOS18.7.10，设备回读 build 12，源码提交及安装包摘要见
+BUILD_RECORD.json 和 VALIDATION.md。mobile.11 的旧安装包保留用于回退。
+新增包含原歌词时间校准、GBK／KRC 导入、内嵌／导入歌词来源管理、本地完整匹配及 Partita 长词适配。
+本轮 142 项移动逻辑与 17 项 iPhone 原生专项通过；界面结果沿用各功能阶段证据，
+不代表真实平台 App 链路、全部原生动画表现或长期真机验收已完成。
 当前原生队列使用一个共享系统输出，整体音效和最终音量只处理一次，待播仍独立解析／缓冲。
 原 Crossfade 调度、设置和歌曲分析已接入，默认仍关闭。原音频缓存现已接入，默认关闭、5GB 上限；
 开启时完整缓存用于原分析和离线播放，关闭且没有缓存时保持原在线前缀策略。
 mobile.10 阶段的 142 项模拟器原生回归、13 项真机专项、51 项逻辑和 27 项 UI 证据见 VALIDATION.md；
-这些历史次数不计入 mobile.11 的本轮结果。音频缓存边界见 [MEDIA_CACHE.md](MEDIA_CACHE.md)。
+这些历史次数不计入 mobile.12 的本轮结果。音频缓存边界见 [MEDIA_CACHE.md](MEDIA_CACHE.md)。
 
 2026-10-11 后续开发源码已接入原版 ReplayGain、共用封面缓存和完整在线歌词持久存储，分别见
 [REPLAYGAIN.md](REPLAYGAIN.md)、[COVERS.md](COVERS.md)、[LYRIC_CACHE.md](LYRIC_CACHE.md)。
@@ -42,8 +45,9 @@ mobile.6之后的源码已优化连续调参的素材复用和播放中的分支
 - Keychain 保存服务器凭据与各平台会话，使用 AfterFirstUnlockThisDeviceOnly；WebView 仅恢复会话内存镜像。
   localStorage 只保存非敏感的主题、动效、外观及声音设置。退出取消平台请求、清除对应凭据、账户缓存和队列中对应平台歌曲。
 - 系统「文件」选择器导入音频；副本保存在 App Application Support，以 UUID 的 local sourceRef 入队。
-  AVFoundation 读取曲名、歌手、专辑、时长、封面和内嵌歌词；支持单独导入 UTF-8／UTF-16 文本歌词。
-  文本歌词通过原 LocalFileLyricAdapter／worker 解析。支持本地搜索、移除副本和队列混合。
+  AVFoundation 读取曲名、歌手、专辑、时长、封面和内嵌歌词；支持 UTF-8／UTF-16／GBK 及加密 KRC 歌词导入。
+  歌词通过原 LocalFileLyricAdapter／worker 解码解析；支持独立内嵌／导入来源、原完整匹配弹窗，
+  元数据／封面／歌词分别选择，原子保存后保持当前音频及进度。支持本地搜索、移除副本和队列混合。
   无服务器时默认打开本地库；断网或退出在线账户不会暂停其他本地歌曲。
 - Folia原生层管理身份队列，AudioStreaming独立解码当前与下一首，待播项静默缓冲、可独立取消；
   原生网络请求不需要 JavaScript。URL 播放失败重新解析一次，连续失败三首停止，认证／限流错误直接停止。

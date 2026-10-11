@@ -1,5 +1,39 @@
 # 移动候选验证记录
 
+## mobile.12：歌词管理、完整本地匹配与 Partita 适配（当前开发候选）
+
+2026-10-11 已在 iPhone XS Max／iOS18.7.10 原位安装并启动，设备回读 build 12。
+源码 `17cb06a1fb325b1b3478a0371e18d823935cf558`，
+[对应 CI](https://github.com/Kun686/folia-Player/actions/runs/38120270782) PASS。
+此包汇集下述五个开发阶段：原歌词时间校准、GBK／KRC 导入、内嵌／导入来源管理、
+本地歌曲完整匹配与 Partita 长词适配。未新增依赖，未修改服务器或原版动画参数。
+
+- 本轮 PASS：固定 vendor 校验、类型检查、142 项移动逻辑／25 文件、资源构建与同步。
+- 本轮 PASS：独立 QA 包在 iPhone 执行 17 项原生专项，0 失败，5.792 秒。
+  覆盖歌词解析、原子保存、来源恢复、过期／删除／并发写入拒绝、后台歌词读取与规划，
+  以及实际双声道播放期间保存匹配信息后解码器及进度保持。样本受控，不是线上平台验收。
+- QA 的签名、宿主与测试包身份均核对；生成的 xctestrun 宿主标识从 personal 修正为 validation 后才运行。
+  QA 包随后卸载并确认不存在，个人 App 一直保留，更新前回读仍为 build 11。
+- 本轮 PASS：独立 clean Release 个人签名构建、签名证书与描述文件匹配、设备授权、
+  无 XCTest 残留、115 个 dist-mobile 资源及同步资源逐字节核对、IPA 与签名 App 字节一致。
+- 2,935 个源码输入均与冻结记录一致，指纹
+  `d07e5ff69f5ad048598e711bf2ad571012f59ac24ab3ececdcf509ea480a89b3`。
+  `BUILD_RECORD.json` 与交付目录 `Folia-mobile12-source.json` 保存来源摘要。
+- 私有安装包 `Folia-0.7.16-mobile.12-d07e5ff6-development.ipa`，7,948,333 字节，SHA256
+  `73c1aae04bb3afbbae12819075845893362aa38083dad04a6f8763c9924229b1`。
+  比 mobile.11 增加 56,789 字节，是源码、资源和签名的总包差值，不是依赖单独成本。
+  mobile.11 安装包重新校验未变，保留用于回退；IPA 和设备／签名资料不上传仓库。
+- 界面证据沿用下述各功能对应提交；仅提升构建号的本轮未重复运行 WebKit。
+  Partita 最终 12 项 WebKit 通过，但其原生容器视觉复核仍为 NOT_RUN。
+- 本地证据：`.mobile-test-results/mobile12-*`（sync、device-qa、identity、package-check、
+  install、launch、app、source-ci）；`Folia-mobile12-build.json` 保存交付检查结果。
+- BLOCKED：当前 App 网关链路未接通，真实网易云／QQ App 端到端未验收。
+  NOT_RUN：iPhone 系统歌词选择器手工验收、实体 iPad、30 分钟锁屏、耳机／蓝牙、
+  ≤150ms 视觉误差及持续性能。完整 Automix 与其余原版编辑工具仍待移植，整体 IN_PROGRESS。
+
+以下 mobile.11 之后的“未更新个人 iPhone”描述保留各阶段当时的状态；这些源码现已收入 mobile.12，
+安装状态以上节为准，历史测试次数不计作本轮重跑。
+
 ## 后续开发源码：Partita 长词显示区适配（未更新个人 iPhone）
 
 2026-10-11，源码 `763d42f3d8db3c540d71c0d4f966ef7589971504`，
@@ -74,7 +108,7 @@
   `BUILD_RECORD.json` 仍只描述该已安装版本。模拟器开发产物虽然带 build 11，但源码更新，不能视为同一包。
 - NOT_RUN：本阶段真机校准、真实平台 App 联机、实体 iPad、30 分钟锁屏、蓝牙、150ms 显示误差及持续性能。
 
-## mobile.11：歌词操作、共用资源缓存与后续播放移植（当前开发候选）
+## mobile.11：歌词操作、共用资源缓存与后续播放移植（上一安装候选）
 
 2026-10-11 已完成 Release 开发签名构建、安装和启动，iPhone XS Max／iOS18.7.10 回读 build 11。
 本候选汇集 mobile.10 后的原版过渡执行／歌词规划、ReplayGain、共用封面与完整歌词缓存，以及在线歌曲
