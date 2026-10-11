@@ -1,6 +1,6 @@
 # Folia iPhone / iPad 实现与安装
 
-当前交付是 **0.7.16-mobile.19 开发候选**，支持 iOS/iPadOS 17+。源码基线为
+当前交付是 **0.7.16-mobile.20 开发候选**，支持 iOS/iPadOS 17+。源码基线为
 d824c0b854e54d5411cb072092999823e9bd7071；移动分支发布到 Kun686/folia-Player，服务器部署记录见 SERVER_VALIDATION.md。
 2026-10-11 已按用户指定接通 `https://music.nb686.cn`，在 mobile.12 中完成以下用户实测：
 HTTPS 与网关认证已验证；用户已确认 iPhone 的真实 QQ 登录成功、可见账号或歌单。
@@ -36,7 +36,7 @@ mobile.17自动回归及iPad实际模拟器操作通过；iPhone模拟器部分�
 服务器配置不再是使用 App 的前提。真实平台与真机完整验收尚未完成，不能作为已验收安装包发布。
 
 历史 mobile.12 已原位安装并启动于 iPhone XS Max / iOS18.7.10，其源码提交及安装包摘要见
-VALIDATION.md；BUILD_RECORD.json 现描述 mobile.19；mobile.18 及更早安装包保留用于回退。
+VALIDATION.md；BUILD_RECORD.json 现描述 mobile.20；mobile.19 及更早安装包保留用于回退。
 新增包含原歌词时间校准、GBK／KRC 导入、内嵌／导入歌词来源管理、本地完整匹配及 Partita 长词适配。
 本轮 142 项移动逻辑与 17 项 iPhone 原生专项通过；界面结果沿用各功能阶段证据，
 不代表真实平台 App 链路、全部原生动画表现或长期真机验收已完成。
@@ -58,10 +58,14 @@ mobile.10 阶段的 142 项模拟器原生回归、13 项真机专项、51 项�
 
 mobile.19 之后的开发源码已补齐本地多 USLT／iTunes 歌词择优、独立翻译保存／显示／导出及旧扫描升级。
 复用原桌面选择规则，无新依赖；类型检查、28 项相关逻辑、7 项导出复核、3 项 WebKit 和 23 项原生专项通过，
-测试次数不重复相加。尚未打入个人手机，见 [EMBEDDED_METADATA.md](EMBEDDED_METADATA.md)。
+测试次数不重复相加，见 [EMBEDDED_METADATA.md](EMBEDDED_METADATA.md)。
 后续已复用既有 music-metadata 接入 FLAC／Vorbis comment 与 SYLT，扫描版本升至 3；
 43 项逻辑、41 项模拟器原生通过，随后修正 iOS 18 系统不暴露普通 FLAC 歌词的问题，最终 iPhone 专项 10 项通过。
-独立 QA 已清理，个人 App 仍为 mobile.19；范围及失败记录见 [EMBEDDED_FORMATS.md](EMBEDDED_FORMATS.md)。
+独立 QA 已清理；范围及失败记录见 [EMBEDDED_FORMATS.md](EMBEDDED_FORMATS.md)。
+上述两阶段已汇入 mobile.20，2026-10-11 原位安装并启动，个人 iPhone 回读 build20。
+准确源码 `9f87ef458f01cf54e0b82ec090daea68b5c8e54d`；2,975 项源码输入、120 项生成资源、签名和 IPA 逐文件核验通过，
+[准确源码 CI](https://github.com/Kun686/folia-Player/actions/runs/38144231076) PASS。
+界面保留 mobile.19；该版本升级后的真实账户与播放反馈待确认，不能将成功启动计作功能验收。
 
 此前附加音效开发见 [EFFECT_PARITY.md](EFFECT_PARITY.md)：DSP、组合链、线程交接和tap共32项测试通过；
 组合阶段Debug全部70项、Release相关8项回归通过，随后实际tap接线9项通过。

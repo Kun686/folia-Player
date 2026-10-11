@@ -4,6 +4,7 @@
 `BUILD_RECORD.json` 仍绑定已交付的 mobile.19。完整移植保持 IN_PROGRESS。
 本文记录 USLT／iTunes 阶段；后续 FLAC、SYLT、扫描版本 3 及 iOS 18 真机修正见
 [EMBEDDED_FORMATS.md](EMBEDDED_FORMATS.md)。
+上述源码已随后汇入 mobile.20 并原位安装；本文测试仍保持各阶段范围，安装记录见 [VALIDATION.md](VALIDATION.md)。
 
 ## 实现与复用
 

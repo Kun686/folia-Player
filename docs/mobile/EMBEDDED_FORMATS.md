@@ -2,6 +2,8 @@
 
 2026-10-11 后续开发源码。个人 iPhone 保持 mobile.19；没有生成或安装新个人 IPA，
 `BUILD_RECORD.json` 不变。当前外观按用户“先这样吧”保留，完整移植仍为 **IN_PROGRESS**。
+以上为本源码阶段状态；随后已随 mobile.20 原位安装，见 [VALIDATION.md](VALIDATION.md)。
+下文自动测试与失败记录不因发包而扩大为手工验收。
 
 ## 实现与复用
 

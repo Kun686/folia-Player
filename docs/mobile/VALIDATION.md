@@ -1,6 +1,32 @@
 # 移动候选验证记录
 
+## mobile.20：内嵌歌词格式与翻译（当前开发候选）
+
+2026-10-11 已原位安装并启动于 iPhone XS Max／iOS18.7.10，设备回读 build20。
+源码 `9f87ef458f01cf54e0b82ec090daea68b5c8e54d`，
+[准确源码 CI](https://github.com/Kun686/folia-Player/actions/runs/38144231076) PASS。
+汇集下述多 USLT／iTunes、独立翻译和 FLAC／SYLT 两个源码阶段，保留用户接受的 mobile.19 界面。
+
+- PASS：资源构建／同步；个人 Release clean 签名构建；2,975 项冻结输入、120 项生成资源及签名包逐文件核验。
+  歌词运行时和许可证的 SHA256 与最终 iPhone 专项使用的资源一致；没有重新声称执行原生测试。
+  无 XCTest 插件残留，签名证书／描述文件／设备授权匹配；IPA 中各文件均匹配签名 App。
+- PASS：准确源码的固定依赖安装、vendor 验证、类型检查、全部移动逻辑及构建；详见上述 CI。
+  本地格式阶段的 43 项逻辑、修正前 41 项模拟器原生及修正后 10 项 iPhone 专项分别保留，不重复计数。
+- 交付：`移动端交付/Folia-0.7.16-mobile.20-960fd016-development.ipa`，7,925,603 字节，
+  SHA256 `fe0125d9eda9a51a6d598b4f360d59329d536d2987710a7971947a5e0c329954`。
+  指纹 `960fd016b3f58d0eba2a2eabed6a314f6446712ed9a92ea982cca788fb174e73`。
+  比保留的 mobile.19 IPA 增加 67,316 字节；不是运行内存或未压缩安装体积的测量。
+- 个人 App 未卸载；原位更新成功后回读 `app.folia.personal`／build20，并经 devicectl 启动。
+  mobile.19 回退包摘要未变；BUILD_RECORD 已更新到本次准确构建源码。
+- NOT_RUN／待反馈：本版本更新后的真实账户和播放、FLAC／SYLT 文件选择器与歌词界面、物理 iPad、
+  其余完整真机及性能矩阵。安装与启动不替代这些验收。完整移植保持 IN_PROGRESS。
+
+证据：`.mobile-test-results/mobile20-*`；私人交付目录含 IPA、源码清单和版本说明。
+本轮未新增生产依赖、未变更服务端；打包与安装命令已结束，个人 App 按预期保留运行。
+
 ## 后续开发源码：FLAC 与 SYLT 内嵌歌词（未更新个人 iPhone）
+
+以下为源码阶段当时的验证记录；随后已汇入上述 mobile.20。
 
 2026-10-11，复用已安装 music-metadata 11.16.1 的原解析器、选择器和 JavaScriptCore，
 接入 FLAC／Vorbis comment 与 ID3 SYLT，保存正文／翻译并将旧扫描升级至版本 3。无新增依赖、无 UI 改动。
@@ -21,6 +47,8 @@
 
 ## 后续开发源码：多标签内嵌歌词与独立翻译（未更新个人 iPhone）
 
+以下为源码阶段当时的验证记录；随后已汇入上述 mobile.20。
+
 2026-10-11，将原桌面标签选择规则提取共享；原生收集多 USLT／iTunes 歌词、保留翻译、升级旧扫描，
 并沿用前台解析和导出流程。没有新依赖，个人 App 和 BUILD_RECORD 仍为 mobile.19。
 
@@ -32,7 +60,7 @@
 - 本阶段当时未接入的 FLAC／Vorbis comment、SYLT 已在上述后续源码接入；NOT_RUN：本阶段真机 UI、真实平台链路及长期性能。
   完整移植保持 IN_PROGRESS，本阶段不生成新 IPA。
 
-## mobile.19：半透明与动态背景跟随（当前开发候选）
+## mobile.19：半透明与动态背景跟随（历史候选，当前仍沿用其外观）
 
 2026-10-11 已原位安装并启动于 iPhone XS Max／iOS18.7.10，设备回读 build 19。
 源码 `634e2b8550b943ef700f3aba450c7e8acbe095c9`，

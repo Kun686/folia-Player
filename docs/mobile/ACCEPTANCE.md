@@ -1,8 +1,11 @@
 # 真实服务与真机验收表
 
-当前已安装候选为 0.7.16-mobile.16（build 16），已启动并回读构建号。
-mobile.16调整触摸布局、安全区及横竖屏切换；53项界面自动测试及iPhone／iPad实际模拟器短测通过，
-真机旋转反馈尚待确认。独立Automix候选因htdemucs／ORT算子兼容性阻塞，尚未加入App，见VALIDATION.md。
+当前已安装候选为 0.7.16-mobile.20（build20），已原位更新、启动并回读构建号。
+mobile.17已按用户要求改为全屏画布；mobile.18加入磨砂和空白轻点隐藏／唤回，mobile.19进一步半透明并修正背景跟随。
+用户对mobile.19回复“先这样吧”，当前外观按此保留；不视为完整旋转、材质及性能矩阵通过。
+mobile.20汇集多标签歌词、独立翻译与FLAC／SYLT适配，格式专项和签名／资源／IPA验证见VALIDATION.md；
+升级后的真实账户、播放及新格式界面操作仍待反馈。
+独立Automix候选因htdemucs／ORT算子兼容性阻塞，尚未加入App，见VALIDATION.md。
 mobile.13 用户确认两平台登录保留、播放正常、导出可用；在线歌曲导入 `.fia`／`.lrc` 时文件被置灰，
 mobile.14 已修复且用户确认两种文件可选择、导入显示正常。mobile.15 批量 ZIP 用户提供清单并确认回导显示正常，
 分别记为 PASS_USER_CONFIRMED；文件字节与每首歌词未独立检查。
@@ -57,7 +60,7 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | 系统文件选择器多选音频并导入 | PASS | iPad Pro 11-inch (M5) / iPadOS 26.5 Simulator，4 个明确标注的合成 WAV |
 | 本地原生播放与自动跨曲 | PASS | iPad 模拟器实际界面观察；另有独立原生四曲队列测试，无 WebView／网关 |
 | LRC 导入与原歌词渲染 | PASS | 系统选择器实际导入，Classic 歌词与动效展示、Partita 播放态展示 |
-| iPhone／iPad 横竖屏切换 | PASS（mobile.16 WebKit及实际模拟器）；真机反馈 NOT_RUN | 明暗主题8尺寸、触摸命中及状态保持；实际iPhone横屏动画／控件分栏、iPad宽横屏曲库／播放区双栏。物理iPad、键盘及多任务完整矩阵未测 |
+| iPhone／iPad 横竖屏切换 | PASS（mobile.17／18 界面回归及部分实际模拟器）；完整真机矩阵 NOT_RUN | mobile.16分栏已被用户反馈替换，当前为全屏画布及悬浮控制。mobile.17用户反馈“看着还可以”，mobile.19外观暂定保留；不等于逐项旋转和物理iPad、键盘／多任务验收，见 FULLSCREEN_LAYOUT.md |
 | 14 模式、背景、参数与外观短码 | PASS（接入） | 复用原注册表和组件；UI fixture 检查选择、挂载及短码回读，不等于所有动画效果和性能已逐项验收 |
 | Partita 移动端长词正文适配 | PASS（开发源码 WebKit）；原生容器及真机视觉复核 NOT_RUN | 原约 240px 溢出已复现并修正；12 项三视口、旋转、多词、Unicode 与原尺寸专项通过。保留原动画参数，见 PARTITA_FIT.md |
 | 原生音频频谱 | PASS（本地 PCM） | WebKit频谱参考、440Hz实际解码信号、静音恢复和停止读取后的停止分析；未覆盖每种在线流编码 |
@@ -75,7 +78,8 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | 原单曲 `.fia`／LRC 导出 | PASS（用户真机反馈及自动验证）；回导 PASS_USER_CONFIRMED（mobile.14） | mobile.13 导出反馈与 mobile.14 选择器／回导反馈分开记录；未逐文件校验，见 LYRIC_EXPORT.md |
 | 原版批量歌词 ZIP 导出 | PASS_USER_CONFIRMED（mobile.15）；43 项逻辑、12 项 WebKit、10 项 iPhone 原生 PASS | 清单18首导出、2首跳过、9首旧缓存身份缺失警示；用户确认回导显示正常，未独立检查 ZIP 字节及每首内容，见 BATCH_LYRIC_EXPORT.md |
 | 本地 GBK／加密 KRC 文件导入 | PASS（自动测试、iPad 模拟器实际选择器／重启及 iPhone 原生专项）；iPhone 选择器手工验收 NOT_RUN | 原解码、失败保留、编辑令牌与原子保存；历史 UI／原生及本轮 17 项中的对应测试见 VALIDATION.md。Partita 裁切已在 WebKit 修正，原生视觉待验；见 LOCAL_LYRIC_IMPORT.md |
-| 本地导入／内嵌歌词来源切换 | PASS（自动测试、iPad 模拟器短测及 iPhone 原生专项）；真机界面操作 NOT_RUN | 独立正文、标签迁移、来源恢复、失败保留；历史基线与本轮专项分别记录。多标签采集仍未完成，见 LOCAL_LYRIC_SOURCES.md |
+| 本地导入／内嵌歌词来源切换 | PASS（自动测试、iPad 模拟器短测及 iPhone 原生专项）；真机界面操作 NOT_RUN | 独立正文、标签迁移、来源恢复、失败保留；历史基线与后续专项分别记录。多标签和独立翻译已随mobile.20安装，见 LOCAL_LYRIC_SOURCES.md、EMBEDDED_METADATA.md |
+| FLAC／SYLT 内嵌歌词和独立翻译 | PASS（源码逻辑、实际文件原生专项）；真机选择器／显示 NOT_RUN | 43项逻辑、iOS26.5修正前41项原生、iOS18.7.10修正后10项专项；同一10个实际音频样本与桌面结果对照，系统无Vorbis标签仍读取文件。已随mobile.20安装；不代表Ogg导入或全部编码，见 EMBEDDED_FORMATS.md |
 | 本地歌曲完整匹配与元数据／封面选择 | PASS（自动测试及 iPhone 原生专项）；真实平台 NOT_RUN | 原完整弹窗与共享规则；iPhone 测试覆盖实际播放期间保存、并发／删除／过期拒绝和后台歌词。HTTPS 阻塞已解除，但尚未执行真实在线候选保存；iPad 历史短测仅覆盖导入与「不使用在线数据」，见 LOCAL_MATCH.md |
 | 完整 Automix | BLOCKED（固定运行库兼容性）；未接入 | 原Beat This!合成样本与Node参考输出相等；Apple ORT1.24.2无法加载原htdemucs。未改模型、未新增App依赖；见AUTOMIX_RUNTIME_DECISION.md |
 | 其余桌面编辑工具／AI | NOT_IMPLEMENTED | 仍待移植，完整移植目标未完成 |
