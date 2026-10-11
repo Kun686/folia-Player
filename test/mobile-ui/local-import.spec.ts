@@ -30,7 +30,8 @@ test('system-picked GBK and encrypted KRC replace local lyrics through original 
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
-test('local lyric tools retain old lyrics on failure and discard picks after switching songs', async ({ page }) => {
+for (const entry of ['toolbar', 'dialog'] as const) for (const returnToSong of [false, true]) {
+test(`local lyric ${entry} retains old lyrics on failure and discards picks after ${returnToSong ? 'switching away and back' : 'switching songs'}`, async ({ page }) => {
   await page.addInitScript(() => { const w = window as any; w.fixtureNoServer = true; w.fixtureMany = true; });
   await page.goto('/mobile.html');
   await page.getByRole('button', { name: '导入音乐', exact: true }).click();
@@ -50,17 +51,29 @@ test('local lyric tools retain old lyrics on failure and discard picks after swi
   await expect(dialog).toBeHidden();
   await expect(page.locator('.lyric-stage').getByText('新导入的歌词', { exact: true })).toBeVisible();
   await page.evaluate(() => { (window as any).fixturePendingPick = true; });
-  await clickPlayerTool(page, '导入歌词');
+  if (entry === 'dialog') {
+    await clickPlayerTool(page, '歌词');
+    await dialog.getByRole('button', { name: '导入歌词', exact: true }).click();
+  } else await clickPlayerTool(page, '导入歌词');
   await expect.poll(() => page.evaluate(() => typeof (window as any).fixtureFinishPick)).toBe('function');
-  await page.evaluate(() => {
+  await page.evaluate(returnToSong => {
     const w = window as any;
-    w.fixtureEmitPlayback({ currentSong: { ...w.fixturePlayback.currentSong,
+    const original = w.fixturePlayback.currentSong;
+    w.fixtureEmitPlayback({ currentSong: { ...original,
       sourceRef: { kind: 'local', mediaId: '00000000-0000-4000-8000-000000000002' } } });
-  });
-  await page.evaluate(() => (window as any).fixtureFinishPick());
+    if (returnToSong) w.fixtureEmitPlayback({ currentSong: original });
+    // Resolve before React can commit either switch; same-song return must not revive this picker.
+    w.fixtureFinishPick();
+  }, returnToSong);
   // Read/parse completion is asynchronous; a fresh click completes another picker in the new song.
   await page.evaluate(() => { (window as any).fixturePendingPick = false; (window as any).fixturePickedLyric = { cancelled: true }; });
+  if (returnToSong && entry === 'dialog') {
+    await expect(dialog.getByRole('button', { name: '导入歌词', exact: true })).toBeEnabled();
+    await expect(dialog.getByRole('alert')).toHaveCount(0);
+    await dialog.getByRole('button', { name: '关闭', exact: true }).click();
+  }
   await clickPlayerTool(page, '导入歌词');
   expect(await page.evaluate(() => (window as any).fixtureLyricImports)).toBe(1);
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
+}

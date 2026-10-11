@@ -18,11 +18,12 @@ import { importMobileOnlineLyrics, resetMobileOnlineLyrics, scopedLyricStorage, 
 
 // LyricTools.tsx — original lyric operations and timing controls, keyed to the displayed song by the parent.
 const sources = ['netease', 'qq'] as const;
-export default function LyricTools({ song, time, lyricTime, lyrics, rawLyrics, segmentation, duration, onSeek, theme, offsetMs, onOffsetChange, light, visible, close }: {
+export default function LyricTools({ song, time, lyricTime, lyrics, rawLyrics, segmentation, duration, onSeek, theme, offsetMs, onOffsetChange, light, visible, close, captureSongGuard }: {
   song: SongResult; time: MotionValue<number>; lyricTime: MotionValue<number>; lyrics: LyricData | null;
   rawLyrics: LyricData | null; duration: number; onSeek(position: number): void; theme: Theme;
   segmentation: MobileSegmentation;
   offsetMs: number; onOffsetChange(value: number): void; light: boolean; visible: boolean; close(): void;
+  captureSongGuard: (song: SongResult) => () => boolean;
 }) {
   const { t } = useTranslation(), input = useRef<HTMLInputElement>(null), active = useRef(true), locked = useRef(false);
   const [storage, setStorage] = useState<OnlineLyricsStorage>();
@@ -90,7 +91,7 @@ export default function LyricTools({ song, time, lyricTime, lyrics, rawLyrics, s
         if (window.confirm(t('mobile.confirmResetLyrics'))) void run(() => resetMobileOnlineLyrics(storage!, song));
       }}>{t('mobile.resetLyrics')}</button>}
     </fieldset> : song.sourceRef?.kind === 'local' && <LocalLyricTools key={song.sourceRef.mediaId}
-      id={song.sourceRef.mediaId} light={light} time={time} onDone={dismiss} />}
+      id={song.sourceRef.mediaId} light={light} time={time} onDone={dismiss} captureSongGuard={() => captureSongGuard(song)} />}
     <div className="mobile-lyric-timing">
       <button onClick={() => setTimeline(true)}>{t('timeline.title')}</button>
       <button onClick={() => setDisplaySettings(true)} disabled={!rawLyrics}>{t('lyricFilter.title')}</button>

@@ -38,6 +38,7 @@ export const test = base.extend<{ nativeBridge: void }>({
     const localSong = { id: '11111111-1111-4111-8111-111111111111', name: '本地测试音乐', artists: [{ id: '', name: '本地歌手' }], album: { id: '', name: '' }, durationMs: 180000,
       sourceRef: { kind: 'local', mediaId: '11111111-1111-4111-8111-111111111111' }, replayGain: { trackGain: -6, albumGain: -3 } };
     let localSongs: any[] = [];
+    win.fixtureSetLocalSongs = (songs: any[]) => { localSongs = structuredClone(songs); catalogSubscriber?.(); };
     let lyric = '[00:00.00]测试本地歌词\n[00:10.00]第二句';
     win.fixturePlayback = state;
     win.fixtureCommands = [];
@@ -178,7 +179,7 @@ export const test = base.extend<{ nativeBridge: void }>({
           win.fixtureLocalLyric = { ...win.fixtureLocalLyric, content: options.content, fileName: options.fileName, lyricsSource: 'local' };
           return {};
         }
-        if (method === 'removeLocal') { localSongs = []; return {}; }
+        if (method === 'removeLocal') { localSongs = localSongs.filter(song => song.sourceRef?.mediaId !== options.id); return {}; }
         if (method === 'audioLevels') return { available: true, spectrum: Array(1024).fill(140), sampleRate: 44100 };
         if (method === 'getState') return { ...state };
         if (method === 'clearSession') { cookie = false; return {}; }

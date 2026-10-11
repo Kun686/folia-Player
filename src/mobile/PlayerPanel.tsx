@@ -26,11 +26,13 @@ import { useShallow } from 'zustand/react/shallow';
 import { useVisualizerAssetStore } from '../stores/useVisualizerAssetStore';
 import { NO_LYRIC_LINES } from '../utils/lyrics/noLyricLines';
 import { native, type PlaybackSnapshot } from './bridge';
+import type { SongResult } from '../types';
 
 // src/mobile/PlayerPanel.tsx — original registry renderers consume the native clock and decoded audio.
 const MobileVisualizer = memo(VisualizerRenderer);
-export default function PlayerPanel({ state, time, visible, light, expanded, collapse, openQueue }: {
+export default function PlayerPanel({ state, time, visible, light, expanded, collapse, openQueue, captureSongGuard }: {
   state: PlaybackSnapshot; time: MotionValue<number>; visible: boolean; light: boolean; expanded: boolean; collapse: () => void; openQueue: () => void;
+  captureSongGuard: (song: SongResult) => () => boolean;
 }) {
   const { t } = useTranslation();
   const [visualSettings, setVisualSettings] = useState(false);
@@ -83,9 +85,10 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
   const audio = useNativeAudio(rendering, state.playing);
   const importLyrics = async () => {
     if (song?.sourceRef?.kind !== 'local') return;
+    const isCurrent = captureSongGuard(song);
     setError(false);
-    try { if (await importMobileLocalLyrics(song.sourceRef.mediaId, () => currentLyricSongKey.current === lyricSongKey)) refresh(); }
-    catch { if (currentLyricSongKey.current === lyricSongKey) setError(true); }
+    try { if (await importMobileLocalLyrics(song.sourceRef.mediaId, () => isCurrent() && currentLyricSongKey.current === lyricSongKey)) refresh(); }
+    catch { if (isCurrent() && currentLyricSongKey.current === lyricSongKey) setError(true); }
   };
   useEffect(() => {
     const index = findLatestActiveLineIndex(lyrics?.lines ?? [], lyricTime.get());
@@ -125,6 +128,7 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
     <TransitionControls light={light} theme={light ? appearance.theme.light : appearance.theme.dark}
       open={transitionSettings} setOpen={setTransitionSettings} />
     {lyricTools && song && <LyricTools key={lyricSongKey} song={song} time={time} lyricTime={lyricTime} lyrics={lyrics}
+      captureSongGuard={captureSongGuard}
       rawLyrics={rawLyrics} segmentation={segmentation} duration={state.duration} onSeek={seekLyrics} theme={light ? appearance.theme.light : appearance.theme.dark}
       offsetMs={offsetMs} onOffsetChange={setOffsetMs} light={light} visible={visible} close={() => setLyricToolsFor(null)} />}
     {visualSettings && <VisualSettings light={light} appearance={appearance} close={() => setVisualSettings(false)} />}

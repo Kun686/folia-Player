@@ -15,11 +15,12 @@
   源码指纹 `1784cb25203ca4e8c3298c83c5942c8bc876227ff612f1a2b486f0208b91d1c0`。
 - PASS_CI：[准确源码 Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38161855248)。
 - PASS_INSTALL：iPhone XS Max / iOS18.7.10 原位更新 `app.folia.personal`，启动成功，回读 build23；
-  从未卸载个人 App。用户复测心象字号／歌词变化的问题已发出，结果待反馈。
+  从未卸载个人 App。
+- PASS_USER_CONFIRMED：用户反馈「滑块能拖动，歌词大小也会变化」，仅涵盖心象字号操作。
 - 交付：`移动端交付/Folia-0.7.16-mobile.23-1784cb25-development.ipa`，7,944,044 字节，
   SHA256 `90c4d11c7d47875b919c9af8c6777fa14b84d331fae9b23967f0185960f90f53`。
   mobile.22 安装包保留且摘要复核未变；当前没有设置数据迁移。
-- NOT_RUN：本版 iPhone 修复实际操作、真机字体导入、物理 iPad及完整长期／异常矩阵。
+- NOT_RUN：本版真机重启恢复、其他字体／字幕设置与字体导入、物理 iPad及完整长期／异常矩阵。
 
 证据：`.mobile-test-results/mobile23-*`、`font-size-combined-*`、`font-size-clean-*.png`；
 已停止本轮模拟器，无持续日志或测试服务遗留，个人 iPhone App 留给用户复测。

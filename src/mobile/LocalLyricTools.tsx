@@ -10,7 +10,9 @@ import { localLyricsFromSnapshot, type LocalLyricSnapshot } from '../utils/lyric
 import { selectLocalSongLyricsSource } from '../utils/lyrics/localSongLyricsSelection';
 
 // LocalLyricTools.tsx — original source controls backed by atomic native snapshots, scoped to one mounted song.
-export default function LocalLyricTools({ id, light, time, onDone }: { id: string; light: boolean; time?: MotionValue<number>; onDone(): void }) {
+export default function LocalLyricTools({ id, light, time, onDone, captureSongGuard }: {
+    id: string; light: boolean; time?: MotionValue<number>; onDone(): void; captureSongGuard(): () => boolean;
+}) {
     const { t } = useTranslation();
     const [snapshot, setSnapshot] = useState<LocalLyricSnapshot>();
     const [error, setError] = useState(false), [busy, setBusy] = useState(false), [retry, setRetry] = useState(0);
@@ -26,7 +28,10 @@ export default function LocalLyricTools({ id, light, time, onDone }: { id: strin
         if (locked.current) return;
         locked.current = true; setBusy(true); setError(false);
         try { if (await work() && active.current) onDone(); }
-        catch { if (active.current) setError(true); }
+        catch (cause) {
+            // A song switch cancels the old picker even if React batches a switch back to this song.
+            if (active.current && !(cause instanceof DOMException && cause.name === 'AbortError')) setError(true);
+        }
         finally { locked.current = false; if (active.current) setBusy(false); }
     };
     const song = snapshot && localLyricsFromSnapshot(snapshot);
@@ -48,7 +53,10 @@ export default function LocalLyricTools({ id, light, time, onDone }: { id: strin
                     });
                 }} />
             {snapshot?.fileName && <p className="muted">{snapshot.fileName}</p>}
-            <button onClick={() => void run(() => importMobileLocalLyrics(id, () => active.current))}>{t('mobile.importLyrics')}</button>
+            <button onClick={() => {
+                const isCurrent = captureSongGuard();
+                void run(() => importMobileLocalLyrics(id, () => active.current && isCurrent()));
+            }}>{t('mobile.importLyrics')}</button>
             <button onClick={() => setMatching(true)}>{t('localMusic.matchOnline')}</button>
         </fieldset>
         {(!snapshot && !error || busy) && <p role="status">{t('localMusic.loadingLyrics')}</p>}

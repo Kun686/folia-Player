@@ -23,10 +23,11 @@
 - 最终干净构建：`font-size-combined-{sync,simulator-build,webkit}.log`；
   截图 `font-size-clean-{drag,restored}.png`，均在忽略目录 `.mobile-test-results/`。
   临时诊断 App 只装于模拟器，未打入个人包；所有模拟器结论不替代 iPhone 用户复测。
-- NOT_RUN：修复后的个人 iPhone 手势／歌词视觉变化、物理 iPad、真机字体文件导入。
+- PASS_USER_CONFIRMED：用户确认 mobile.23「滑块能拖动，歌词大小也会变化」。仅确认心象字号操作，
+  真机重启恢复、其他模式、物理 iPad、字体文件导入仍为 NOT_RUN。
 - PASS_INSTALL：mobile.23 已原位更新个人 iPhone、启动并回读 build23；准确源码
   `169d0618c33cab4b14a37dee0df9df75d1582c4e`，签名、资源／IPA 校验与准确源码 CI 通过。
-  用户复测问题已发出，尚无结果；安装不替代上面的 NOT_RUN。
+  用户复测已确认心象字号操作通过，未扩展为全部字体／字幕设置验收。
 
 ## 复用与范围
 

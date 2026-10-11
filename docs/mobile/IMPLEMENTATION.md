@@ -13,11 +13,15 @@
 已汇入 mobile.21；用户确认 1 分钟锁屏到期暂停、手动继续正常，
 未区分具体音源，逐平台及其他时长待验收，见 [SLEEP_TIMER.md](SLEEP_TIMER.md)。
 
+后续开发源码补齐本地专辑／歌手只读浏览，复用原分组与排序，播放保留原生歌曲身份；
+另修复切歌后旧歌词文件选择结果提交的竞态。17 项逻辑、78 项 WebKit 回归及 15 项补充导入专项通过，
+专项包含重复回归；详情及尚缺的实体编辑、歌单能力见 [LOCAL_BROWSING.md](LOCAL_BROWSING.md)。
+
 当前交付是 **0.7.16-mobile.23 开发候选**，支持 iOS/iPadOS 17+。
 准确源码 `169d0618c33cab4b14a37dee0df9df75d1582c4e`；2026-10-12 原位更新个人 iPhone、启动并回读 build23。
 本版修复 mobile.22 用户报告的心象字号拖不动：仅调整字体／字幕滑块触摸处理，保留原字号范围、存储和 mobile.19 外观。
 3,003 项源码输入、120 项资源、签名／IPA 和准确源码 CI 已核验；
-修复通过干净 iPad 容器拖动／滚动／重启恢复及 18 项 WebKit 回归，个人包复测待用户反馈。
+修复通过干净 iPad 容器拖动／滚动／重启恢复及 18 项 WebKit 回归；用户已确认 mobile.23 心象字号可拖且歌词大小变化。
 真机字体导入因无文件保持 NOT_RUN。详见 [TYPOGRAPHY.md](TYPOGRAPHY.md) 和 [VALIDATION.md](VALIDATION.md)，
 上一版 mobile.22 及更早包保留。
 
