@@ -127,7 +127,11 @@ GitHub Mobile checks 已通过： https://github.com/Kun686/folia-Player/actions
 - PASS（用户真机反馈）：随后按「锁屏至少 30 分钟、自动跨过至少三首」请求测试，
   用户反馈「已完成，锁屏持续播放并自动跨曲」。记录为用户确认完成，未独立计时或采集曲目事件，
   不从请求时间推算播放时长；测试期间未更新或重启个人 App。
-  网易云 App 流程、跨平台队列、WebView 显式挂起和失效地址恢复、耳机／蓝牙、网络切换及 iPad 验收仍未完成。
+  WebView 显式挂起和失效地址恢复、耳机／蓝牙、网络切换及 iPad 验收仍未完成。
+- PASS（用户真机反馈）：网易云登录、歌单、声音、歌词、拖动和切歌正常；QQ／网易云同队列
+  手动切换时声音、歌名和歌词对应；锁屏／控制中心的暂停、继续、上下首、拖动及回 App 同步正常。
+  没有验证后台自动跨平台切换或歌单完整性。网易云长时间锁屏被用户明确说明未执行，保持 NOT_RUN。
+  原反馈记录在 `.mobile-test-results/online-device-manual.json`，无账号和会话。
 
 部署配置副本为 `deploy/mobile/nginx.host.conf.example`，配置 SHA256：
 `a7c5d4d184184dae20e624a93045df1a7876c9758702824ef85706d99fdaf8a4`。

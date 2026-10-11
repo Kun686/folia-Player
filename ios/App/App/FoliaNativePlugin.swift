@@ -7,12 +7,13 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "FoliaNativePlugin"
     public let jsName = "FoliaNative"
     public let pluginMethods: [CAPPluginMethod] = ["bootstrap", "configure", "health", "saveSession", "clearSession",
-        "request", "cancelRequests", "setQueue", "editQueue", "selectQueue", "command", "getState", "shareQR", "copyText",
+        "request", "cancelRequests", "setQueue", "editQueue", "selectQueue", "command", "getState", "shareQR", "copyText", "shareLyricFile",
         "localCatalog", "importAudio", "localDetails", "importLyrics", "pickLyricFile", "saveLocalLyrics", "readLocalLyrics", "selectLocalLyrics", "readLocalMatch", "writeLocalMatch", "removeLocal", "audioLevels",
         "getAudioSettings", "setAudioSettings", "getTransitionSettings", "setTransitionSettings", "getMediaCacheSettings", "setMediaCacheSettings",
         "mediaCacheState", "clearMediaCache", "songCover", "coverCacheState", "clearCoverCache",
         "readLyricCache", "writeLyricCache", "lyricCacheState", "clearLyricCache"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
     private let picker = LocalImportPicker()
+    private let lyricFileShare = LyricFileShare()
     private var importing = false
     private let gateway = GatewayClient()
     var engine: PlaybackEngine!
@@ -246,6 +247,16 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         guard let text = call.getString("text"), text.utf8.count <= 2_000_000 else { throw MobileFailure("invalid-text") }
         UIPasteboard.general.string = text
         call.resolve()
+    } }
+    @objc func shareLyricFile(_ call: CAPPluginCall) { run(call) {
+        guard let fileName = call.getString("fileName"), let content = call.getString("content"),
+              let controller = self.bridge?.viewController else { throw MobileFailure("invalid-lyric-file") }
+        try self.lyricFileShare.present(fileName: fileName, content: content, on: controller) { result in
+            switch result {
+            case .success(let completed): call.resolve(["completed": completed])
+            case .failure: call.reject("share-failed")
+            }
+        }
     } }
     @objc func shareQR(_ call: CAPPluginCall) { run(call) {
         guard let raw = call.getString("image"), raw.hasPrefix("data:image/"), raw.count <= 4_000_000,

@@ -50,7 +50,7 @@ export const runLyricExport = async (
     // offset is stored under, and applyUserAdjustments reads that offset.
     const withNames = await resolveExportMetadata(collected.entries, { resolveOnline: options.resolveOnlineMetadata }, context);
     throwIfAborted(signal);
-    const named = await mapWithConcurrency(withNames, ADJUST_CONCURRENCY, applyUserAdjustments, signal);
+    const named = await mapWithConcurrency(withNames, ADJUST_CONCURRENCY, entry => applyUserAdjustments(entry), signal);
     throwIfAborted(signal);
 
     if (named.length === 0 || options.formats.length === 0) {

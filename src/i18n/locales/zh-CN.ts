@@ -854,7 +854,7 @@ export default {
     "button": "导入 / 导出歌词",
     "title": "歌词文件",
     "description": "导入歌词文件替换当前显示的版本，或把这首歌的歌词存成文件。",
-    "descriptionExportOnly": "把这首歌当前显示的歌词存成文件。",
+    "descriptionExportOnly": "把这首歌的完整歌词存成文件。",
     "importHeading": "导入",
     "importChoose": "选择歌词文件",
     "importFormats": "lrc、vtt、ttml、qrc、yrc、krc、txt，或 Folia 导出的 .fia",

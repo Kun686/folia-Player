@@ -849,7 +849,7 @@ export default {
     "button": "Impor / ekspor lirik",
     "title": "Berkas lirik",
     "description": "Impor berkas lirik untuk mengganti versi yang tampil, atau simpan lirik lagu ini sebagai berkas.",
-    "descriptionExportOnly": "Simpan lirik yang sedang tampil untuk lagu ini sebagai berkas.",
+    "descriptionExportOnly": "Simpan lirik lengkap lagu ini sebagai berkas.",
     "importHeading": "Impor",
     "importChoose": "Pilih berkas lirik",
     "importFormats": "lrc, vtt, ttml, qrc, yrc, krc, txt, atau .fia hasil ekspor Folia",

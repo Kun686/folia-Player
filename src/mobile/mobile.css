@@ -189,3 +189,5 @@ h1, h2, p { margin: 0; } h1 { font-size: 32px; letter-spacing: -.04em; } h2 { fo
 .sheet .mobile-segmentation-import label { margin-block: 4px; }
 .mobile-segmentation-import textarea { font-size: 16px; resize: vertical; min-height: 72px; }
 @media (max-height: 500px) { .sheet.mobile-segmentation { padding: 12px; } .mobile-segmentation > .muted { display: none; } }
+.mobile-lyric-file-dialog { max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 2rem); overflow-y: auto; }
+.mobile-lyric-file-dialog button { min-width: 44px; min-height: 44px; }

@@ -37,10 +37,14 @@ export type CurrentSongExportContext = {
     onScreenLyrics: LyricData | null;
     activeLocalLyricsSource: ActiveLocalLyricsSource | null;
     localLyricsPriority: LocalLyricsPriority;
+    /** Native hosts re-read their own store; null is authoritative, never a display fallback. */
+    readRawSource?: (song: SongResult) => Promise<(RawLyrics & { localPath?: string }) | null>;
+    offsetKey?: string | number;
+    strictStorage?: boolean;
 };
 
 /** Lyrics as their source holds them, and that source's own rule for "this is instrumental". */
-type RawLyrics = { lyrics: LyricData; source: FoliaLyricDocumentSource; isPureMusic: (lyricText: string) => boolean };
+export type RawLyrics = { lyrics: LyricData; source: FoliaLyricDocumentSource; isPureMusic: (lyricText: string) => boolean };
 
 const readOnlineLyrics = async (song: SongResult): Promise<RawLyrics | null> => {
     const [state, cached] = await Promise.all([
@@ -96,25 +100,30 @@ export const buildCurrentSongExportEntry = async ({
     onScreenLyrics,
     activeLocalLyricsSource,
     localLyricsPriority,
+    readRawSource,
+    offsetKey,
+    strictStorage = false,
 }: CurrentSongExportContext): Promise<ExportableLyric | null> => {
     const sourceRef = getPlaybackSourceRef(song);
-    const local = sourceRef.kind === 'local' ? await readLocalLyrics(song, localLyricsPriority) : null;
-    const raw = sourceRef.kind === 'online' ? await readOnlineLyrics(song) : local?.raw ?? null;
-    const picked: RawLyrics | null = raw ?? (onScreenLyrics
+    const nativeSource = readRawSource ? await readRawSource(song) : null;
+    const local = !readRawSource && sourceRef.kind === 'local' ? await readLocalLyrics(song, localLyricsPriority) : null;
+    const raw = readRawSource ? nativeSource : sourceRef.kind === 'online' ? await readOnlineLyrics(song) : local?.raw ?? null;
+    const picked: RawLyrics | null = raw ?? (!readRawSource && onScreenLyrics
         ? { lyrics: onScreenLyrics, source: fallbackSource(song, activeLocalLyricsSource), isPureMusic: isPureMusicLyricText }
         : null);
     // Same verdict the batch collectors reach, so one song never exports alone but not in a batch.
     if (!picked || judgeLyricsForExport(picked.lyrics, picked.isPureMusic) !== 'export') return null;
 
     const songKey = getPlaybackSongKey(song);
+    const localPath = nativeSource?.localPath ?? local?.localPath;
     return applyUserAdjustments({
         songKey,
         lyrics: picked.lyrics,
         source: picked.source,
         song: { ...songToExportMetadata(song), key: songKey },
-        offsetKey: song.id,
-        ...(local?.localPath ? { localPath: local.localPath } : {}),
-    });
+        offsetKey: offsetKey ?? song.id,
+        ...(localPath ? { localPath } : {}),
+    }, { strict: strictStorage });
 };
 
 /** Downloads the current song's lyrics; resolves false when there is nothing to export. */

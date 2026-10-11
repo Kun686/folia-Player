@@ -15,6 +15,7 @@ F01200000000000000000012 = {isa = PBXContainerItemProxy; containerPortal = 504EC
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXBuildFile section */
+F058B0000000000000000001 = {isa = PBXBuildFile; fileRef = F058A0000000000000000001; };
 F057B0000000000000000002 = {isa = PBXBuildFile; fileRef = F057A0000000000000000002; };
 F057B0000000000000000001 = {isa = PBXBuildFile; fileRef = F057A0000000000000000001; };
 F057B0000000000000000003 = {isa = PBXBuildFile; fileRef = F057A0000000000000000003; };
@@ -174,6 +175,7 @@ F01200000000000000000001 /* NativeTests.swift in Sources */ = {isa = PBXBuildFil
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+F058A0000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricFileShare.swift; sourceTree = "<group>"; };
 F057A0000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoliaLocalMatchPlugin.swift; sourceTree = "<group>"; };
 F057A0000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalMatchStorage.swift; sourceTree = "<group>"; };
 F057A0000000000000000003 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalMatchTests.swift; sourceTree = "<group>"; };
@@ -420,6 +422,7 @@ F056A0000000000000000002,
 F056A0000000000000000001,
 F057A0000000000000000002,
 F057A0000000000000000001,
+F058A0000000000000000001,
 				F011A0000000000000000004 /* FoliaNativePlugin.swift */,
 				F011A0000000000000000003 /* PlaybackSystem.swift */,
 				F011A0000000000000000002 /* PlaybackEngine.swift */,
@@ -572,6 +575,7 @@ F056B0000000000000000002,
 F056B0000000000000000001,
 F057B0000000000000000002,
 F057B0000000000000000001,
+F058B0000000000000000001,
 				F011B0000000000000000004 /* FoliaNativePlugin.swift in Sources */,
 				F011B0000000000000000003 /* PlaybackSystem.swift in Sources */,
 				F011B0000000000000000002 /* PlaybackEngine.swift in Sources */,

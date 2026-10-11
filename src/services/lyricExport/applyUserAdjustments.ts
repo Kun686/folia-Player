@@ -11,8 +11,8 @@ import type { ExportableLyric } from './types';
 // timeline offset is only recorded next to the lyrics: shifting the timeline would make the file
 // wrong for anyone whose copy of the audio is already in sync.
 
-export const applyUserAdjustments = async (entry: ExportableLyric): Promise<ExportableLyric> => {
-    const record = await loadSegmentationBySongKey(entry.songKey);
+export const applyUserAdjustments = async (entry: ExportableLyric, options: { strict?: boolean } = {}): Promise<ExportableLyric> => {
+    const record = await loadSegmentationBySongKey(entry.songKey, options);
     const lyrics = applyLyricWordSegmentation(entry.lyrics, record) ?? entry.lyrics;
     const offsetMs = entry.offsetKey !== undefined ? readLyricOffset(entry.offsetKey) : 0;
     return {

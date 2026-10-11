@@ -854,7 +854,7 @@ export default {
     "button": "Import / export lyrics",
     "title": "Lyric file",
     "description": "Import a lyric file to replace the version on screen, or save this song’s lyrics as a file.",
-    "descriptionExportOnly": "Save the lyrics on screen for this song as a file.",
+    "descriptionExportOnly": "Save this song’s complete lyrics as a file.",
     "importHeading": "Import",
     "importChoose": "Choose a lyric file",
     "importFormats": "lrc, vtt, ttml, qrc, yrc, krc, txt, or a .fia exported from Folia",

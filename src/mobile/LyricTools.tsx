@@ -11,6 +11,7 @@ import LocalLyricTools from './LocalLyricTools';
 import LyricDisplaySettings from './LyricDisplaySettings';
 import LyricsTimelineModal from '../components/modal/LyricsTimelineModal';
 import LyricSegmentationEditor from './LyricSegmentationEditor';
+import LyricExportDialog from './LyricExportDialog';
 import type { MobileSegmentation } from './useMobileSegmentation';
 import { getLyricProviderLabel, getSongNativeLyricProviderSource } from '../utils/lyrics/lyricSourceLabels';
 import { LYRIC_IMPORT_ACCEPT } from '../utils/lyrics/lyricFileDecoding';
@@ -31,6 +32,7 @@ export default function LyricTools({ song, time, lyricTime, lyrics, rawLyrics, s
   const [calibrating, setCalibrating] = useState(false);
   const [displaySettings, setDisplaySettings] = useState(false), [timeline, setTimeline] = useState(false);
   const [segmenting, setSegmenting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [retry, setRetry] = useState(0);
   const online = song.sourceRef?.kind === 'online';
   useEffect(() => {
@@ -53,6 +55,7 @@ export default function LyricTools({ song, time, lyricTime, lyrics, rawLyrics, s
     finally { locked.current = false; if (active.current) setBusy(false); }
   };
   if (displaySettings) return <LyricDisplaySettings lyrics={rawLyrics} title={song.name} light={light} close={() => setDisplaySettings(false)} />;
+  if (exporting) return <LyricExportDialog song={song} lyrics={rawLyrics} light={light} close={() => setExporting(false)} />;
   if (segmenting) return <LyricSegmentationEditor lyrics={rawLyrics} title={song.name} segmentation={segmentation}
     theme={theme} light={light} close={() => setSegmenting(false)} />;
   if (timeline) return <div className="mobile-lyrics-timeline"><LyricsTimelineModal isOpen={visible} lyrics={lyrics}
@@ -91,6 +94,7 @@ export default function LyricTools({ song, time, lyricTime, lyrics, rawLyrics, s
       <button onClick={() => setTimeline(true)}>{t('timeline.title')}</button>
       <button onClick={() => setDisplaySettings(true)} disabled={!rawLyrics}>{t('lyricFilter.title')}</button>
       <button onClick={() => setSegmenting(true)} disabled={!rawLyrics}>{t('commandPalette.commands.lyric-segmentation.title')}</button>
+      <button onClick={() => setExporting(true)}>{t('lyricFile.exportHeading')}</button>
       <LyricTimelineOffsetControl offsetMs={offsetMs} onOffsetChange={onOffsetChange} isDaylight={light} />
       <button onClick={() => setCalibrating(true)}>{t('options.globalLyricTimelineOffset')}</button>
     </div>

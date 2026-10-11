@@ -66,6 +66,7 @@ export interface FoliaNativePlugin {
   getState(): Promise<PlaybackSnapshot>;
   shareQR(options: { image: string }): Promise<void>;
   copyText(options: { text: string }): Promise<void>;
+  shareLyricFile(options: { fileName: string; content: string }): Promise<{ completed: boolean }>;
   addListener(name: 'playback', listener: (state: PlaybackEvent) => void): Promise<PluginListenerHandle>;
 }
 export const native = registerPlugin<FoliaNativePlugin>('FoliaNative');

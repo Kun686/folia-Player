@@ -25,7 +25,9 @@ type LyricFileDialogProps = {
     canExportCurrent: boolean;
     isExporting: boolean;
     onExportCurrent: (format: LyricExportFormat) => void;
-    onOpenBatchExport: () => void;
+    onOpenBatchExport?: () => void;
+    feedback?: React.ReactNode;
+    maxWidthClass?: string;
 };
 
 const LyricFileDialog: React.FC<LyricFileDialogProps> = ({
@@ -37,6 +39,8 @@ const LyricFileDialog: React.FC<LyricFileDialogProps> = ({
     isExporting,
     onExportCurrent,
     onOpenBatchExport,
+    feedback,
+    maxWidthClass,
 }) => {
     const { t } = useTranslation();
     const inputRef = useRef<HTMLInputElement>(null);
@@ -112,6 +116,7 @@ const LyricFileDialog: React.FC<LyricFileDialogProps> = ({
             isOpen={isOpen}
             onClose={onClose}
             isDaylight={isDaylight}
+            maxWidthClass={maxWidthClass}
             title={t('lyricFile.title')}
             description={t(onImportChange ? 'lyricFile.description' : 'lyricFile.descriptionExportOnly')}
         >
@@ -141,7 +146,8 @@ const LyricFileDialog: React.FC<LyricFileDialogProps> = ({
                     )}
                 </section>
 
-                {renderRow(PackageOpen, t('lyricFile.batchTitle'), t('lyricFile.batchDesc'), onOpenBatchExport, true)}
+                {onOpenBatchExport && renderRow(PackageOpen, t('lyricFile.batchTitle'), t('lyricFile.batchDesc'), onOpenBatchExport, true)}
+                {feedback}
             </div>
         </ThemedDialog>
     ), document.body);
