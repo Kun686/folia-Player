@@ -28,8 +28,8 @@ export interface FoliaNativePlugin {
   addListener(name: 'mediaCache', listener: () => void): Promise<PluginListenerHandle>;
   localCatalog(): Promise<{ songs: SongResult[] }>;
   importAudio(): Promise<{ songs?: SongResult[]; failures?: { name: string; code: string }[]; cancelled?: boolean }>;
-  localDetails(options: { id: string }): Promise<{ content?: string; cover?: string }>;
-  importLyrics(options: { id: string }): Promise<{ content?: string; cover?: string; cancelled?: boolean }>;
+  localDetails(options: { id: string }): Promise<{ content?: string; fileName?: string; cover?: string }>;
+  importLyrics(options: { id: string }): Promise<{ content?: string; fileName?: string; cover?: string; cancelled?: boolean }>;
   removeLocal(options: { id: string }): Promise<void>;
   audioLevels(): Promise<{ available: boolean; spectrum: number[]; sampleRate: number }>;
   getAudioSettings(): Promise<NativeAudioSettings>;

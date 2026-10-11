@@ -62,7 +62,7 @@ test.beforeEach(async ({ page }) => {
             sourceRef: { kind: 'local', mediaId: '00000000-0000-4000-8000-00000000000' + i } }))] : [localSong];
           return { songs: localSongs, failures: [] };
         }
-        if (method === 'localDetails') return { content: lyric };
+        if (method === 'localDetails') return win.fixtureLocalLyric || { content: lyric };
         if (method === 'importLyrics') { win.fixtureLyricImports = (win.fixtureLyricImports ?? 0) + 1; lyric = '[00:00.00]新导入的歌词\n[00:08.00]下一句'; return { content: lyric }; }
         if (method === 'removeLocal') { localSongs = []; return {}; }
         if (method === 'audioLevels') return { available: true, spectrum: Array(1024).fill(140), sampleRate: 44100 };
@@ -359,6 +359,26 @@ test('settings and unavailable server error are visible', async ({ page }) => {
   await page.getByRole('textbox', { name: '搜索歌曲' }).fill('fail');
   await page.getByRole('button', { name: '搜索歌曲', exact: true }).click();
   await expect(page.getByRole('alert')).toBeVisible();
+});
+
+test('imported word lyrics keep their format and can be replaced by LRC', async ({ page }) => {
+  await page.addInitScript(() => { (window as any).fixtureNoServer = true; });
+  await page.goto('/mobile.html');
+  await page.getByRole('button', { name: '导入音乐', exact: true }).click();
+  await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
+  await expect(page.locator('.player-controls').getByText('暂无歌词', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: '歌词与动效', exact: true }).click();
+  await page.getByLabel('歌词动画', { exact: true }).selectOption('still');
+  await page.locator('.visual-settings > header').getByRole('button', { name: '关闭', exact: true }).click();
+  for (const source of [
+    { fileName: '歌曲.YRC', content: '[0,8000](0,8000,0)逐字歌词已恢复', text: '逐字歌词已恢复' },
+    { fileName: '替换.lrc', content: '[00:00.00]普通歌词已替换', text: '普通歌词已替换' },
+  ]) {
+    await page.evaluate(source => { (window as any).fixtureLocalLyric = source; }, source);
+    await page.getByRole('button', { name: '导入歌词', exact: true }).click();
+    await expect(page.locator('.lyric-stage').getByText(source.text, { exact: true })).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  }
 });
 
 test('local playback without server and original visualizer registry', async ({ page }, info) => {

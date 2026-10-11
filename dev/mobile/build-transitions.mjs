@@ -24,3 +24,12 @@ await build({
     lib: { entry: 'src/services/automix/nativeDeckRuntime.ts', name: 'FoliaDeck', formats: ['iife'], fileName: () => 'deck.js' },
   },
 });
+await build({
+  configFile: false, root, publicDir: false,
+  // JavaScriptCore has no console; raw lyric diagnostics must not leave the isolated parser.
+  esbuild: { drop: ['console'] },
+  build: {
+    target: 'safari17', outDir: 'dist-mobile/native', emptyOutDir: false,
+    lib: { entry: 'src/utils/lyrics/nativeLocalRuntime.ts', name: 'FoliaLocalLyrics', formats: ['iife'], fileName: () => 'lyrics.js' },
+  },
+});

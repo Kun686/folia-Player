@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { LyricData, SongResult } from '../types';
 import { omni } from '../services/onlineMusic/omni';
 import { LocalFileLyricAdapter } from '../utils/lyrics/adapters/LocalFileLyricAdapter';
+import { resolveExplicitFileTimedLyricFormat } from '../utils/lyrics/formatDetection';
 import { native } from './bridge';
 
 // src/mobile/useMobileLyrics.ts — reuse the original local parser and online Omni pipeline.
@@ -18,7 +19,8 @@ export function useMobileLyrics(song?: SongResult) {
       if (!song) return;
       if (song.sourceRef?.kind === 'local') {
         const detail = await native.localDetails({ id: song.sourceRef.mediaId });
-        const result = detail.content ? await new LocalFileLyricAdapter().parse({ type: 'local', lrcContent: detail.content }) : null;
+        const result = detail.content ? await new LocalFileLyricAdapter().parse({ type: 'local', lrcContent: detail.content,
+          formatHint: resolveExplicitFileTimedLyricFormat(detail.fileName) }) : null;
         if (active) { setLyrics(result); setCover(detail.cover); }
       } else {
         const result = await omni.getLyrics(song);

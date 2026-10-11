@@ -160,6 +160,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
                     let ref = song["sourceRef"] as? [String: Any]
                     return ref?["kind"] as? String == "local" && ref?["mediaId"] as? String == id
                 }
+                self.engine.crossfade?.localLyricsChanged(id)
                 call.resolve()
             } catch { call.reject("local-remove-failed") }
         }
@@ -177,7 +178,10 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
                 guard urls.count <= 100 else { call.reject("too-many-files"); return }
                 do {
                     if lyrics {
-                        call.resolve(try await self.engine.local.importLyrics(urls[0], for: call.getString("id") ?? ""))
+                        let id = call.getString("id") ?? ""
+                        let result = try await self.engine.local.importLyrics(urls[0], for: id)
+                        self.engine.crossfade?.localLyricsChanged(id)
+                        call.resolve(result)
                     } else {
                         var songs: [[String: Any]] = [], failures: [[String: String]] = []
                         for url in urls {

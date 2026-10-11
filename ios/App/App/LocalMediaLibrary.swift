@@ -3,6 +3,7 @@ import UIKit
 
 // LocalMediaLibrary.swift — imported bytes belong to the app; queue identities never contain paths.
 actor LocalMediaLibrary {
+    struct LyricSource: Codable { let content: String; let fileName: String? }
     let root: URL
     init(root: URL? = nil) {
         self.root = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -34,11 +35,35 @@ actor LocalMediaLibrary {
         }
         return url
     }
+    func lyricSource(_ id: String) throws -> LyricSource? {
+        _ = try resolve(id)
+        let folder = try directory(id), document = folder.appendingPathComponent("lyrics.json")
+        let hasDocument = FileManager.default.fileExists(atPath: document.path)
+        let url = hasDocument ? document : folder.appendingPathComponent("lyrics.txt")
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let values = try url.resourceValues(forKeys: [.fileSizeKey, .isSymbolicLinkKey])
+        // JSON escaping can expand a 2MB UTF-8 text sixfold. Legacy/embedded text keeps its original limit.
+        let limit = hasDocument ? 12_100_000 : 2_000_000
+        guard values.isSymbolicLink != true, let size = values.fileSize, size <= limit else { throw MobileFailure("lyrics-too-large") }
+        let data = try Data(contentsOf: url)
+        guard data.count <= limit else { throw MobileFailure("lyrics-too-large") }
+        let source: LyricSource
+        if hasDocument { source = try JSONDecoder().decode(LyricSource.self, from: data) }
+        else {
+            guard let text = String(data: data, encoding: .utf8) else { throw MobileFailure("invalid-lyrics") }
+            source = LyricSource(content: text, fileName: nil)
+        }
+        guard source.content.utf8.count <= 2_000_000, (source.fileName?.utf8.count ?? 0) <= 1024 else { throw MobileFailure("lyrics-too-large") }
+        return source
+    }
     func details(_ id: String) throws -> [String: Any] {
         let folder = try directory(id)
         _ = try resolve(id)
         var result: [String: Any] = [:]
-        if let data = try? Data(contentsOf: folder.appendingPathComponent("lyrics.txt")), let text = String(data: data, encoding: .utf8) { result["content"] = text }
+        if let source = try? lyricSource(id) {
+            result["content"] = source.content
+            if let fileName = source.fileName { result["fileName"] = fileName }
+        }
         if let data = try? Data(contentsOf: folder.appendingPathComponent("cover.jpg")) { result["cover"] = "data:image/jpeg;base64," + data.base64EncodedString() }
         return result
     }
@@ -101,8 +126,12 @@ actor LocalMediaLibrary {
         defer { if scoped { source.stopAccessingSecurityScopedResource() } }
         guard let size = try source.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= 2_000_000 else { throw MobileFailure("lyrics-too-large") }
         let data = try Data(contentsOf: source)
+        guard data.count <= 2_000_000 else { throw MobileFailure("lyrics-too-large") }
         guard let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .utf16), !text.isEmpty else { throw MobileFailure("invalid-lyrics") }
-        try Data(text.utf8).write(to: directory(id).appendingPathComponent("lyrics.txt"), options: .atomic)
+        guard text.utf8.count <= 2_000_000, source.lastPathComponent.utf8.count <= 1024 else { throw MobileFailure("lyrics-too-large") }
+        // Keep content and its format hint in one atomic record; a later LRC import cannot inherit a stale YRC hint.
+        let record = LyricSource(content: text, fileName: source.lastPathComponent)
+        try JSONEncoder().encode(record).write(to: directory(id).appendingPathComponent("lyrics.json"), options: .atomic)
         return try details(id)
     }
 }
