@@ -8,11 +8,14 @@
 共 114 项逻辑／provider 与 12 项 WebKit；真实账户歌单完整性仍为 NOT_RUN。
 没有把受控数据当作上游验收，详见 [CATALOG_PAGING.md](CATALOG_PAGING.md)。
 
-后续睡眠定时开发源码已通过独立 iPhone QA 自动测试，未更新个人包；
+后续睡眠定时开发源码已通过独立 iPhone QA 自动测试，现已汇入 mobile.21；
 实际解码输出暂停、期限／恢复竞态覆盖见 [SLEEP_TIMER.md](SLEEP_TIMER.md)。
 QQ／网易云完整时长锁屏定时、物理 iPad 均保持 NOT_RUN。
 
-当前已安装候选为 0.7.16-mobile.20（build20），已原位更新、启动并回读构建号。
+当前已安装候选为 0.7.16-mobile.21（build21），2026-10-12 已原位更新、启动并回读构建号。
+本版汇集睡眠定时、歌单分页及音质设置；签名、源码／资源／IPA 核验、准确源码 CI 均通过。
+iPad 模拟器已实际操作定时编辑／开关、音质选择及重启恢复；该证据不包含真实平台或完整计时验收。
+本版用户歌曲复测尚待反馈，mobile.20 的用户通过记录保留为历史证据。
 mobile.17已按用户要求改为全屏画布；mobile.18加入磨砂和空白轻点隐藏／唤回，mobile.19进一步半透明并修正背景跟随。
 用户对mobile.19回复“先这样吧”，当前外观按此保留；不视为完整旋转、材质及性能矩阵通过。
 mobile.20汇集多标签歌词、独立翻译与FLAC／SYLT适配，格式专项和签名／资源／IPA验证见VALIDATION.md；
@@ -68,6 +71,10 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | 网易云 30 分钟锁屏与自动跨曲 | NOT_RUN | 用户明确反馈「应该没什么问题 没有长时间测试」，不以推测判定通过 |
 | QQ／网易云同一队列手动切换 | PASS（用户真机反馈） | 用户确认来回切换正常，声音、歌名和歌词对应；不等于后台自动跨平台切换 |
 | mobile.20 原位升级后登录与播放 | PASS_USER_CONFIRMED | 用户反馈“两平台登录保留，播放正常”；不自动复核历史锁屏、全部交互及新内嵌格式 |
+| mobile.21 原位升级后登录与播放 | NOT_RUN（待用户反馈） | 安装、启动、build21 回读通过；不据此推定凭据恢复或真实播放通过 |
+| 原版睡眠定时 | PASS（逻辑、WebKit、iPhone QA 及 iPad 容器开关）；真实锁屏完整计时 NOT_RUN | 原生持有期限，7 项逻辑、6 项 WebKit、10 项 iPhone 自动测试；QA 使用注入时钟，模拟器仅编辑／开关，见 SLEEP_TIMER.md |
+| 在线个人歌单分页 | PASS（受控逻辑与 WebKit）；真实大歌单账户 NOT_RUN | 114 项逻辑／provider、12 项 WebKit；超过 100 个歌单的加载、重试与并发隔离；已随 mobile.21 安装，见 CATALOG_PAGING.md |
+| 原版四档音质偏好 | PASS（逻辑、WebKit、iPhone QA 及 iPad 设置恢复）；实际音质／权限回退 NOT_RUN | 123 项逻辑／provider、9 项 WebKit、11 项 iPhone 自动测试；当前播放与缓存优先语义保持，已随 mobile.21 安装，见 AUDIO_QUALITY.md |
 | 锁屏／控制中心控制及前台同步 | PASS（用户真机反馈） | 暂停、继续、上一首、下一首、拖动和回 App 状态同步；未区分锁屏与控制中心具体使用面，不包括物理耳机或蓝牙 |
 | 不配置服务器进入曲库 | PASS | 浏览器样本及 iPad 模拟器实际启动 |
 | 系统文件选择器多选音频并导入 | PASS | iPad Pro 11-inch (M5) / iPadOS 26.5 Simulator，4 个明确标注的合成 WAV |

@@ -1,5 +1,32 @@
 # 移动候选验证记录
 
+## mobile.21：睡眠定时、歌单分页与音质设置（当前开发候选）
+
+2026-10-12，准确源码 `6bc2bc6156c144df8b934187133ee522988a2978`。
+
+- PASS_BUILD：`npm run ios:sync`、iPad Simulator Release 与个人 iPhone Release 构建。
+  保留既有 NativeDeckAnalysis Sendable 编译警告，没有新增生产依赖或服务器更改。
+- PASS_PACKAGE：2,994 项源码输入冻结；120 项生成资源与同步目录、签名 App 完全一致。
+  IPA 逐文件哈希、开发签名、证书与 profile 绑定、设备授权通过；没有 XCTest 插件。
+  源码指纹 `263506ede85e0e34e9ebb8ddede4ff4eb2f6b2351273e469352a3c74b42d4658`。
+- PASS_CI：[准确源码 Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38155952416)。
+- PASS_SIMULATOR_INTERACTION：iPad Pro 11-inch (M5) / iPadOS26.5，实际打包容器中设置睡眠时长 1 分钟、
+  开启显示 0:01:00、关闭；音质原生选择菜单包含四档，无损选择与 App 重启恢复通过。
+  原 27% 音量、静音、EQ 及暂停曲目／进度保持，原生设置文件回读一致。
+  未配置真实在线账号、未等待定时完整期限；不声称模拟器有真实平台证据。
+  MCP 保存截图旋转方向与窗口相反，CUA 实际窗口观察方向正常，未将此判为 App 旋转缺陷。
+- PASS_INSTALL：iPhone XS Max / iOS18.7.10，原位安装并成功启动 `app.folia.personal`，回读 build21。
+  从未卸载个人 App；本次真实 QQ／网易云登录保持、播放及新控件手工验收等待用户反馈。
+- 交付：`移动端交付/Folia-0.7.16-mobile.21-263506ed-development.ipa`，8,071,788 字节，
+  SHA256 `838d55a0524da48077726bc540bdbe68f56cc312e055f4da2dfc746411cbb61c`。
+  比 mobile.20 增加 146,185 字节；旧包摘要复核未变并保留，回退应保留数据并整体替换包，不能卸载个人 App。
+- NOT_RUN：真实平台各档实际音质／权限回退、超过 100 个歌单完整性、锁屏完整时长睡眠定时、
+  网易云 30 分钟锁屏、物理 iPad、全套耳机／蓝牙／网络切换与长期性能。
+  本版沿用 mobile.19 外观；Automix 正式接入仍待批准，不含新推理库或模型。
+
+证据：`.mobile-test-results/mobile21-*`；功能自动测试见下方三个独立阶段，次数不重复相加。
+模拟器 App／日志已停止、任务启动的模拟器已关闭；个人 iPhone App 保持运行供用户验证。
+
 ## 原版四档音质的移动适配（2026-10-12）
 
 - PASS：TypeScript、4 文件 123 项逻辑／provider、3 视口共 9 项 WebKit。
@@ -7,7 +34,8 @@
   覆盖参数、旧设置迁移、迟到请求、已播放／暂停／预加载／交叉淡化保持、缓存优先和本地播放。
 - 初次 WebKit 音质控件仅 27px，修正为 44px 并重测；不影响已接受的播放器画布与控制器外观。
 - QA 已卸载，个人 mobile.20 保留并恢复前台；无新依赖、无服务器改动。
-- NOT_RUN：真实平台实际音质及权限回退、最新 UI 与原生容器联合复测、长期音质播放与物理 iPad。
+- 后续 mobile.21 已完成最新 UI 与原生容器的 iPad 短测并安装个人包，见上节。
+- NOT_RUN：真实平台实际音质及权限回退、长期音质播放与物理 iPad。
   细节及证据见 [AUDIO_QUALITY.md](AUDIO_QUALITY.md)。
 
 ## 个人歌单分页与账户／搜索并发（2026-10-12）
@@ -16,7 +44,7 @@
 - 修正首 100 个歌单截断、账户与搜索互相废弃、退出取消失败跳过清理；复用原 Omni 与集合身份。
   网易云错误页不再静默清空歌单，布尔 more 按上游语义处理。
 - 第 101 个歌单的读取、失败重试和进入播放、迟到响应及平台切换均是受控数据证据。
-- NOT_RUN：真实 QQ／网易云超过 100 个歌单的完整性、原生容器复测；个人 App 未更新。
+- NOT_RUN：真实 QQ／网易云超过 100 个歌单的完整性、原生容器在线复测；此阶段个人 App 未更新，随后汇入 mobile.21。
   详见 [CATALOG_PAGING.md](CATALOG_PAGING.md)。
 
 ## 睡眠定时原生适配（2026-10-11）
@@ -69,7 +97,7 @@
 - NOT_RUN：真实音乐质量、播放器／动画争用、后台调度和长期温升／内存；
   完整Automix尚未接入，个人App仍为mobile.20。固定依赖、数字、命令和证据见[AUTOMIX_RUNTIME_130.md](AUTOMIX_RUNTIME_130.md)。
 
-## mobile.20：内嵌歌词格式与翻译（当前开发候选）
+## mobile.20：内嵌歌词格式与翻译（历史候选）
 
 2026-10-11 已原位安装并启动于 iPhone XS Max／iOS18.7.10，设备回读 build20。
 源码 `9f87ef458f01cf54e0b82ec090daea68b5c8e54d`，

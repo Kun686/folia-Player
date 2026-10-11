@@ -1,6 +1,7 @@
 # 原版睡眠定时移动适配
 
-2026-10-11。开发源码已接入；独立 iPhone QA 自动测试通过，**尚未更新个人 mobile.20**。
+2026-10-11 开发源码接入并通过独立 iPhone QA 自动测试；2026-10-12 汇入 mobile.21，
+已原位安装、启动并回读 build21。
 未将受控测试标成真实平台锁屏定时验收。没有新增生产依赖。
 
 ## 复用与行为
@@ -36,7 +37,8 @@
 | 原生构建 | Release / arm64 build-for-testing PASS；签名及独立 QA 身份核对通过 |
 | iPhone 自动测试 | iPhone XS Max / iOS 18.7.10：8 项睡眠定时 + 2 项既有暂停／中断／Crossfade 回归，10 项 PASS，0 跳过 |
 | 实际音频输出 | QA 使用现有 WAV 测试音，真实解码／共享立体声输出；原生定时触发后暂停、音频时钟停止、保留当前项；中断结束不误恢复 |
-| 清理 | QA `app.folia.validation.App` 已移除；个人 `app.folia.personal` 未更新／卸载，恢复前台并回读 build20 |
+| 清理 | 功能阶段 QA `app.folia.validation.App` 已移除；当时个人 App 恢复前台并回读 build20；后续统一交付 mobile.21，始终未卸载个人 App |
+| mobile.21 容器操作 | iPad Pro 11-inch (M5) / iPadOS26.5 Simulator，编辑为 1 分钟、开启显示 0:01:00、关闭通过；原生保存时长回读一致，未等待完整期限 |
 | NOT_RUN | 真实 QQ／网易云锁屏等待完整设置时长、物理 iPad、长时间温升／内存、系统时钟人为调整 |
 
 原生到期用注入时钟推进，DispatchSource 自行触发；不是等候完整一分钟或真实锁屏计时。

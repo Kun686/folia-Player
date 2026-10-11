@@ -1,18 +1,22 @@
 # Folia iPhone / iPad 实现与安装
 
 2026-10-12 后续源码已接通原版四档音质偏好与原生播放地址请求，保留当前播放、缓存优先及原平台回退规则。
-123 项逻辑／provider、9 项 WebKit、11 项 iPhone QA 自动测试通过；真实平台音质与个人包更新仍待完成，
+123 项逻辑／provider、9 项 WebKit、11 项 iPhone QA 自动测试通过；已汇入 mobile.21，真实平台音质仍待验证，
 见 [AUDIO_QUALITY.md](AUDIO_QUALITY.md)。
 
 2026-10-12 后续源码已补齐超过 100 个个人歌单的分页入口，隔离账户刷新与搜索请求，
 并修正网易云错误响应被当成空歌单的问题。114 项相关逻辑／provider、12 项 WebKit 通过；
-真实大歌单账户待验，尚未更新个人包，见 [CATALOG_PAGING.md](CATALOG_PAGING.md)。
+已汇入 mobile.21，真实大歌单账户待验，见 [CATALOG_PAGING.md](CATALOG_PAGING.md)。
 
 后续开发源码已补齐原版睡眠定时：复用原控件，由原生持有期限，到期暂停并保留队列；
 7 项逻辑、6 项 WebKit 和 10 项 iPhone 原生自动测试通过，无新依赖。
-尚未更新个人 mobile.20，真实平台锁屏定时待验收，见 [SLEEP_TIMER.md](SLEEP_TIMER.md)。
+已汇入 mobile.21，真实平台锁屏定时待验收，见 [SLEEP_TIMER.md](SLEEP_TIMER.md)。
 
-当前交付是 **0.7.16-mobile.20 开发候选**，支持 iOS/iPadOS 17+。源码基线为
+当前交付是 **0.7.16-mobile.21 开发候选**，支持 iOS/iPadOS 17+。
+准确源码 `6bc2bc6156c144df8b934187133ee522988a2978`；2026-10-12 原位安装、启动并回读 build21。
+2,994 项源码输入、120 项生成资源、签名与 IPA 逐文件核验及准确源码 CI 通过。
+iPad 模拟器实际容器已验证定时编辑／开关、音质选择／重启恢复及原音效设置保持；
+个人 iPhone 的本版真实歌曲复测待反馈，未将安装或模拟器检查当作平台验收。上游源码基线为
 d824c0b854e54d5411cb072092999823e9bd7071；移动分支发布到 Kun686/folia-Player，服务器部署记录见 SERVER_VALIDATION.md。
 2026-10-11 已按用户指定接通 `https://music.nb686.cn`，在 mobile.12 中完成以下用户实测：
 HTTPS 与网关认证已验证；用户已确认 iPhone 的真实 QQ 登录成功、可见账号或歌单。
@@ -55,7 +59,7 @@ mobile.17自动回归及iPad实际模拟器操作通过；iPhone模拟器部分�
 服务器配置不再是使用 App 的前提。真实平台与真机完整验收尚未完成，不能作为已验收安装包发布。
 
 历史 mobile.12 已原位安装并启动于 iPhone XS Max / iOS18.7.10，其源码提交及安装包摘要见
-VALIDATION.md；BUILD_RECORD.json 现描述 mobile.20；mobile.19 及更早安装包保留用于回退。
+VALIDATION.md；BUILD_RECORD.json 现描述 mobile.21；mobile.20 及更早安装包保留用于回退。
 新增包含原歌词时间校准、GBK／KRC 导入、内嵌／导入歌词来源管理、本地完整匹配及 Partita 长词适配。
 本轮 142 项移动逻辑与 17 项 iPhone 原生专项通过；界面结果沿用各功能阶段证据，
 不代表真实平台 App 链路、全部原生动画表现或长期真机验收已完成。
