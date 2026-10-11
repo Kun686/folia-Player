@@ -10,6 +10,10 @@ import { mobileCollectionKey } from './catalogSession';
 import { useProviders } from './useProviders';
 import { useLocalCatalog } from './useLocalCatalog';
 import { useLocalBrowser } from './useLocalBrowser';
+import { useLocalPlaylists } from './useLocalPlaylists';
+import LocalPlaylistToolbar from './LocalPlaylistToolbar';
+import LocalPlaylistDialog from './LocalPlaylistDialog';
+import LocalSongPlaylistActions from './LocalSongPlaylistActions';
 import LocalCollections, { LocalLibraryNav } from './LocalCollections';
 import { useAppPreferences } from '../hooks/useAppPreferences';
 import { useThemeSettingsStore } from '../stores/useThemeSettingsStore';
@@ -48,7 +52,8 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const sleepTimer = useNativeSleepTimer();
   const catalog = useCatalog(provider, !!server && isNative && providerEnabled);
   const local = useLocalCatalog();
-  const localBrowser = useLocalBrowser(local.songs, query);
+  const localPlaylists = useLocalPlaylists(local.songs);
+  const localBrowser = useLocalBrowser(local.songs, query, localPlaylists.lists);
   const mediaCache = useMediaCache();
   const isCached = provider === 'cached';
   const isLocal = provider === 'local';
@@ -98,9 +103,13 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       <div className="section-heading"><h2>{queueView ? t('mobile.queue') : t(isCached ? 'options.mediaCache' : isLocal ? 'mobile.local' : 'mobile.playlists')}</h2>
         <button aria-pressed={queueView} onClick={() => setQueueView(!queueView)}>{t('mobile.queue')} · {playback.state.queue.length}</button></div>
       {isLocal && !queueView && <LocalLibraryNav browser={localBrowser} clearQuery={() => setQuery('')} />}
+      {isLocal && !queueView && (localBrowser.section === 'playlists' || localPlaylists.error) &&
+        <LocalPlaylistToolbar controller={localPlaylists} selected={localBrowser.selected} />}
       {queueView && <div className="queue-toolbar">
         <button disabled={queueBusy || songs.length < 2} onClick={() => edit({ type: 'shuffle' })}>{t('mobile.shuffleQueue')}</button>
         <button disabled={queueBusy || !songs.length} onClick={() => { if (window.confirm(t('mobile.confirmClearQueue'))) edit({ type: 'clear' }); }}>{t('mobile.clearQueue')}</button>
+        <button disabled={!localPlaylists.ready || localPlaylists.busy || !songs.some(song => song.sourceRef?.kind === 'local')}
+          onClick={() => localPlaylists.create(songs)}>{t('localMusic.saveQueueAsPlaylist')}</button>
       </div>}
       {!isLocal && !isCached && !queueView && catalog.collections.length > 0 && <div className="collections">{catalog.collections.map(collection =>
         <button key={mobileCollectionKey(collection)} onClick={() => void catalog.load({ collection })}><Music2 size={18} />{collection.name}</button>)}</div>}
@@ -117,7 +126,9 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       {(catalog.busy || catalog.accountBusy || local.busy) && <p role="status">{t('mobile.loading')}</p>}
       {isLocal && !queueView && localBrowser.browsing ? <LocalCollections collections={localBrowser.collections}
         select={id => { localBrowser.select(id); setQuery(''); }} /> : songs.length ? <SongList songs={songs} play={index => void play(index)} add={(song, next) => void add(song, next)}
-        busy={queueBusy} edit={queueView ? edit : undefined} currentIndex={queueView ? playback.state.index : undefined}
+        busy={queueBusy || localPlaylists.busy} edit={queueView ? edit : undefined} currentIndex={queueView ? playback.state.index : undefined}
+        libraryActions={(song, close) => <LocalSongPlaylistActions song={song} controller={localPlaylists}
+          selected={isLocal && !queueView ? localBrowser.selected : undefined} close={close} />}
         remove={isLocal && !queueView ? song => { if (window.confirm(t('mobile.confirmRemove', { name: song.name }))) void local.remove(song); } : undefined} />
         : <div className="empty"><Music2 size={44} /><p>{t(queueView ? 'mobile.queueEmpty' : isLocal ? (local.songs.length ? 'mobile.empty' : 'mobile.localEmpty') : 'mobile.noSongs')}</p></div>}
       {!isLocal && !isCached && catalog.more && !queueView && <button disabled={catalog.busy} onClick={() => void catalog.load()}>{t('mobile.more')}</button>}
@@ -135,5 +146,6 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
     {settings && <SettingsSheet mediaCache={mediaCache} timer={sleepTimer} server={server} light={light} setLight={setLight}
       saved={value => { if (value === server) location.reload(); else setServer(value); }} close={() => setSettings(false)} />}
     {login && <LoginSheet provider={provider} refresh={catalog.refresh} close={() => setLogin(false)} />}
+    {localPlaylists.request && <LocalPlaylistDialog controller={localPlaylists} request={localPlaylists.request} />}
   </main>;
 }

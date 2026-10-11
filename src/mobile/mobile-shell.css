@@ -49,6 +49,16 @@ h1, h2, p { margin: 0; } h1 { font-size: 34px; font-weight: 700; letter-spacing:
 .local-collection .song-art img { width: 100%; height: 100%; object-fit: cover; }
 .local-collection > span { flex: 1; }
 .local-collection > svg { flex-shrink: 0; color: var(--muted); }
+.local-playlist-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.local-playlist-toolbar p { flex-basis: 100%; }
+.local-playlist-dialog.sheet { width: min(92vw, 520px); margin: auto; max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 32px); color: var(--text); }
+.local-playlist-dialog::backdrop { background: #000a; }
+.local-playlist-dialog form { display: flex; gap: 8px; align-items: end; margin-block: 12px; }
+.local-playlist-dialog label { display: grid; gap: 8px; flex: 1; min-width: 0; }
+.local-playlist-dialog input { width: 100%; min-width: 0; }
+.playlist-choice { width: 100%; height: 60px; text-align: left; display: flex; flex-direction: column; justify-content: center; }
+.playlist-choice strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.playlist-choice small { color: var(--muted); }
 .song-list { flex: 1; scrollbar-width: thin; }
 .song-row { display: flex; gap: 2px; border-bottom: 1px solid var(--border); align-items: center; }
 .song-main { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-align: left; background: none !important; height: 100%; padding: 8px 2px !important; }

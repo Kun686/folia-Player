@@ -46,7 +46,7 @@ describe('native local collection projection', () => {
     expect(buildMobileLocalGroups([a, b], t).albums.map(x => x.id))
       .toEqual(buildMobileLocalGroups([b, a], t).albums.map(x => x.id));
     expect(buildMobileLocalGroups([{ ...a, album: b.album }, b], t).albums.map(x => x.name)).toEqual(['Second']);
-    expect(buildMobileLocalGroups([], t)).toEqual({ albums: [], artists: [] });
+    expect(buildMobileLocalGroups([], t)).toEqual({ albums: [], artists: [], playlists: [] });
   });
   it('searches current title, artist and album with the shared Unicode normalization', () => {
     const songs = [track('1', 'Title', 'Ａlbum', 'Artist'), track('2', 'Other', 'Else', 'Someone')];

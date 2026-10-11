@@ -49,7 +49,7 @@ export interface FoliaNativePlugin {
   mediaCacheState(): Promise<NativeMediaCacheState>;
   clearMediaCache(): Promise<void>;
   addListener(name: 'mediaCache', listener: () => void): Promise<PluginListenerHandle>;
-  localCatalog(): Promise<{ songs: SongResult[] }>;
+  localCatalog(options?: { requireComplete: boolean }): Promise<{ songs: SongResult[] }>;
   importAudio(): Promise<{ songs?: SongResult[]; failures?: { name: string; code: string }[]; cancelled?: boolean }>;
   localDetails(options: { id: string }): Promise<{ content?: string; fileName?: string; cover?: string }>;
   importLyrics(options: { id: string }): Promise<{ content?: string; fileName?: string; cover?: string; cancelled?: boolean }>;

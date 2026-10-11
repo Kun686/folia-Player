@@ -26,13 +26,26 @@ actor LocalMediaLibrary {
         guard Self.validID(id) else { throw MobileFailure("invalid-local-identity") }
         return root.appendingPathComponent(id, isDirectory: true)
     }
-    func catalog() throws -> [[String: Any]] {
-        guard FileManager.default.fileExists(atPath: root.path) else { return [] }
-        return try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+    func catalog(requireComplete: Bool = false) throws -> [[String: Any]] {
+        if !requireComplete && !FileManager.default.fileExists(atPath: root.path) { return [] }
+        let directories: [URL]
+        do { directories = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) }
+        catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile { return [] }
+        // Playlist repair must never interpret unreadable metadata as a deleted song.
+        return try directories
             .filter { Self.validID($0.lastPathComponent) }
-            .compactMap { url -> [String: Any]? in
-                guard let data = try? Data(contentsOf: url.appendingPathComponent("song.json")) else { return nil }
-                guard let base = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+            .compactMap { url throws -> [String: Any]? in
+                guard let data = try? Data(contentsOf: url.appendingPathComponent("song.json")),
+                      let base = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+                    if requireComplete { throw MobileFailure("local-library-incomplete") }
+                    return nil
+                }
+                if requireComplete {
+                    let ref = base["sourceRef"] as? [String: String]
+                    guard ref?["kind"] == "local", ref?["mediaId"] == url.lastPathComponent else {
+                        throw MobileFailure("local-library-incomplete")
+                    }
+                }
                 return (try? displayedSong(url.lastPathComponent, base: base)) ?? base
             }.sorted { ($0["name"] as? String ?? "").localizedStandardCompare($1["name"] as? String ?? "") == .orderedAscending }
     }

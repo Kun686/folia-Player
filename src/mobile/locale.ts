@@ -1,5 +1,8 @@
 // src/mobile/locale.ts
 export const mobileEn = {
+  renamePlaylist: 'Rename playlist', searchPlaylists: 'Search playlists', playlistLocalCount: 'Save {{count}} local tracks',
+  playlistError: 'Could not load or save the playlist. Please retry.', confirmDeletePlaylist: 'Delete “{{name}}”? Audio files will remain in your library.',
+  favoriteLocal: 'Add to Liked Songs', unfavoriteLocal: 'Remove from Liked Songs', removeFromPlaylist: 'Remove from playlist', moveSongUp: 'Move up', moveSongDown: 'Move down',
   localBrowse: 'Browse local library', backToCollections: 'Back to collections', openCollection: 'Open {{name}}',
   morePlaylists: 'Load more playlists', retryPlaylists: 'Retry playlists', retrySongs: 'Retry songs',
   playerTools: 'More playback options', showControls: 'Show playback controls',
@@ -49,6 +52,9 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  renamePlaylist: '重命名歌单', searchPlaylists: '搜索歌单', playlistLocalCount: '保存 {{count}} 首本地歌曲',
+  playlistError: '歌单读取或保存失败，请重试。', confirmDeletePlaylist: '删除“{{name}}”歌单？音频文件会保留在曲库中。',
+  favoriteLocal: '加入我喜欢的音乐', unfavoriteLocal: '取消喜欢', removeFromPlaylist: '从歌单移除', moveSongUp: '上移', moveSongDown: '下移',
   localBrowse: '浏览本地音乐库', backToCollections: '返回集合列表', openCollection: '打开 {{name}}',
   morePlaylists: '加载更多歌单', retryPlaylists: '重试歌单加载', retrySongs: '重试歌曲加载',
   playerTools: '更多播放选项', showControls: '显示播放控制',
@@ -98,6 +104,9 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  renamePlaylist: 'Ganti nama playlist', searchPlaylists: 'Cari playlist', playlistLocalCount: 'Simpan {{count}} lagu lokal',
+  playlistError: 'Gagal memuat atau menyimpan playlist. Silakan coba lagi.', confirmDeletePlaylist: 'Hapus “{{name}}”? Berkas audio tetap ada di pustaka.',
+  favoriteLocal: 'Tambahkan ke lagu favorit', unfavoriteLocal: 'Hapus dari favorit', removeFromPlaylist: 'Hapus dari playlist', moveSongUp: 'Pindah ke atas', moveSongDown: 'Pindah ke bawah',
   localBrowse: 'Jelajahi pustaka lokal', backToCollections: 'Kembali ke koleksi', openCollection: 'Buka {{name}}',
   morePlaylists: 'Muat daftar putar lainnya', retryPlaylists: 'Coba lagi daftar putar', retrySongs: 'Coba lagi lagu',
   playerTools: 'Opsi pemutaran lainnya', showControls: 'Tampilkan kontrol pemutaran',

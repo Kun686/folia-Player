@@ -1,5 +1,5 @@
 import { List, type RowComponentProps } from 'react-window';
-import { ChevronLeft, ChevronRight, Disc3, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Disc3, Users, ListMusic } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { MobileLocalCollection } from '../types/mobileLibrary';
 import type { useLocalBrowser } from './useLocalBrowser';
@@ -11,9 +11,9 @@ export function LocalLibraryNav({ browser, clearQuery }: { browser: Browser; cle
   const { t } = useTranslation();
   return <>
     <nav className="local-sections" aria-label={t('mobile.localBrowse')}>
-      {(['songs', 'albums', 'artists'] as const).map(section => <button key={section}
+      {(['songs', 'albums', 'artists', 'playlists'] as const).map(section => <button key={section}
         aria-pressed={browser.section === section} onClick={() => { browser.changeSection(section); clearQuery(); }}>
-        {t(section === 'songs' ? 'localMusic.allSongs' : 'localMusic.' + section)}
+        {t(section === 'songs' ? 'localMusic.allSongs' : section === 'playlists' ? 'localMusic.customPlaylists' : 'localMusic.' + section)}
       </button>)}
     </nav>
     {browser.selected && <div className="local-collection-heading">
@@ -27,7 +27,7 @@ function Row({ index, style, collections, select }: RowComponentProps<Props>) {
   const { t } = useTranslation();
   const group = collections[index];
   const cover = useMobileCover(group.songs[0]);
-  const Icon = group.type === 'album' ? Disc3 : Users;
+  const Icon = group.type === 'album' ? Disc3 : group.type === 'artist' ? Users : ListMusic;
   return <div className="song-row" style={style}>
     <button className="song-main local-collection" aria-label={t('mobile.openCollection', { name: group.name })} onClick={() => select(group.id)}>
       <div className="song-art" aria-hidden="true">{cover ? <img src={cover} alt="" /> : <Icon size={20} />}</div>

@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { SongResult } from '../types';
+import type { LocalPlaylist, SongResult } from '../types';
 import type { MobileLocalSection } from '../types/mobileLibrary';
 import { normalizeLocalLibraryName } from '../utils/localLibraryNames';
 import { buildMobileLocalGroups, filterMobileLocalSongs } from './localLibraryGroups';
 
 // useLocalBrowser.ts — selection resolves against the latest native metadata, never a saved song array.
-export function useLocalBrowser(allSongs: SongResult[], query: string) {
+export function useLocalBrowser(allSongs: SongResult[], query: string, playlists: LocalPlaylist[]) {
   const { t } = useTranslation();
   const [section, setSection] = useState<MobileLocalSection>('songs');
   const [selection, setSelection] = useState<string | null>(null);
-  const grouped = useMemo(() => buildMobileLocalGroups(allSongs, t), [allSongs, t]);
+  const grouped = useMemo(() => buildMobileLocalGroups(allSongs, t, playlists), [allSongs, t, playlists]);
   const groups = section === 'songs' ? [] : grouped[section];
   const selected = groups.find(group => group.id === selection);
   useEffect(() => { if (selection && !selected) setSelection(null); }, [selection, selected]);

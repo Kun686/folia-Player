@@ -4,6 +4,34 @@ import AVFoundation
 
 // LocalMediaTests.swift — generated audio is test evidence, never a substitute for music-provider acceptance.
 @MainActor extension NativeTests {
+    func testPlaylistCatalogRejectsPartialOrMismatchedMetadata() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let library = LocalMediaLibrary(root: root), source = try silentAudio()
+        defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: source) }
+        let empty = try await library.catalog(requireComplete: true)
+        XCTAssertTrue(empty.isEmpty)
+        _ = try await library.importAudio(source)
+        let imported = try await library.importAudio(source)
+        let id = try XCTUnwrap(imported["id"] as? String)
+        let metadata = root.appendingPathComponent(id).appendingPathComponent("song.json")
+        let original = try Data(contentsOf: metadata)
+        try FileManager.default.removeItem(at: metadata)
+        do { _ = try await library.catalog(requireComplete: true); XCTFail("Missing metadata accepted") } catch {}
+        let browse = try await library.catalog()
+        XCTAssertEqual(browse.count, 1, "Ordinary browsing keeps readable tracks")
+        try Data("broken".utf8).write(to: metadata)
+        do { _ = try await library.catalog(requireComplete: true); XCTFail("Corrupt metadata accepted") } catch {}
+        var wrong = imported
+        wrong["sourceRef"] = ["kind": "local", "mediaId": UUID().uuidString]
+        try JSONSerialization.data(withJSONObject: wrong).write(to: metadata)
+        do { _ = try await library.catalog(requireComplete: true); XCTFail("Mismatched identity accepted") } catch {}
+        try original.write(to: metadata)
+        let restored = try await library.catalog(requireComplete: true)
+        XCTAssertEqual(restored.count, 2)
+        try await library.remove(id)
+        let deleted = try await library.catalog(requireComplete: true)
+        XCTAssertEqual(deleted.count, 1)
+    }
     func testLocalImportPersistsAndRejectsPathIdentity() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let library = LocalMediaLibrary(root: root), source = try silentAudio()

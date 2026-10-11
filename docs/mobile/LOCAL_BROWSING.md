@@ -15,7 +15,8 @@
 - `LocalCollections` 复用已安装的 `react-window`、`lucide-react`、i18n 和 `useMobileCover`，
   仅为可见行加载封面。播放器沿用已接受的全屏样式；没有新增生产依赖、Swift 或服务端改动。
 - 当前原生歌曲不提供 track/disc 序号，专辑按原排序函数的标题／文件名后备规则排列。
-  稳定实体编辑、合并／拆分、本地歌单及 M3U 尚未实现，不能称为完整本地曲库对齐。
+  稳定实体编辑、合并／拆分及 M3U 尚未实现，不能称为完整本地曲库对齐。
+  后续源码已接入本地歌单／收藏，见 [LOCAL_PLAYLISTS.md](LOCAL_PLAYLISTS.md)。
 
 ## 同批修复：切歌时取消旧歌词导入
 

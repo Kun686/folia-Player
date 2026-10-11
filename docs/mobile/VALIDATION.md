@@ -1,5 +1,22 @@
 # 移动候选验证记录
 
+## 本地歌单与收藏：mobile.25 开发源码
+
+2026-10-12。复用原歌单服务，新增移动存储和触摸操作，详见 [LOCAL_PLAYLISTS.md](LOCAL_PLAYLISTS.md)。
+
+- PASS：TypeScript；94 项相关逻辑回归，包含移动存储 9 项、原桌面歌单／M3U、
+  原本地音乐删除、目录动作和首页分组。此前 236 项合跑的并发用例失败已记录，未称为全通过。
+- PASS：21 项 WebKit，phone／ipad／ipad-narrow 覆盖歌单／收藏、刷新恢复、排序／队列、
+  混合队列只保存本地歌曲、写入失败保留输入／重试、分类和搜索。
+- PASS_NATIVE_SIMULATOR：iPad Pro 11-inch M5 / iPadOS26.5，3 项 XCTest；
+  完整目录拒绝缺失／损坏／身份不匹配元数据，原导入恢复与失败清理仍正常。
+  独立验证 Bundle ID；没有覆盖个人手机 App。
+- 当前个人手机仍是 mobile.24。mobile.25 构建／实际容器／安装及真机反馈分别追加，
+  自动测试不作为这些项目通过的依据。
+
+证据：`.mobile-test-results/local-playlists-{regression-unit,regression-webkit,final3-typecheck,native}.log`、
+`local-playlists-native.xcresult`。M3U 移动文件流程、稳定实体编辑和完整 Automix 仍未交付。
+
 ## mobile.24：本地专辑／歌手浏览（当前开发候选）
 
 2026-10-12，准确源码 `e2ba4becc33d6a7bb0ae30a6dc0a989dfab0d0ba`。
@@ -18,7 +35,9 @@
   源码指纹 `3235c154329d7e0b15c54f1a0adb616241a2ecc64375ce3a3f8d45c44fad2c53`。
 - PASS_CI：[准确源码 Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38163353026)。
 - PASS_INSTALL：iPhone XS Max / iOS18.7.10 原位更新 `app.folia.personal`，启动成功，回读 build24。
-  从未卸载个人 App；本版真实平台及新分类操作待用户反馈。
+  从未卸载个人 App。
+- PASS_USER_CONFIRMED：用户反馈「在线播放正常，暂无本地歌曲可测」。只确认本版在线播放；
+  登录保留未单独确认，本地分类真机使用仍为 NOT_RUN。
 - 交付：`移动端交付/Folia-0.7.16-mobile.24-3235c154-development.ipa`，7,947,241 字节，
   SHA256 `0b366f3f6729b6c35f33b0e3711d544625239e83d3573d66b125b42bb4676980`。
   比 mobile.23 增加 3,197 字节；旧包摘要复核未变，没有存储格式迁移。

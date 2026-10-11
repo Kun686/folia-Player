@@ -185,7 +185,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     } }
     @objc func localCatalog(_ call: CAPPluginCall) { run(call) {
         Task { @MainActor in
-            do { call.resolve(["songs": try await self.engine.local.catalog()]) }
+            do { call.resolve(["songs": try await self.engine.local.catalog(requireComplete: call.getBool("requireComplete") ?? false)]) }
             catch { call.reject("local-library-unavailable") }
         }
     } }

@@ -2,11 +2,13 @@ import { List, type RowComponentProps } from 'react-window';
 import { Music2, Plus, MoreHorizontal } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { ReactNode } from 'react';
 import type { SongResult } from '../types';
 import type { QueueAction } from './queueActions';
 
 // src/mobile/SongList.tsx — virtualized, touch-accessible rows; no hover-only actions.
 interface Props {
+  libraryActions?(song: SongResult, close: () => void): ReactNode;
   songs: SongResult[]; play: (index: number) => void; add: (song: SongResult, next?: boolean) => void;
   remove?: (song: SongResult) => void; edit?: (action: QueueAction) => void; currentIndex?: number; busy?: boolean;
 }
@@ -43,6 +45,7 @@ export default function SongList(props: Props) {
           <button disabled={props.busy || selected === props.currentIndex} onClick={() => act(() => props.edit
             ? props.edit({ type: 'end', index: selected }) : props.add(song))}>{t('mobile.toEnd')}</button>
           {props.edit && <button disabled={props.busy} onClick={() => act(() => props.edit?.({ type: 'remove', index: selected }))}>{t('mobile.removeFromQueue')}</button>}
+          {props.libraryActions?.(song, () => setSelected(null))}
           {props.remove && <button onClick={() => act(() => props.remove?.(song))} aria-label={t('mobile.remove') + ' ' + song.name}>{t('mobile.remove')}</button>}
         </div>
       </>}

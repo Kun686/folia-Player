@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+后续源码补齐本地歌单／收藏，复用原业务规则、已安装 Dexie 和原生歌曲身份；
+94 项逻辑、21 项 WebKit 和 3 项原生模拟器测试通过，见 [LOCAL_PLAYLISTS.md](LOCAL_PLAYLISTS.md)。
+未包含手机 M3U 文件流程、稳定实体编辑或完整 Automix。
+
 2026-10-12 后续源码已接通原版四档音质偏好与原生播放地址请求，保留当前播放、缓存优先及原平台回退规则。
 123 项逻辑／provider、9 项 WebKit、11 项 iPhone QA 自动测试通过；已汇入 mobile.21，真实平台音质仍待验证，
 见 [AUDIO_QUALITY.md](AUDIO_QUALITY.md)。
@@ -20,7 +24,8 @@
 当前交付是 **0.7.16-mobile.24 开发候选**，支持 iOS/iPadOS 17+。
 准确源码 `e2ba4becc33d6a7bb0ae30a6dc0a989dfab0d0ba`；2026-10-12 原位更新个人 iPhone、启动并回读 build24。
 3,009 项源码输入、120 项资源、签名／IPA 和准确源码 CI 已核验；最终 iPad 模拟器容器已实际操作分类、搜索、播放并确认队列范围。
-本版真机反馈待收集；mobile.23 安装包保留，没有存储格式迁移，详见 [VALIDATION.md](VALIDATION.md)。
+用户已确认本版在线播放正常；手机暂无本地歌曲，本地分类真机验收仍为 NOT_RUN，登录保留未单独确认。
+mobile.23 安装包保留，没有存储格式迁移，详见 [VALIDATION.md](VALIDATION.md)。
 
 此前 **mobile.23** 的证据：
 准确源码 `169d0618c33cab4b14a37dee0df9df75d1582c4e`；2026-10-12 原位更新个人 iPhone、启动并回读 build23。
