@@ -1,7 +1,29 @@
 # 原版字体与字幕设置的移动适配
 
-2026-10-12：功能验证后已汇入 mobile.22，原位安装个人 iPhone 并启动；新入口的用户操作反馈待确认。
+2026-10-12：mobile.22 用户反馈「心象」字号滑块拖不动，记为 FAIL_USER_REPORTED；
+用户手机没有字体文件，自定义字体真机导入保持 NOT_RUN。后续修复证据见下节。
 本轮补全设置入口与上传字体持久化，不改变已接受的全屏舞台、气泡控制器或动画参数。
+
+## 字号触摸修复（mobile.23）
+
+- 复现：iPad Pro 11-inch M5 / iPadOS26.5 的 WKWebView 中，心象字号滑块可点轨道，
+  拖动却不改值；原播放进度条可拖。诊断看到 pointerdown/up，但没有 move/input。
+- 排除：只改 touch-action、只把小数步长改成百分数均未解决；单独加入 touchmove 监听的
+  诊断版曾恢复，但干净构建复验仍失败，因此没有把该结果当最终修复证据。
+- 最简修复：字体／字幕原生 range 复用小组件 `TouchRange`，直接注册非 passive touchmove
+  监听并停止向外传播，同时仅对这些 range 设置 `touch-action: none`，避免面板滚动接管手势。
+  不调用 preventDefault，不计算自定义滑块位置，卸载时移除监听；原小数范围、step、store 保留。
+  同类字号、字重、透明度统一接入，无新依赖、无原生播放器改动。
+- PASS_SIMULATOR_INTERACTION：去掉所有诊断脚本的 Release 容器，实际拖动字号
+  100%→115%→95%，整体透明度 100%→60%→80%；面板空白处仍可上下拖动。
+  终止／重开 App 后保留 95%／80%，随后恢复两个 100%。未用脚本赋值代替此原生拖动验证。
+- PASS：`npm run typecheck`；`font-size-touch.spec.ts` 与 `typography.spec.ts`
+  合计 18 项 WebKit（手机、iPad、窄窗口），包括轨道触摸、鼠标拖动、保存与字体加载回归。
+  桌面 WebKit 不能复现本次 iOS 拖动缺陷，因此这 18 项仅为回归证据，原生复现单列。
+- 最终干净构建：`font-size-combined-{sync,simulator-build,webkit}.log`；
+  截图 `font-size-clean-{drag,restored}.png`，均在忽略目录 `.mobile-test-results/`。
+  临时诊断 App 只装于模拟器，未打入个人包；所有模拟器结论不替代 iPhone 用户复测。
+- NOT_RUN：修复后的个人 iPhone 手势／歌词视觉变化、物理 iPad、真机字体文件导入。
 
 ## 复用与范围
 

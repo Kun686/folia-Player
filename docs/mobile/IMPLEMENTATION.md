@@ -16,7 +16,8 @@
 当前交付是 **0.7.16-mobile.22 开发候选**，支持 iOS/iPadOS 17+。
 准确源码 `da8f6894419e6b75ddbd62f7197763eb2671bd16`；2026-10-12 原位更新个人 iPhone、启动并回读 build22。
 本版补齐原字体／字幕设置，修复 WebKit 字体持久化、FontFace 释放及恢复取消竞态；保留 mobile.19 外观。
-3,001 项源码输入、120 项资源、签名／IPA 和准确源码 CI 已核验；新设置真机操作待用户确认。
+3,001 项源码输入、120 项资源、签名／IPA 和准确源码 CI 已核验；用户反馈心象字号拖不动，
+修复已通过干净 iPad 容器验证和 18 项 WebKit 回归，个人包复测待执行。真机字体导入因无文件保持 NOT_RUN。
 详见 [TYPOGRAPHY.md](TYPOGRAPHY.md) 和 [VALIDATION.md](VALIDATION.md)，上一版 mobile.21 包保留。
 
 此前 **mobile.21** 的证据：

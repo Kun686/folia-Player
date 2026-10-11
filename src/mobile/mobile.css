@@ -28,7 +28,7 @@
 .typography-controls fieldset { min-width: 0; padding: 0; border: 0; }
 .typography-controls select { appearance: auto; height: 44px; min-height: 44px; width: 100%; }
 .typography-controls textarea { min-width: 0; }
-.typography-controls input[type=range] { width: 100%; min-height: 44px; }
+.typography-controls input[type=range] { width: 100%; min-height: 44px; touch-action: none; }
 .typography-controls .check-label { flex-direction: row; align-items: center; min-height: 44px; }
 .appearance-transfer button { min-height: 44px; padding: 8px 12px; background: var(--raised); border-radius: 10px; }
 .sheet-backdrop { position: fixed; z-index: 60; inset: 0; background: #000a; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }

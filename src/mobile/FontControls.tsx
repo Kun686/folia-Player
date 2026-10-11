@@ -6,6 +6,7 @@ import { selectTypographySettingsSnapshot, useTypographySettingsStore } from '..
 import FontFallbackStackControl from '../components/visualizer/FontFallbackStackControl';
 import { FONT_WEIGHT_STEP, MAX_FONT_WEIGHT, MIN_FONT_WEIGHT } from '../utils/fontStacks';
 import { FONT_STYLE_OPTIONS } from '../utils/typographyControls';
+import TouchRange from './TouchRange';
 
 // FontControls.tsx — native touch inputs for the original font store and uploaded-font service.
 export default function FontControls({ theme, subtitle = false, onUploading }: { theme: Theme; subtitle?: boolean; onUploading?(busy: boolean): void }) {
@@ -63,7 +64,7 @@ export default function FontControls({ theme, subtitle = false, onUploading }: {
     <label className="check-label"><input type="checkbox" checked={weight === null}
       onChange={event => setWeight(event.target.checked ? null : lastWeight.current)} />{t('options.fontWeightAuto')}</label>
     {weight !== null && <label>{t(subtitle ? 'options.subtitleFontWeight' : 'options.fontWeight')} · {weight}
-      <input type="range" min={MIN_FONT_WEIGHT} max={MAX_FONT_WEIGHT} step={FONT_WEIGHT_STEP} value={weight}
+      <TouchRange min={MIN_FONT_WEIGHT} max={MAX_FONT_WEIGHT} step={FONT_WEIGHT_STEP} value={weight}
         onChange={event => setWeight(Number(event.target.value))} />
     </label>}
     {busy && <p role="status">{t('options.uploadingCustomFont')}</p>}

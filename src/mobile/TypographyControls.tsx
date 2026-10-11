@@ -5,6 +5,7 @@ import { selectTypographySettingsSnapshot, useTypographySettingsStore } from '..
 import { useVisualizerSettingsStore } from '../stores/useVisualizerSettingsStore';
 import { LYRICS_FONT_SIZE_AUTO_NOTICE_KEYS } from '../utils/typographyControls';
 import FontControls from './FontControls';
+import TouchRange from './TouchRange';
 
 // TypographyControls.tsx — original global lyric/subtitle settings, with no alternate persistence.
 export default function TypographyControls({ theme, onUploading }: { theme: Theme; onUploading(busy: boolean): void }) {
@@ -17,12 +18,12 @@ export default function TypographyControls({ theme, onUploading }: { theme: Them
     <details><summary>{t('options.previewCommonSettings')}</summary>
       <FontControls theme={theme} onUploading={onUploading} />
       <label>{t('options.fontSize')} · {Math.round(s.lyricsFontScale * 100)}%
-        <input type="range" min={0.85} max={1.4} step={0.05} value={s.lyricsFontScale} disabled={!!autoSize}
+        <TouchRange min={0.85} max={1.4} step={0.05} value={s.lyricsFontScale} disabled={!!autoSize}
           onChange={event => s.handleSetLyricsFontScale(Number(event.target.value))} />
       </label>
       {autoSize && <p>{t(autoSize)}</p>}
       <label>{t('options.visualizerOpacity')} · {Math.round(visual.opacity * 100)}%
-        <input type="range" min={0.2} max={1} step={0.05} value={visual.opacity}
+        <TouchRange min={0.2} max={1} step={0.05} value={visual.opacity}
           onChange={event => visual.setOpacity(Number(event.target.value))} />
       </label>
     </details>
@@ -43,13 +44,13 @@ export default function TypographyControls({ theme, onUploading }: { theme: Them
       <label className="check-label"><input type="checkbox" checked={s.subtitleUpcomingLyricsBlur}
         onChange={event => s.handleToggleSubtitleUpcomingLyricsBlur(event.target.checked)} />{t('options.subtitleUpcomingLyricsBlur')}</label>
       <label>{t('options.subtitleOverlayOpacity')} · {Math.round(s.subtitleOverlayOpacity * 100)}%
-        <input type="range" min={0.2} max={1} step={0.05} value={s.subtitleOverlayOpacity}
+        <TouchRange min={0.2} max={1} step={0.05} value={s.subtitleOverlayOpacity}
           onChange={event => s.handleSetSubtitleOverlayOpacity(Number(event.target.value))} />
       </label>
       <label className="check-label"><input type="checkbox" checked={s.subtitleFontInheritsLyrics}
         onChange={event => s.handleSetSubtitleFontInheritsLyrics(event.target.checked)} />{t('options.subtitleFontInheritsLyrics')}</label>
       <label>{t('options.subtitleFontScale')} · {Math.round(s.subtitleFontScale * 100)}%
-        <input type="range" min={0.85} max={1.4} step={0.05} value={s.subtitleFontScale}
+        <TouchRange min={0.85} max={1.4} step={0.05} value={s.subtitleFontScale}
           onChange={event => s.handleSetSubtitleFontScale(Number(event.target.value))} />
       </label>
       {!s.subtitleFontInheritsLyrics && <FontControls theme={theme} subtitle />}

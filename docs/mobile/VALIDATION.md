@@ -1,6 +1,6 @@
 # 移动候选验证记录
 
-## mobile.22：原版字体与字幕设置（当前开发候选）
+## mobile.22：原版字体与字幕设置
 
 2026-10-12，准确源码 `da8f6894419e6b75ddbd62f7197763eb2671bd16`。
 
@@ -11,13 +11,13 @@
   源码指纹 `10771985864165342d0995bc2c5d1c86f7660c35efb179c842ee25b46a259784`。
 - PASS_CI：[准确源码 Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38159398040)。
 - PASS_INSTALL：iPhone XS Max / iOS18.7.10 原位更新 `app.folia.personal`，回读 build22，启动命令成功；
-  从未卸载个人 App。本版设置与在线播放的用户实际操作反馈待确认。
+  从未卸载个人 App。用户后续反馈心象字号拖不动，记为 FAIL_USER_REPORTED；在线播放未复测。
 - 交付：`移动端交付/Folia-0.7.16-mobile.22-10771985-development.ipa`，8,074,437 字节，
   SHA256 `05236500beef4befb7e3a304ba89a09ce389c9fa384939273d9e12f53cb7eb98`。
   比 mobile.21 增加 2,649 字节；旧包摘要复核未变，完整保留用于原位回退。
 - 64 项逻辑、12 项新功能 WebKit、12 项回归与 iPad 模拟器字体导入／重启恢复证据见下节和
   [TYPOGRAPHY.md](TYPOGRAPHY.md)；不因打包将旧模拟器证据升级为本版真机验收。
-- NOT_RUN：本版新入口真机操作、完整字体格式及大字体性能、物理 iPad、网易云长时间锁屏及完整异常矩阵。
+- NOT_RUN：本版其他新设置真机操作、自定义字体导入（用户手机无文件）、完整字体格式及大字体性能、物理 iPad、网易云长时间锁屏及完整异常矩阵。
   完整 Automix 生产接入仍待批准，没有打入新运行库或模型。
 
 证据：`.mobile-test-results/mobile22-*`；本次未启动模拟器或持续日志，个人 iPhone App 留给用户使用。
