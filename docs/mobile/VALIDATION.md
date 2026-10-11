@@ -1,5 +1,32 @@
 # 移动候选验证记录
 
+## mobile.13：歌词显示、分词及文件导出（当前开发候选）
+
+2026-10-11 已在 iPhone XS Max／iOS18.7.10 原位安装并启动，设备回读 build 13。
+源码 `82fb471fa8abad391f1171aae53d12ad140f87b0`，
+[对应 CI](https://github.com/Kun686/folia-Player/actions/runs/38126948291) PASS。
+本包汇入原歌词过滤／制作人员策略／时间线、分词编辑／系统复制，以及单曲 `.fia`／LRC 文件分享。
+没有新增依赖或更改音频与动画参数。用户随后确认「两平台登录都保留，播放正常」及「导出没什么问题」。
+在线歌曲回导失败：系统文件列表打开，但 `.fia`／`.lrc` 灰色不可选，记为 FAIL_USER_REPORTED。
+本地证据 `mobile13-device-manual.json` 保留原反馈；没有把导出成功计作回导通过。
+
+- PASS：导出阶段类型检查、32 项逻辑／4 文件、3 个 WebKit 视口。此前显示和分词回归按各自阶段独立记录。
+- PASS：独立 QA 包在同一 iPhone 执行 2 项原生导出输入检查，0 失败，0.119 秒。
+  覆盖 UTF-8 字节、两种文件扩展名、路径／控制字符／超长正文拒绝；不等于系统分享操作验收。
+- PASS：测试宿主及测试包签名身份已核对，QA 包卸载并回读确认不存在；个人 App 从未卸载。
+- PASS：clean Release 个人签名构建；证书与描述文件匹配，设备授权有效，App 中无 XCTest 包残留。
+  首次证书提取因可选参数写法失败，改用 `--extract-certificates=PREFIX` 后完成比对，未跳过校验。
+- PASS：2,948 个冻结源码输入及 119 个打包／同步／App 资源一致；IPA 逐文件与签名 App 一致。
+  指纹 `36e29a5659c53f7775e90cd67c273b2a8e40e331e7a45befa8bfee1ecafd632e`。
+- 交付：`移动端交付/Folia-0.7.16-mobile.13-36e29a56-development.ipa`，8,039,460 字节，
+  SHA256 `d4436aaf073b89a2e2b61cdf7acfdfa597d5f0d5af433a9702119126747e220b`。
+  mobile.12 IPA 保留；BUILD_RECORD.json 更新为本版源码，旧记录另存本地证据。
+- PASS_USER_CONFIRMED：升级后两平台会话保留、播放正常，以及歌词导出。未独立检查文件内容。
+- FAIL_USER_REPORTED：在线歌词系统选择器禁选 `.fia`／`.lrc`，回导没有完成。
+- NOT_RUN：分词／剪贴板原生操作；
+  网易云长时间锁屏、真实耳机／蓝牙／网络变化、物理 iPad、歌词误差和性能仍未完成。
+  mobile.12 的下述用户反馈保留版本边界，不因本次安装直接记作新版通过。
+
 ## QQ 真机用户实测与后续开发源码
 
 2026-10-11，`https://music.nb686.cn` 已接通，详见 [SERVER_VALIDATION.md](SERVER_VALIDATION.md)。

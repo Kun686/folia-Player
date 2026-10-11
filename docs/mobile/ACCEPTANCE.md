@@ -1,6 +1,9 @@
 # 真实服务与真机验收表
 
-当前候选为 0.7.16-mobile.12（build 12）。按用户最新要求，先保持原播放器和动效，支持本地导入与网易云／QQ；
+当前已安装候选为 0.7.16-mobile.13（build 13）；用户确认两平台登录保留、播放正常、导出可用。
+在线歌曲导入 `.fia`／`.lrc` 时文件被置灰，记为 FAIL_USER_REPORTED，回导未通过；修复候选 mobile.14 待安装复测。
+以下真实平台基础操作反馈来自 mobile.12，不自动升级为 mobile.13 的复测结果。
+按用户最新要求，先保持原播放器和动效，支持本地导入与网易云／QQ；
 本地使用不以域名、HTTPS 或同步服务为前提。服务端已执行项见 SERVER_VALIDATION.md。
 2026-10-11 已接通 `https://music.nb686.cn`，证书校验与网关认证通过，用户已确认 mobile.12 的真实 QQ 登录成功。
 用户反馈可见账号或歌单，且声音、歌词、拖动和切歌正常；随后反馈已完成所要求的锁屏持续播放与自动跨曲。
@@ -61,11 +64,11 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | 原版音频缓存 | PASS（原生逻辑、实际解码及 UI）；真实平台长期验证 NOT_RUN | 5GB／无限、LRU、自然 EOF／手动跳过、离线重播、清理后拖动、完整分析与 Crossfade；见 MEDIA_CACHE.md |
 | 共用封面／锁屏封面缓存 | PASS（源码自动测试及真机专项）；真实平台矩阵 NOT_RUN | 前台和锁屏共用、请求取消、独立分类清理；见 COVERS.md |
 | 完整在线歌词与来源选择持久存储 | PASS（源码自动测试及真机专项）；真实平台 App 验收 NOT_RUN | 原解析与选择复用、断网恢复、无 WebView 的原生队列读取、清除及退出隔离；见 LYRIC_CACHE.md |
-| 在线歌词导入、匹配与来源切换 | PASS（WebKit 及持久层原生专项）；系统选择器和真实平台 App 操作 NOT_RUN | 原弹窗、原 Worker／解析器与状态转换复用，迟到结果、保存错误和恢复来源已测；见 LYRIC_TOOLS.md |
+| 在线歌词导入、匹配与来源切换 | 导入 FAIL_USER_REPORTED（mobile.13）；WebKit 及持久层原生专项 PASS | 用户确认在线歌曲系统选择器打开，但 `.fia`／`.lrc` 灰色不可选。自动测试不能代替原生选择器；mobile.14 修复后待真机复测，见 LYRIC_TOOLS.md、VALIDATION.md |
 | 单曲／全局歌词时间校准 | PASS（WebKit 及 iPad 模拟器设置恢复）；真机校准 NOT_RUN | 原控件、预览／应用／取消、来源隔离、歌词点击反向映射、迟到加载；已随 mobile.12 安装，见 LYRIC_TIMING.md |
-| 原歌词过滤、制作人员策略与时间线 | PASS（开发源码自动测试及 iPad 模拟器短测）；真机及真实平台 NOT_RUN | 186 项逻辑、39 项移动 WebKit、9 项桌面组件；实际容器预览／保存／重启恢复与原生 10 秒跳转，原始正文及音频不变。尚未收入个人 mobile.12 安装包，见 LYRIC_DISPLAY.md |
-| 原精细分词编辑与布局接线 | PASS（开发源码回归及编译）；原生交互 NOT_RUN | 复用原编辑器／存储／分词，补移动输入、复制、失败重试和迟到隔离；Partita 保留逐字 timing。通用 iOS 编译未签名且未安装，见 LYRIC_SEGMENTATION.md |
-| 原单曲 `.fia`／LRC 导出 | PASS（开发源码逻辑、WebKit 与编译）；原生操作 NOT_RUN | 32 项逻辑、3 个视口、固定源码 iOS 编译及准确源码 CI 通过；复用原导出器、原始源选择、分词与校准，接系统分享。未安装到个人手机，见 LYRIC_EXPORT.md |
+| 原歌词过滤、制作人员策略与时间线 | PASS（开发源码自动测试及 iPad 模拟器短测）；真机及真实平台 NOT_RUN | 186 项逻辑、39 项移动 WebKit、9 项桌面组件；实际容器预览／保存／重启恢复与原生 10 秒跳转，原始正文及音频不变。已随 mobile.13 安装，见 LYRIC_DISPLAY.md |
+| 原精细分词编辑与布局接线 | PASS（开发源码回归及编译）；原生交互 NOT_RUN | 复用原编辑器／存储／分词，补移动输入、复制、失败重试和迟到隔离；Partita 保留逐字 timing。已随 mobile.13 安装，见 LYRIC_SEGMENTATION.md |
+| 原单曲 `.fia`／LRC 导出 | PASS（用户真机反馈及自动验证）；回导 FAIL_USER_REPORTED | mobile.13 用户反馈「导出没什么问题」，未独立检查导出文件；导入文件置灰另行修复。32 项逻辑、3 个视口及 2 项真机输入校验为独立证据，见 LYRIC_EXPORT.md |
 | 本地 GBK／加密 KRC 文件导入 | PASS（自动测试、iPad 模拟器实际选择器／重启及 iPhone 原生专项）；iPhone 选择器手工验收 NOT_RUN | 原解码、失败保留、编辑令牌与原子保存；历史 UI／原生及本轮 17 项中的对应测试见 VALIDATION.md。Partita 裁切已在 WebKit 修正，原生视觉待验；见 LOCAL_LYRIC_IMPORT.md |
 | 本地导入／内嵌歌词来源切换 | PASS（自动测试、iPad 模拟器短测及 iPhone 原生专项）；真机界面操作 NOT_RUN | 独立正文、标签迁移、来源恢复、失败保留；历史基线与本轮专项分别记录。多标签采集仍未完成，见 LOCAL_LYRIC_SOURCES.md |
 | 本地歌曲完整匹配与元数据／封面选择 | PASS（自动测试及 iPhone 原生专项）；真实平台 NOT_RUN | 原完整弹窗与共享规则；iPhone 测试覆盖实际播放期间保存、并发／删除／过期拒绝和后台歌词。HTTPS 阻塞已解除，但尚未执行真实在线候选保存；iPad 历史短测仅覆盖导入与「不使用在线数据」，见 LOCAL_MATCH.md |

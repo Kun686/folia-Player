@@ -1,7 +1,11 @@
 # 原版单曲歌词导出移植
 
 2026-10-11，开发源码 `e11a083347294b1b1eef556b5c339669d66db2b5` 接入当前歌曲的 `.fia` 和增强型 LRC 导出。
-个人 iPhone 仍运行 mobile.12；本阶段不安装、不重启手机，也不改变播放器和动画参数。
+该源码阶段个人 iPhone 仍运行 mobile.12，未安装或重启手机；播放器和动画参数不变。
+随后功能汇入 mobile.13，已原位安装并启动，设备回读 build 13。新增 2 项 iPhone 原生输入检查通过；
+用户反馈导出可用、升级后两平台会话与播放正常；在线歌曲回导时 `.fia`／`.lrc` 被置灰，
+回导记为 FAIL_USER_REPORTED。mobile.14 取消移动在线导入的扩展名过滤，继续由原解析器和大小限制校验；
+系统选择器修复效果待真机复测，详见 [VALIDATION.md](VALIDATION.md)。
 完整移植保持 IN_PROGRESS，批量导出仍待接入。
 
 ## 复用与行为
@@ -38,7 +42,7 @@
   `export-build-record.json` 保存编译、资源及身份；`export-final-evidence.json` 保存证据摘要。
 - 编译产物是未签名的 `app.folia.validation.export`，未生成 IPA、未安装或启动；
   没有启动模拟器、没有执行原生 XCTest，不能把编译通过当作原生交互通过。
-  `docs/mobile/BUILD_RECORD.json` 未变，继续描述个人 mobile.12。
+  该源码编译阶段 `docs/mobile/BUILD_RECORD.json` 未变；后续 mobile.13 安装后已更新交付记录。
 - NOT_RUN：原生分享界面、存储到文件、文件回导、临时文件实际生命周期与物理 iPad。
   手机上的真实平台反馈只覆盖已安装的 mobile.12，不覆盖此开发功能。
 

@@ -1,27 +1,30 @@
 # Folia iPhone / iPad 实现与安装
 
-当前交付是 **0.7.16-mobile.12 开发候选**，支持 iOS/iPadOS 17+。源码基线为
+当前交付是 **0.7.16-mobile.13 开发候选**，支持 iOS/iPadOS 17+。源码基线为
 d824c0b854e54d5411cb072092999823e9bd7071；移动分支发布到 Kun686/folia-Player，服务器部署记录见 SERVER_VALIDATION.md。
-2026-10-11 已按用户指定接通 `https://music.nb686.cn`，可在当前 mobile.12 的设置中配置后发起 QQ 登录；
+2026-10-11 已按用户指定接通 `https://music.nb686.cn`，在 mobile.12 中完成以下用户实测：
 HTTPS 与网关认证已验证；用户已确认 iPhone 的真实 QQ 登录成功、可见账号或歌单。
 用户进一步确认 QQ 声音、歌词、拖动和切歌正常，并反馈已完成所要求的锁屏持续播放与自动跨曲。
 锁屏项目记为用户确认通过，未独立计时或采集曲目事件。网易云登录、歌单、声音、歌词、拖动和切歌
 也已获用户确认；跨 QQ／网易云手动切换及锁屏／控制中心操作、回前台同步均获确认。
 用户明确未做网易云长时间锁屏测试，该项保持 NOT_RUN。
 开发源码 `152b2eb` 已接入原精细分词编辑与系统剪贴板桥接，并修复低高度窄窗口控件裁切。
-相关自动回归与通用 iOS 编译通过，但未更新个人手机；原生交互尚未验证，见 [LYRIC_SEGMENTATION.md](LYRIC_SEGMENTATION.md)。
-后续源码接入原单曲歌词 `.fia`／LRC 导出及系统文件分享，见 [LYRIC_EXPORT.md](LYRIC_EXPORT.md)；尚未安装验收。
+相关开发阶段自动回归与通用 iOS 编译通过；分词原生交互尚未验证，见 [LYRIC_SEGMENTATION.md](LYRIC_SEGMENTATION.md)。
+上述显示、分词及单曲 `.fia`／LRC 导出已汇入 mobile.13，2026-10-11 原位安装并启动于个人 iPhone，
+设备回读 build 13；准确源码为 `82fb471fa8abad391f1171aae53d12ad140f87b0`。
+原生导出输入检查 2 项通过；用户确认升级后两平台登录保留、播放及导出正常。
+在线歌词导入文件被置灰为已确认问题，回导未通过，mobile.14 修复待安装验证；见 [LYRIC_EXPORT.md](LYRIC_EXPORT.md)。
 按用户最新要求优先移植原播放器、歌词和动效，同时支持本地导入与网易云／QQ。
 服务器配置不再是使用 App 的前提。真实平台与真机完整验收尚未完成，不能作为已验收安装包发布。
 
-mobile.12 已原位安装并启动于 iPhone XS Max / iOS18.7.10，设备回读 build 12，源码提交及安装包摘要见
-BUILD_RECORD.json 和 VALIDATION.md。mobile.11 的旧安装包保留用于回退。
+历史 mobile.12 已原位安装并启动于 iPhone XS Max / iOS18.7.10，其源码提交及安装包摘要见
+VALIDATION.md；BUILD_RECORD.json 现描述 mobile.13。mobile.12 和 mobile.11 旧安装包保留用于回退。
 新增包含原歌词时间校准、GBK／KRC 导入、内嵌／导入歌词来源管理、本地完整匹配及 Partita 长词适配。
 本轮 142 项移动逻辑与 17 项 iPhone 原生专项通过；界面结果沿用各功能阶段证据，
 不代表真实平台 App 链路、全部原生动画表现或长期真机验收已完成。
 后续开发源码 `593615f` 已复用原版歌词过滤、制作人员策略、纯音乐／副歌处理与时间线。
 186 项逻辑、39 项移动 WebKit、9 项原桌面组件，以及 iPad 容器预览／保存／重启短测通过；
-详见 [LYRIC_DISPLAY.md](LYRIC_DISPLAY.md)。本阶段尚未更新个人 iPhone，BUILD_RECORD 仍描述 mobile.12。
+详见 [LYRIC_DISPLAY.md](LYRIC_DISPLAY.md)。该源码阶段当时未更新个人 iPhone，随后已汇入 mobile.13。
 当前原生队列使用一个共享系统输出，整体音效和最终音量只处理一次，待播仍独立解析／缓冲。
 原 Crossfade 调度、设置和歌曲分析已接入，默认仍关闭。原音频缓存现已接入，默认关闭、5GB 上限；
 开启时完整缓存用于原分析和离线播放，关闭且没有缓存时保持原在线前缀策略。

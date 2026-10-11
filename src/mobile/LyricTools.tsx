@@ -14,7 +14,6 @@ import LyricSegmentationEditor from './LyricSegmentationEditor';
 import LyricExportDialog from './LyricExportDialog';
 import type { MobileSegmentation } from './useMobileSegmentation';
 import { getLyricProviderLabel, getSongNativeLyricProviderSource } from '../utils/lyrics/lyricSourceLabels';
-import { LYRIC_IMPORT_ACCEPT } from '../utils/lyrics/lyricFileDecoding';
 import { importMobileOnlineLyrics, resetMobileOnlineLyrics, scopedLyricStorage, switchMobileOnlineLyrics } from './onlineLyricEditor';
 
 // LyricTools.tsx — original lyric operations and timing controls, keyed to the displayed song by the parent.
@@ -80,7 +79,9 @@ export default function LyricTools({ song, time, lyricTime, lyrics, rawLyrics, s
       {selection?.importedLyrics && <button aria-pressed={selection.lyricsSource === 'imported'} onClick={() => void run(() => switchMobileOnlineLyrics(storage!, 'imported'))}>{t('localMusic.statusImported')}</button>}
       {selection?.importedLyricsName && <p className="muted">{selection.importedLyricsName}</p>}
       <button onClick={() => input.current?.click()}>{t('mobile.importLyrics')}</button>
-      <input ref={input} type="file" accept={LYRIC_IMPORT_ACCEPT} aria-label={t('mobile.importLyrics')} hidden onChange={event => {
+      {/* iOS may disable FIA/LRC files when WebKit maps accept extensions to document types.
+          Let the original import parser validate the selected file, including its size limit. */}
+      <input ref={input} type="file" aria-label={t('mobile.importLyrics')} hidden onChange={event => {
         const file = event.target.files?.[0]; event.target.value = '';
         if (file && storage) void run(() => importMobileOnlineLyrics(storage, file));
       }} />

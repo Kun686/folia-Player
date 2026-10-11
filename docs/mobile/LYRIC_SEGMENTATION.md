@@ -2,7 +2,8 @@
 
 2026-10-11，开发源码 `152b2eba90794f5f61e43d1bd2e9dc2a10168966`。
 复用原精细分词编辑器、解析与持久化，仅为移动宿主增加触摸输入和系统剪贴板桥接。
-个人 iPhone 仍为 mobile.12；本阶段未安装、未重启手机，也未启动 iOS Simulator。
+该源码阶段个人 iPhone 为 mobile.12，未安装、未重启手机，也未启动 iOS Simulator。
+后续已随 mobile.13 原位安装到个人 iPhone；本功能的原生交互仍待验证，见 VALIDATION.md。
 完整移植保持 **IN_PROGRESS**。
 
 ## 实现与复用
@@ -63,4 +64,4 @@ Partita 断言同时检查新的布局分组和保留的逐字绘制，不把语
 - 首次 CI 查询误选上游仓库；明确指定 `Kun686/folia-Player` 后确认准确源码运行成功。
 
 回退本源码提交即可撤销移动接线；无需迁移或删除曲库、原始歌词及已有分词记录。
-`BUILD_RECORD.json` 继续描述当前已安装的 mobile.12；本阶段开发构建不会替换其交付记录。
+该源码阶段未替换 mobile.12 的交付记录；后续 mobile.13 安装后，`BUILD_RECORD.json` 已更新为新候选。
