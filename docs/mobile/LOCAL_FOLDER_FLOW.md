@@ -56,6 +56,11 @@ QA 测试包已从 iPhone 移除，个人 App 重新打开；前后完整个人�
 `BUILD_RECORD.json` 继续描述实际安装的 mobile.27。本轮源码不是已安装的 mobile.28。
 模拟器已关闭，测试服务器和自动日志采集已结束。
 
+源码 `d29633408308ff3ddc5df503ab744be90755ccc1` 已推送；
+[Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38178575681) 全部通过，
+包括 vendor 校验、干净安装、TypeScript、全部 mobile 单测和移动构建。
+清理复核 `folder-flow-cleanup-check.json` 确认个人安装记录不变、QA 已移除、164 项原生输入摘要一致且无遗留测试进程。
+
 ## 尚未交付
 
 目录扫描能发现 Ogg／Opus，不代表现有 AVURLAsset 本地导入器已经能解码这些格式；本轮会明确提示跳过。
