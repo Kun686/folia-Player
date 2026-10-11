@@ -18,6 +18,7 @@ final class PlaybackEngine {
     var transitionSettings = NativeTransitionSettings()
     let gateway: GatewayClient
     let storage: UserDefaults
+    let sleepTimer: NativeSleepTimer
     let local: LocalMediaLibrary
     let mediaCache: NativeMediaCache
     let coverCache: NativeCoverCache
@@ -61,13 +62,14 @@ final class PlaybackEngine {
 
     init(gateway: GatewayClient, storage: UserDefaults = .standard, local: LocalMediaLibrary = LocalMediaLibrary(),
          usesStereoOutput: Bool = false, mediaNetworkConfiguration: URLSessionConfiguration? = nil, mediaCache: NativeMediaCache? = nil,
-         coverCache: NativeCoverCache? = nil, lyricCache: NativeLyricCache = NativeLyricCache()) {
+         coverCache: NativeCoverCache? = nil, lyricCache: NativeLyricCache = NativeLyricCache(), sleepTimer: NativeSleepTimer? = nil) {
         self.usesStereoOutput = usesStereoOutput
         self.mediaNetworkConfiguration = mediaNetworkConfiguration?.copy() as? URLSessionConfiguration
         let cacheSettings = storage.data(forKey: "folia.media-cache").flatMap { try? JSONDecoder().decode(NativeMediaCacheSettings.self, from: $0) } ?? NativeMediaCacheSettings()
         self.mediaCache = mediaCache ?? NativeMediaCache(configuration: mediaNetworkConfiguration ?? .ephemeral, settings: cacheSettings)
         self.gateway = gateway
         self.storage = storage
+        self.sleepTimer = sleepTimer ?? NativeSleepTimer(storage: storage)
         self.local = local
         let covers = coverCache ?? NativeCoverCache(configuration: mediaNetworkConfiguration ?? .ephemeral)
         self.coverCache = covers; self.artwork = PlaybackArtwork(cache: covers, local: local)
@@ -79,6 +81,7 @@ final class PlaybackEngine {
         restoreAudioSettings()
         crossfade = NativeCrossfade(owner: self)
         restoreTransitionSettings()
+        self.sleepTimer.expired = { [weak self] in try? self?.command("pause") }
         Task { @MainActor [weak self, cache = self.mediaCache] in
             await cache.onChange { [weak self] identity in
                 self?.mediaCacheChanged?()
@@ -109,6 +112,7 @@ final class PlaybackEngine {
     }
     func setQueue(_ songs: [[String: Any]], at position: Int) throws {
         guard !songs.isEmpty, songs.count <= 1000, songs.indices.contains(position) else { throw MobileFailure("invalid-queue") }
+        sleepTimer.reconcile()
         queue = try songs.map(Self.sanitizedSong); failures = 0; intentToPlay = true
         select(position)
     }

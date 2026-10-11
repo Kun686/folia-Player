@@ -11,6 +11,14 @@ export const test = base.extend<{ nativeBridge: void }>({
     const win = window as any;
     win.CapacitorCustomPlatform = { name: 'ios' };
     let subscriber: (state: unknown) => void;
+    let sleepSubscriber: (state: unknown) => void;
+    const sleepTimer = JSON.parse(sessionStorage.getItem('fixture-sleep') || 'null')
+      ?? { hours: 0, minutes: 0, enabled: false, deadlineMs: null, revision: 0 };
+    win.fixtureSleepEdits = [];
+    win.fixtureEmitSleepTimer = (patch: Record<string, unknown>) => {
+      Object.assign(sleepTimer, patch); sleepTimer.revision++;
+      sessionStorage.setItem('fixture-sleep', JSON.stringify(sleepTimer)); sleepSubscriber?.({ ...sleepTimer });
+    };
     let cacheSubscriber: () => void;
     let catalogSubscriber: () => void;
     win.fixtureCache = { settings: { enabled: false, limitGB: 5 }, count: 0, bytes: 0, pending: 0, revision: 0, error: null, songs: [] };
@@ -37,13 +45,26 @@ export const test = base.extend<{ nativeBridge: void }>({
     win.fixtureEmitPlayback = (patch: Record<string, unknown>) => { Object.assign(state, patch); emit(); };
     const methods = ['bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile',
       'localCatalog', 'importAudio', 'localDetails', 'readLocalLyrics', 'readLocalMatch', 'writeLocalMatch', 'selectLocalLyrics', 'importLyrics', 'pickLyricFile', 'saveLocalLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
-      'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache', 'listExportLyrics', 'readExportLyrics', 'shareLyricArchive'];
+      'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache', 'listExportLyrics', 'readExportLyrics', 'shareLyricArchive', 'getSleepTimer', 'setSleepTimer'];
     win.Capacitor = {
       PluginHeaders: [{ name: 'FoliaNative', methods: [...methods.map(name => ({ name, rtype: 'promise' })), { name: 'addListener' }, { name: 'removeListener' }] }],
       nativeCallback: (_plugin: string, method: string, options: any, cb: (state: unknown) => void) => {
-        if (method === 'addListener') { if (options.eventName === 'mediaCache') cacheSubscriber = cb as () => void; else if (options.eventName === 'localCatalog') catalogSubscriber = cb as () => void; else if (options.eventName === 'playback') subscriber = cb; } return 'callback-1';
+        if (method === 'addListener') { if (options.eventName === 'sleepTimer') sleepSubscriber = cb; else if (options.eventName === 'mediaCache') cacheSubscriber = cb as () => void; else if (options.eventName === 'localCatalog') catalogSubscriber = cb as () => void; else if (options.eventName === 'playback') subscriber = cb; } return 'callback-1';
       },
       nativePromise: async (_plugin: string, method: string, options: any) => {
+        if (method === 'getSleepTimer') return { ...sleepTimer };
+        if (method === 'setSleepTimer') {
+          win.fixtureSleepEdits.push(options.edit);
+          if (win.fixtureSleepFailure) throw Error('sleep-save-failed');
+          const next = { ...sleepTimer, ...options.edit };
+          const durationChanged = next.hours !== sleepTimer.hours || next.minutes !== sleepTimer.minutes;
+          if (options.edit.enabled === true && next.hours + next.minutes === 0) throw Error('invalid-duration');
+          if (next.hours + next.minutes === 0 || options.edit.enabled === false) { next.enabled = false; next.deadlineMs = null; }
+          else if (options.edit.enabled === true || (sleepTimer.enabled && durationChanged)) {
+            next.enabled = true; next.deadlineMs = Date.now() + (next.hours * 60 + next.minutes) * 60000;
+          }
+          win.fixtureEmitSleepTimer(next); return { ...sleepTimer };
+        }
         if (method === 'listExportLyrics') {
           if (win.fixtureExportReadFailure) throw new Error('read-failed');
           return { token: lyricToken, entries: Object.keys(lyricCache).map(key => ({ key,

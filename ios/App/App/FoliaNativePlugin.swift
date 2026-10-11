@@ -12,7 +12,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         "getAudioSettings", "setAudioSettings", "getTransitionSettings", "setTransitionSettings", "getMediaCacheSettings", "setMediaCacheSettings",
         "mediaCacheState", "clearMediaCache", "songCover", "coverCacheState", "clearCoverCache",
         "readLyricCache", "writeLyricCache", "lyricCacheState", "clearLyricCache",
-        "listExportLyrics", "readExportLyrics", "shareLyricArchive"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
+        "listExportLyrics", "readExportLyrics", "shareLyricArchive", "getSleepTimer", "setSleepTimer"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
     private let picker = LocalImportPicker()
     let lyricFileShare = LyricFileShare()
     private var importing = false
@@ -24,6 +24,10 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
             self.engine = PlaybackEngine(gateway: self.gateway, usesStereoOutput: true)
             self.engine.mediaCacheChanged = { [weak self] in self?.notifyListeners("mediaCache", data: [:]) }
             self.engine.emit = { [weak self] state in self?.notifyListeners("playback", data: state) }
+            self.engine.sleepTimer.changed = { [weak self] in
+                guard let self else { return }
+                self.notifyListeners("sleepTimer", data: self.engine.sleepTimer.snapshot)
+            }
         }
     }
     func run(_ call: CAPPluginCall, _ work: @escaping () throws -> Void) {
@@ -119,6 +123,13 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve()
     } }
     @objc func getState(_ call: CAPPluginCall) { run(call) { call.resolve(self.engine.snapshot()) } }
+    @objc func getSleepTimer(_ call: CAPPluginCall) { run(call) {
+        self.engine.sleepTimer.reconcile(); call.resolve(self.engine.sleepTimer.snapshot)
+    } }
+    @objc func setSleepTimer(_ call: CAPPluginCall) { run(call) {
+        guard let edit = call.getObject("edit") else { throw MobileFailure("invalid-sleep-timer") }
+        call.resolve(try self.engine.sleepTimer.apply(edit))
+    } }
     @objc func getAudioSettings(_ call: CAPPluginCall) { run(call) { call.resolve(self.engine.audioSettings.dictionary) } }
     @objc func getTransitionSettings(_ call: CAPPluginCall) { run(call) { call.resolve(self.engine.transitionSettings.dictionary) } }
     @objc func setTransitionSettings(_ call: CAPPluginCall) { run(call) {

@@ -7,9 +7,12 @@ import type { useMediaCache } from './useMediaCache';
 import { cancelProvider, clearProvider } from './runtime';
 import { useMobileTheme } from './useMobileTheme';
 import BatchLyricExportDialog from './BatchLyricExportDialog';
+import SleepTimerSheet from './SleepTimerSheet';
+import type { useNativeSleepTimer } from './useNativeSleepTimer';
 
 // src/mobile/SettingsSheet.tsx
-export default function SettingsSheet({ mediaCache, server, light, setLight, saved, close }: {
+export default function SettingsSheet({ mediaCache, timer, server, light, setLight, saved, close }: {
+  timer: ReturnType<typeof useNativeSleepTimer>;
   mediaCache: ReturnType<typeof useMediaCache>; server: string; light: boolean; setLight: (value: boolean) => void; saved: (server: string) => void; close: () => void;
 }) {
   const { t } = useTranslation();
@@ -18,6 +21,7 @@ export default function SettingsSheet({ mediaCache, server, light, setLight, sav
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const [batch, setBatch] = useState(false);
+  const [sleep, setSleep] = useState(false);
   const appearance = useMobileTheme();
   const save = async () => {
     setBusy(true); setError(false);
@@ -33,6 +37,7 @@ export default function SettingsSheet({ mediaCache, server, light, setLight, sav
     finally { setBusy(false); }
   };
   if (batch) return <BatchLyricExportDialog light={light} theme={light ? appearance.theme.light : appearance.theme.dark} close={() => setBatch(false)} />;
+  if (sleep) return <SleepTimerSheet timer={timer} light={light} theme={light ? appearance.theme.light : appearance.theme.dark} close={() => setSleep(false)} />;
   return <div className="sheet-backdrop"><section className="sheet" role="dialog" aria-modal="true" aria-label={t('mobile.settings')}>
     <header><h2>{t('mobile.settings')}</h2><button onClick={close}>{t('mobile.close')}</button></header>
     <p>{t('mobile.optionalServer')}</p>
@@ -47,6 +52,7 @@ export default function SettingsSheet({ mediaCache, server, light, setLight, sav
       <option value="dark">{t('mobile.dark')}</option><option value="light">{t('mobile.light')}</option>
     </select></label>
     <MediaCacheControls cache={mediaCache} light={light} />
+    <button onClick={() => setSleep(true)}>{t('commandPalette.sleepTimerTitle')}</button>
     <ResourceCacheControls />
     <ResourceCacheControls category="lyrics" />
     <button onClick={() => setBatch(true)}>{t('lyricExport.settingsEntry')}</button>

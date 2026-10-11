@@ -21,8 +21,13 @@ export interface NativeMediaCacheState {
 }
 export interface NativeAudioSettings { volume: number; isMuted: boolean; equalizer: AudioEqualizerSettings; replayGainMode: ReplayGainMode }
 export interface NativeTransitionSettings { enabled: boolean; mode: 'crossfade' | 'automix'; crossfadeMaxSec: number }
+export interface NativeSleepTimerState { hours: number; minutes: number; enabled: boolean; deadlineMs: number | null; revision: number }
+export type NativeSleepTimerEdit = Partial<Pick<NativeSleepTimerState, 'hours' | 'minutes' | 'enabled'>>;
 export type PlaybackEvent = Omit<PlaybackSnapshot, 'queue' | 'currentSong'> & Partial<Pick<PlaybackSnapshot, 'queue' | 'currentSong'>>;
 export interface FoliaNativePlugin {
+  getSleepTimer(): Promise<NativeSleepTimerState>;
+  setSleepTimer(options: { edit: NativeSleepTimerEdit }): Promise<NativeSleepTimerState>;
+  addListener(name: 'sleepTimer', listener: (state: NativeSleepTimerState) => void): Promise<PluginListenerHandle>;
   listExportLyrics(): Promise<{ token: string; entries: { key: string; song?: SongResult }[] }>;
   readExportLyrics(options: { key: string; token: string }): Promise<Pick<Awaited<ReturnType<FoliaNativePlugin['readLyricCache']>>, 'payload'>>;
   shareLyricArchive(options: { fileName: string; data: string; token?: string }): Promise<{ completed: boolean }>;

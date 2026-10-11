@@ -14,6 +14,7 @@ import { useMediaCache } from './useMediaCache';
 import SongList from './SongList';
 import LoginSheet from './LoginSheet';
 import SettingsSheet from './SettingsSheet';
+import { useNativeSleepTimer } from './useNativeSleepTimer';
 import PlayerPanel from './PlayerPanel';
 import type { SongResult } from '../types';
 import { addMobileSongs, editMobileQueue, type QueueAction } from './queueActions';
@@ -41,6 +42,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
     if (provider !== 'local' && provider !== 'cached' && available.providers.length && !providerEnabled) setProvider(available.providers[0]);
   }, [available.providers, providerEnabled, provider]);
   const playback = usePlayback();
+  const sleepTimer = useNativeSleepTimer();
   const catalog = useCatalog(provider, !!server && isNative && providerEnabled);
   const local = useLocalCatalog();
   const mediaCache = useMediaCache();
@@ -117,7 +119,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         onClick={() => void native.command({ action: playback.state.playing ? 'pause' : 'play' }).catch(() => setError(true))}>
         {playback.state.playing ? <Pause /> : <Play />}</button>
     </footer>
-    {settings && <SettingsSheet mediaCache={mediaCache} server={server} light={light} setLight={setLight}
+    {settings && <SettingsSheet mediaCache={mediaCache} timer={sleepTimer} server={server} light={light} setLight={setLight}
       saved={value => { if (value === server) location.reload(); else setServer(value); }} close={() => setSettings(false)} />}
     {login && <LoginSheet provider={provider} refresh={catalog.refresh} close={() => setLogin(false)} />}
   </main>;

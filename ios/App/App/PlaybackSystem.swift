@@ -6,6 +6,7 @@ import Network
 // PlaybackSystem.swift — lock-screen, interruption, route and foreground reconciliation.
 extension PlaybackEngine {
     func command(_ action: String, position: Double? = nil, mode: String? = nil) throws {
+        sleepTimer.reconcile()
         switch action {
         case "play":
             guard currentSong != nil else {
@@ -82,6 +83,7 @@ extension PlaybackEngine {
                 self.resumeAfterInterruption = self.intentToPlay
                 self.intentToPlay = false; self.pauseOutput(); self.publish()
             } else {
+                self.sleepTimer.reconcile()
                 let options = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
                 if self.resumeAfterInterruption && AVAudioSession.InterruptionOptions(rawValue: options).contains(.shouldResume) {
                     do { try self.command("play") } catch { self.stop("audio-session") }
@@ -95,7 +97,9 @@ extension PlaybackEngine {
             }
         })
         observers.append(center.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.persist() })
-        observers.append(center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.publish() })
+        observers.append(center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.sleepTimer.reconcile(); self?.publish()
+        })
         let remote = MPRemoteCommandCenter.shared()
         for (command, action) in [(remote.playCommand, "play"), (remote.pauseCommand, "pause"),
                                   (remote.nextTrackCommand, "next"), (remote.previousTrackCommand, "previous"),
@@ -128,6 +132,7 @@ extension PlaybackEngine {
         network.start(queue: DispatchQueue(label: "app.folia.network"))
     }
     func networkChanged(connected: Bool) {
+        sleepTimer.reconcile()
         if !connected && intentToPlay && !currentIsLocal {
             let pending = playbackPosition
             stop("network"); networkResume = pending

@@ -1,5 +1,15 @@
 # 移动候选验证记录
 
+## 睡眠定时原生适配（2026-10-11）
+
+- PASS：TypeScript；7 项逻辑、6 项 WebKit；独立 QA Release 编译与签名身份检查。
+- PASS_DEVICE_AUTOMATED：iPhone XS Max / iOS18.7.10 共 10 项（8 项定时、2 项原播放回归），
+  0 失败／跳过；包含实际 WAV 解码输出停止、原生定时回调、旧期限／编辑、网络及中断恢复边界。
+- 原生使用注入时钟推进到期，界面使用桥接 fixture，未冒充完整时长锁屏端到端验收。
+- QA 已卸载；个人 App 未更新／卸载，恢复前台且回读 build20；无新依赖。
+- NOT_RUN：真实 QQ／网易云完整时长锁屏定时、物理 iPad、长时间性能。
+  原行为、验证命令与产物见 [SLEEP_TIMER.md](SLEEP_TIMER.md)。
+
 ## Automix：真实人声音乐片段对照（2026-10-11）
 
 - PASS_REAL_MUSIC_FIXTURE_NUMERICS：Karissa Hobbs — Let's Go Fishin' 的30秒尾部，官方样本哈希已核对。

@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+后续开发源码已补齐原版睡眠定时：复用原控件，由原生持有期限，到期暂停并保留队列；
+7 项逻辑、6 项 WebKit 和 10 项 iPhone 原生自动测试通过，无新依赖。
+尚未更新个人 mobile.20，真实平台锁屏定时待验收，见 [SLEEP_TIMER.md](SLEEP_TIMER.md)。
+
 当前交付是 **0.7.16-mobile.20 开发候选**，支持 iOS/iPadOS 17+。源码基线为
 d824c0b854e54d5411cb072092999823e9bd7071；移动分支发布到 Kun686/folia-Player，服务器部署记录见 SERVER_VALIDATION.md。
 2026-10-11 已按用户指定接通 `https://music.nb686.cn`，在 mobile.12 中完成以下用户实测：
