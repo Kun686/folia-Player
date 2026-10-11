@@ -85,6 +85,9 @@ npm run test:unit -- test/unit/mobile/nativeFolderRuntime.test.ts test/unit/util
   回读模拟器已 Shutdown，未生成或安装新的个人 IPA。
 - 证据在 `.mobile-test-results/folder-transaction-*`：red、green、device 的日志／xcresult，
   selected-tests.json、inputs.json 及设备前后记录。154 项 Swift／项目／原生 JS 输入摘要用于对照两端构建。
+- PASS_CI：已测源码 `ec9aae1bfa96b0602f968b209702640c2f7c7076` 的
+  [Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38175103976) 通过，含 TypeScript、移动逻辑测试和资源构建。
+  本文随后仅补写证据链接；`BUILD_RECORD.json` 继续描述实际安装的 mobile.27。
 
 ## 后续接线与验收
 
