@@ -51,6 +51,7 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | 完整在线歌词与来源选择持久存储 | PASS（源码自动测试及真机专项）；真实平台 App 验收 NOT_RUN | 原解析与选择复用、断网恢复、无 WebView 的原生队列读取、清除及退出隔离；见 LYRIC_CACHE.md |
 | 在线歌词导入、匹配与来源切换 | PASS（WebKit 及持久层原生专项）；系统选择器和真实平台 App 操作 NOT_RUN | 原弹窗、原 Worker／解析器与状态转换复用，迟到结果、保存错误和恢复来源已测；见 LYRIC_TOOLS.md |
 | 单曲／全局歌词时间校准 | PASS（WebKit 及 iPad 模拟器设置恢复）；真机校准 NOT_RUN | 原控件、预览／应用／取消、来源隔离、歌词点击反向映射、迟到加载；已随 mobile.12 安装，见 LYRIC_TIMING.md |
+| 原歌词过滤、制作人员策略与时间线 | PASS（开发源码自动测试及 iPad 模拟器短测）；真机及真实平台 NOT_RUN | 186 项逻辑、39 项移动 WebKit、9 项桌面组件；实际容器预览／保存／重启恢复与原生 10 秒跳转，原始正文及音频不变。尚未收入个人 mobile.12 安装包，见 LYRIC_DISPLAY.md |
 | 本地 GBK／加密 KRC 文件导入 | PASS（自动测试、iPad 模拟器实际选择器／重启及 iPhone 原生专项）；iPhone 选择器手工验收 NOT_RUN | 原解码、失败保留、编辑令牌与原子保存；历史 UI／原生及本轮 17 项中的对应测试见 VALIDATION.md。Partita 裁切已在 WebKit 修正，原生视觉待验；见 LOCAL_LYRIC_IMPORT.md |
 | 本地导入／内嵌歌词来源切换 | PASS（自动测试、iPad 模拟器短测及 iPhone 原生专项）；真机界面操作 NOT_RUN | 独立正文、标签迁移、来源恢复、失败保留；历史基线与本轮专项分别记录。多标签采集仍未完成，见 LOCAL_LYRIC_SOURCES.md |
 | 本地歌曲完整匹配与元数据／封面选择 | PASS（自动测试及 iPhone 原生专项）；真实平台 BLOCKED | 原完整弹窗与共享规则；iPhone 测试覆盖实际播放期间保存、并发／删除／过期拒绝和后台歌词。iPad 实际 App 仅验证导入与「不使用在线数据」保存，未验证真实在线候选保存；见 LOCAL_MATCH.md |
