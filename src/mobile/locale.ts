@@ -1,5 +1,6 @@
 // src/mobile/locale.ts
 export const mobileEn = {
+  playerTools: 'More playback options', showControls: 'Show playback controls',
   nowPlaying: 'Now playing',
   clearMediaCache: "Clear audio cache",
   clearCoverCache: "Clear cover cache",
@@ -45,6 +46,7 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  playerTools: '更多播放选项', showControls: '显示播放控制',
   nowPlaying: '正在播放',
   clearMediaCache: "清除音频缓存",
   clearCoverCache: "清除封面缓存",
@@ -90,6 +92,7 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  playerTools: 'Opsi pemutaran lainnya', showControls: 'Tampilkan kontrol pemutaran',
   nowPlaying: 'Sedang diputar',
   clearMediaCache: "Hapus cache audio",
   clearCoverCache: "Hapus cache sampul",

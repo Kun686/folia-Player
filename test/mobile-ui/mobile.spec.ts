@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, clickPlayerTool, openPlayerTools } from './fixtures';
 
 // mobile.spec.ts — original mobile UI regressions using the shared native transport fixture.
 test('native transition resumes original animations from elapsed audio time without replaying snapshots', async ({ page }, info) => {
@@ -79,7 +79,7 @@ test('original transition settings reach native state and recover from failed ed
   await page.goto('/mobile.html');
   await page.getByRole('button', { name: '导入音乐', exact: true }).click();
   await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
-  await page.getByRole('button', { name: 'Folia 智能过渡', exact: true }).click();
+  await clickPlayerTool(page, 'Folia 智能过渡');
   const dialog = page.getByRole('dialog', { name: 'Folia 智能过渡' });
   const toggle = dialog.getByRole('button', { name: '过渡', exact: true });
   await expect(toggle).toHaveAttribute('aria-pressed', 'false');
@@ -126,7 +126,7 @@ test('login, catalog, queue, controls and responsive layout', async ({ page }, i
   await page.locator('.player-panel').getByRole('button', { name: '暂停', exact: true }).click();
   await expect.poll(() => page.evaluate(() => (window as any).fixturePlayback.playing)).toBe(false);
   await expect(page.locator('.player-panel').getByRole('button', { name: '播放', exact: true })).toBeVisible();
-  if (info.project.name !== 'ipad') await page.getByRole('button', { name: '返回音乐库' }).click();
+  await page.getByRole('button', { name: '返回音乐库' }).click();
   await expect(page.locator('vite-error-overlay')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   expect(errors).toEqual([]);
@@ -144,7 +144,7 @@ test('touch queue editing preserves current song and rejects stale actions', asy
   await expect(page.locator('.player-controls').getByText('暂无歌词', { exact: true })).toHaveCount(0);
   await page.locator('.player-panel').getByRole('button', { name: '暂停', exact: true }).click();
   await expect.poll(() => page.evaluate(() => (window as any).fixturePlayback.playing)).toBe(false);
-  if (info.project.name !== 'ipad') await page.getByRole('button', { name: '返回音乐库' }).click();
+  await page.getByRole('button', { name: '返回音乐库' }).click();
   await page.getByRole('button', { name: '播放队列 · 3' }).click();
   await page.getByRole('button', { name: '歌曲操作 本地音乐3', exact: true }).click();
   await page.getByRole('dialog', { name: '歌曲操作' }).getByRole('button', { name: '下一首播放', exact: true }).click();
@@ -165,7 +165,7 @@ test('touch queue editing preserves current song and rejects stale actions', asy
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: '清空队列', exact: true }).click();
   await expect(page.getByText('播放队列为空', { exact: true })).toBeVisible();
-  const current = info.project.name === 'ipad' ? page.locator('.player-controls h2') : page.locator('.mini-title strong');
+  const current = page.locator('.mini-title strong');
   await expect(current).toHaveText('本地测试音乐');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
@@ -179,6 +179,7 @@ test('original ReplayGain control restores, applies touch selections and rolls b
   await page.getByRole('button', { name: '导入音乐', exact: true }).click();
   await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
   const controls = page.locator('.replay-gain-controls');
+  await openPlayerTools(page);
   await page.locator('.replay-gain-disclosure summary').click();
   await expect(controls.getByText('T -6.0 dB / A -3.0 dB')).toBeVisible();
   await expect(controls.getByRole('button', { name: '单曲', exact: true })).toHaveAttribute('aria-pressed', 'true');
@@ -202,6 +203,7 @@ test('volume, mute and original sound controls apply and recover from native fai
   await page.getByRole('button', { name: '导入音乐', exact: true }).click();
   await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
   await expect(page.locator('.player-controls').getByText('暂无歌词', { exact: true })).toHaveCount(0);
+  await openPlayerTools(page);
   const volume = page.getByRole('slider', { name: '音量', exact: true });
   await expect(volume).toBeEnabled();
   await page.getByRole('button', { name: '静音', exact: true }).click();
@@ -209,7 +211,7 @@ test('volume, mute and original sound controls apply and recover from native fai
   await page.mouse.click(box.x + box.width * 0.35, box.y + box.height / 2);
   await expect.poll(() => page.evaluate(() => (window as any).fixtureAudio.volume)).toBeLessThan(0.6);
   expect(await page.evaluate(() => (window as any).fixtureAudio.isMuted)).toBe(true);
-  await page.getByRole('button', { name: '音频效果器', exact: true }).click();
+  await clickPlayerTool(page, '音频效果器');
   const dialog = page.getByRole('dialog', { name: '音频效果器' });
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'Lo-Fi', exact: true }).click();
@@ -253,7 +255,7 @@ test('unsupported audio effects are explained without losing the selected origin
   await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
   // Lyrics remove a status row below these controls; wait for the settled touch target as in the queue test.
   await expect(page.locator('.player-controls').getByText('暂无歌词', { exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: '音频效果器', exact: true }).click();
+  await clickPlayerTool(page, '音频效果器');
   const dialog = page.getByRole('dialog', { name: '音频效果器' });
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'Lo-Fi', exact: true }).click();
@@ -290,7 +292,7 @@ test('imported word lyrics keep their format and can be replaced by LRC', async 
   await page.getByRole('button', { name: '导入音乐', exact: true }).click();
   await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
   await expect(page.locator('.player-controls').getByText('暂无歌词', { exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: '歌词与动效', exact: true }).click();
+  await clickPlayerTool(page, '歌词与动效');
   await page.getByLabel('歌词动画', { exact: true }).selectOption('still');
   await page.locator('.visual-settings > header').getByRole('button', { name: '关闭', exact: true }).click();
   for (const source of [
@@ -299,7 +301,7 @@ test('imported word lyrics keep their format and can be replaced by LRC', async 
   ]) {
     await page.evaluate(source => { (window as any).fixturePickedLyric = { fileName: source.fileName, token: 'local-token',
       data: btoa(String.fromCharCode(...new TextEncoder().encode(source.content))) }; }, source);
-    await page.getByRole('button', { name: '导入歌词', exact: true }).click();
+    await clickPlayerTool(page, '导入歌词');
     await expect(page.locator('.lyric-stage').getByText(source.text, { exact: true })).toBeVisible();
     await expect(page.getByRole('alert')).toHaveCount(0);
   }
@@ -323,10 +325,10 @@ test('local playback without server and original visualizer registry', async ({ 
   await expect(page.locator('.player-panel')).toBeVisible();
   // The initial lyric load changes control height; wait for it before choosing another file.
   await expect(page.locator('.player-controls').getByText('暂无歌词', { exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: '导入歌词', exact: true }).click();
+  await clickPlayerTool(page, '导入歌词');
   await expect.poll(() => page.evaluate(() => (window as any).fixtureLyricImports)).toBe(1);
   await expect(page.getByRole('alert')).toHaveCount(0);
-  await page.getByRole('button', { name: '歌词与动效', exact: true }).click();
+  await clickPlayerTool(page, '歌词与动效');
   await expect(page.getByLabel('歌词动画', { exact: true })).toBeVisible();
   const modes = await page.getByLabel('歌词动画', { exact: true }).locator('option').evaluateAll(options => options.map(o => (o as HTMLOptionElement).value));
   expect(modes).toHaveLength(14);
@@ -337,7 +339,7 @@ test('local playback without server and original visualizer registry', async ({ 
     if (mode === 'still') await expect(page.locator('.lyric-stage').getByText('新导入的歌词', { exact: true })).toBeVisible();
     else await expect(page.locator('.lyric-stage').locator('canvas, svg, span').first()).toBeAttached();
     await page.waitForTimeout(250);
-    await page.getByRole('button', { name: '歌词与动效', exact: true }).click();
+    await clickPlayerTool(page, '歌词与动效');
   }
   await page.getByLabel('歌词动画', { exact: true }).selectOption('monet');
   await page.getByLabel('背景效果', { exact: true }).selectOption('monet');
@@ -349,7 +351,7 @@ test('local playback without server and original visualizer registry', async ({ 
   await page.locator('.visual-settings > header').getByRole('button', { name: '关闭', exact: true }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: '.mobile-test-results/local-visuals-' + info.project.name + '.png' });
-  if (info.project.name !== 'ipad') await page.getByRole('button', { name: '返回音乐库' }).click();
+  await page.getByRole('button', { name: '返回音乐库' }).click();
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: '歌曲操作 本地测试音乐', exact: true }).click();
   await page.getByRole('button', { name: '移除 本地测试音乐', exact: true }).click();
@@ -365,7 +367,7 @@ test('paused Partita lyrics are visible after switching modes and seeking', asyn
   await page.getByRole('button', { name: '导入音乐', exact: true }).click();
   await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
   await page.locator('.player-panel').getByRole('button', { name: '暂停', exact: true }).click();
-  await page.getByRole('button', { name: '歌词与动效', exact: true }).click();
+  await clickPlayerTool(page, '歌词与动效');
   await page.getByLabel('歌词动画', { exact: true }).selectOption('partita');
   await page.locator('.visual-settings > header').getByRole('button', { name: '关闭', exact: true }).click();
   // Text can be attached while every lyric chunk is transparent; inspect rendered opacity.
@@ -433,7 +435,7 @@ test('online lyric cache survives reload and offline refresh, then clears indepe
     await page.getByRole('textbox', { name: '搜索歌曲' }).fill('测试');
     await page.getByRole('button', { name: '搜索歌曲', exact: true }).click();
     await page.getByRole('button', { name: '播放 测试歌曲', exact: true }).click();
-    await page.getByRole('button', { name: '歌词与动效', exact: true }).click();
+    await clickPlayerTool(page, '歌词与动效');
     await page.getByLabel('歌词动画', { exact: true }).selectOption('still');
     await page.locator('.visual-settings > header').getByRole('button', { name: '关闭', exact: true }).click();
   };
@@ -464,12 +466,12 @@ test('original online lyric import, source switch, QQ match and reset keep playb
   await page.getByRole('textbox', { name: '搜索歌曲' }).fill('测试');
   await page.getByRole('button', { name: '搜索歌曲', exact: true }).click();
   await page.getByRole('button', { name: '播放 测试歌曲', exact: true }).click();
-  await page.getByRole('button', { name: '歌词与动效', exact: true }).click();
+  await clickPlayerTool(page, '歌词与动效');
   await page.getByLabel('歌词动画', { exact: true }).selectOption('still');
   await page.locator('.visual-settings > header').getByRole('button', { name: '关闭', exact: true }).click();
   await page.evaluate(() => { (window as any).fixtureLyricTools = true; });
   const tools = page.getByRole('dialog', { name: '歌词', exact: true });
-  const open = () => page.getByRole('button', { name: '歌词', exact: true }).click();
+  const open = () => clickPlayerTool(page, '歌词');
   const lyric = (text: string) => page.locator('.lyric-stage').getByText(text, { exact: true });
   await open();
   const input = tools.getByLabel('导入歌词', { exact: true });
@@ -514,7 +516,7 @@ for (const action of ['close', 'change song'] as const) test('pending lyric matc
   // This test starts from loaded lyrics; the early-open loading race has its own timing regression.
   await expect(page.locator('.player-controls').getByText('暂无歌词', { exact: true })).toHaveCount(0);
   await page.evaluate(() => { (window as any).fixtureLyricTools = true; });
-  await page.getByRole('button', { name: '歌词', exact: true }).click();
+  await clickPlayerTool(page, '歌词');
   await expect(page.getByRole('dialog', { name: '歌词', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '在线匹配', exact: true }).click();
   const match = page.getByRole('dialog', { name: '匹配歌词', exact: true });
@@ -537,7 +539,7 @@ for (const action of ['close', 'change song'] as const) test('pending lyric matc
   }
   await page.evaluate(() => (window as any).fixtureReleaseLyrics());
   // A subsequent real worker parse must complete without the discarded result changing its selection.
-  if (action === 'change song') await page.getByRole('button', { name: '歌词', exact: true }).click();
+  if (action === 'change song') await clickPlayerTool(page, '歌词');
   const tool = page.getByRole('dialog', { name: '歌词', exact: true });
   await tool.getByLabel('导入歌词', { exact: true }).setInputFiles({
     name: 'latest.lrc', mimeType: 'text/plain', buffer: Buffer.from('[00:00.00]最终选择'),

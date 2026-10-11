@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, clickPlayerTool } from './fixtures';
 import type { Page } from '@playwright/test';
 
 // local-match.spec.ts — original full modal, real Omni/parsers, controlled provider and native storage responses.
@@ -13,13 +13,13 @@ async function start(page: Page) {
   await page.getByRole('button', { name: '导入音乐', exact: true }).click();
   await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
   await expect(page.getByRole('region', { name: '播放', exact: true }).getByRole('heading', { name: '本地测试音乐', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: '歌词与动效', exact: true }).tap();
+    await clickPlayerTool(page, '歌词与动效');
   await page.getByLabel('歌词动画', { exact: true }).selectOption('still');
   await page.locator('.visual-settings > header').getByRole('button', { name: '关闭', exact: true }).click();
   await page.evaluate(() => (window as any).fixtureEmitPlayback({ playing: false, position: 1 }));
 }
 async function match(page: Page) {
-  await page.getByRole('button', { name: '歌词', exact: true }).click();
+  await clickPlayerTool(page, '歌词');
   await page.getByRole('button', { name: '在线匹配', exact: true }).click();
   return page.getByRole('dialog', { name: '匹配歌词', exact: true });
 }
@@ -45,7 +45,7 @@ test('full local match saves metadata cover and lyrics without restarting playba
   await expect(dialog).toBeHidden();
   await expect(page.getByRole('button', { name: '播放 本地测试音乐', exact: true })).toBeVisible();
   await expect(page.locator('.lyric-stage').getByText('原导入歌词', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '歌词', exact: true }).click();
+  await clickPlayerTool(page, '歌词');
   await page.getByRole('dialog', { name: '歌词', exact: true }).getByRole('button', { name: '网易云音乐', exact: true }).tap();
   await expect(page.locator('.lyric-stage').getByText('测试歌词', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

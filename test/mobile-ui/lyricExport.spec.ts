@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, clickPlayerTool } from './fixtures';
 
 // lyricExport.spec.ts — real dialog/serializers; sharing is controlled and is not iOS acceptance.
 test('online exported FIA and LRC return through the unrestricted picker and preserve playback', async ({ page }) => {
@@ -8,7 +8,7 @@ test('online exported FIA and LRC return through the unrestricted picker and pre
     await page.getByRole('button', { name: '播放 测试歌曲', exact: true }).tap();
     await page.evaluate(() => (window as any).fixtureEmitPlayback({ playing: false, position: 5 }));
     const tools = page.getByRole('dialog', { name: '歌词', exact: true });
-    const open = () => page.getByRole('button', { name: '歌词', exact: true }).tap();
+    const open = () => clickPlayerTool(page, '歌词');
     for (const format of [/Folia 无损/, /增强型 LRC/]) {
         await open();
         await tools.getByRole('button', { name: '导出这首歌', exact: true }).tap();
@@ -47,7 +47,7 @@ test('original FIA/LRC tiles export, report cancellation/failure and retain play
     await page.getByRole('button', { name: '导入音乐', exact: true }).tap();
     await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).tap();
     await page.evaluate(() => (window as any).fixtureEmitPlayback({ playing: false, position: 5 }));
-    await page.getByRole('button', { name: '歌词', exact: true }).tap();
+    await clickPlayerTool(page, '歌词');
     await page.getByRole('button', { name: '导出这首歌', exact: true }).tap();
     const dialog = page.locator('[data-ponder="lyric-file-dialog"]');
     const fia = dialog.getByRole('button', { name: /Folia 无损/ });

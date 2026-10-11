@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMotionValueEvent, type MotionValue } from 'framer-motion';
-import { Play, Pause, SkipBack, SkipForward, ChevronDown, Music2, Repeat } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import VisualizerRenderer from '../components/visualizer/VisualizerRenderer';
 import { useVisualizerSettingsStore } from '../stores/useVisualizerSettingsStore';
@@ -10,11 +9,13 @@ import { useThemeSettingsStore } from '../stores/useThemeSettingsStore';
 import { useMobileTheme } from './useMobileTheme';
 import { useTypographySettingsStore } from '../stores/useTypographySettingsStore';
 import { buildVisualizerTheme } from '../components/app/presentation/buildVisualizerTheme';
-import { findLatestActiveLineIndex, formatTime } from '../utils/appPlaybackHelpers';
+import { findLatestActiveLineIndex } from '../utils/appPlaybackHelpers';
 import { useMobileLyrics } from './useMobileLyrics';
 import { useNativeAudio } from './useNativeAudio';
 import VisualSettings from './VisualSettings';
 import AudioControls from './AudioControls';
+import PlayerChrome from './PlayerChrome';
+import { usePlayerChromeActivity } from '../hooks/usePlayerChromeActivity';
 import TransitionControls from './TransitionControls';
 import LyricTools from './LyricTools';
 import { useLyricClock } from './useLyricClock';
@@ -28,11 +29,14 @@ import { native, type PlaybackSnapshot } from './bridge';
 
 // src/mobile/PlayerPanel.tsx — original registry renderers consume the native clock and decoded audio.
 const MobileVisualizer = memo(VisualizerRenderer);
-export default function PlayerPanel({ state, time, visible, light, expanded, split, collapse }: {
-  state: PlaybackSnapshot; time: MotionValue<number>; visible: boolean; light: boolean; expanded: boolean; split: boolean; collapse: () => void;
+export default function PlayerPanel({ state, time, visible, light, expanded, collapse, openQueue }: {
+  state: PlaybackSnapshot; time: MotionValue<number>; visible: boolean; light: boolean; expanded: boolean; collapse: () => void; openQueue: () => void;
 }) {
   const { t } = useTranslation();
   const [visualSettings, setVisualSettings] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [chromeHidden, setChromeHidden] = useState(false);
+  const [keyboardFocus, setKeyboardFocus] = useState(false);
   const [transitionSettings, setTransitionSettings] = useState(false);
   const [lyricToolsFor, setLyricToolsFor] = useState<string | null>(null);
   const audioSettingsOpen = useAudioSettingsStore(s => s.isAudioEqualizerOpen);
@@ -71,7 +75,20 @@ export default function PlayerPanel({ state, time, visible, light, expanded, spl
   const lyricTools = lyricToolsFor === lyricSongKey;
   useEffect(() => { setLyricToolsFor(null); }, [lyricSongKey]);
   const { lyrics, rawLyrics, cover, error: lyricsError, segmentation, refresh } = useMobileLyrics(song ?? undefined, lyricTools);
-  const rendering = visible && (expanded || split) && !visualSettings && !audioSettingsOpen && !transitionSettings && !lyricTools;
+  const modalOpen = visualSettings || audioSettingsOpen || transitionSettings || lyricTools;
+  const rendering = visible && expanded && !modalOpen;
+  const idleEnabled = visible && expanded && state.playing && !toolsOpen && !modalOpen && !keyboardFocus && !error && !state.error && !lyricsError;
+  const revealChrome = usePlayerChromeActivity(idleEnabled, setChromeHidden);
+  const hidden = chromeHidden && !!idleEnabled;
+  useEffect(() => { if (!idleEnabled) setChromeHidden(false); }, [idleEnabled]);
+  useEffect(() => { if (modalOpen || !expanded) setToolsOpen(false); }, [modalOpen, expanded]);
+  useEffect(() => {
+    if (!visible || !expanded) return;
+    // A hidden/inert control cannot receive focus, so keyboard navigation must wake the chrome at window level.
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Tab') setKeyboardFocus(true); };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [visible, expanded]);
   const audio = useNativeAudio(rendering, state.playing);
   const importLyrics = async () => {
     if (song?.sourceRef?.kind !== 'local') return;
@@ -89,14 +106,13 @@ export default function PlayerPanel({ state, time, visible, light, expanded, spl
   });
   const command = (action: 'play' | 'pause' | 'next' | 'previous' | 'seek' | 'repeat', position?: number, mode?: string) =>
     void native.command({ action, position, mode }).catch(() => setError(true));
-  return <section className={'player-panel ' + (expanded ? 'expanded' : '')} aria-label={t('mobile.play')}>
-    <header className="player-heading">
-      <button className="player-collapse" onClick={collapse} aria-label={t('mobile.back')}><ChevronDown /></button>
-      <span>{t('mobile.nowPlaying')}</span>
-    </header>
+  return <section className={'player-panel ' + (expanded ? 'expanded' : '')} aria-label={t('mobile.play')}
+    data-controls-hidden={hidden} onPointerDownCapture={() => setKeyboardFocus(false)}
+    onFocusCapture={event => setKeyboardFocus(event.target.matches(':focus-visible'))}
+    onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setKeyboardFocus(false); }}>
     <div className="lyric-stage">
       {song && rendering ? <MobileVisualizer mode={mode} currentTime={lyricTime} lines={lyrics?.lines ?? NO_LYRIC_LINES} currentLineIndex={line}
-        constrainLyricsToStage
+        constrainLyricsToStage isPlayerChromeHidden={hidden}
         theme={visualizerTheme} subtitleTheme={visualizerSubtitleTheme} {...typography} {...audio} isDaylight={light}
         paused={!state.playing} songTitle={song.name}  songArtist={song.artists.map(a => a.name).join(' / ')}
         songAlbum={song.album.name} coverUrl={cover} seed={JSON.stringify(song.sourceRef)}
@@ -107,34 +123,16 @@ export default function PlayerPanel({ state, time, visible, light, expanded, spl
         theme={light ? appearance.theme.light : appearance.theme.dark} />
       {song && !lyrics?.lines.length && <p className="lyric-notice" role="status">{t('mobile.noLyrics')}</p>}
     </div>
-    <div className="player-controls">
-      <div className="track-heading">
-        <div className="track-art" aria-hidden="true">{cover ? <img src={cover} alt="" /> : <Music2 />}</div>
-        <div className="track-description"><h2>{song?.name ?? 'Folia'}</h2><p>{song?.artists.map(a => a.name).join(' / ') || 'Folia'}</p></div>
-        <div className="repeat-choice"><Repeat size={16} aria-hidden="true" /><select aria-label={t('mobile.repeat')} value={state.repeat} onChange={e => command('repeat', undefined, e.target.value)}>
-          {(['off', 'all', 'one'] as const).map(mode => <option key={mode} value={mode}>{t('mobile.' + mode)}</option>)}
-        </select></div>
-      </div>
-      <div className="playback-progress"><input type="range" aria-label={t('mobile.position')} min={0} max={state.duration || 1} step={0.1}
-        value={Math.min(state.position, state.duration || 1)} disabled={!song || !state.duration}
-        onChange={e => command('seek', Number(e.target.value))} />
-        <div className="playback-times" aria-hidden="true"><span>{formatTime(state.position)}</span><span>{formatTime(state.duration)}</span></div>
-      </div>
-      <div className="transport">
-        <button onClick={() => command('previous')} aria-label={t('mobile.previous')} disabled={!song}><SkipBack /></button>
-        <button className="primary-play" onClick={() => command(state.playing ? 'pause' : 'play')} aria-label={t(state.playing ? 'mobile.pause' : 'mobile.play')} disabled={!song && !state.queue.length}>
-          {state.playing ? <Pause /> : <Play />}
-        </button>
-        <button onClick={() => command('next')} aria-label={t('mobile.next')} disabled={!song}><SkipForward /></button>
-      </div>
+    <PlayerChrome state={state} cover={cover} hidden={hidden} reveal={revealChrome} collapse={collapse} openQueue={openQueue}
+      command={command} toolsOpen={toolsOpen} setToolsOpen={setToolsOpen}>
       <AudioControls light={light} theme={light ? appearance.theme.light : appearance.theme.dark}
         unavailable={state.playing && state.audioProcessingAvailable === false} effects={state.audioEffects} replayGain={song?.replayGain} />
       <div className="player-options"><button onClick={() => setVisualSettings(true)}>{t('mobile.visuals')}</button>
         <button onClick={() => setTransitionSettings(true)}>{t('options.transitionSettings')}</button>
         {song && <button onClick={() => setLyricToolsFor(lyricSongKey)}>{t('localMusic.lyrics')}</button>}
-        {song?.sourceRef?.kind === 'local' && <button onClick={() => void importLyrics()}>{t('mobile.importLyrics')}</button>}</div>
-      {(state.error || error || lyricsError) && <p role="alert">{t('mobile.error')} {state.error}</p>}
-    </div>
+        {song?.sourceRef?.kind === 'local' && <button onClick={() => { setToolsOpen(false); void importLyrics(); }}>{t('mobile.importLyrics')}</button>}</div>
+    </PlayerChrome>
+    {(state.error || error || lyricsError) && <p className="player-error" role="alert">{t('mobile.error')} {state.error}</p>}
     <TransitionControls light={light} theme={light ? appearance.theme.light : appearance.theme.dark}
       open={transitionSettings} setOpen={setTransitionSettings} />
     {lyricTools && song && <LyricTools key={lyricSongKey} song={song} time={time} lyricTime={lyricTime} lyrics={lyrics}

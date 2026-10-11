@@ -1,11 +1,11 @@
 import type { Page } from '@playwright/test';
-import { test, expect } from './fixtures';
+import { test, expect, clickPlayerTool } from './fixtures';
 
 // lyric-timing.spec.ts — original controls/preview/renderers over controlled native clock snapshots.
 const localKey = 'local:11111111-1111-4111-8111-111111111111';
 const tools = (page: Page) => page.getByRole('dialog', { name: '歌词', exact: true });
 const calibration = (page: Page) => page.getByRole('dialog', { name: '全局时间偏移', exact: true });
-const openTools = (page: Page) => page.getByRole('button', { name: '歌词', exact: true }).click();
+const openTools = (page: Page) => clickPlayerTool(page, '歌词');
 const openCalibration = (page: Page) => tools(page).getByRole('button', { name: '全局时间偏移', exact: true }).click();
 const savedOffsets = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('lyric_timeline_offsets') || '{}'));
 const globalOffset = (page: Page) => page.evaluate(() => Number(localStorage.getItem('global_lyric_timeline_offset_ms')));
@@ -97,7 +97,7 @@ test('song offsets retain source identity, metadata refreshes and app reload', a
 
 test('Monet lyric taps seek the corrected audio position and foreground restore resyncs', async ({ page }) => {
   await startLocal(page, 5);
-  await page.getByRole('button', { name: '歌词与动效', exact: true }).click();
+  await clickPlayerTool(page, '歌词与动效');
   await page.getByLabel('歌词动画', { exact: true }).selectOption('monet');
   await page.locator('.visual-settings > header').getByRole('button', { name: '关闭', exact: true }).click();
   await openTools(page); await setOffset(page, 500); await openCalibration(page);

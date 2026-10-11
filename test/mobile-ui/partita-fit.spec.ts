@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, clickPlayerTool } from './fixtures';
 import type { Page } from '@playwright/test';
 import { BASE_DUAL_THEME } from '../../src/services/baseThemes';
 
@@ -20,8 +20,8 @@ async function openPartita(page: Page, words = [phrase], intensity = 'normal', f
   await page.goto('/mobile.html');
   await page.getByRole('button', { name: '导入音乐', exact: true }).tap();
   await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).tap();
-  await expect(page.locator('.player-controls').getByRole('heading', { name: '本地测试音乐', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '歌词与动效', exact: true }).tap();
+  await expect(page.locator('.player-heading').getByRole('heading', { name: '本地测试音乐', exact: true })).toBeVisible();
+  await clickPlayerTool(page, '歌词与动效');
   await page.getByLabel('歌词动画', { exact: true }).selectOption('partita');
   await page.locator('.visual-settings > header').getByRole('button', { name: '关闭', exact: true }).tap();
   await page.evaluate(() => (window as any).fixtureEmitPlayback({ playing: false, position: 2 }));

@@ -1,12 +1,12 @@
 import type { Page } from '@playwright/test';
-import { test, expect } from './fixtures';
+import { test, expect, clickPlayerTool } from './fixtures';
 
 // segmentation.spec.ts — original parser/editor and real IndexedDB, with only native IO controlled.
 const raw = ['第一句歌词', '第二句歌词'].map((text, line) => `[${line * 10000},10000]`
     + [...text].map((char, i) => `(${line * 10000 + i * 2000},2000,0)${char}`).join('')).join('\n');
 const edited = '第/一句/歌词\n第二/句歌/词';
 const dialog = (page: Page) => page.getByRole('dialog', { name: '歌词分词调整', exact: true });
-const openTools = (page: Page) => page.getByRole('button', { name: '歌词', exact: true }).click();
+const openTools = (page: Page) => clickPlayerTool(page, '歌词');
 async function openEditor(page: Page) {
     await openTools(page);
     await page.getByRole('button', { name: '歌词分词调整', exact: true }).click();
@@ -190,7 +190,7 @@ test('saved boundaries reach the original Partita renderer and reset restores it
     await expect(dialog(page).getByText('手动分词 · 2 行', { exact: true })).toBeVisible();
     await dialog(page).getByRole('button', { name: '关闭', exact: true }).tap();
     await page.getByRole('dialog', { name: '歌词', exact: true }).getByRole('button', { name: '关闭', exact: true }).tap();
-    await page.getByRole('button', { name: '歌词与动效', exact: true }).tap();
+    await clickPlayerTool(page, '歌词与动效');
     await page.getByLabel('歌词动画', { exact: true }).selectOption('partita');
     await page.locator('.visual-settings > header').getByRole('button', { name: '关闭', exact: true }).tap();
     const words = page.locator('.lyric-stage [data-partita-fit-word] > span.relative.z-10');

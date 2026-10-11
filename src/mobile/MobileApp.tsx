@@ -17,9 +17,8 @@ import SettingsSheet from './SettingsSheet';
 import PlayerPanel from './PlayerPanel';
 import type { SongResult } from '../types';
 import { addMobileSongs, editMobileQueue, type QueueAction } from './queueActions';
-import { useMediaQuery } from '../hooks/useMediaQuery';
 
-// src/mobile/MobileApp.tsx — phone library + expandable player; split view follows window width.
+// src/mobile/MobileApp.tsx — library and full-window player share the original native playback state.
 export default function MobileApp({ initialServer }: { initialServer: string }) {
   const { t } = useTranslation();
   const [server, setServer] = useState(initialServer);
@@ -28,8 +27,6 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const [settings, setSettings] = useState(false);
   const [login, setLogin] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  // Short landscape windows keep phone navigation, even on large iPhones.
-  const split = useMediaQuery('(min-width: 850px) and (min-height: 600px)');
   const [queueView, setQueueView] = useState(false);
   const light = useThemeSettingsStore(s => s.isDaylight);
   const setLight = useThemeSettingsStore(s => s.setDaylightPreference);
@@ -74,8 +71,8 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
     await addMobileSongs([song], next ? 'next' : 'append');
   });
   const edit = (action: QueueAction) => void queueWork(() => editMobileQueue(playback.state, action));
-  return <main className={'mobile-app ' + (light ? 'daylight' : '')} data-layout={split ? 'split' : 'compact'}>
-    <div className="library-panel" inert={expanded && !split}>
+  return <main className={'mobile-app ' + (light ? 'daylight' : '')} data-layout="compact">
+    <div className="library-panel" inert={expanded}>
       <header className="brand"><div><small>FOLIA</small><h1>{t('mobile.library')}</h1></div>
         <button aria-label={t('mobile.settings')} onClick={() => setSettings(true)}><Settings /></button></header>
       <nav className="providers" aria-label="Music platform">
@@ -112,8 +109,8 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       {!isLocal && !isCached && catalog.more && !queueView && <button disabled={catalog.busy} onClick={() => void catalog.load()}>{t('mobile.more')}</button>}
     </div>
     <PlayerPanel state={playback.state} time={playback.currentTime} visible={playback.visible} light={light}
-      expanded={expanded} split={split} collapse={() => setExpanded(false)} />
-    <footer className="mini-player" inert={expanded && !split}>
+      expanded={expanded} collapse={() => setExpanded(false)} openQueue={() => { setQueueView(true); setExpanded(false); }} />
+    <footer className="mini-player" inert={expanded}>
       <button className="mini-title" onClick={() => setExpanded(true)}><Music2 /><span><strong>{active?.name ?? 'Folia'}</strong>
         <small>{active?.artists.map(a => a.name).join(' / ') ?? 'Classic'}</small></span></button>
       <button disabled={!active && !playback.state.queue.length} aria-label={t(playback.state.playing ? 'mobile.pause' : 'mobile.play')}

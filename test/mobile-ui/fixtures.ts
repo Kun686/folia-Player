@@ -1,4 +1,4 @@
-import { test as base, expect } from '@playwright/test';
+import { test as base, expect, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
 // fixtures.ts — one automatic native bridge fixture per test, shared across mobile UI suites.
@@ -218,3 +218,21 @@ export const test = base.extend<{ nativeBridge: void }>({
 });
 
 export { expect };
+
+// Follow the real touch route to the secondary controls; never click through hidden chrome.
+export async function revealPlayerControls(page: Page) {
+  const wake = page.getByRole('button', { name: '显示播放控制', exact: true });
+  if (await wake.isVisible()) await wake.tap();
+}
+export async function openPlayerTools(page: Page) {
+  const tools = page.getByRole('dialog', { name: '更多播放选项', exact: true });
+  if (await tools.isVisible()) return;
+  await revealPlayerControls(page);
+  await page.getByRole('button', { name: '更多播放选项', exact: true }).tap();
+  await expect(tools).toBeVisible();
+}
+export async function clickPlayerTool(page: Page, name: string) {
+  const action = page.getByRole('button', { name, exact: true });
+  if (!await action.isVisible()) await openPlayerTools(page);
+  await action.tap();
+}

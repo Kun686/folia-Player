@@ -1,12 +1,12 @@
 import type { Page } from '@playwright/test';
-import { test, expect } from './fixtures';
+import { test, expect, clickPlayerTool } from './fixtures';
 
 // lyric-display.spec.ts — real original parser, display rules and dialogs over the controlled native bridge.
 const raw = '[0,200](0,200,0)作词 : A\n[200,200](200,200,0)作曲 : B\n[2000,8000](2000,8000,0)第一句歌词\n[10000,10000](10000,10000,0)第二句歌词';
 const tools = (page: Page) => page.getByRole('dialog', { name: '歌词', exact: true });
 const filter = (page: Page) => page.getByRole('dialog', { name: '歌词过滤', exact: true });
 const timeline = (page: Page) => page.getByRole('dialog', { name: '时间线', exact: true });
-const openTools = (page: Page) => page.getByRole('button', { name: '歌词', exact: true }).click();
+const openTools = (page: Page) => clickPlayerTool(page, '歌词');
 const openFilter = (page: Page) => tools(page).getByRole('button', { name: '歌词过滤', exact: true }).click();
 const openTimeline = (page: Page) => tools(page).getByRole('button', { name: '时间线', exact: true }).click();
 const close = (dialog: ReturnType<typeof tools>) => dialog.getByRole('button', { name: '关闭', exact: true }).click();

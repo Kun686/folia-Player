@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, clickPlayerTool } from './fixtures';
 
 // local-sources.spec.ts — actual original Worker/parser and source buttons over controlled native storage responses.
 test('local and embedded sources switch independently and a fresh import selects local', async ({ page }, info) => {
@@ -11,12 +11,12 @@ test('local and embedded sources switch independently and a fresh import selects
     await page.getByRole('button', { name: '导入音乐', exact: true }).click();
     await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
     await expect(page.getByRole('region', { name: '播放', exact: true }).getByRole('heading', { name: '本地测试音乐', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: '歌词与动效', exact: true }).tap();
+    await clickPlayerTool(page, '歌词与动效');
     await page.getByLabel('歌词动画', { exact: true }).selectOption('still');
     await page.locator('.visual-settings > header').getByRole('button', { name: '关闭', exact: true }).click();
     await page.evaluate(() => (window as any).fixtureEmitPlayback({ playing: false, position: 1 }));
     const stage = page.locator('.lyric-stage'), dialog = page.getByRole('dialog', { name: '歌词', exact: true });
-    const open = () => page.getByRole('button', { name: '歌词', exact: true }).click();
+    const open = () => clickPlayerTool(page, '歌词');
     await expect(stage.getByText('导入的本地歌词', { exact: true })).toBeVisible();
     await open();
     const embedded = dialog.getByRole('button', { name: '内嵌', exact: true });
