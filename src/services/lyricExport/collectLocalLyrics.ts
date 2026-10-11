@@ -81,6 +81,13 @@ export const collectLocalLyrics = async (
     { signal, onProgress }: LyricExportRunContext = {},
 ): Promise<LyricCollectionResult> => {
     const songs = await getLocalSongs();
+    return collectLocalLyricSongs(songs, priority, { signal, onProgress });
+};
+
+/** Reuses original local-library selection/naming for native catalog adapters. */
+export const collectLocalLyricSongs = (
+    songs: LocalSong[], priority: LocalLyricsPriority, { signal, onProgress }: LyricExportRunContext = {},
+): LyricCollectionResult => {
     throwIfAborted(signal);
 
     const result: LyricCollectionResult = { entries: [], skipped: [] };

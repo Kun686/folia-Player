@@ -25,14 +25,17 @@ const ONLINE_KEY_REGEX = /^online:([^:]+):(.+)$/;
 // NetEase keys from before the provider-prefixed scheme (see getLegacySongResourceCacheKeys).
 const LEGACY_NETEASE_KEY_REGEX = /^(?:cloud_)?(\d+)$/;
 
-interface CacheGroup {
+export interface OnlineLyricExportSnapshot {
     songKey: string;
-    providerId: string;
-    mediaId: string;
+    providerId?: string;
+    mediaId?: string;
     lyrics?: LyricData | null;
     state?: OnlineLyricsState | null;
     meta?: LyricCacheSongMetadata;
+    offsetKey?: string | number;
+    warnings?: string[];
 }
+type CacheGroup = OnlineLyricExportSnapshot;
 
 /** Maps a cache key body to its song identity, or null for keys this exporter does not own. */
 export const parseOnlineLyricCacheKey = (body: string): Pick<CacheGroup, 'songKey' | 'providerId' | 'mediaId'> | null => {
@@ -82,8 +85,13 @@ export const collectOnlineLyrics = async (): Promise<LyricCollectionResult> => {
         groups.set(identity.songKey, group);
     }
 
+    return collectOnlineLyricSnapshots(groups.values());
+};
+
+/** Native stores supply the same per-song snapshot without copying selection/export rules. */
+export const collectOnlineLyricSnapshots = (groups: Iterable<OnlineLyricExportSnapshot>): LyricCollectionResult => {
     const result: LyricCollectionResult = { entries: [], skipped: [] };
-    for (const group of groups.values()) {
+    for (const group of groups) {
         // A names-only entry outlives nothing worth reporting: its lyrics were cleared separately.
         if (group.lyrics === undefined && group.state === undefined) continue;
         const skip = (reason: SkippedLyric['reason']) => result.skipped.push({ songKey: group.songKey, label: group.meta?.title, reason });
@@ -111,8 +119,9 @@ export const collectOnlineLyrics = async (): Promise<LyricCollectionResult> => {
             // after the cached lists and the provider had their turn.
             song: { ...names, key: group.songKey },
             // The offset is stored under `song.id`; for QQ that is not the mediaId in the key.
-            offsetKey: songId ?? group.mediaId,
-            providerRef: { providerId: group.providerId, mediaId: group.mediaId },
+            offsetKey: group.offsetKey ?? songId ?? group.mediaId,
+            ...(group.providerId && group.mediaId ? { providerRef: { providerId: group.providerId, mediaId: group.mediaId } } : {}),
+            ...(group.warnings ? { warnings: group.warnings } : {}),
         };
         result.entries.push(exportable);
     }

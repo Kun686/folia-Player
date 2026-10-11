@@ -3,6 +3,65 @@ import XCTest
 
 // LyricCacheTests.swift — parsed renderer data survives relaunch; native playback consumes it without a WebView or gateway.
 @MainActor extension NativeTests {
+    func testLyricExportInventoryRestoresIdentitiesAndRawSelectionsWithoutSecrets() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = NativeLyricCache(root: root)
+        let lyrics: [String: Any] = ["lines": [["startTime": 0, "endTime": 2, "fullText": "作词：原作者", "words": []]]]
+        for provider in ["qq", "netease"] {
+            var track = song(provider, "42"); track["cookie"] = "private-cookie"
+            track["url"] = "https://private.invalid/audio?signature=secret"
+            track["album"] = ["name": "专辑", "coverUrl": "https://private.invalid/cover?signature=secret"]
+            let token = try await cache.read(track)["token"] as! String
+            try await cache.write(track, token: token, field: "state", value: ["lyricsSource": "imported", "importedLyrics": lyrics])
+        }
+        let restored = NativeLyricCache(root: root)
+        let inventory = try await restored.exportInventory(knownSongs: [])
+        let items = try XCTUnwrap(inventory["entries"] as? [[String: Any]])
+        XCTAssertEqual(items.count, 2)
+        XCTAssertFalse(String(data: try JSONSerialization.data(withJSONObject: items), encoding: .utf8)!.contains("private"))
+        for item in items {
+            let track = try XCTUnwrap(item["song"] as? [String: Any])
+            XCTAssertEqual((track["sourceRef"] as? [String: Any])?["mediaId"] as? String, "42")
+            let read = try await restored.exportRead(key: item["key"] as! String, token: inventory["token"] as! String)
+            let payload = try XCTUnwrap(read["payload"] as? [String: Any])
+            XCTAssertEqual((payload["state"] as? [String: Any])?["lyricsSource"] as? String, "imported")
+        }
+        try await restored.clear(provider: "qq")
+        do { _ = try await restored.exportRead(key: items[0]["key"] as! String, token: inventory["token"] as! String); XCTFail("Stale export read") }
+        catch { XCTAssertEqual((error as? MobileFailure)?.code, "lyric-cache-changed") }
+        do { try await restored.validateExport(inventory["token"] as! String); XCTFail("Stale export share") }
+        catch { XCTAssertEqual((error as? MobileFailure)?.code, "lyric-cache-changed") }
+        let retained = try await restored.exportInventory(knownSongs: [])
+        XCTAssertEqual((retained["entries"] as? [[String: Any]])?.count, 1)
+    }
+    func testLyricExportRetainsLegacyRecordsAndRecoversOnlyVerifiedQueueIdentities() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = NativeLyricCache(root: root), track = song("qq", "42")
+        let token = try await cache.read(track)["token"] as! String
+        try await cache.write(track, token: token, field: "lyrics", value: ["lines": []])
+        let file = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: root.appendingPathComponent("qq"), includingPropertiesForKeys: nil).first)
+        var record = try JSONSerialization.jsonObject(with: Data(contentsOf: file)) as! [String: Any]
+        record.removeValue(forKey: "song")
+        try JSONSerialization.data(withJSONObject: record).write(to: file)
+        let original = try Data(contentsOf: file)
+        let missing = try await cache.exportInventory(knownSongs: [song("qq", "wrong")])
+        let item = try XCTUnwrap((missing["entries"] as? [[String: Any]])?.first)
+        XCTAssertNil(item["song"])
+        let raw = try await cache.exportRead(key: item["key"] as! String, token: missing["token"] as! String)
+        XCTAssertNotNil((raw["payload"] as? [String: Any])?["lyrics"])
+        let recovered = try await cache.exportInventory(knownSongs: [track])
+        XCTAssertNotNil((recovered["entries"] as? [[String: Any]])?.first?["song"])
+        XCTAssertEqual(try Data(contentsOf: file), original)
+        for key in ["../outside", "qq/../../private", "qq/short", "/qq/" + String(repeating: "a", count: 64)] {
+            do { _ = try await cache.exportRead(key: key, token: missing["token"] as! String); XCTFail("Invalid cache key accepted") }
+            catch { XCTAssertEqual((error as? MobileFailure)?.code, "invalid-lyric-identity") }
+        }
+        try Data("corrupt".utf8).write(to: file)
+        do { _ = try await cache.exportInventory(knownSongs: []); XCTFail("Corruption reported as an empty/successful export") }
+        catch { XCTAssertEqual((error as? MobileFailure)?.code, "invalid-lyric-cache") }
+    }
     func lyricCacheFixture(_ name: String) throws -> (song: [String: Any], replies: [[String: Any]]) {
         let row = try XCTUnwrap(onlineLyricFixture().first { $0["name"] as? String == name })
         let steps = try XCTUnwrap(row["steps"] as? [[String: Any]])

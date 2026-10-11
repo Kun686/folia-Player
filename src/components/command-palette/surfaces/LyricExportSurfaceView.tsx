@@ -28,6 +28,9 @@ type LyricExportSurfaceViewProps = {
     settingsCardClass: string;
     toggleOffBackgroundClass: string;
     theme: Theme;
+    execute?: typeof runLyricExport;
+    onStatus?: typeof setStatusMessage;
+    closeHint?: string;
 };
 
 type RunState =
@@ -48,12 +51,20 @@ const toggleIn = <T,>(items: T[], item: T): T[] => (
 );
 
 const isAbortError = (error: unknown) => error instanceof DOMException && error.name === 'AbortError';
+const downloadBatch: typeof runLyricExport = async (...args) => {
+    const result = await runLyricExport(...args);
+    if (result.archive) triggerBlobDownload(result.archive.blob, result.archive.fileName);
+    return result;
+};
 
 export default function LyricExportSurfaceView({
     isDaylight,
     settingsCardClass,
     toggleOffBackgroundClass,
     theme,
+    execute = downloadBatch,
+    onStatus = setStatusMessage,
+    closeHint,
 }: LyricExportSurfaceViewProps) {
     const { t } = useTranslation();
     const [options, setOptions] = useState<LyricExportOptions>(DEFAULT_OPTIONS);
@@ -67,24 +78,21 @@ export default function LyricExportSurfaceView({
     const canStart = !isRunning && options.scopes.length > 0 && options.formats.length > 0;
 
     const start = async () => {
-        if (!canStart) return;
+        if (!canStart || controllerRef.current) return;
         const controller = new AbortController();
         controllerRef.current = controller;
         setRunState({ kind: 'running', progress: { phase: 'collect', done: 0, total: 0 } });
 
         try {
-            const result = await runLyricExport(options, useLyricSettingsStore.getState().localLyricsPriority, {
+            const result = await execute(options, useLyricSettingsStore.getState().localLyricsPriority, {
                 signal: controller.signal,
                 onProgress: progress => {
                     if (!controller.signal.aborted) setRunState({ kind: 'running', progress });
                 },
             });
             if (controller.signal.aborted) return;
-            if (result.archive) {
-                triggerBlobDownload(result.archive.blob, result.archive.fileName);
-            }
             setRunState({ kind: 'done', exported: result.exportedCount, skipped: result.skippedCount });
-            setStatusMessage({
+            onStatus({
                 type: result.archive ? 'success' : 'info',
                 text: result.archive
                     ? t('lyricExport.done', { exported: result.exportedCount, skipped: result.skippedCount })
@@ -93,12 +101,12 @@ export default function LyricExportSurfaceView({
         } catch (error) {
             if (isAbortError(error) || controller.signal.aborted) {
                 setRunState({ kind: 'idle' });
-                setStatusMessage({ type: 'info', text: t('lyricExport.cancelled') });
+                onStatus({ type: 'info', text: t('lyricExport.cancelled') });
                 return;
             }
             console.error('[LyricExport] Batch export failed', error);
             setRunState({ kind: 'idle' });
-            setStatusMessage({ type: 'error', text: t('lyricExport.failed') });
+            onStatus({ type: 'error', text: t('lyricExport.failed') });
         } finally {
             if (controllerRef.current === controller) controllerRef.current = null;
         }
@@ -118,7 +126,7 @@ export default function LyricExportSurfaceView({
                 : t('lyricExport.empty');
         }
         if (runState.kind !== 'running') {
-            return canStart ? t('lyricExport.closeCancels') : t('lyricExport.nothingSelected');
+            return canStart ? closeHint ?? t('lyricExport.closeCancels') : t('lyricExport.nothingSelected');
         }
         const { phase, done, total } = runState.progress;
         if (phase === 'package') return t('lyricExport.phasePackage');

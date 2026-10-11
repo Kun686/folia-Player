@@ -31,6 +31,8 @@ export interface ExportableLyric {
      * next to the audio as sidecars, which is how Folia's own scan and other players find lyrics.
      */
     localPath?: string;
+    /** Explicit recovery limitations, also written into the archive manifest. */
+    warnings?: string[];
 }
 
 export type LyricExportSkipReason = 'pureMusic' | 'noLyrics' | 'parseFailed';

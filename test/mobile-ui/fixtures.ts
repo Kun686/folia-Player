@@ -37,13 +37,29 @@ export const test = base.extend<{ nativeBridge: void }>({
     win.fixtureEmitPlayback = (patch: Record<string, unknown>) => { Object.assign(state, patch); emit(); };
     const methods = ['bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile',
       'localCatalog', 'importAudio', 'localDetails', 'readLocalLyrics', 'readLocalMatch', 'writeLocalMatch', 'selectLocalLyrics', 'importLyrics', 'pickLyricFile', 'saveLocalLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
-      'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache'];
+      'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache', 'listExportLyrics', 'readExportLyrics', 'shareLyricArchive'];
     win.Capacitor = {
       PluginHeaders: [{ name: 'FoliaNative', methods: [...methods.map(name => ({ name, rtype: 'promise' })), { name: 'addListener' }, { name: 'removeListener' }] }],
       nativeCallback: (_plugin: string, method: string, options: any, cb: (state: unknown) => void) => {
         if (method === 'addListener') { if (options.eventName === 'mediaCache') cacheSubscriber = cb as () => void; else if (options.eventName === 'localCatalog') catalogSubscriber = cb as () => void; else if (options.eventName === 'playback') subscriber = cb; } return 'callback-1';
       },
       nativePromise: async (_plugin: string, method: string, options: any) => {
+        if (method === 'listExportLyrics') {
+          if (win.fixtureExportReadFailure) throw new Error('read-failed');
+          return { token: lyricToken, entries: Object.keys(lyricCache).map(key => ({ key,
+            ...(win.fixtureExportLegacy ? {} : { song: { id: '42', name: '缓存歌曲', artists: [{ id: 0, name: '作者' }], album: { id: 0, name: '' }, sourceRef: JSON.parse(key) } }) })) };
+        }
+        if (method === 'readExportLyrics') {
+          if (win.fixtureExportDelay) await new Promise<void>(resolve => { (win.fixturePendingExport ||= []).push(resolve); });
+          if (options.token !== lyricToken) throw new Error('lyric-cache-changed');
+          return { payload: structuredClone(lyricCache[options.key]) };
+        }
+        if (method === 'shareLyricArchive') {
+          if (options.token && options.token !== lyricToken) throw new Error('lyric-cache-changed');
+          if (win.fixtureShareFailure) throw new Error('share-failed');
+          win.fixtureSharedArchives = [...(win.fixtureSharedArchives || []), options];
+          return { completed: !win.fixtureShareCancelled };
+        }
         if (method === 'shareLyricFile') {
           if (win.fixtureShareFailure) throw new Error('share-failed');
           win.fixtureSharedLyrics = [...(win.fixtureSharedLyrics || []), options];

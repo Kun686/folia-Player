@@ -20,12 +20,13 @@
 - 交付：`移动端交付/Folia-0.7.16-mobile.14-b58b898c-development.ipa`，8,046,225 字节，
   SHA256 `a4822dd624ac79b4feb65373e5b7a90fb5ecc78ac44724fe87e5e28cfd6360ce`。
   BUILD_RECORD.json 保存准确源码；mobile.13 安装包哈希复核未变，保留回退。个人 App 未卸载。
-- NOT_RUN／待用户复测：新版 iPhone 系统选择器与真实文件回导；不能以浏览器通过宣布故障已解决。
+- PASS_USER_CONFIRMED：用户在 mobile.14 反馈「两种文件都能选择，导入后歌词正常」，
+  覆盖在线歌曲的系统选择器、FIA／LRC 导入及显示；这是用户真机反馈，没有独立检查文件或测量时序。
   mobile.13 的会话、播放及导出反馈不自动视为 mobile.14 的新版用户确认。
   完整移植和其他长期、硬件、精确时序验收继续保留原状态。
 
 本地证据前缀 `.mobile-test-results/mobile14-`：`test-evidence.json`、`source-record.json`、
-`package-check.json`、`device-install.json`、`device-launch.json`、`device-app.json`、`source-ci.json`。
+`package-check.json`、`device-install.json`、`device-launch.json`、`device-app.json`、`source-ci.json`、`device-manual.json`。
 回退可使用保留的 mobile.13 原位安装；该版仍有已知的在线歌词选择置灰问题，无需卸载或清除数据。
 
 ## mobile.13：歌词显示、分词及文件导出（历史候选）

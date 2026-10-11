@@ -2,6 +2,36 @@ import Capacitor
 
 // FoliaNativeLyricsPlugin.swift — packaged frontend gets parsed data and revocable write tokens, never platform sessions.
 extension FoliaNativePlugin {
+    @objc func listExportLyrics(_ call: CAPPluginCall) { run(call) {
+        let songs = self.engine.queue + (self.engine.currentSong.map { [$0] } ?? [])
+        Task { @MainActor in
+            do { call.resolve(try await self.engine.lyricCache.exportInventory(knownSongs: songs)) }
+            catch { call.reject((error as? MobileFailure)?.code ?? "lyric-cache-unavailable") }
+        }
+    } }
+    @objc func readExportLyrics(_ call: CAPPluginCall) { run(call) {
+        guard let key = call.getString("key"), let token = call.getString("token") else { throw MobileFailure("invalid-lyric-identity") }
+        Task { @MainActor in
+            do { call.resolve(try await self.engine.lyricCache.exportRead(key: key, token: token)) }
+            catch { call.reject((error as? MobileFailure)?.code ?? "lyric-cache-unavailable") }
+        }
+    } }
+    @objc func shareLyricArchive(_ call: CAPPluginCall) { run(call) {
+        guard let name = call.getString("fileName"), let data = call.getString("data"),
+              let controller = self.bridge?.viewController else { throw MobileFailure("invalid-lyric-file") }
+        let token = call.getString("token")
+        Task { @MainActor in
+            do {
+                if let token { try await self.engine.lyricCache.validateExport(token) }
+                try self.lyricFileShare.presentArchive(fileName: name, encoded: data, on: controller) { result in
+                    switch result {
+                    case .success(let completed): call.resolve(["completed": completed])
+                    case .failure: call.reject("share-failed")
+                    }
+                }
+            } catch { call.reject((error as? MobileFailure)?.code ?? "share-failed") }
+        }
+    } }
     @objc func readLyricCache(_ call: CAPPluginCall) { run(call) {
         guard let raw = call.getObject("song") else { throw MobileFailure("invalid-lyric-identity") }
         let song = try PlaybackEngine.sanitizedSong(raw)

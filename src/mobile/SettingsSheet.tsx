@@ -5,6 +5,8 @@ import MediaCacheControls from './MediaCacheControls';
 import ResourceCacheControls from './ResourceCacheControls';
 import type { useMediaCache } from './useMediaCache';
 import { cancelProvider, clearProvider } from './runtime';
+import { useMobileTheme } from './useMobileTheme';
+import BatchLyricExportDialog from './BatchLyricExportDialog';
 
 // src/mobile/SettingsSheet.tsx
 export default function SettingsSheet({ mediaCache, server, light, setLight, saved, close }: {
@@ -15,6 +17,8 @@ export default function SettingsSheet({ mediaCache, server, light, setLight, sav
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
+  const [batch, setBatch] = useState(false);
+  const appearance = useMobileTheme();
   const save = async () => {
     setBusy(true); setError(false);
     try {
@@ -28,6 +32,7 @@ export default function SettingsSheet({ mediaCache, server, light, setLight, sav
     } catch { setError(true); }
     finally { setBusy(false); }
   };
+  if (batch) return <BatchLyricExportDialog light={light} theme={light ? appearance.theme.light : appearance.theme.dark} close={() => setBatch(false)} />;
   return <div className="sheet-backdrop"><section className="sheet" role="dialog" aria-modal="true" aria-label={t('mobile.settings')}>
     <header><h2>{t('mobile.settings')}</h2><button onClick={close}>{t('mobile.close')}</button></header>
     <p>{t('mobile.optionalServer')}</p>
@@ -44,6 +49,7 @@ export default function SettingsSheet({ mediaCache, server, light, setLight, sav
     <MediaCacheControls cache={mediaCache} light={light} />
     <ResourceCacheControls />
     <ResourceCacheControls category="lyrics" />
+    <button onClick={() => setBatch(true)}>{t('lyricExport.settingsEntry')}</button>
     <p className="muted">{t('mobile.limited')}</p>
   </section></div>;
 }

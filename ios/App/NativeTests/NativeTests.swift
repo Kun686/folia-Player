@@ -63,6 +63,16 @@ final class RefreshingAudioGateway: GatewayClient {
         let document = "{\"lyrics\":{\"lines\":[]}}\n"
         XCTAssertEqual(try LyricFileShare.validate(fileName: "01 Original.fia", content: document), Data(document.utf8))
     }
+    func testLyricArchiveSharePreservesBytesAndRejectsInvalidInput() throws {
+        let bytes = Data([0x50, 0x4b, 0x03, 0x04, 0, 255, 128, 1])
+        XCTAssertEqual(try LyricFileShare.validateArchive(fileName: "歌词.zip", encoded: bytes.base64EncodedString()), bytes)
+        for name in ["../lyrics.zip", "lyrics.lrc", ".hidden.zip", "lyrics\n.zip"] {
+            XCTAssertThrowsError(try LyricFileShare.validateArchive(fileName: name, encoded: bytes.base64EncodedString()))
+        }
+        for encoded in ["", "%%%", Data("text".utf8).base64EncodedString(), String(repeating: "A", count: 21_333_337)] {
+            XCTAssertThrowsError(try LyricFileShare.validateArchive(fileName: "lyrics.zip", encoded: encoded))
+        }
+    }
     func testLyricShareRejectsPathsControlCharactersAndOversizedUTF8() {
         for name in ["", ".hidden.lrc", "../song.lrc", "folder/song.lrc", "folder\\song.lrc", "x:y.lrc",
                      "x\n.lrc", "x\u{0}.lrc", "song.mp3", String(repeating: "歌", count: 84) + ".lrc"] {

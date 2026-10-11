@@ -54,7 +54,7 @@ export default function LyricTools({ song, time, lyricTime, lyrics, rawLyrics, s
     finally { locked.current = false; if (active.current) setBusy(false); }
   };
   if (displaySettings) return <LyricDisplaySettings lyrics={rawLyrics} title={song.name} light={light} close={() => setDisplaySettings(false)} />;
-  if (exporting) return <LyricExportDialog song={song} lyrics={rawLyrics} light={light} close={() => setExporting(false)} />;
+  if (exporting) return <LyricExportDialog song={song} lyrics={rawLyrics} light={light} theme={theme} close={() => setExporting(false)} />;
   if (segmenting) return <LyricSegmentationEditor lyrics={rawLyrics} title={song.name} segmentation={segmentation}
     theme={theme} light={light} close={() => setSegmenting(false)} />;
   if (timeline) return <div className="mobile-lyrics-timeline"><LyricsTimelineModal isOpen={visible} lyrics={lyrics}

@@ -810,6 +810,10 @@ export default {
     "account": "Akun"
   },
   "lyricExport": {
+    "mobileBatchDesc": "Kemas lirik yang ada di perangkat dan simpan melalui lembar berbagi",
+    "mobileCloseCancels": "Menutup halaman ini membatalkan ekspor",
+    "mobileLegacy": "{{count}} cache lama tidak memiliki identitas lagu. Lirik disimpan dengan peringatan di manifest.json; segmentasi dan offset per lagu tidak dapat dipulihkan.",
+    "mobileTooLarge": "Arsip lirik melebihi 16 MB. Ekspor cakupan atau format secara terpisah.",
     "exported": "Lirik diekspor",
     "noLyrics": "Tidak ada lirik untuk diekspor",
     "failed": "Ekspor lirik gagal",

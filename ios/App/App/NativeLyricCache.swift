@@ -5,6 +5,7 @@ actor NativeLyricCache {
     private let root: URL
     private let parser: NativeLyricParser
     private var tokens: [String: String] = [:]
+    private var exportToken = UUID().uuidString
     private let limit: Int
     init(root: URL? = nil, parser: NativeLyricParser = NativeLyricParser(), limit: Int = 64 * 1024 * 1024) {
         self.root = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -63,7 +64,8 @@ actor NativeLyricCache {
         var current = payload(id)
         if onlyIfMissing && current.keys.contains(field) { return }
         current[field] = value
-        let data = try JSONSerialization.data(withJSONObject: ["version": 1, "identity": id.key, "payload": current], options: .sortedKeys)
+        let data = try JSONSerialization.data(withJSONObject: ["version": 1, "identity": id.key, "payload": current,
+            "song": NativeLyricExport.metadata(song)], options: .sortedKeys)
         guard data.count <= 8_000_000 else { throw MobileFailure("lyrics-too-large") }
         let url = path(id)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true,
@@ -105,9 +107,23 @@ actor NativeLyricCache {
         }
     }
     func summary() -> [String: Int] { files.summary() }
+    func exportInventory(knownSongs: [[String: Any]]) throws -> [String: Any] {
+        ["token": exportToken, "entries": try NativeLyricExport.inventory(root: root, knownSongs: knownSongs)]
+    }
+    func validateExport(_ expected: String) throws {
+        guard expected == exportToken else { throw MobileFailure("lyric-cache-changed") }
+    }
+    func exportRead(key: String, token expected: String) async throws -> [String: Any] {
+        try validateExport(expected)
+        let record = try NativeLyricExport.record(NativeLyricExport.url(key, root: root))
+        let parsed = try await parser.cacheDocument(record["payload"] as! [String: Any])
+        try Task.checkCancellation(); try validateExport(expected)
+        return ["payload": parsed["payload"] ?? [:]]
+    }
     func clear(provider: String? = nil) throws {
         guard provider == nil || ["qq", "netease", "kugou"].contains(provider!) else { throw MobileFailure("invalid-provider") }
         for provider in provider.map({ [$0] }) ?? ["qq", "netease", "kugou"] { tokens[provider] = UUID().uuidString }
+        exportToken = UUID().uuidString
         try files.clear(provider: provider)
     }
 }

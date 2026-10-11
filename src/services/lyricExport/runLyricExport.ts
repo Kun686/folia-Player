@@ -24,23 +24,31 @@ export interface LyricExportResult {
     skippedCount: number;
 }
 
+/** Native hosts replace storage reads; the adjustment, naming and ZIP pipeline remains shared. */
+export interface LyricExportSources {
+    online?: () => Promise<LyricCollectionResult>;
+    local?: (priority: LocalLyricsPriority, context: LyricExportRunContext) => Promise<LyricCollectionResult>;
+    strictStorage?: boolean;
+}
+
 export const runLyricExport = async (
     options: LyricExportOptions,
     localLyricsPriority: LocalLyricsPriority,
     context: LyricExportRunContext = {},
+    sources: LyricExportSources = {},
 ): Promise<LyricExportResult> => {
     const { signal, onProgress } = context;
     const collected: LyricCollectionResult = { entries: [], skipped: [] };
 
     onProgress?.({ phase: 'collect', done: 0, total: 0 });
     if (options.scopes.includes('online')) {
-        const online = await collectOnlineLyrics();
+        const online = await (sources.online ?? collectOnlineLyrics)();
         collected.entries.push(...online.entries);
         collected.skipped.push(...online.skipped);
     }
     throwIfAborted(signal);
     if (options.scopes.includes('local')) {
-        const local = await collectLocalLyrics(localLyricsPriority, context);
+        const local = await (sources.local ?? collectLocalLyrics)(localLyricsPriority, context);
         collected.entries.push(...local.entries);
         collected.skipped.push(...local.skipped);
     }
@@ -50,7 +58,8 @@ export const runLyricExport = async (
     // offset is stored under, and applyUserAdjustments reads that offset.
     const withNames = await resolveExportMetadata(collected.entries, { resolveOnline: options.resolveOnlineMetadata }, context);
     throwIfAborted(signal);
-    const named = await mapWithConcurrency(withNames, ADJUST_CONCURRENCY, entry => applyUserAdjustments(entry), signal);
+    const named = await mapWithConcurrency(withNames, ADJUST_CONCURRENCY,
+        entry => applyUserAdjustments(entry, { strict: sources.strictStorage }), signal);
     throwIfAborted(signal);
 
     if (named.length === 0 || options.formats.length === 0) {

@@ -28,6 +28,7 @@ type LyricFileDialogProps = {
     onOpenBatchExport?: () => void;
     feedback?: React.ReactNode;
     maxWidthClass?: string;
+    batchDescription?: string;
 };
 
 const LyricFileDialog: React.FC<LyricFileDialogProps> = ({
@@ -41,6 +42,7 @@ const LyricFileDialog: React.FC<LyricFileDialogProps> = ({
     onOpenBatchExport,
     feedback,
     maxWidthClass,
+    batchDescription,
 }) => {
     const { t } = useTranslation();
     const inputRef = useRef<HTMLInputElement>(null);
@@ -146,7 +148,7 @@ const LyricFileDialog: React.FC<LyricFileDialogProps> = ({
                     )}
                 </section>
 
-                {onOpenBatchExport && renderRow(PackageOpen, t('lyricFile.batchTitle'), t('lyricFile.batchDesc'), onOpenBatchExport, true)}
+                {onOpenBatchExport && renderRow(PackageOpen, t('lyricFile.batchTitle'), batchDescription ?? t('lyricFile.batchDesc'), onOpenBatchExport, true)}
                 {feedback}
             </div>
         </ThemedDialog>

@@ -23,6 +23,9 @@ export interface NativeAudioSettings { volume: number; isMuted: boolean; equaliz
 export interface NativeTransitionSettings { enabled: boolean; mode: 'crossfade' | 'automix'; crossfadeMaxSec: number }
 export type PlaybackEvent = Omit<PlaybackSnapshot, 'queue' | 'currentSong'> & Partial<Pick<PlaybackSnapshot, 'queue' | 'currentSong'>>;
 export interface FoliaNativePlugin {
+  listExportLyrics(): Promise<{ token: string; entries: { key: string; song?: SongResult }[] }>;
+  readExportLyrics(options: { key: string; token: string }): Promise<Pick<Awaited<ReturnType<FoliaNativePlugin['readLyricCache']>>, 'payload'>>;
+  shareLyricArchive(options: { fileName: string; data: string; token?: string }): Promise<{ completed: boolean }>;
   readLocalMatch(options: { id: string }): Promise<LocalMatchSnapshot>;
   writeLocalMatch(options: { id: string; token: string; document: LocalMatchDocument; source: 'local' | 'embedded' | 'online' | null; cacheCover: boolean }): Promise<{ coverCached: boolean }>;
   addListener(name: 'localCatalog', listener: () => void): Promise<PluginListenerHandle>;

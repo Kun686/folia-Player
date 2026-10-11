@@ -76,7 +76,7 @@ export const buildCachedSongMetadataIndex = async (): Promise<Map<string, LyricC
  * Runs before applyUserAdjustments reads the offset.
  */
 const offsetKeyFrom = (entry: ExportableLyric, songId: string | number | undefined) => (
-    entry.providerRef && songId !== undefined && songId !== '' ? { offsetKey: songId } : {}
+    entry.providerRef && entry.offsetKey !== entry.songKey && songId !== undefined && songId !== '' ? { offsetKey: songId } : {}
 );
 
 const isComplete = (song: FoliaLyricDocumentSong) => Boolean(song.title && song.artist);

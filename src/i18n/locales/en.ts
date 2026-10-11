@@ -815,6 +815,10 @@ export default {
     "account": "Account"
   },
   "lyricExport": {
+    "mobileBatchDesc": "Package lyrics already on this device and save using the share sheet",
+    "mobileCloseCancels": "Closing this page cancels the export",
+    "mobileLegacy": "{{count}} legacy cache entries lack song identities. Lyrics are retained with warnings in manifest.json; song-specific segmentation and offsets could not be recovered.",
+    "mobileTooLarge": "The lyrics archive exceeds 16 MB. Export scopes or formats separately.",
     "exported": "Lyrics exported",
     "noLyrics": "No lyrics to export",
     "failed": "Lyric export failed",

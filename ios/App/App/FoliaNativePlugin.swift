@@ -11,9 +11,10 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         "localCatalog", "importAudio", "localDetails", "importLyrics", "pickLyricFile", "saveLocalLyrics", "readLocalLyrics", "selectLocalLyrics", "readLocalMatch", "writeLocalMatch", "removeLocal", "audioLevels",
         "getAudioSettings", "setAudioSettings", "getTransitionSettings", "setTransitionSettings", "getMediaCacheSettings", "setMediaCacheSettings",
         "mediaCacheState", "clearMediaCache", "songCover", "coverCacheState", "clearCoverCache",
-        "readLyricCache", "writeLyricCache", "lyricCacheState", "clearLyricCache"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
+        "readLyricCache", "writeLyricCache", "lyricCacheState", "clearLyricCache",
+        "listExportLyrics", "readExportLyrics", "shareLyricArchive"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
     private let picker = LocalImportPicker()
-    private let lyricFileShare = LyricFileShare()
+    let lyricFileShare = LyricFileShare()
     private var importing = false
     private let gateway = GatewayClient()
     var engine: PlaybackEngine!

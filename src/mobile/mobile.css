@@ -191,3 +191,8 @@ h1, h2, p { margin: 0; } h1 { font-size: 32px; letter-spacing: -.04em; } h2 { fo
 @media (max-height: 500px) { .sheet.mobile-segmentation { padding: 12px; } .mobile-segmentation > .muted { display: none; } }
 .mobile-lyric-file-dialog { max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 2rem); overflow-y: auto; }
 .mobile-lyric-file-dialog button { min-width: 44px; min-height: 44px; }
+.sheet.mobile-batch-lyrics { width: min(100%, 640px); height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 2rem); max-height: none; display: flex; flex-direction: column; overflow: hidden; padding: 16px; }
+.mobile-batch-lyrics > header { flex-shrink: 0; margin-bottom: 0; }
+.mobile-batch-lyrics [data-ponder="lyric-export-surface"] { min-height: 0; flex: 1; }
+.mobile-batch-lyrics button { min-height: 44px; min-width: 44px; touch-action: manipulation; }
+.mobile-batch-lyrics p.batch-feedback { margin: 4px 0; flex-shrink: 0; font-size: 12px; }

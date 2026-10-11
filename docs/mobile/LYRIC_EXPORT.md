@@ -6,7 +6,8 @@
 用户反馈导出可用、升级后两平台会话与播放正常；在线歌曲回导时 `.fia`／`.lrc` 被置灰，
 回导记为 FAIL_USER_REPORTED。mobile.14 取消移动在线导入的扩展名过滤，继续由原解析器和大小限制校验；
 mobile.14 已原位安装、启动并确认 build 14；6 项 WebKit 用例覆盖导出后回导及无效文件保留已有歌词。
-这些用例的文件注入不验证 iOS 系统选择器；修复效果仍待真机复测，详见 [VALIDATION.md](VALIDATION.md)。
+浏览器文件注入不验证系统选择器；用户随后确认「两种文件都能选择，导入后歌词正常」，
+mobile.14 的在线 FIA／LRC 回导记为 PASS_USER_CONFIRMED，详见 [VALIDATION.md](VALIDATION.md)。
 完整移植保持 IN_PROGRESS，批量导出仍待接入。
 
 ## 复用与行为

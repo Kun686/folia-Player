@@ -815,6 +815,10 @@ export default {
     "account": "账户"
   },
   "lyricExport": {
+    "mobileBatchDesc": "将本机已有的歌词打包，通过系统分享保存",
+    "mobileCloseCancels": "关闭此页面会取消导出",
+    "mobileLegacy": "有 {{count}} 首旧缓存缺少歌曲身份，已保留歌词并在 manifest.json 说明；对应分词和偏移无法恢复。",
+    "mobileTooLarge": "歌词压缩包超过 16 MB，请分别选择范围或格式导出。",
     "exported": "歌词已导出",
     "noLyrics": "当前没有可导出的歌词",
     "failed": "歌词导出失败",

@@ -33,6 +33,7 @@ export interface LyricExportManifest {
          * will not be found next to their audio by name, so the manifest says where they belong.
          */
         renamedFrom?: string;
+        warnings?: string[];
     }>;
     skipped: SkippedLyric[];
 }
@@ -124,6 +125,7 @@ export const buildLyricExportArchive = async (
             source: entry.source,
             files: written,
             ...(renamed ? { renamedFrom: entry.localPath } : {}),
+            ...(entry.warnings?.length ? { warnings: entry.warnings } : {}),
         });
     });
 
