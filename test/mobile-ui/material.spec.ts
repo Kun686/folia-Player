@@ -46,3 +46,20 @@ test('increased contrast replaces transparent controls with a solid surface', as
     await expect(surface).toHaveCSS('background-color', 'rgb(9, 9, 11)');
   }
 });
+
+test('visible glass follows a changing scene without remounting the controls', async ({ page }, info) => {
+  await openPausedPlayer(page);
+  await page.addStyleTag({ content: '.lyric-stage > * { visibility: hidden !important; }' });
+  const stage = page.locator('.lyric-stage'), controls = page.locator('.player-controls');
+  await expect(controls).toHaveCSS('opacity', '1');
+  await expect(controls).toHaveCSS('transform', 'none');
+  const originalNode = await controls.elementHandle();
+  await stage.evaluate(element => { (element as HTMLElement).style.background = '#2385b3'; });
+  const cool = await controls.screenshot();
+  await stage.evaluate(element => { (element as HTMLElement).style.background = '#c77836'; });
+  const warm = await controls.screenshot();
+  expect(cool.equals(warm)).toBe(false);
+  expect(await controls.evaluate((element, original) => element === original, originalNode)).toBe(true);
+  await info.attach('cool-scene', { body: cool, contentType: 'image/png' });
+  await info.attach('warm-scene', { body: warm, contentType: 'image/png' });
+});

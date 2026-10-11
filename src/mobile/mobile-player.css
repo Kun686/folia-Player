@@ -1,7 +1,8 @@
 /* mobile-player.css — the stage fills the window; safe-area-aware chrome floats above it. */
-.player-panel { display: none; --glass-edge: color-mix(in srgb, var(--text) 22%, transparent); --glass-shine: color-mix(in srgb, var(--text) 16%, transparent); }
+.player-panel { display: none; --glass-edge: color-mix(in srgb, var(--text) 22%, transparent); --glass-shine: color-mix(in srgb, var(--text) 8%, transparent); }
 .player-panel.expanded { display: block; position: fixed; inset: 0; z-index: 30; background: var(--bg); overflow: hidden; }
-.lyric-stage { position: absolute; inset: 0; isolation: isolate; overflow: hidden; touch-action: manipulation; }
+/* Keep the scene composited: iOS can otherwise retain stale pixels in sibling backdrop filters. */
+.lyric-stage { position: absolute; inset: 0; isolation: isolate; overflow: hidden; touch-action: manipulation; transform: translateZ(0); }
 .lyric-stage > div { position: absolute !important; inset: 0; }
 .empty-lyrics { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 24px; }
 .empty-lyrics span { font-family: Georgia, serif; font-size: 70px; font-style: italic; letter-spacing: -.06em; }
@@ -18,12 +19,15 @@
 .player-heading .chrome-button { display: grid; place-items: center; min-width: 44px; height: 44px; padding: 10px; border: 1px solid var(--glass-edge); border-radius: 50%; color: var(--text); touch-action: manipulation; }
 .chrome-button, .track-heading, .player-controls {
   background-color: var(--bg);
-  background-image: linear-gradient(145deg, var(--glass-shine), transparent 48%, color-mix(in srgb, var(--text) 4%, transparent));
-  box-shadow: inset 0 1px 0 var(--glass-shine), inset 0 -1px 0 color-mix(in srgb, var(--bg) 30%, transparent), 0 10px 32px #0003;
+  background-image: linear-gradient(145deg, var(--glass-shine), transparent 48%, color-mix(in srgb, var(--text) 2%, transparent));
+  box-shadow: inset 0 1px 0 var(--glass-shine), inset 0 -1px 0 color-mix(in srgb, var(--bg) 16%, transparent), 0 8px 24px #0002;
 }
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-  .chrome-button, .track-heading, .player-controls { background-color: color-mix(in srgb, var(--bg) 58%, transparent); backdrop-filter: blur(28px) saturate(165%); -webkit-backdrop-filter: blur(28px) saturate(165%); }
+  /* Sample the live visualizer underneath; the thin tint leaves its moving colors visible. */
+  .chrome-button, .track-heading, .player-controls { background-color: color-mix(in srgb, var(--bg) 18%, transparent); backdrop-filter: blur(18px) saturate(130%); -webkit-backdrop-filter: blur(18px) saturate(130%); }
 }
+.track-description, .playback-times { text-shadow: 0 1px 3px color-mix(in srgb, var(--bg) 85%, transparent); }
+.player-heading .chrome-button svg, .transport > button:not(.primary-play) svg, .repeat-choice svg { filter: drop-shadow(0 1px 2px color-mix(in srgb, var(--bg) 70%, transparent)); }
 .track-heading { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; max-width: 420px; margin-inline: auto; border-radius: 999px; padding: 8px 14px 8px 8px; border: 1px solid var(--glass-edge); }
 .track-art { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--raised); overflow: hidden; flex-shrink: 0; }
 .track-art img { width: 100%; height: 100%; object-fit: cover; }
