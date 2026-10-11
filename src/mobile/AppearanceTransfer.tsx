@@ -9,6 +9,8 @@ import { hasVisualizerMode } from '../components/visualizer/registry';
 import { useThemeSettingsStore } from '../stores/useThemeSettingsStore';
 import { useVisualizerSettingsStore } from '../stores/useVisualizerSettingsStore';
 import type { MobileTheme } from './useMobileTheme';
+import { readMobileTypographyTransfer, applyMobileTypographyTransfer } from './typographyTransfer';
+import { useTypographySettingsStore } from '../stores/useTypographySettingsStore';
 
 // src/mobile/AppearanceTransfer.tsx — desktop-compatible appearance codes, with no sync server involved.
 export default function AppearanceTransfer({ appearance }: { appearance: MobileTheme }) {
@@ -18,10 +20,14 @@ export default function AppearanceTransfer({ appearance }: { appearance: MobileT
     try {
       if (text.length > 200_000) throw Error('too-large');
       const config = decompressConfig(text);
+      const typography = readMobileTypographyTransfer(config);
       if (config.visualizerMode && !hasVisualizerMode(config.visualizerMode)) throw Error('unknown-mode');
       const validated = parseSyncedSettingsRecord({ schemaVersion: SYNC_SCHEMA_VERSION, updatedAt: new Date().toISOString(), data: config });
       if (!validated) throw Error('invalid-config');
+      if (typography.lyricsCustomFontFamily && useTypographySettingsStore.getState().lyricsCustomFont?.source === 'uploaded'
+        && !window.confirm(t('options.importDerivedUploadedFont'))) return;
       applySyncedVisualSettings(readSyncableSettingsState(), validated.data);
+      applyMobileTypographyTransfer(typography);
       const theme = useThemeSettingsStore.getState(), visual = useVisualizerSettingsStore.getState();
       if (typeof config.staticMode === 'boolean') theme.handleToggleStaticMode(config.staticMode);
       if (typeof config.useCoverColorBg === 'boolean') theme.handleToggleCoverColorBg(config.useCoverColorBg);

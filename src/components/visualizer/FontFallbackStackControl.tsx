@@ -45,6 +45,7 @@ const FontFallbackStackControl: React.FC<FontFallbackStackControlProps> = ({
                 {label}
             </span>
             <textarea
+                aria-label={label}
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 onBlur={commitDraft}

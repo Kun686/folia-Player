@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+后续开发源码补齐原版字体与字幕控件，修复上传字体在 WebKit 的持久化和取消竞态；
+64 项逻辑、12 项新功能 WebKit 与 12 项回归通过，iPad 模拟器系统文件导入／重启恢复已操作验证。
+这些设置尚未安装个人 iPhone，真机新入口保持 NOT_RUN；详见 [TYPOGRAPHY.md](TYPOGRAPHY.md)。
+
 开发源码音质设置已通过 123 项逻辑／provider、9 项 WebKit、11 项 iPhone QA 自动测试；
 保留当前播放、暂停、本地预加载、缓存及正在交叉淡化的曲目，详见 [AUDIO_QUALITY.md](AUDIO_QUALITY.md)。
 真实 QQ／网易云各档返回音质与权限回退仍为 NOT_RUN；本版基础播放用户反馈另列如下。

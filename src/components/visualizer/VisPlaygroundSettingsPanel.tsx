@@ -38,6 +38,7 @@ import {
     VISUALIZER_BACKGROUND_REGISTRY,
 } from './backgrounds/registry';
 import { usePlayerChromeSettingsStore } from '../../stores/usePlayerChromeSettingsStore';
+import { LYRICS_FONT_SIZE_AUTO_NOTICE_KEYS } from '../../utils/typographyControls';
 
 // src/components/visualizer/VisPlaygroundSettingsPanel.tsx
 // Right-side settings panel for the click-to-edit visualizer playground.
@@ -169,11 +170,7 @@ interface VisPlaygroundSettingsPanelProps {
 }
 
 // Modes that size their own lyrics: the generic font-size controls are disabled and this notice explains why.
-const LYRICS_FONT_SIZE_AUTO_NOTICE_KEYS: Partial<Record<string, string>> = {
-    sonnet: 'options.sonnetFontSizeAutoNotice',
-    tempera: 'options.temperaFontSizeAutoNotice',
-    lumiere: 'options.lumiereFontSizeAutoNotice',
-};
+// Shared with the mobile controls in utils/typographyControls.ts.
 
 const SECTION_OPTIONS: VisPlaygroundEditSection[] = ['common', 'background', 'visualizer', 'subtitle'];
 

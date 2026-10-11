@@ -39,8 +39,10 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
   const [lyricToolsFor, setLyricToolsFor] = useState<string | null>(null);
   const audioSettingsOpen = useAudioSettingsStore(s => s.isAudioEqualizerOpen);
   const mode = useVisualizerSettingsStore(s => s.visualizerMode);
+  const visualizerOpacity = useVisualizerSettingsStore(s => s.visualizerOpacity);
   const appearance = useMobileTheme();
   const typography = useTypographySettingsStore(useShallow(s => ({
+    hideTranslationSubtitle: s.hidePlayerTranslationSubtitle,
     lyricsFontStyle: s.lyricsFontStyle, lyricsFontWeight: s.lyricsFontWeight,
     lyricsCustomFontFamily: s.lyricsCustomFont?.family ?? null, lyricsFontFallbackFamilies: s.lyricsFontFallbackFamilies,
     lyricsFontScale: s.lyricsFontScale, subtitleFontScale: s.subtitleFontScale, subtitleOverlayOpacity: s.subtitleOverlayOpacity,
@@ -99,7 +101,7 @@ export default function PlayerPanel({ state, time, visible, light, expanded, col
     data-controls-hidden={hidden} {...focusProps}>
     <div className="lyric-stage" {...stageTapProps}>
       {song && rendering ? <MobileVisualizer mode={mode} currentTime={lyricTime} lines={lyrics?.lines ?? NO_LYRIC_LINES} currentLineIndex={line}
-        constrainLyricsToStage isPlayerChromeHidden={hidden}
+        constrainLyricsToStage isPlayerChromeHidden={hidden} visualizerOpacity={visualizerOpacity}
         theme={visualizerTheme} subtitleTheme={visualizerSubtitleTheme} {...typography} {...audio} isDaylight={light}
         paused={!state.playing} songTitle={song.name}  songArtist={song.artists.map(a => a.name).join(' / ')}
         songAlbum={song.album.name} coverUrl={cover} seed={JSON.stringify(song.sourceRef)}

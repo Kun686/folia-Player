@@ -16,13 +16,20 @@
 .check-label { flex-direction: row !important; align-items: center; }
 .check-label input { width: 22px; min-height: 22px; }
 .visual-settings { text-align: left; }
+.visual-settings-content { min-width: 0; padding: 0; border: 0; }
 .transition-settings button { touch-action: manipulation; }
 .transition-settings button.h-6 { position: relative; }
 .transition-settings button.h-6::before { content: ''; position: absolute; inset: -10px 0; }
 .visual-settings input[type=range] { touch-action: pan-y; }
-.visual-settings > details, .appearance-transfer { margin-block: 20px; }
+.visual-settings-content > details, .appearance-transfer { margin-block: 20px; }
 .visual-settings summary { cursor: pointer; min-height: 44px; padding-block: 12px; }
 .appearance-transfer textarea { width: 100%; background: var(--raised); border-radius: 8px; padding: 12px; overflow-wrap: anywhere; }
+.typography-controls details { margin-block: 20px; }
+.typography-controls fieldset { min-width: 0; padding: 0; border: 0; }
+.typography-controls select { appearance: auto; height: 44px; min-height: 44px; width: 100%; }
+.typography-controls textarea { min-width: 0; }
+.typography-controls input[type=range] { width: 100%; min-height: 44px; }
+.typography-controls .check-label { flex-direction: row; align-items: center; min-height: 44px; }
 .appearance-transfer button { min-height: 44px; padding: 8px 12px; background: var(--raised); border-radius: 10px; }
 .sheet-backdrop { position: fixed; z-index: 60; inset: 0; background: #000a; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
 .sheet { background: var(--bg); width: min(100%, 520px); border: 1px solid var(--border); border-radius: 24px; padding: 24px; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; }

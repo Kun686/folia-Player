@@ -49,6 +49,7 @@ import {
 import { resolveThemeFontStack } from '../../utils/fontStacks';
 import { colorWithAlpha } from './colorMix';
 import FontFallbackStackControl from './FontFallbackStackControl';
+import { FONT_STYLE_OPTIONS } from '../../utils/typographyControls';
 import {
     findPreviewPlaceholderLineIndex,
     getPreviewPlaceholderStartOffset,
@@ -462,11 +463,9 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
 
     const normalizedFontScale = clampFontScale(draftFontScale);
     const normalizedSubtitleFontScale = clampFontScale(draftSubtitleFontScale);
-    const builtinFontOptions: PresetOption<Theme['fontStyle']>[] = useMemo(() => ([
-        { value: 'sans', label: t('options.fontSans') },
-        { value: 'serif', label: t('options.fontSerif') },
-        { value: 'mono', label: t('options.fontMono') },
-    ]), [t]);
+    const builtinFontOptions: PresetOption<Theme['fontStyle']>[] = useMemo(() => (
+        FONT_STYLE_OPTIONS.map(option => ({ value: option.value, label: t(option.labelKey) }))
+    ), [t]);
     const fontWeightOptions: PresetOption<number>[] = useMemo(() => (
         FONT_WEIGHT_PRESETS.map(preset => ({
             value: preset.value,

@@ -1,4 +1,6 @@
-import { getFromCache, removeFromCache, saveToCache } from './db';
+import { getFromCache, removeFromCache } from './db';
+import { getCacheTableName, putCacheEntry } from './repositories/cacheRepository';
+import { appDatabase } from './appDatabase';
 import i18n from '../i18n/config';
 import type { StoredCustomLyricsFont } from '../types';
 
@@ -35,7 +37,23 @@ export interface UploadLyricsFontResult {
     storedFont: StoredUploadedLyricsFont;
 }
 
-const registeredUploadedFontIds = new Set<string>();
+type PersistedUploadedLyricsFont = Omit<StoredUploadedLyricsFont, 'blob'> & {
+    version: 2;
+    data: ArrayBuffer;
+};
+
+const registeredUploadedFontFaces = new Map<string, FontFace>();
+let fontGeneration = 0;
+
+export class UploadedFontOperationCancelled extends Error {
+    constructor() { super('font-operation-cancelled'); this.name = 'UploadedFontOperationCancelled'; }
+}
+
+const unregisterUploadedFont = (id: string) => {
+    const face = registeredUploadedFontFaces.get(id);
+    if (face) getDocumentFonts()?.delete(face);
+    registeredUploadedFontFaces.delete(id);
+};
 
 const sanitizeUploadedFontId = (id: string) => id.replace(/[^a-zA-Z0-9_-]/g, '_');
 
@@ -53,7 +71,9 @@ const buildUploadedFontFamily = (id: string) => `${UPLOADED_FONT_FAMILY_PREFIX}_
 
 const buildUploadedFontId = (file: File) => {
     const baseName = stripFontExtension(file.name).replace(/\s+/g, '-').replace(/[^a-zA-Z0-9_-]/g, '_');
-    return `${Date.now()}_${baseName || 'font'}`;
+    // HTTP Web deployments may lack randomUUID; font identity does not require a secret token.
+    const suffix = globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
+    return `${Date.now()}_${baseName || 'font'}_${suffix}`;
 };
 
 const getFontFaceConstructor = () => (globalThis as typeof globalThis & {
@@ -102,7 +122,7 @@ export const buildStoredUploadedLyricsFont = (file: File): StoredUploadedLyricsF
 };
 
 export const registerUploadedLyricsFont = async (storedFont: StoredUploadedLyricsFont): Promise<StoredCustomLyricsFont> => {
-    if (registeredUploadedFontIds.has(storedFont.id)) {
+    if (registeredUploadedFontFaces.has(storedFont.id)) {
         return {
             source: 'uploaded',
             family: storedFont.family,
@@ -118,11 +138,15 @@ export const registerUploadedLyricsFont = async (storedFont: StoredUploadedLyric
         throw new Error('This browser does not support loading uploaded fonts.');
     }
 
+    const generation = fontGeneration;
     const fontData = await storedFont.blob.arrayBuffer();
     const fontFace = new FontFaceConstructor(storedFont.family, fontData);
     await fontFace.load();
-    documentFonts.add(fontFace);
-    registeredUploadedFontIds.add(storedFont.id);
+    if (generation !== fontGeneration) throw new UploadedFontOperationCancelled();
+    if (!registeredUploadedFontFaces.has(storedFont.id)) {
+        documentFonts.add(fontFace);
+        registeredUploadedFontFaces.set(storedFont.id, fontFace);
+    }
 
     return {
         source: 'uploaded',
@@ -139,24 +163,53 @@ export const uploadAndRegisterLyricsFont = async (file: File): Promise<UploadLyr
     }
 
     const storedFont = buildStoredUploadedLyricsFont(file);
+    const generation = ++fontGeneration;
+    // WebKit can reject IndexedDB Blob/File writes even after copying a picker-backed File.
+    // Store owned bytes; keep the Blob-facing loader/API and old persisted records compatible.
+    const data = await file.arrayBuffer();
+    storedFont.blob = new Blob([data], { type: storedFont.mimeType });
+    if (generation !== fontGeneration) throw new UploadedFontOperationCancelled();
     const meta = await registerUploadedLyricsFont(storedFont);
-    await saveToCache(UPLOADED_LYRICS_FONT_KEY, storedFont);
+    try {
+        // A user font is durable state, not a best-effort cache: failed writes must not report success.
+        const { blob: _blob, ...metadata } = storedFont;
+        const persisted: PersistedUploadedLyricsFont = { ...metadata, version: 2, data };
+        // Abort the write if clear/replacement wins while it is pending, preserving the previous record.
+        await appDatabase.transaction('rw', appDatabase.table(getCacheTableName(UPLOADED_LYRICS_FONT_KEY)), async () => {
+            if (generation !== fontGeneration) throw new UploadedFontOperationCancelled();
+            await putCacheEntry(UPLOADED_LYRICS_FONT_KEY, persisted);
+            if (generation !== fontGeneration) throw new UploadedFontOperationCancelled();
+        });
+        if (generation !== fontGeneration) throw new UploadedFontOperationCancelled();
+    } catch (error) {
+        unregisterUploadedFont(storedFont.id);
+        throw error;
+    }
+    for (const id of registeredUploadedFontFaces.keys()) if (id !== storedFont.id) unregisterUploadedFont(id);
 
     return { meta, storedFont };
 };
 
 export const getStoredUploadedLyricsFont = async (): Promise<StoredUploadedLyricsFont | null> => {
-    const stored = await getFromCache<StoredUploadedLyricsFont>(UPLOADED_LYRICS_FONT_KEY);
+    const stored = await getFromCache<StoredUploadedLyricsFont | PersistedUploadedLyricsFont>(UPLOADED_LYRICS_FONT_KEY);
 
-    if (!stored?.id || !stored.family || !stored.label || !(stored.blob instanceof Blob)) {
+    if (!stored || typeof stored.id !== 'string' || !stored.id || typeof stored.family !== 'string'
+        || !stored.family || typeof stored.label !== 'string' || !stored.label) {
         return null;
     }
-
-    return stored;
+    if ('version' in stored) {
+        if (stored.version !== 2 || !(stored.data instanceof ArrayBuffer) || stored.data.byteLength === 0
+            || stored.data.byteLength > MAX_UPLOADED_LYRICS_FONT_SIZE) return null;
+        const { version: _version, data, ...metadata } = stored;
+        return { ...metadata, blob: new Blob([data], { type: typeof stored.mimeType === 'string' ? stored.mimeType : '' }) };
+    }
+    return stored.blob instanceof Blob && stored.blob.size > 0 && stored.blob.size <= MAX_UPLOADED_LYRICS_FONT_SIZE ? stored : null;
 };
 
 export const restoreUploadedLyricsFont = async (fontId: string): Promise<StoredCustomLyricsFont | null> => {
+    const generation = fontGeneration;
     const storedFont = await getStoredUploadedLyricsFont();
+    if (generation !== fontGeneration) throw new UploadedFontOperationCancelled();
     if (!storedFont || storedFont.id !== fontId) {
         return null;
     }
@@ -165,7 +218,8 @@ export const restoreUploadedLyricsFont = async (fontId: string): Promise<StoredC
 };
 
 export const clearUploadedLyricsFont = async (): Promise<void> => {
-    registeredUploadedFontIds.clear();
+    fontGeneration++;
+    for (const id of registeredUploadedFontFaces.keys()) unregisterUploadedFont(id);
     await removeFromCache(UPLOADED_LYRICS_FONT_KEY);
 };
 

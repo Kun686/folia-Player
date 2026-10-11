@@ -5,7 +5,7 @@ import { getCustomCappellaEmojiPack } from '../services/cappellaEmojiPack';
 import { getCustomCappellaAvatar } from '../services/cappellaAvatarPack';
 import { getMonetBackgroundImage } from '../services/monetBackgroundImage';
 import { getMonetPortraitImage } from '../services/monetPortraitImage';
-import { restoreUploadedLyricsFont } from '../services/customLyricsFont';
+import { restoreUploadedLyricsFont, UploadedFontOperationCancelled } from '../services/customLyricsFont';
 import {
     resolveStoredCappellaTuning,
     resolveStoredMonetBackgroundTuning,
@@ -289,10 +289,11 @@ export function useAppPreferences() {
                     });
                 }
             } catch (error) {
-                console.warn('[Preferences] Failed to restore uploaded lyrics font:', error);
-                if (isCancelled) {
+                // A new upload/clear can supersede startup restoration; do not reset its preference.
+                if (isCancelled || error instanceof UploadedFontOperationCancelled) {
                     return;
                 }
+                console.warn('[Preferences] Failed to restore uploaded lyrics font:', error);
 
                 clearLyricsCustomFontAfterRestoreFailure({
                     type: 'error',

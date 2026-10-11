@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useVisualizerSettingsStore, selectVisualizerSettingsSnapshot } from '../stores/useVisualizerSettingsStore';
@@ -9,10 +9,12 @@ import { VISUALIZER_BACKGROUND_REGISTRY, getVisualizerBackgroundModeLabel, hasVi
 import { useVisualizerBackgroundConfig } from '../components/visualizer/useVisualizerBackgroundConfig';
 import AppearanceTransfer from './AppearanceTransfer';
 import type { MobileTheme } from './useMobileTheme';
+import TypographyControls from './TypographyControls';
 
 // src/mobile/VisualSettings.tsx — expose existing registry/settings and desktop persistence.
 export default function VisualSettings({ light, close, appearance }: { light: boolean; close: () => void; appearance: MobileTheme }) {
   const { t } = useTranslation();
+  const [uploading, setUploading] = useState(false);
   const s = useVisualizerSettingsStore(useShallow(selectVisualizerSettingsSnapshot));
   const staticMode = useThemeSettingsStore(state => state.staticMode);
   const assets = useVisualizerAssetStore(useShallow(state => ({
@@ -23,7 +25,8 @@ export default function VisualSettings({ light, close, appearance }: { light: bo
   const background = useVisualizerBackgroundConfig();
   const theme = light ? appearance.theme.light : appearance.theme.dark;
   return <div className="sheet-backdrop"><section className="sheet visual-settings" role="dialog" aria-modal="true" aria-label={t('mobile.visuals')}>
-    <header><h2>{t('mobile.visuals')}</h2><button onClick={close}>{t('mobile.close')}</button></header>
+    <header><h2>{t('mobile.visuals')}</h2><button disabled={uploading} onClick={close}>{t('mobile.close')}</button></header>
+    <fieldset className="visual-settings-content" disabled={uploading}>
     <label>{t('mobile.visualizer')}<select aria-label={t('mobile.visualizer')} value={s.visualizerMode} onChange={e => {
       if (hasVisualizerMode(e.target.value)) s.handleSetVisualizerMode(e.target.value, { notify: false });
     }}>{VISUALIZER_REGISTRY.map(item => <option key={item.mode} value={item.mode}>{getVisualizerModeLabel(item.mode, t)}</option>)}</select></label>
@@ -35,6 +38,7 @@ export default function VisualSettings({ light, close, appearance }: { light: bo
     </select></label>
     <label className="check-label"><input type="checkbox" checked={staticMode} onChange={e => useThemeSettingsStore.getState().handleToggleStaticMode(e.target.checked)} />{t('mobile.staticMode')}</label>
     <AppearanceTransfer appearance={appearance} />
+    <TypographyControls theme={theme} onUploading={setUploading} />
     <Suspense fallback={<p>{t('mobile.loading')}</p>}>{entry.renderSettingsPanel?.({
       t, theme, isDaylight: light, controlCardBg: 'bg-black/5 dark:bg-white/5', rangeInputClass: 'w-full',
       ...assets, classicTuning: s.classicTuning, onClassicTuningChange: s.handleSetClassicTuning,
@@ -68,5 +72,6 @@ export default function VisualSettings({ light, close, appearance }: { light: bo
         },
       })}
     </Suspense></details>
+    </fieldset>
   </section></div>;
 }
