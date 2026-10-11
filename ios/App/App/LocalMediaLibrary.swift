@@ -16,6 +16,9 @@ actor LocalMediaLibrary {
         var libraryMetadataJSON: String? = nil
     }
     let root: URL
+    let folderStore: LocalFolderStore
+    var folderTransaction: LocalFolderTransaction?
+    var mediaEpoch = UUID()
     lazy var libraryStore = NativeLibraryStore(root: root)
     lazy var folderScanner = LocalFolderScanner()
     var lyricEditTokens: [String: String] = [:]
@@ -23,11 +26,20 @@ actor LocalMediaLibrary {
     init(root: URL? = nil) {
         self.root = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("FoliaMedia", isDirectory: true)
+        folderStore = LocalFolderStore(root: self.root)
+        // Failed recovery retains files; catalog reads still surface an invalid index instead of resetting it.
+        try? folderStore.recoverBeforePlayback()
     }
     static func validID(_ id: String) -> Bool { UUID(uuidString: id) != nil }
     func directory(_ id: String) throws -> URL {
         guard Self.validID(id) else { throw MobileFailure("invalid-local-identity") }
-        return root.appendingPathComponent(id, isDirectory: true)
+        let legacy = root.appendingPathComponent(id, isDirectory: true)
+        if FileManager.default.fileExists(atPath: legacy.path) {
+            try folderStore.requireDirectory(legacy)
+            return legacy
+        }
+        if let track = try folderStore.snapshot().tracks[id] { return try folderStore.location(track) }
+        return legacy
     }
     func catalog(requireComplete: Bool = false) throws -> [[String: Any]] {
         do { return try librarySnapshot()["songs"] as? [[String: Any]] ?? [] }
@@ -42,10 +54,17 @@ actor LocalMediaLibrary {
         let directories: [URL]
         do { directories = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) }
         catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile { return [] }
+        var locations = directories.filter { Self.validID($0.lastPathComponent) }.map { (id: $0.lastPathComponent, url: $0) }
+        do {
+            for track in try folderStore.snapshot(refresh: true).tracks.values {
+                do { locations.append((id: track.id, url: try folderStore.location(track))) }
+                catch { if requireComplete { throw error } }
+            }
+        } catch { if requireComplete { throw error } }
         // Playlist repair must never interpret unreadable metadata as a deleted song.
-        return try directories
-            .filter { Self.validID($0.lastPathComponent) }
-            .compactMap { url throws -> [String: Any]? in
+        return try locations
+            .compactMap { location throws -> [String: Any]? in
+                let (id, url) = location
                 guard let data = try? Data(contentsOf: url.appendingPathComponent("song.json")),
                       let base = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
                     if requireComplete { throw MobileFailure("local-library-incomplete") }
@@ -53,12 +72,12 @@ actor LocalMediaLibrary {
                 }
                 if requireComplete {
                     let ref = base["sourceRef"] as? [String: String]
-                    guard ref?["kind"] == "local", ref?["mediaId"] == url.lastPathComponent else {
+                    guard ref?["kind"] == "local", ref?["mediaId"] == id else {
                         throw MobileFailure("local-library-incomplete")
                     }
                 }
-                if requireComplete { return try matchedSong(url.lastPathComponent, base: base) }
-                return (try? matchedSong(url.lastPathComponent, base: base)) ?? base
+                if requireComplete { return try matchedSong(id, base: base) }
+                return (try? matchedSong(id, base: base)) ?? base
             }.sorted { ($0["name"] as? String ?? "").localizedStandardCompare($1["name"] as? String ?? "") == .orderedAscending }
     }
     func resolve(_ id: String) throws -> URL {
@@ -93,7 +112,7 @@ actor LocalMediaLibrary {
             if let info { song["replayGain"] = info.dictionary }
             song["replayGainScanned"] = true
             // A full/read-only disk may delay the upgrade, but must not prevent playback.
-            try? JSONSerialization.data(withJSONObject: song).write(to: songURL, options: .atomic)
+            if (try? JSONSerialization.data(withJSONObject: song).write(to: songURL, options: .atomic)) != nil { mediaEpoch = UUID() }
         }
         return NativeAudioSource(url: url, replayGain: NativeReplayGainInfo(song["replayGain"]))
     }
@@ -115,11 +134,7 @@ actor LocalMediaLibrary {
             guard let text = String(data: data, encoding: .utf8) else { throw MobileFailure("invalid-lyrics") }
             source = LyricSource(content: text, fileName: nil)
         }
-        guard source.content.utf8.count <= 2_000_000, (source.embeddedContent?.utf8.count ?? 0) <= 2_000_000,
-              (source.embeddedTranslation?.utf8.count ?? 0) <= 2_000_000,
-              (source.fileName?.utf8.count ?? 0) <= 1024, (source.matchJSON?.utf8.count ?? 0) <= 3_000_000, (source.libraryMetadataJSON?.utf8.count ?? 0) <= 131_072,
-              source.lyricsSource == nil || ["local", "embedded", "online"].contains(source.lyricsSource!) else { throw MobileFailure("invalid-lyrics") }
-        return source
+        return try source.validated()
     }
     func details(_ id: String) throws -> [String: Any] {
         _ = try resolve(id)
@@ -142,8 +157,14 @@ actor LocalMediaLibrary {
         return try Data(contentsOf: url)
     }
     func remove(_ id: String) throws {
-        try FileManager.default.removeItem(at: directory(id))
+        let folders = try folderStore.snapshot(refresh: true)
+        if folders.tracks[id] != nil {
+            var document = folders.document
+            for index in document.roots.indices { document.roots[index].tracks.removeAll { $0.id == id } }
+            _ = try folderStore.commit(document, expectedRevision: folders.revision)
+        } else { try FileManager.default.removeItem(at: directory(id)) }
         lyricEditTokens.removeValue(forKey: id)
+        mediaEpoch = UUID()
     }
 
     // Copy before inspecting metadata so cloud/security-scoped documents can be released promptly.
@@ -199,6 +220,7 @@ actor LocalMediaLibrary {
             try Task.checkCancellation()
             try JSONSerialization.data(withJSONObject: ["file": target.lastPathComponent]).write(to: folder.appendingPathComponent("media.json"), options: .atomic)
             try JSONSerialization.data(withJSONObject: song).write(to: folder.appendingPathComponent("song.json"), options: .atomic)
+            mediaEpoch = UUID()
             return song
         } catch { try? FileManager.default.removeItem(at: folder); throw error }
     }
@@ -215,6 +237,7 @@ actor LocalMediaLibrary {
         var record = try lyricSource(id) ?? LyricSource(content: "", fileName: nil)
         record.content = text; record.fileName = source.lastPathComponent; record.lyricsSource = "local"; record.contentIsEmbedded = false
         try JSONEncoder().encode(record).write(to: directory(id).appendingPathComponent("lyrics.json"), options: .atomic)
+        mediaEpoch = UUID()
         lyricEditTokens[id] = UUID().uuidString
         return try details(id)
     }

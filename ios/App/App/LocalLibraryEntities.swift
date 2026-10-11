@@ -45,6 +45,7 @@ extension LocalMediaLibrary {
         _ = try libraryStore.apply(inputs: value.inputs, expectedRevision: revision, operation: operation) { snapshot in
             result = try libraryStore.project(snapshot, songs: value.songs, bases: value.bases, documents: value.documents)
         }
+        mediaEpoch = UUID()
         return result
     }
     func displayedSong(_ id: String, base: [String: Any]? = nil) throws -> [String: Any] {

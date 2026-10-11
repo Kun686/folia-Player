@@ -46,10 +46,11 @@ extension LocalMediaLibrary {
     }
     func writeLyricSources(_ record: LyricSource, id: String) throws {
         _ = try resolve(id)
-        let data = try JSONEncoder().encode(record)
+        let data = try JSONEncoder().encode(record.validated())
         guard data.count <= 37_000_000 else { throw MobileFailure("lyrics-too-large") }
         try data.write(to: directory(id).appendingPathComponent("lyrics.json"),
             options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        mediaEpoch = UUID()
     }
     func selectLyricSource(_ source: String, id: String, token: String) async throws -> [String: Any] {
         guard ["local", "embedded", "online"].contains(source) else { throw MobileFailure("invalid-lyrics-source") }
@@ -67,5 +68,18 @@ extension LocalMediaLibrary {
         try writeLyricSources(record, id: id)
         lyricEditTokens[id] = UUID().uuidString
         return lyricSnapshot(record, id: id)
+    }
+}
+
+extension LocalMediaLibrary.LyricSource {
+    // Shared by normal reads/writes and folder commit validation, before any new index becomes visible.
+    func validated() throws -> Self {
+        guard content.utf8.count <= 2_000_000, (embeddedContent?.utf8.count ?? 0) <= 2_000_000,
+              (embeddedTranslation?.utf8.count ?? 0) <= 2_000_000,
+              (fileName?.utf8.count ?? 0) <= 1024, (matchJSON?.utf8.count ?? 0) <= 3_000_000,
+              (libraryMetadataJSON?.utf8.count ?? 0) <= 131_072,
+              lyricsSource == nil || ["local", "embedded", "online"].contains(lyricsSource!)
+        else { throw MobileFailure("invalid-lyrics") }
+        return self
     }
 }
