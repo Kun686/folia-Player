@@ -31,7 +31,7 @@ import AVFoundation
         XCTAssertEqual(snapshot["embeddedTranslation"] as? String, taggedTranslation)
         XCTAssertEqual(snapshot["content"] as? String, "")
         let record = try await local.lyricSource(id)
-        XCTAssertEqual(record?.content, taggedOriginal); XCTAssertEqual(record?.embeddedScanVersion, 2)
+        XCTAssertEqual(record?.content, taggedOriginal); XCTAssertEqual(record?.embeddedScanVersion, LocalMediaLibrary.embeddedScanVersion)
         let reopened = try await LocalMediaLibrary(root: root).readLyricSources(id)
         XCTAssertEqual(reopened["embeddedTranslation"] as? String, taggedTranslation)
         let result = try await NativeLyricParser().localSources(reopened)
@@ -53,7 +53,7 @@ import AVFoundation
         XCTAssertEqual(snapshot["lyricsSource"] as? String, "local")
         XCTAssertEqual(snapshot["embeddedContent"] as? String, taggedOriginal)
         XCTAssertEqual(snapshot["embeddedTranslation"] as? String, taggedTranslation)
-        let refreshed = try await local.lyricSource(id); XCTAssertEqual(refreshed?.embeddedScanVersion, 2)
+        let refreshed = try await local.lyricSource(id); XCTAssertEqual(refreshed?.embeddedScanVersion, LocalMediaLibrary.embeddedScanVersion)
         let selected = try await local.selectLyricSource("embedded", id: id, token: XCTUnwrap(snapshot["token"] as? String))
         XCTAssertEqual(selected["content"] as? String, old.content)
         // Current/newer scans are retained; running an older app must not downgrade newer metadata.

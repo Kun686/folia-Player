@@ -78,8 +78,8 @@ App、工具自动创建的日志辅助进程与本阶段启动的模拟器均�
 耳机／蓝牙／网络切换、≤150ms 视觉同步误差及持续温升／内存。
 真实 App 在线链路仍受未配置的音乐 API 网关连接限制；本地显示与操作无需服务器。
 完整 Automix、其余原版编辑工具和长期真机验收仍待完成。
-后续源码已补齐多 USLT／iTunes 歌词择优与独立翻译，原生 FLAC／Vorbis、SYLT 采集仍未完成，
-见 [EMBEDDED_METADATA.md](EMBEDDED_METADATA.md)。
+后续源码已补齐多 USLT／iTunes 歌词择优与独立翻译，见 [EMBEDDED_METADATA.md](EMBEDDED_METADATA.md)。
+FLAC／Vorbis comment、SYLT 采集和 iOS 18 专项见 [EMBEDDED_FORMATS.md](EMBEDDED_FORMATS.md)，尚未打入个人 App。
 
 回退源码提交即可撤销本阶段接线；不迁移或删除曲库／原始歌词数据。
 该源码阶段保留 mobile.12 安装包与记录；后续 mobile.13 安装已包含本阶段功能，交互验收仍独立记录。

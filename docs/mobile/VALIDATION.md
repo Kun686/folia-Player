@@ -1,5 +1,24 @@
 # 移动候选验证记录
 
+## 后续开发源码：FLAC 与 SYLT 内嵌歌词（未更新个人 iPhone）
+
+2026-10-11，复用已安装 music-metadata 11.16.1 的原解析器、选择器和 JavaScriptCore，
+接入 FLAC／Vorbis comment 与 ID3 SYLT，保存正文／翻译并将旧扫描升级至版本 3。无新增依赖、无 UI 改动。
+
+- PASS：类型检查；4 文件／43 项逻辑；移动资源构建／同步。
+- PASS：iPhone 17 Pro／iOS26.5 临时模拟器，Release 原生 41 项／0 失败，12.315 秒。
+  首次发现前置 ID3 隐藏 Vorbis，接入原文件解析器后通过。
+- 真机首次未加载测试插件，未运行测试。核验独立 QA 签名与生成的 xctestrun 后执行，
+  10 项中 2 项失败（8 个断言／异常）：iOS18 普通 FLAC 三种样本没有歌词。
+- PASS：让所有 FLAC 均走原文件解析后，iPhone XS Max／iOS18.7.10 专项 10 项／0 失败，1.252 秒。
+  覆盖 10 个实际音频样本、系统标签为空、翻译保存、旧扫描迁移、取消／截断和解析恢复。
+  这次专项不冒充重新执行模拟器 41 项，也不计作文件选择器／歌词 UI 验收。
+- QA 已卸载，个人 app.folia.personal 回读仍为 build19；临时模拟器删除，无新 IPA，BUILD_RECORD 不变。
+- NOT_RUN：个人安装包、物理 iPad、真实平台长期测试和性能。完整移植保持 IN_PROGRESS。
+
+范围、输入限制、许可证及原失败记录见 [EMBEDDED_FORMATS.md](EMBEDDED_FORMATS.md)。
+本地证据索引为 `.mobile-test-results/metadata-formats-evidence.json`。
+
 ## 后续开发源码：多标签内嵌歌词与独立翻译（未更新个人 iPhone）
 
 2026-10-11，将原桌面标签选择规则提取共享；原生收集多 USLT／iTunes 歌词、保留翻译、升级旧扫描，
@@ -10,7 +29,7 @@
   首次命令遗漏 testability，模块导入失败，未执行测试；第二次仅给测试传入 ENABLE_TESTABILITY=YES／ONLY_ACTIVE_ARCH=YES 后通过。
 - 样本覆盖实际 MP3 多 USLT 及 M4A 多 iTunes 标签、翻译持久化、旧扫描升级、旧正文来源判断、并发令牌、
   超限和取消，以及既有导入／匹配／原生歌词规划。详情与证据见 [EMBEDDED_METADATA.md](EMBEDDED_METADATA.md)。
-- 未接入：FLAC／Vorbis、SYLT 原生采集；NOT_RUN：本阶段真机 UI、真实平台链路及长期性能。
+- 本阶段当时未接入的 FLAC／Vorbis comment、SYLT 已在上述后续源码接入；NOT_RUN：本阶段真机 UI、真实平台链路及长期性能。
   完整移植保持 IN_PROGRESS，本阶段不生成新 IPA。
 
 ## mobile.19：半透明与动态背景跟随（当前开发候选）

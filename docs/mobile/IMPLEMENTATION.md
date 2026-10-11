@@ -58,7 +58,10 @@ mobile.10 阶段的 142 项模拟器原生回归、13 项真机专项、51 项�
 
 mobile.19 之后的开发源码已补齐本地多 USLT／iTunes 歌词择优、独立翻译保存／显示／导出及旧扫描升级。
 复用原桌面选择规则，无新依赖；类型检查、28 项相关逻辑、7 项导出复核、3 项 WebKit 和 23 项原生专项通过，
-测试次数不重复相加。尚未打入个人手机，FLAC／Vorbis 与 SYLT 原生采集仍待补齐，见 [EMBEDDED_METADATA.md](EMBEDDED_METADATA.md)。
+测试次数不重复相加。尚未打入个人手机，见 [EMBEDDED_METADATA.md](EMBEDDED_METADATA.md)。
+后续已复用既有 music-metadata 接入 FLAC／Vorbis comment 与 SYLT，扫描版本升至 3；
+43 项逻辑、41 项模拟器原生通过，随后修正 iOS 18 系统不暴露普通 FLAC 歌词的问题，最终 iPhone 专项 10 项通过。
+独立 QA 已清理，个人 App 仍为 mobile.19；范围及失败记录见 [EMBEDDED_FORMATS.md](EMBEDDED_FORMATS.md)。
 
 此前附加音效开发见 [EFFECT_PARITY.md](EFFECT_PARITY.md)：DSP、组合链、线程交接和tap共32项测试通过；
 组合阶段Debug全部70项、Release相关8项回归通过，随后实际tap接线9项通过。

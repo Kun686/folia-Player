@@ -65,7 +65,8 @@
 本阶段测试只覆盖实际存在的导入／内嵌来源，不能当作后续匹配功能的验证。
 **NOT_IMPLEMENTED**：全部桌面歌词工具和完整 Automix。
 当时未完成的多 USLT／iTunes 歌词择优与独立翻译已在后续源码补齐，见 [EMBEDDED_METADATA.md](EMBEDDED_METADATA.md)。
-FLAC／Vorbis、SYLT 原生采集和其他文件编码矩阵仍未完成。
+FLAC／Vorbis comment 与 SYLT 原生采集已在后续源码接入，见 [EMBEDDED_FORMATS.md](EMBEDDED_FORMATS.md)。
+其余文件编码矩阵仍未完成；不代表新增 Ogg 音频导入支持。
 
 **NOT_RUN**：本阶段 iPhone 安装、物理 iPhone／iPad 手动操作、真实平台 App 在线链路、30 分钟锁屏、
 耳机／蓝牙／网络切换、≤150ms 歌词显示误差、持续温升与内存。既有 Partita 长词裁切问题仍单独待查。

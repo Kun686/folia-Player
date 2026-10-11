@@ -25,6 +25,11 @@ actor NativeLyricParser {
               (result.translationLyrics?.utf8.count ?? 0) <= 2_000_000 else { throw MobileFailure("lyrics-too-large") }
         return result
     }
+    func flacTags(_ url: URL) throws -> EmbeddedLyrics {
+        try Task.checkCancellation()
+        do { return try NativeMetadataFile.read(url, context: lyricContext()) }
+        catch { context = nil; throw error } // Discard any unfinished JS jobs before reusing this actor.
+    }
     func localMatchDocument(_ document: [String: Any]) throws -> String {
         let input = try JSONSerialization.data(withJSONObject: document)
         let result = try call("localMatchJSON", input: input, limit: 3_000_000, inputLimit: 8_000_000)
@@ -46,9 +51,7 @@ actor NativeLyricParser {
         return result
     }
 
-    private func call(_ method: String, input: Data, limit: Int = 300000, inputLimit: Int = 12_100_000) throws -> Data {
-        try Task.checkCancellation()
-        guard input.count <= inputLimit else { throw MobileFailure("lyrics-too-large") }
+    private func lyricContext() throws -> JSContext {
         if context == nil {
             guard let scriptURL, let source = try? String(contentsOf: scriptURL, encoding: .utf8),
                   source.utf8.count <= 2_000_000, let created = JSContext() else { throw MobileFailure("lyric-runtime-unavailable") }
@@ -62,6 +65,12 @@ actor NativeLyricParser {
             context = created
         }
         guard let context else { throw MobileFailure("lyric-runtime-unavailable") }
+        return context
+    }
+    private func call(_ method: String, input: Data, limit: Int = 300000, inputLimit: Int = 12_100_000) throws -> Data {
+        try Task.checkCancellation()
+        guard input.count <= inputLimit else { throw MobileFailure("lyrics-too-large") }
+        let context = try lyricContext()
         guard let inflate = context.objectForKeyedSubscript("foliaInflate") else { throw MobileFailure("lyric-runtime-unavailable") }
         context.exception = nil
         let result = context.objectForKeyedSubscript("FoliaLocalLyrics")?.invokeMethod(method,

@@ -23,7 +23,7 @@ extension LocalMediaLibrary {
             let embedded: EmbeddedLyrics
             do {
                 let metadata = try await AVURLAsset(url: audio).load(.metadata)
-                embedded = try await Self.embeddedLyrics(metadata, parser: lyricImportParser)
+                embedded = try await Self.embeddedLyrics(metadata, parser: lyricImportParser, fileURL: audio)
             } catch {
                 // Optional tag failures must not hide saved imports or prevent replacing them.
                 // Leave the scan pending so a transient metadata failure can recover on the next read.

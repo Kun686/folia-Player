@@ -165,7 +165,7 @@ actor LocalMediaLibrary {
             let allMetadata = try await asset.load(.metadata)
             if let info = await NativeReplayGainInfo.read(allMetadata) { song["replayGain"] = info.dictionary }
             song["replayGainScanned"] = true
-            if let embedded = try? await Self.embeddedLyrics(allMetadata, parser: lyricImportParser), let text = embedded.lyrics {
+            if let embedded = try? await Self.embeddedLyrics(allMetadata, parser: lyricImportParser, fileURL: target), let text = embedded.lyrics {
                 let lyrics = LyricSource(content: text, fileName: nil, embeddedContent: text,
                     embeddedTranslation: embedded.translationLyrics, embeddedScanned: true,
                     embeddedScanVersion: Self.embeddedScanVersion, contentIsEmbedded: true)

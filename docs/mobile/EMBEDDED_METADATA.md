@@ -2,6 +2,8 @@
 
 2026-10-11 后续开发源码；个人 iPhone 保留 mobile.19，本阶段没有生成或安装新 IPA，
 `BUILD_RECORD.json` 仍绑定已交付的 mobile.19。完整移植保持 IN_PROGRESS。
+本文记录 USLT／iTunes 阶段；后续 FLAC、SYLT、扫描版本 3 及 iOS 18 真机修正见
+[EMBEDDED_FORMATS.md](EMBEDDED_FORMATS.md)。
 
 ## 实现与复用
 
@@ -28,7 +30,7 @@
 
 已验证 ID3v2.4 UTF-8 多 USLT 的语言／descriptor 及多个 iTunes 歌词标签。
 实际 M4A 导出样本没有保留语言信息，因此只证明择优正文，不能证明能识别缺失提示的独立翻译。
-FLAC／Vorbis 与 SYLT 的原生采集仍未接入；共享的桌面规则保留 SYLT 支持不等于 iOS 已能读取该标签。
+本阶段当时未接入的 FLAC／Vorbis comment 与 SYLT 原生采集已在后续源码接入，见上述格式专项记录。
 其余编码与文件格式矩阵、物理设备文件选择器及长期性能为 NOT_RUN。
 
 ## 验证
