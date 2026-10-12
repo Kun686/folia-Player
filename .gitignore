@@ -100,3 +100,5 @@ dist-mobile/
 ios/DerivedData/
 .mobile-test-results/
 deploy/mobile/.env
+# Approved binary dependency: recreate and verify with dev/mobile/prepare-ort.py.
+ios/Vendor/ONNXRuntime/

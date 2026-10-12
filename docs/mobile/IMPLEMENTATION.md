@@ -1,5 +1,8 @@
 # Folia iPhone / iPad 实现与安装
 
+用户已批准固定ORT1.30.0工程接入。实际Folia QA已加入可取消推理桥，8项原生模拟器测试通过，
+两组拍点及单段四轨输出与原参考逐字节一致；完整窗口和用户队列尚未接入，见 [ORT_INTEGRATION.md](ORT_INTEGRATION.md)。
+
 开发源码开放原版 AMLLDB 歌词匹配，复用原搜索／TTML解析／预览和存储，修复跨平台同数字ID预览。
 54项逻辑、24项WebKit界面及1项真实公开接口检查通过；手机新入口未验收，个人App未更新，见 [AMLL_MATCH.md](AMLL_MATCH.md)。
 
@@ -168,7 +171,7 @@ mobile.17自动回归及iPad实际模拟器操作通过；iPhone模拟器部分�
 后续真实人声30秒片段在iPhone通过相同数值门槛，退出点与参考同为23.65秒；耗时41.4秒、峰值约1.08GiB，
 真实分轨听感、播放争用及长期性能仍待测，见[AUTOMIX_MUSIC.md](AUTOMIX_MUSIC.md)。
 详见[AUTOMIX_RUNTIME_130.md](AUTOMIX_RUNTIME_130.md)、[AUTOMIX_WINDOW.md](AUTOMIX_WINDOW.md)；
-生产依赖与接入方案待批准，见[AUTOMIX_INTEGRATION_DECISION.md](AUTOMIX_INTEGRATION_DECISION.md)。
+用户已批准生产依赖的独立QA工程接入，实际进展见[ORT_INTEGRATION.md](ORT_INTEGRATION.md)。
 按用户最新要求优先移植原播放器、歌词和动效，同时支持本地导入与网易云／QQ。
 服务器配置不再是使用 App 的前提。真实平台与真机完整验收尚未完成，不能作为已验收安装包发布。
 

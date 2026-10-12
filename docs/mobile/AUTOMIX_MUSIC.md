@@ -82,4 +82,4 @@ vocals 参考 RMS 为 0.07535434，本样本没有重现近静音相对误差超
 
 **仍未验证**：真实分轨交接听感、实际手势输出、播放／动画争用、背景调度、温升／长时内存、物理 iPad。
 本样本数值通过不覆盖所有曲风、增益超限或近静音边界，也不消除此前失败。
-正式工程接入仍按 [接入评估](AUTOMIX_INTEGRATION_DECISION.md) 等待批准，完整移植保持 IN_PROGRESS。
+后续用户已批准按 [接入评估](AUTOMIX_INTEGRATION_DECISION.md) 开始独立QA工程接入，完整移植保持 IN_PROGRESS。

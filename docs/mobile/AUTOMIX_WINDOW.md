@@ -93,4 +93,4 @@ iPhone 在上述隔离宿主使用 `--model htdemucs --window`，内置 50 秒 w
 原 Python 源码 SHA256：`e8e8922ac45395781b0b45327b3aac8c164ddd7c9bb32572bbe1c3a48b95e7b3`。
 
 **NOT_RUN**：真实音乐质量、实际分轨播放／手势、播放与动画争用、后台任务调度、长时间温升／内存、物理 iPad。
-完整移植仍为 IN_PROGRESS。生产依赖及接入范围另见 [接入评估](AUTOMIX_INTEGRATION_DECISION.md)，待用户批准。
+完整移植仍为 IN_PROGRESS。后续用户已批准独立QA工程接入，范围见 [接入评估](AUTOMIX_INTEGRATION_DECISION.md)。

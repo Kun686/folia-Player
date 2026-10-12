@@ -148,4 +148,4 @@ iPhone耗时约33.1秒、峰值约1.08GiB，0次内存警告。近静音vocals�
 仍记为未通过原1e-4诊断门槛；原16位存储最大差1单位，人声退出判断相同。详见[AUTOMIX_WINDOW.md](AUTOMIX_WINDOW.md)。
 
 **NOT_RUN**：真实音乐质量、播放器与动画争用、后台调度、温升功耗和长期内存。
-独立推理可运行不等于完整Automix；生产接入仍待批准，见[接入评估](AUTOMIX_INTEGRATION_DECISION.md)。
+独立推理可运行不等于完整Automix；后续独立QA工程接入已获批准，见[接入评估](AUTOMIX_INTEGRATION_DECISION.md)。
