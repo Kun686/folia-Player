@@ -14,6 +14,7 @@ final class NativeTrackProfiles {
     private var values: [String: Value] = [:]
     private var order: [String] = []
     private var beatModel: URL?
+    private var pressure = false
     private(set) var revision = 0
     var hasPending: Bool { !tasks.isEmpty }
     var changed: (() -> Void)?
@@ -23,6 +24,13 @@ final class NativeTrackProfiles {
     deinit { tasks.values.forEach { $0.1.cancel() } }
     func value(_ song: [String: Any]) -> [String: Any]? { NativeProfileIdentity(song).flatMap { values[$0.key]?.fields } }
     func cancel() { wanted.removeAll(); tasks.values.forEach { $0.1.cancel() }; tasks.removeAll() }
+    // Pressure stops model/preparation work too. Retain completed profiles, and let the owner
+    // resubmit its current queue on recovery instead of resurrecting the pre-pressure intent.
+    func resourcePressure(_ active: Bool) {
+        guard pressure != active else { return }
+        pressure = active
+        if active { cancel() } else { changed?() }
+    }
     // A model change is a different analysis capability, even for the same song and signed media URL.
     @discardableResult func useBeatModel(_ model: URL?) -> Bool {
         guard beatModel != model else { return false }
@@ -51,6 +59,7 @@ final class NativeTrackProfiles {
         wanted = wanted.filter { !$0.key.hasPrefix("online:") }; revision += 1
     }
     func update(_ songs: [[String: Any]], sources: [String: URL] = [:]) {
+        guard !pressure else { return }
         let ordered = songs.compactMap(NativeProfileIdentity.init).filter {
             $0.localID != nil || mediaCache != nil || sources[$0.key].flatMap { try? NativeProfilePrefix.request($0) } != nil
         }

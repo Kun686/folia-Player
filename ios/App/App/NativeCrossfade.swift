@@ -128,6 +128,7 @@ final class NativeCrossfade {
     func localMediaRemoved(_ id: String) { stems.remove(localID: id); if !isFading { invalidatePlan() } }
     func localMediaChanged() { stems.localMediaChanged(); if !isFading { invalidatePlan() } }
     func resourcePressure(_ active: Bool) {
+        profiles.resourcePressure(active)
         stems.resourcePressure(active)
         // A cleared window also revokes its vocal-end evidence, including within the arm lead.
         if active, !isFading { invalidatePlan() }
