@@ -36,6 +36,9 @@ struct NativeMasterHandover: Codable {
     let requestedRate: Double, mediaOverlap: Double
     let envelope: NativeTransitionEnvelope?
     let cue: NativeTransitionCue?
+    var sourceClock: NativeMediaClock? = nil
+    // Native timing evidence is not part of the original JS protocol or its reference fixtures.
+    private enum CodingKeys: String, CodingKey { case requestedRate, mediaOverlap, envelope, cue }
 }
 
 actor NativeTransitionPlanner {

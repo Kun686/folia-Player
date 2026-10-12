@@ -74,6 +74,54 @@ private final class LimitedTempoFeed: NativeTempoFeed {
 }
 
 @MainActor extension NativeTests {
+    func testStemStartUsesNearestHostSampleWithoutRejectingTailEndingCoverage() async throws {
+        let planner = NativeTransitionPlanner()
+        for fractional in [0.0, 0.015625, 0.25, 0.5, 0.75, 0.984375] {
+            let clock = NativeMediaClock(source: UUID(), epoch: 0, sampleRate: 44100,
+                sampleEnd: 100000, mediaEnd: 9 + fractional / 44100, quantumFrames: 512)
+            let hold = 10 - clock.mediaEnd
+            let start = try XCTUnwrap(NativeStemAlignment.start(clock: clock, hold: hold))
+            let position = try XCTUnwrap(clock.position(at: start))
+            XCTAssertLessThanOrEqual(abs(position - 10) * 44100, 0.500001)
+            let coverage = try await planner.stemWindow(JSONSerialization.data(withJSONObject: ["version": 1,
+                "outAt": position, "outFrom": 0, "outFrames": 529200, "inAt": 1, "inFrom": 0,
+                "inFrames": 529200, "seconds": 2, "lateBy": 0]))
+            XCTAssertTrue(coverage.covered, "fractional media origin=\(fractional)")
+        }
+    }
+    func testStemAlignmentValidatesBothRenderOrdersAndRejectsChangedMediaEpoch() throws {
+        let a = LimitedTempoFeed(), b = LimitedTempoFeed()
+        let outgoing = try NativeTempoHandover(source: a), incoming = try NativeTempoHandover(source: b)
+        defer { outgoing.close(); incoming.close() }
+        let pcm = StemClockFixture.buffer(128)
+        func render(_ deck: NativeTempoHandover, _ frame: Double) {
+            XCTAssertEqual(deck.render(pcm.mutableAudioBufferList, frames: 128, sampleTime: frame), noErr)
+        }
+        render(outgoing, 0); render(incoming, 0)
+        let clocks = try XCTUnwrap(NativeStemClocks(outgoing: outgoing.snapshot().mediaClock, incoming: incoming.snapshot().mediaClock))
+        let alignment = try NativeStemAlignment(clocks: clocks, plannedStart: 512, outFrom: 0, inFrom: 0,
+            outgoing: outgoing, incoming: incoming)
+        XCTAssertTrue(alignment.valid(at: 128, frames: 128))
+        render(incoming, 128)
+        XCTAssertTrue(alignment.valid(at: 128, frames: 128), "Incoming may render before the gate")
+        render(outgoing, 128)
+        XCTAssertTrue(alignment.valid(at: 128, frames: 128))
+        XCTAssertEqual(try XCTUnwrap(alignment.offsets(at: 512)).outgoing, 512, accuracy: 1e-9)
+        render(outgoing, 256)
+        XCTAssertTrue(alignment.valid(at: 256, frames: 128), "Outgoing may render first as well")
+        b.isPaused = true; render(incoming, 256)
+        XCTAssertFalse(alignment.valid(at: 256, frames: 128))
+        b.isPaused = false; render(incoming, 384); render(outgoing, 384)
+        XCTAssertNotNil(incoming.renderMediaClock)
+        XCTAssertFalse(alignment.valid(at: 384, frames: 128), "Resume cannot revive an anchor from before the pause")
+        let replacement = try XCTUnwrap(NativeStemClocks(outgoing: outgoing.snapshot().mediaClock, incoming: incoming.snapshot().mediaClock))
+        let fresh = try NativeStemAlignment(clocks: replacement, plannedStart: 512, outFrom: 0, inFrom: 0,
+            outgoing: outgoing, incoming: incoming)
+        XCTAssertTrue(fresh.valid(at: 512, frames: 128))
+        b.available = b.cursor
+        render(incoming, 512); render(outgoing, 512)
+        XCTAssertFalse(fresh.valid(at: 512, frames: 128), "Underrun revokes the exact media projection")
+    }
     func testExactMediaClockTracksHostFramesAndRejectsStaleOrDiscontinuousAnchors() throws {
         var tracker = NativeMediaClockTracker()
         let first = try XCTUnwrap(tracker.record(sampleTime: 100000, frames: 128, sampleRate: 44100,

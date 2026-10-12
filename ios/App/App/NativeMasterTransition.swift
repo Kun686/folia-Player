@@ -25,16 +25,28 @@ enum NativeMasterTransition {
             let measured = await output.deckState(outgoing.audio)
             try check()
             let live = measured.flatMap { state in state.time.flatMap { CACurrentMediaTime() - $0 < 0.25 ? state : nil } }
+            var sourceClock = output.mediaClock(outgoing.audio)
+            // A control read may land between the two deck pulls. Paired stems need a coherent
+            // snapshot, not a one-shot race that silently demotes an otherwise ready transition.
+            if stems != nil, sourceClock == nil, outgoing.tempoState?.phase == .raw {
+                let deadline = CACurrentMediaTime() + 0.25
+                while sourceClock == nil && CACurrentMediaTime() < deadline {
+                    try check()
+                    try await Task.sleep(nanoseconds: 5_000_000)
+                    sourceClock = output.mediaClock(outgoing.audio)
+                }
+            }
             func extent(_ window: NativeStemWindow?) -> Any {
                 window.map { ["from": $0.from, "to": $0.from + $0.duration] } as Any? ?? NSNull()
             }
             let request: [String: Any] = ["version": 1, "plan": fields,
                 "from": ["duration": duration, "lines": NSNull(), "profile": fromProfile as Any? ?? NSNull(), "separated": extent(stems?.outgoing)],
                 "to": ["duration": 0, "lines": NSNull(), "profile": toProfile as Any? ?? NSNull(), "separated": extent(stems?.incoming)],
-                "timing": ["position": outgoing.position, "tailRate": tailRate, "appliedRate": applied as Any? ?? NSNull(),
+                "timing": ["position": sourceClock?.mediaEnd ?? outgoing.position, "tailRate": tailRate, "appliedRate": applied as Any? ?? NSNull(),
                     "outgoingDb": live?.loudnessDb as Any? ?? NSNull(), "periodSec": live?.tempo?.periodSec as Any? ?? NSNull(),
                     "nextBeatIn": live?.nextBeatIn as Any? ?? NSNull()]]
-            let result = try await planner.master(JSONSerialization.data(withJSONObject: request))
+            var result = try await planner.master(JSONSerialization.data(withJSONObject: request))
+            result.sourceClock = sourceClock
             try check()
             return result
         }

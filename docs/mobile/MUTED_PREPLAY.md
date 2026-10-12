@@ -4,6 +4,9 @@
 **PASS_DEVICE_PREPLAY / SIMULATOR_REGRESSION_UNRESOLVED / FULL_AUTOMIX_IN_PROGRESS**。
 仅独立 QA；个人 App 保持 mobile.28，未修改界面、设置、模型或依赖。
 
+后续进展见 [四轨实际队列接管](LIVE_STEM_HANDOVER.md)：最终同一份源码在真机与模拟器
+各通过 64 项生成音频回归。以下保留本阶段历史结果，原模拟器超时仍未独立确认根因。
+
 ## 实现与复用
 
 复用 `TransitionGainCurve` 的常量端点：当前歌曲保持 1，下一首保持 0。

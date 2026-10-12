@@ -5,7 +5,18 @@ enum NativeStemRole: String, Hashable { case head, tail }
 struct NativeStemWindowAlignment: Decodable { let covered: Bool, late: Double; let expansionOffset: Int?, inOffset: Int?, length: Int? }
 
 final class NativeStemWindow {
-    struct Packed { let gain: Double; let pcm: [Int16] }
+    struct Packed {
+        let gain: Double; let pcm: [Int16]
+        // Shared by control-side decoding and late-bound render reads. Preserve WebKit's last-pair extrapolation.
+        func sample(at position: Double, channel: Int, frames: Int) -> Float {
+            guard position >= 0, position < Double(frames) else { return 0 }
+            let left = frames == 1 ? 0 : min(Int(position), frames - 2)
+            let a = Float(Double(pcm[channel * frames + left]) / 32767 * gain)
+            if frames == 1 { return a }
+            let b = Float(Double(pcm[channel * frames + left + 1]) / 32767 * gain)
+            return Float(Double(a) + (Double(b) - Double(a)) * (position - Double(left)))
+        }
+    }
     let fromFrame: Int, frames: Int
     let role: NativeStemRole
     let vocalEnd: Double?
@@ -73,18 +84,8 @@ final class NativeStemWindow {
         guard offset.isFinite, offset >= 0, offset < Double(frames),
               (1...1_323_000).contains(count) else { throw MobileFailure("invalid-stem-window") }
         let stem = packed[name]!
-        func sample(_ index: Int, _ channel: Int) -> Float {
-            Float(Double(stem.pcm[channel * frames + index]) / 32767 * stem.gain)
-        }
         return (0..<2).map { channel in
-            (0..<count).map { i in
-                let position = offset + Double(i)
-                guard position < Double(frames) else { return Float(0) }
-                if frames == 1 { return sample(0, channel) }
-                let left = min(Int(position), frames - 2), fraction = position - Double(left)
-                let a = Double(sample(left, channel)), b = Double(sample(left + 1, channel))
-                return Float(a + (b - a) * fraction)
-            }
+            (0..<count).map { stem.sample(at: offset + Double($0), channel: channel, frames: frames) }
         }
     }
 

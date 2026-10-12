@@ -94,6 +94,9 @@ final class StreamMixOutput {
               let end = transitionGain.clock.renderedEnd, clock.isCurrent(at: end) else { return nil }
         return clock
     }
+    func stemClocks(outgoing: AudioPlayer, incoming: AudioPlayer) -> NativeStemClocks? {
+        NativeStemClocks(outgoing: mediaClock(outgoing), incoming: mediaClock(incoming))
+    }
     func observeTempo(_ player: AudioPlayer, changed: @escaping (Bool) -> Void) throws {
         guard !closed, let tempo = sources[ObjectIdentifier(player)]?.source.tempo else { throw MobileFailure("tempo-unavailable") }
         tempo.changed = changed
@@ -137,6 +140,19 @@ final class StreamMixOutput {
     func replacePreplay(outgoing: AudioPlayer, incoming: AudioPlayer, envelope: NativeTransitionEnvelope,
                         generation: UInt64) throws -> UInt64? {
         transitionGain.replace(try gainCurve(outgoing: outgoing, incoming: incoming, envelope: envelope), generation: generation)
+    }
+    func replacePreplay(outgoing: AudioPlayer, incoming: AudioPlayer, prepared: NativeLiveStemHandover,
+                        fallback: NativeTransitionEnvelope, generation: UInt64) throws -> UInt64? {
+        guard !closed, let out = sources[ObjectIdentifier(outgoing)]?.source,
+              let next = sources[ObjectIdentifier(incoming)]?.source, let outTempo = out.tempo,
+              let inTempo = next.tempo else { throw MobileFailure("invalid-stem-alignment") }
+        let alignment = try NativeStemAlignment(clocks: prepared.clocks, plannedStart: prepared.plannedStart,
+            outFrom: prepared.outgoing.from, inFrom: prepared.incoming.from, outgoing: outTempo, incoming: inTempo)
+        let pcm = try NativeStemMixer(outgoing: prepared.outgoing, incoming: prepared.incoming,
+            gesture: prepared.gesture, bus: prepared.bus, outLevel: out.replayGain.amplitude, inLevel: next.replayGain.amplitude)
+        let stems = try NativeStemTransition(outgoing: out.identity, incoming: next.identity, mixer: pcm,
+            seconds: prepared.gesture.schedule.windowSec, hold: 0, splice: prepared.bus.spliceSec, alignment: alignment)
+        return transitionGain.replace(stems, fallback: try gainCurve(outgoing: outgoing, incoming: incoming, envelope: fallback), generation: generation)
     }
     // Constant endpoints keep the next deck silent even if control-side preparation is delayed.
     func schedulePreplay(outgoing: AudioPlayer, incoming: AudioPlayer, generation: UInt64) throws -> Bool {

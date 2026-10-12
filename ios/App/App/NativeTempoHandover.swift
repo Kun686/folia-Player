@@ -22,6 +22,8 @@ final class NativeTempoHandover {
     private var pendingClockReset = false
     private var published: State
     private var mediaClock = NativeMediaClockTracker()
+    // Only the serial shared render graph reads/writes this value. Control uses snapshot() instead.
+    private(set) var renderMediaClock: NativeMediaClock?
     // Main-control callbacks use pre-created coalescing sources, as AudioEffectController does.
     // A reset invalidates queued notices; render never allocates a dispatch closure or waits for main.
     var changed: ((Bool) -> Void)?
@@ -123,6 +125,7 @@ final class NativeTempoHandover {
         let position = phase == .active ? state.position : window.position(cursor)
         let clock = mediaClock.record(sampleTime: sampleTime, frames: Int(frames), sampleRate: window.format.sampleRate,
             mediaEnd: position, complete: phase == .raw && desiredRate == 1 && completeRawRead)
+        renderMediaClock = clock
         if lock.try() {
             let next = State(phase: phase, position: position,
                 rate: phase == .active ? state.rate : 1, decoderEnded: phase == .active ? state.decoderEnded : rawEnded,
@@ -137,7 +140,7 @@ final class NativeTempoHandover {
         return noErr
     }
     private func invalidateRenderedMediaClock() {
-        mediaClock.invalidate()
+        mediaClock.invalidate(); renderMediaClock = nil
         if lock.try() { published.mediaClock = nil; lock.unlock() }
     }
     // After entering TimePitch, rate 1 stays on the same aligned stream until this occurrence ends.
@@ -147,7 +150,7 @@ final class NativeTempoHandover {
         guard !closed else { throw MobileFailure("tempo-unavailable") }
         guard !window.source.isSeeking else { throw MobileFailure("invalid-position") }
         prepareNotices()
-        mediaClock.invalidate()
+        mediaClock.invalidate(); renderMediaClock = nil
         window.reset(); cursor = 0; feed.cursor = 0; feed.underflow = false
         pendingRate = nil; pendingClockReset = false; desiredRate = 1; rawEnded = false; phase = .raw
         do { try stream.reset() }
@@ -161,7 +164,7 @@ final class NativeTempoHandover {
     func close() {
         lock.lock(); defer { lock.unlock() }
         guard !closed else { return }; closed = true; pendingRate = nil
-        mediaClock.invalidate(); published.mediaClock = nil
+        mediaClock.invalidate(); renderMediaClock = nil; published.mediaClock = nil
         noticeGeneration &+= 1; wake?.cancel(); fault?.cancel(); changed = nil
         stream.close(); window.close()
     }

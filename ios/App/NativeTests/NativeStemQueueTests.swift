@@ -36,6 +36,64 @@ actor MeasuredQueueStemSeparator: NativeStemSeparating {
 }
 
 @MainActor extension NativeTests {
+    func testActualAutomixQueueRunsFourStemProgramAndCancelsItOnUserSeek() async throws {
+        for finish in [false, true] {
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            let file = try profileAudio(seconds: 12)
+            defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: file) }
+            let local = LocalMediaLibrary(root: root), songs = [try await local.importAudio(file), try await local.importAudio(file)]
+            let row = try XCTUnwrap(try masterFixture().first { ($0["name"] as? String)?.hasPrefix("bass-132-") == true })
+            let input = try XCTUnwrap(row["input"] as? [String: Any]), folder = root.appendingPathComponent("profiles")
+            let cache = NativeProfileCache(directory: folder)
+            var tracks: [[String: Any]] = []
+            for (index, name) in ["from", "to"].enumerated() {
+                var track = try XCTUnwrap(input[name] as? [String: Any]), profile = try XCTUnwrap(track["profile"] as? [String: Any])
+                profile["duration"] = 12; profile["gridless"] = true
+                track["duration"] = 12; track["profile"] = profile; tracks.append(track)
+                let identity = try XCTUnwrap(NativeProfileIdentity(songs[index]))
+                let url = try await local.resolve(XCTUnwrap(identity.localID))
+                cache.save(try JSONSerialization.data(withJSONObject: profile), key: try cache.key(for: url))
+            }
+            let storage = UserDefaults(suiteName: UUID().uuidString)!
+            let player = PlaybackEngine(gateway: FailingGateway(), storage: storage, local: local, usesStereoOutput: true)
+            let profiles = NativeTrackProfiles(local: local, profiler: NativeTrackProfiler(cacheDirectory: folder)), separator = QueueStemSeparator()
+            let stems = NativeTrackStems(local: local, mediaCache: player.mediaCache, separator: separator, profilesIdle: { !profiles.hasPending })
+            player.network.cancel(); player.crossfade = NativeCrossfade(owner: player, profiles: profiles, stems: stems)
+            defer { player.stop(); player.clearOutput(); stems.cancel(); profiles.cancel() }
+            player.crossfade?.modelsChanged(beat: nil, stems: URL(fileURLWithPath: "/test-only-fake.onnx"))
+            try player.crossfade?.configure(enabled: true, maximumSeconds: 2, mode: "automix")
+            let plan = try await NativeTransitionPlanner().plan(JSONSerialization.data(withJSONObject: ["version": 1,
+                "settings": ["mode": "automix", "crossfadeMaxSec": 2, "performance": false],
+                "from": tracks[0], "to": tracks[1], "bpm": 120, "at": 0]))
+            try player.setQueue(songs, at: 0)
+            try await waitForStream { player.outputIsPlaying && player.preparedStream != nil && stems.value(songs[0], role: .tail) != nil && stems.value(songs[1], role: .head) != nil }
+            try player.command("seek", position: max(0, plan.outStart - 0.95))
+            do { try await waitForStream {
+                guard player.index == 1, player.crossfade?.isStemFading == true,
+                      let clock = player.streamOutput?.transitionGain.clock,
+                      let start = clock.curveStart, let end = clock.renderedEnd else { return false }
+                return end > start + 4410
+            } }
+            catch {
+                print("FOLIA_STEM_QUEUE_HANDOVER failed index=\(player.index) position=\(player.playbackPosition) planStart=\(plan.outStart) stemFailed=\(player.streamOutput?.transitionGain.clock.stemFailed ?? false) preparation=\(player.crossfade?.stemPreparationStatus ?? "missing") tail=\(stems.phase(songs[0], role: .tail)) head=\(stems.phase(songs[1], role: .head))")
+                throw error
+            }
+            XCTAssertEqual(player.streamOutput?.attachedCount, 2); XCTAssertEqual(player.stream?.rate, 1)
+            try await Task.sleep(for: .milliseconds(200))
+            XCTAssertTrue(player.crossfade!.isStemFading); XCTAssertTrue(player.outputIsPlaying)
+            let current = player.stream
+            if finish {
+                try await waitForStream { player.crossfade?.isFading == false && player.outputIsPlaying }
+                XCTAssertGreaterThan(player.playbackPosition, 2)
+            } else {
+                try player.command("seek", position: 1)
+                try await waitForStream { player.outputIsPlaying && player.stream?.seeking == false }
+            }
+            XCTAssertTrue(player.stream === current); XCTAssertFalse(player.crossfade!.isStemFading)
+            XCTAssertEqual(player.streamOutput?.attachedCount, 1)
+            print("FOLIA_STEM_QUEUE_HANDOVER actualQueue=PASS renderedStems=PASS unityRate=PASS naturalCompletion=\(finish) currentDeckContinues=PASS separation=GENERATED_FIXTURE")
+        }
+    }
     func testStemPreparationFollowsActualPlayerModeQueueAndMemoryPressure() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString), file = try profileAudio(seconds: 30)
         defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: file) }

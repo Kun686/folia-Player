@@ -42,7 +42,7 @@ struct TransitionGainCurve {
 }
 
 final class TransitionGain {
-    struct Clock { let renderedEnd: Double?; let curveStart: Double?; let generation: UInt64?; let stemFailed: Bool }
+    struct Clock { let renderedEnd: Double?; let curveStart: Double?; let generation: UInt64?; let stemFailed: Bool; let stemActive: Bool }
     private final class Command {
         let curve: TransitionGainCurve?
         let stems: NativeStemTransition?
@@ -62,11 +62,13 @@ final class TransitionGain {
     private var curveStart: Double?
     private var appliedGeneration: UInt64?
     private var stemFailed = false
+    private var stemScheduled = false
     var clock: Clock {
         lock.lock(); defer { lock.unlock() }
         // Retired PCM is no longer render-owned. Reclaim it on this control-side status read.
         retired = nil
-        return Clock(renderedEnd: renderedEnd, curveStart: curveStart, generation: appliedGeneration, stemFailed: stemFailed)
+        return Clock(renderedEnd: renderedEnd, curveStart: curveStart, generation: appliedGeneration,
+                     stemFailed: stemFailed, stemActive: stemScheduled && !stemFailed)
     }
     // AVAudioEngine pulls this graph serially. Render owns these fields, including both decks' quantum.
     private var active: Command?
@@ -118,6 +120,13 @@ final class TransitionGain {
         ready = Command(generation: generation, curve: curve)
         return generation
     }
+    func replace(_ stems: NativeStemTransition, fallback: TransitionGainCurve, generation expected: UInt64) -> UInt64? {
+        lock.lock(); defer { lock.unlock() }
+        guard expected == generation, stems.claim() else { return nil }
+        generation &+= 1; pendingTrim = nil; retired = nil
+        ready = Command(generation: generation, curve: fallback, stems: stems)
+        return generation
+    }
     @discardableResult func scheduleStems(_ stems: NativeStemTransition, generation expected: UInt64) -> Bool {
         lock.lock(); defer { lock.unlock() }
         guard expected == generation, stems.claim() else { return false }
@@ -136,7 +145,7 @@ final class TransitionGain {
     func closeWhileStopped() {
         lock.lock(); defer { lock.unlock() }
         generation &+= 1; ready = nil; retired = nil; active = nil; pendingTrim = nil
-        renderedEnd = nil; curveStart = nil; appliedGeneration = nil; stemFailed = false
+        renderedEnd = nil; curveStart = nil; appliedGeneration = nil; stemFailed = false; stemScheduled = false
         quantum = nil; outID = nil; inID = nil; restoreFrames = 0
         trimFrom = 1; trimTo = 1; trimFrames = 0
     }
@@ -156,12 +165,13 @@ final class TransitionGain {
     }
 
     private func value(incoming: Bool, at frame: Double) -> Float {
-        if let stems = active?.stems { return stems.gain(incoming: incoming, elapsed: frame - start) }
-        if let curve = active?.curve { return curve.value(incoming: incoming, elapsed: frame - start) }
+        if let stems = active?.stems, !stems.failed || active?.curve == nil { return stems.gain(incoming: incoming, elapsed: frame - start) }
+        if let curve = activeCurve { return curve.value(incoming: incoming, elapsed: frame - start) }
         guard restoreFrames > 0, frame < start + restoreFrames else { return 1 }
         let from = incoming ? inFrom : outFrom
         return Float(Double(from) + (1 - Double(from)) * max(0, frame - start) / restoreFrames)
     }
+    private var activeCurve: TransitionGainCurve? { active?.stems?.failed == false ? nil : active?.curve }
 
     // Adopt at most once per shared timestamp, so a command between deck pulls cannot split a pair.
     // try() never waits; replaced curve storage is retained until a later CONTROL call, never freed here.
@@ -174,17 +184,18 @@ final class TransitionGain {
                 outFrom = value(incoming: false, at: heldAt); inFrom = value(incoming: true, at: heldAt)
                 retired = active; active = next; ready = nil
                 appliedGeneration = next.generation
-                if let curve = next.curve {
+                stemScheduled = next.stems != nil
+                if let stems = next.stems {
+                    stems.setOutgoingLevel(stems.outgoing == outID ? outFrom : stems.outgoing == inID ? inFrom : 1)
+                    outID = stems.outgoing; inID = stems.incoming
+                    // Bind source offsets at this actual callback, including any preparation overrun.
+                    start = stems.activate(at: frame, frames: frames); curveStart = start; restoreFrames = 0
+                    trimFrom = 1; trimTo = 1; trimFrames = 0
+                } else if let curve = next.curve {
                     outID = curve.outgoing; inID = curve.incoming
                     start = frame + curve.hold * rate
                     curveStart = start
                     restoreFrames = 0
-                    trimFrom = 1; trimTo = 1; trimFrames = 0
-                } else if let stems = next.stems {
-                    stems.setOutgoingLevel(stems.outgoing == outID ? outFrom : stems.outgoing == inID ? inFrom : 1)
-                    outID = stems.outgoing; inID = stems.incoming
-                    // A native source starts on a PCM frame. Round all three lanes together, <1 sample late.
-                    start = ceil(frame + stems.hold * rate); curveStart = start; restoreFrames = 0
                     trimFrom = 1; trimTo = 1; trimFrames = 0
                 } else {
                     start = frame; curveStart = nil; restoreFrames = next.restoreSeconds * rate
@@ -226,7 +237,11 @@ final class TransitionGain {
               let data = list[0].mData?.assumingMemoryBound(to: Float.self) else { return false }
         beginQuantum(sampleTime, frames: frames, rate: rate)
         let participating = source == outID || source == inID
-        guard active?.curve == nil || active?.curve?.rate == rate else { return false }
+        let curve = activeCurve
+        // A stem failure changes the effective program without a new control command. Let deck DSP
+        // adopt the fallback once as well, rather than leaving the echo send in its previous bypass.
+        let effectsGeneration = appliedGeneration.map { $0 &* 2 &+ ((active?.stems?.failed ?? false) ? 1 : 0) }
+        guard curve == nil || curve?.rate == rate else { return false }
         let incoming = source == inID
         // Trim precedes tone and fade, while the per-deck measurement tap remains ahead of all three.
         if participating && !incoming, trimFrom != 1 || trimTo != 1 {
@@ -236,11 +251,11 @@ final class TransitionGain {
             }
         }
         tone?.process(data, frames: frames, sampleTime: sampleTime, rate: rate,
-                      curve: participating ? active?.curve?.bands : nil, incoming: incoming, start: start,
-                      duration: (active?.curve?.seconds ?? 0) * rate,
-                      generation: appliedGeneration, immediate: active?.restoreSeconds == 0)
-        echo?.adopt(participating && !incoming ? active?.curve?.echo : nil, generation: appliedGeneration,
-                    anchor: start - (active?.curve?.hold ?? 0) * rate, sampleTime: sampleTime,
+                      curve: participating ? curve?.bands : nil, incoming: incoming, start: start,
+                      duration: (curve?.seconds ?? 0) * rate,
+                      generation: effectsGeneration, immediate: active?.restoreSeconds == 0)
+        echo?.adopt(participating && !incoming ? curve?.echo : nil, generation: effectsGeneration,
+                    anchor: start - (curve?.hold ?? 0) * rate, sampleTime: sampleTime,
                     immediate: active?.restoreSeconds == 0)
         for index in 0..<frames {
             let gain = participating ? value(incoming: incoming, at: sampleTime + Double(index)) : 1

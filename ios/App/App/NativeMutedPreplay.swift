@@ -51,6 +51,24 @@ final class NativeMutedPreplay {
         state = .transferred
         return next
     }
+    @MainActor func clocks(current: () -> Bool) async throws -> NativeStemClocks? {
+        let deadline = CACurrentMediaTime() + 0.25
+        while CACurrentMediaTime() < deadline {
+            try check(current)
+            guard state == .playing else { throw MobileFailure("transition-cancelled") }
+            if let clocks = output.stemClocks(outgoing: outgoing.audio, incoming: incoming.audio) { return clocks }
+            try await Task.sleep(nanoseconds: 5_000_000)
+        }
+        return nil
+    }
+    func commit(_ prepared: NativeLiveStemHandover, fallback: NativeTransitionEnvelope, current: () -> Bool) throws -> UInt64 {
+        try check(current)
+        guard state == .playing, let generation,
+              let next = try output.replacePreplay(outgoing: outgoing.audio, incoming: incoming.audio,
+                  prepared: prepared, fallback: fallback, generation: generation) else { throw MobileFailure("transition-cancelled") }
+        state = .transferred
+        return next
+    }
     private func check(_ current: () -> Bool) throws {
         try Task.checkCancellation()
         guard state != .cancelled, state != .transferred, current(), output.running,

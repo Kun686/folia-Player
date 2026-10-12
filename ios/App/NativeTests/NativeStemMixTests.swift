@@ -13,6 +13,29 @@ private struct StemMixReference: Decodable {
 }
 
 @MainActor extension NativeTests {
+    func testLateBoundPackedStemMixerMatchesFractionalDecodedWindows() async throws {
+        let fixture = try await StemClockFixture(), out = try StemStorageReference.window(frames: 88200)
+        let input = try StemStorageReference.window(frames: 88200, role: .head)
+        let a = StemClockFixture.buffer(257), b = StemClockFixture.buffer(257)
+        var maximum: Float = 0
+        for offset in [0.0, 17.25, 8192.5, 52920.49] {
+            let reference = try NativeStemMixer(outgoing: out.decoded(offset: offset, count: 35280),
+                incoming: input.decoded(offset: 0.75, count: 35280), gesture: fixture.gesture, bus: fixture.bus)
+            let packed = try NativeStemMixer(outgoing: out, incoming: input, gesture: fixture.gesture, bus: fixture.bus)
+            XCTAssertFalse(packed.render(a.mutableAudioBufferList, frames: 257))
+            XCTAssertFalse(packed.bind(outgoingOffset: .nan, incomingOffset: 0))
+            XCTAssertFalse(packed.bind(outgoingOffset: 52921, incomingOffset: 0))
+            XCTAssertTrue(packed.bind(outgoingOffset: offset, incomingOffset: 0.75))
+            XCTAssertFalse(packed.bind(outgoingOffset: 0, incomingOffset: 0))
+            while packed.position < packed.frames {
+                XCTAssertTrue(packed.render(a.mutableAudioBufferList, frames: 257))
+                XCTAssertTrue(reference.render(b.mutableAudioBufferList, frames: 257))
+                for i in 0..<514 { maximum = max(maximum, abs(a.floatChannelData![0][i] - b.floatChannelData![0][i])) }
+            }
+        }
+        XCTAssertEqual(maximum, 0, "Late binding must retain the exact established WebKit fractional-sample path")
+        print("FOLIA_LIVE_STEM_PACKED maxPCM=\(maximum) offsets=4")
+    }
     private func stemMixReference() throws -> (StemMixReference, [[String: Any]]) {
         let url = try XCTUnwrap(Bundle(for: NativeTests.self).url(forResource: "StemMixReference", withExtension: "json"))
         let data = try Data(contentsOf: url)

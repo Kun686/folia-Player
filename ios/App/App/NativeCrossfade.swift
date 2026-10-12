@@ -18,10 +18,12 @@ final class NativeCrossfade {
         let cue: NativeTransitionCue
         let hold: Double
         let style: String
+        var masterBalance: Bool
     }
     private weak var owner: PlaybackEngine?
     private let planner = NativeTransitionPlanner()
     private let balance = NativeBalanceCorrection()
+    private let stemHandover = NativeStemHandover()
     private let profiles: NativeTrackProfiles
     private let stems: NativeTrackStems
     private var beatModel: URL?
@@ -41,7 +43,12 @@ final class NativeCrossfade {
     private(set) var mode = "crossfade"
     private(set) var enabled = false
     private(set) var maximumSeconds = 5.0
+    private(set) var stemPreparationStatus = "not-attempted"
     var isFading: Bool { fade != nil }
+    var isStemFading: Bool {
+        guard let fade, let clock = owner?.streamOutput?.transitionGain.clock else { return false }
+        return clock.generation == fade.gainGeneration && clock.stemActive
+    }
 
     init(owner: PlaybackEngine, profiler: NativeTrackProfiler = NativeTrackProfiler(), lyrics: NativeLyrics? = nil,
          profiles: NativeTrackProfiles? = nil, stems: NativeTrackStems? = nil) {
@@ -78,13 +85,14 @@ final class NativeCrossfade {
         work?.cancel(); work = nil; release?.cancel(); release = nil; key = nil; plan = nil
         if let preplay { discardPreplay(preplay) }
     }
-    func cancel(preservingAnalysis: Bool = false) {
+    func cancel(preservingAnalysis: Bool = false, gainGeneration: UInt64? = nil) {
         balance.cancel()
         invalidatePlan()
         // Seeking unchanged decks invalidates timing, not their measured bytes. A fading tail is obsolete.
         if !preservingAnalysis || fade != nil { profiles.cancel(); lyrics.cancel(); stems.cancel() }
         fade?.tail?.dispose(); fade = nil
-        owner?.streamOutput?.transitionGain.cancel()
+        if let gainGeneration { owner?.streamOutput?.transitionGain.cancel(ifCurrent: gainGeneration) }
+        else { owner?.streamOutput?.transitionGain.cancel() }
     }
     func removeTail(where matches: ([String: Any]) -> Bool) {
         if let fade, matches(fade.tailSong) { cancel() }
@@ -134,12 +142,27 @@ final class NativeCrossfade {
     func tick() {
         guard let owner else { return }
         if let fade {
-            guard fade.epoch == owner.generation else { cancel(); return }
+            guard fade.epoch == owner.generation else { cancel(gainGeneration: fade.gainGeneration); return }
             let clock = owner.streamOutput?.transitionGain.clock
+            // Tail EOF removes its stem source and revokes that generation. Waiting only for the
+            // old curve's clock would then leave isFading stuck forever and prevent the next preload.
+            if owner.streamOutput?.transitionGain.isCurrent(fade.gainGeneration) != true {
+                cancel(gainGeneration: fade.gainGeneration); owner.prefetch(); owner.publish(); return
+            }
+            if !fade.masterBalance, clock?.generation == fade.gainGeneration, clock?.stemFailed == true,
+               let output = owner.streamOutput, let outgoing = fade.tail, let incoming = owner.stream {
+                self.fade?.masterBalance = true
+                let elapsed = max(0, ((clock?.renderedEnd ?? 0) - (clock?.curveStart ?? 0)) / 44100)
+                Task { @MainActor [weak self] in
+                    guard let self, self.fade?.gainGeneration == fade.gainGeneration else { return }
+                    self.startBalance(output: output, outgoing: outgoing, incoming: incoming, song: fade.tailSong,
+                        seconds: max(0, fade.seconds - elapsed), generation: fade.gainGeneration)
+                }
+            }
             if clock?.generation == fade.gainGeneration, let start = clock?.curveStart, let end = clock?.renderedEnd,
                end >= start + (fade.seconds + 0.15) * 44100 {
                 if !fade.cached { owner.cachePlayedSong(fade.tailSong, source: fade.sourceURL) }
-                cancel(); owner.prefetch(); owner.publish()
+                cancel(gainGeneration: fade.gainGeneration); owner.prefetch(); owner.publish()
             }
             return
         }
@@ -207,7 +230,9 @@ final class NativeCrossfade {
             return
         }
         guard work == nil, let plan, plan.kind == "fade" else { return }
-        let delay = plan.outStart - owner.playbackPosition
+        // Original one-second arm lead also pays for stem observations while the next deck runs muted.
+        let lead = pairedStems(currentSong, upcomingSong, plan: plan) == nil ? 0.0 : 1.0
+        let delay = plan.outStart - owner.playbackPosition - lead
         if delay > 0 {
             if release == nil {
                 let stamp = revision
@@ -253,6 +278,49 @@ final class NativeCrossfade {
             || a["providerId"] as? String != b["providerId"] as? String
             || a["mediaId"] as? String != b["mediaId"] as? String
     }
+    private func pairedStems(_ from: [String: Any], _ to: [String: Any], plan: NativeTransitionPlan)
+        -> (outgoing: NativeStemWindow, incoming: NativeStemWindow)? {
+        guard mode == "automix", plan.style != "beatCut", plan.overlap >= 0.8,
+              let out = stems.value(from, role: .tail), let input = stems.value(to, role: .head) else { return nil }
+        return (out, input)
+    }
+    @MainActor private func prepareStems(_ pair: (outgoing: NativeStemWindow, incoming: NativeStemWindow)?,
+        session: NativeMutedPreplay, handover: NativeMasterHandover, plan: NativeTransitionPlan, expected: Key) async throws -> NativeLiveStemHandover? {
+        guard let pair, let envelope = handover.envelope, envelope.overlap >= 0.8 else { return nil }
+        guard let original = handover.sourceClock,
+              let clocks = try await session.clocks(current: { [weak self] in self?.matches(expected) == true }),
+              clocks.outgoing.source == original.source, clocks.outgoing.epoch == original.epoch else {
+            stemPreparationStatus = "clock-unavailable"; return nil
+        }
+        guard let start = NativeStemAlignment.start(clock: original, hold: envelope.hold),
+              let outAt = clocks.outgoing.position(at: start), let inAt = clocks.incoming.position(at: start) else { return nil }
+        func bar(_ profile: [String: Any]?) -> Double? {
+            guard let bpm = profile?["bpm"] as? Double, bpm > 0 else { return nil }
+            return 60 / bpm * ((profile?["beatsPerBar"] as? Double).flatMap { $0 > 0 ? $0 : nil } ?? 4)
+        }
+        let context = NativeStemAnalysisContext(windowSec: envelope.overlap, outAt: outAt, inAt: inAt,
+            outgoingBarSec: bar(plannedFrom), incomingBarSec: bar(plannedTo),
+            outgoingBpm: plannedFrom?["bpm"] as? Double, outgoingDownbeat: plannedFrom?["downbeatOffset"] as? Double,
+            outgoingBeatsPerBar: plannedFrom?["beatsPerBar"] as? Double,
+            incomingSectionStart: plannedTo?["sectionStart"] as? Double, expansion: plan.expansion,
+            keysClash: plan.relation == "clashing")
+        let prepared = try await stemHandover.prepareLive(outgoing: pair.outgoing, incoming: pair.incoming,
+            options: context, clocks: clocks, plannedStart: start, planner: planner)
+        stemPreparationStatus = prepared == nil
+            ? "uncovered out=\(outAt) in=\(inAt) seconds=\(envelope.overlap) tail=\(pair.outgoing.frames) head=\(pair.incoming.frames)" : "ready"
+        return prepared
+    }
+    @MainActor private func startBalance(output: StreamMixOutput, outgoing: StreamOccurrence, incoming: StreamOccurrence,
+                              song: [String: Any], seconds: Double, generation: UInt64) {
+        balance.start(planner: planner, output: output, outgoing: outgoing, incoming: incoming,
+            outgoingReference: profiles.value(song)?["loudness"] as? Double,
+            incomingReference: owner?.currentSong.flatMap { profiles.value($0)?["loudness"] as? Double },
+            overlap: seconds, generation: generation,
+            current: { [weak self] in
+                guard let self, let fade = self.fade, let owner = self.owner else { return false }
+                return fade.gainGeneration == generation && fade.epoch == owner.generation && owner.intentToPlay
+            })
+    }
 
     // Validate the awaited envelope against queue intent, then hand over ownership without replacing the output graph.
     private func begin(_ plan: NativeTransitionPlan, key expected: Key) {
@@ -262,25 +330,47 @@ final class NativeCrossfade {
             guard let self else { return }
             do {
                 guard self.matches(expected), let output = self.owner?.streamOutput,
-                      let outgoing = self.owner?.stream else { self.discardStale(expected); return }
-                self.bending = outgoing
-                let handover = try await NativeMasterTransition.prepare(planner: self.planner, plan: plan,
-                    output: output, outgoing: outgoing, duration: owner.playbackDuration,
-                    fromProfile: self.plannedFrom, toProfile: self.plannedTo,
-                    current: { [weak self] in self?.matches(expected) == true })
-                guard let envelope = handover.envelope, let cue = handover.cue else { throw MobileFailure("transition-cancelled") }
-                guard !Task.isCancelled else { return }
-                guard self.matches(expected) else { self.discardStale(expected); return }
-                guard let owner = self.owner,
-                      let output = owner.streamOutput, let outgoing = owner.stream,
-                      let pending = owner.preparedStream, let song = owner.currentSong else { return }
+                      let outgoing = self.owner?.stream, let pending = owner.preparedStream,
+                      let song = owner.currentSong else { self.discardStale(expected); return }
+                let pair = self.pairedStems(song, owner.queue[pending.index], plan: plan)
+                self.stemPreparationStatus = pair == nil ? "no-pair" : "awaiting-clock"
                 // Retain ownership before awaiting audio-thread acknowledgement. Intent cancellation
-                // can now remove the muted source synchronously, before another plan can reuse it.
+                // can remove the muted source synchronously, before another plan can reuse it.
                 let session = try NativeMutedPreplay(output: output, outgoing: outgoing, incoming: pending.entry)
                 self.preplay = session
                 defer { self.discardPreplay(session) }
                 try await session.start(current: { [weak self] in self?.matches(expected) == true })
-                let gainGeneration = try session.commit(envelope, current: { [weak self] in self?.matches(expected) == true })
+                self.bending = outgoing
+                var handover = try await NativeMasterTransition.prepare(planner: self.planner, plan: plan,
+                    output: output, outgoing: outgoing, duration: owner.playbackDuration,
+                    fromProfile: self.plannedFrom, toProfile: self.plannedTo,
+                    stems: pair,
+                    current: { [weak self] in self?.matches(expected) == true })
+                guard var envelope = handover.envelope, var cue = handover.cue else { throw MobileFailure("transition-cancelled") }
+                guard !Task.isCancelled else { return }
+                guard self.matches(expected) else { self.discardStale(expected); return }
+                let prepared: NativeLiveStemHandover?
+                do { prepared = try await self.prepareStems(pair, session: session, handover: handover, plan: plan, expected: expected) }
+                catch {
+                    try Task.checkCancellation()
+                    guard self.matches(expected) else { self.discardStale(expected); return }
+                    self.stemPreparationStatus = "failed:" + ((error as? MobileFailure)?.code ?? "unknown")
+                    // Optional observations failing must preserve the original master schedule.
+                    prepared = nil
+                }
+                if pair != nil, prepared == nil {
+                    // Recompute remaining time after optional observation work; do not replay an old hold.
+                    handover = try await NativeMasterTransition.prepare(planner: self.planner, plan: plan,
+                        output: output, outgoing: outgoing, duration: owner.playbackDuration,
+                        fromProfile: self.plannedFrom, toProfile: self.plannedTo, stems: pair,
+                        current: { [weak self] in self?.matches(expected) == true })
+                    guard let updated = handover.envelope, let updatedCue = handover.cue else { throw MobileFailure("transition-cancelled") }
+                    envelope = updated; cue = updatedCue
+                }
+                let gainGeneration: UInt64
+                if let prepared {
+                    gainGeneration = try session.commit(prepared, fallback: envelope, current: { [weak self] in self?.matches(expected) == true })
+                } else { gainGeneration = try session.commit(envelope, current: { [weak self] in self?.matches(expected) == true }) }
                 self.preplay = nil
                 outgoing.clearEvents()
                 owner.task?.cancel(); owner.preload?.cancel(); owner.stalledRecovery?.cancel(); owner.stalledRecovery = nil
@@ -290,16 +380,11 @@ final class NativeCrossfade {
                 owner.restoredPosition = pending.entry.position
                 owner.error = nil; owner.retried = false; owner.failures = 0
                 self.fade = Fade(tail: outgoing, tailSong: song, sourceURL: outgoing.sourceURL, epoch: owner.generation,
-                                 gainGeneration: gainGeneration, seconds: envelope.overlap, cue: cue, hold: envelope.hold, style: envelope.style)
+                                 gainGeneration: gainGeneration, seconds: envelope.overlap, cue: cue, hold: envelope.hold,
+                                 style: envelope.style, masterBalance: prepared == nil)
                 self.bending = nil
-                self.balance.start(planner: self.planner, output: output, outgoing: outgoing, incoming: pending.entry,
-                    outgoingReference: self.profiles.value(song)?["loudness"] as? Double,
-                    incomingReference: self.profiles.value(owner.queue[pending.index])?["loudness"] as? Double,
-                    overlap: handover.mediaOverlap, generation: gainGeneration,
-                    current: { [weak self] in
-                        guard let self, let fade = self.fade, let owner = self.owner else { return false }
-                        return fade.gainGeneration == gainGeneration && fade.epoch == owner.generation && owner.intentToPlay
-                    })
+                if prepared == nil { self.startBalance(output: output, outgoing: outgoing, incoming: pending.entry,
+                    song: song, seconds: handover.mediaOverlap, generation: gainGeneration) }
                 // Early tail EOF does not truncate the incoming gain curve.
                 outgoing.ended = { [weak self, weak outgoing] in self?.releaseTail(outgoing) }
                 outgoing.failed = { [weak self, weak outgoing] in self?.releaseTail(outgoing) }

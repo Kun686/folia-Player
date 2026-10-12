@@ -3,21 +3,58 @@ import AVFoundation
 // NativeStemMixer.swift — render-owner DSP for the original stem bus, before shared EQ/effects/master gain.
 // Window alignment, master-deck splicing and cancellation remain the scheduler's responsibility.
 final class NativeStemMixer {
-    private struct Lane { let left: [Float], right: [Float], curve: [Float] }
+    private enum Samples {
+        case decoded([[Float]])
+        case packed(NativeStemWindow.Packed, Int)
+        func sample(channel: Int, frame: Int, offset: Double) -> Float {
+            switch self {
+            case .decoded(let channels): return channels[channel][frame]
+            case .packed(let value, let frames): return value.sample(at: Double(frame) + offset, channel: channel, frames: frames)
+            }
+        }
+    }
+    private struct Input {
+        let frames: Int, peak: Double, stems: [NativeStemName: Samples]
+        init(_ pcm: NativeStemPCM) {
+            frames = pcm.frames; peak = Double(pcm.peak); stems = pcm.stems.mapValues { .decoded($0) }
+        }
+        init(_ window: NativeStemWindow) {
+            frames = window.frames
+            peak = window.packed.values.map { $0.gain * 32768 / 32767 }.max()!
+            stems = window.packed.mapValues { .packed($0, window.frames) }
+        }
+    }
+    private struct Lane { let samples: Samples, curve: [Float] }
     // Web Audio connects the outgoing sweep to changeover before the other three gain nodes.
     private static let order: [NativeStemName] = [.other, .drums, .bass, .vocals]
     private let outgoing: [Lane], incoming: [Lane]
     private let bus: NativeStemBusParameters, sweep: NativeStemSchedule.Sweep
     private let duration: Double
+    private let outFrames: Int, inFrames: Int
+    private var outOffset = 0.0, inOffset = 0.0
+    private var aligned: Bool
     private let expansion: NativeExpansionPCM?, expansionLevel: Float
     let frames: Int
     private(set) var position = 0
     private var left = AudioEffectBiquadState(), right = AudioEffectBiquadState()
     private var sweepVariable = true
 
-    init(outgoing: NativeStemPCM, incoming: NativeStemPCM, gesture: NativeStemGesture,
+    convenience init(outgoing: NativeStemPCM, incoming: NativeStemPCM, gesture: NativeStemGesture,
          bus: NativeStemBusParameters, outLevel: Double = 1, inLevel: Double = 1,
          expansion: NativeExpansionPCM? = nil) throws {
+        try self.init(outgoing: Input(outgoing), incoming: Input(incoming), gesture: gesture, bus: bus,
+                      outLevel: outLevel, inLevel: inLevel, expansion: expansion, aligned: true)
+    }
+    // Retain the existing compact windows; binding changes only two scalars, with no PCM copy in render.
+    convenience init(outgoing: NativeStemWindow, incoming: NativeStemWindow, gesture: NativeStemGesture,
+                     bus: NativeStemBusParameters, outLevel: Double = 1, inLevel: Double = 1) throws {
+        guard outgoing.role == .tail, incoming.role == .head else { throw MobileFailure("invalid-stem-window") }
+        try self.init(outgoing: Input(outgoing), incoming: Input(incoming), gesture: gesture, bus: bus,
+                      outLevel: outLevel, inLevel: inLevel, expansion: nil, aligned: false)
+    }
+    private init(outgoing: Input, incoming: Input, gesture: NativeStemGesture,
+                 bus: NativeStemBusParameters, outLevel: Double, inLevel: Double,
+                 expansion: NativeExpansionPCM?, aligned: Bool) throws {
         let seconds = gesture.schedule.windowSec, sweep = gesture.schedule.otherSweep
         guard seconds.isFinite, (0.8...30).contains(seconds),
               bus.curve.count == 8192, bus.curve.allSatisfy({ $0.isFinite && abs($0) <= 1 }),
@@ -33,7 +70,7 @@ final class NativeStemMixer {
         guard outgoing.frames >= frames, incoming.frames >= frames else { throw MobileFailure("invalid-stem-pcm") }
         let knots = max(2, Int(ceil(seconds * 200)))
         // Fold ReplayGain into Float32 knots, exactly where the original session applies it.
-        func lanes(_ pcm: NativeStemPCM, _ curves: [NativeStemName: [Float]], _ level: Double, order: [NativeStemName]) throws -> [Lane] {
+        func lanes(_ pcm: Input, _ curves: [NativeStemName: [Float]], _ level: Double, order: [NativeStemName]) throws -> [Lane] {
             guard level.isFinite, level >= 0, Float(level).isFinite, curves.count == 4 else {
                 throw MobileFailure("invalid-stem-mix")
             }
@@ -43,7 +80,7 @@ final class NativeStemMixer {
                 let scaled = curve.map { Float(Double($0) * level) }
                 guard scaled.allSatisfy({ $0.isFinite && Double($0) * Double(pcm.peak) < Double(Float.greatestFiniteMagnitude) / 16 })
                 else { throw MobileFailure("invalid-stem-mix") }
-                return Lane(left: pcm.stems[name]![0], right: pcm.stems[name]![1], curve: scaled)
+                return Lane(samples: pcm.stems[name]!, curve: scaled)
             }
         }
         self.outgoing = try lanes(outgoing, gesture.outgoing, outLevel, order: Self.order)
@@ -55,6 +92,20 @@ final class NativeStemMixer {
         }
         self.expansion = expansion; expansionLevel = Float(outLevel)
         self.bus = bus; self.sweep = sweep; duration = seconds * NativeStemPCM.rate; self.frames = frames
+        outFrames = outgoing.frames; inFrames = incoming.frames; self.aligned = aligned
+    }
+
+    // Same rounded coverage as stemWindowCoverage. Fractional reads at the final frame retain its
+    // WebKit semantics; an actually uncovered window is rejected, never filled with missing stems.
+    func bind(outgoingOffset: Double, incomingOffset: Double) -> Bool {
+        guard !aligned, position == 0 else { return false }
+        let length = floor(duration + 0.5)
+        func covered(_ offset: Double, _ count: Int) -> Bool {
+            offset.isFinite && offset >= 0 && offset < Double(count) && floor(offset + 0.5) + length <= Double(count)
+        }
+        guard covered(outgoingOffset, outFrames), covered(incomingOffset, inFrames) else { return false }
+        outOffset = outgoingOffset; inOffset = incomingOffset; aligned = true
+        return true
     }
 
     private func frequency(_ frame: Int) -> Float {
@@ -66,7 +117,7 @@ final class NativeStemMixer {
     // Invalid buffers never advance the window; the caller handles the error before mixing this bus.
     @discardableResult func render(_ buffers: UnsafeMutablePointer<AudioBufferList>, frames count: Int) -> Bool {
         let list = UnsafeMutableAudioBufferListPointer(buffers)
-        guard count > 0, count <= 65536, list.count == 1, list[0].mNumberChannels == 2,
+        guard aligned, count > 0, count <= 65536, list.count == 1, list[0].mNumberChannels == 2,
               Int(list[0].mDataByteSize) >= count * 2 * MemoryLayout<Float>.size,
               let output = list[0].mData?.assumingMemoryBound(to: Float.self) else { return false }
         let audible = min(count, max(0, frames - position))
@@ -80,13 +131,15 @@ final class NativeStemMixer {
             for lane in 0..<4 {
                 let outGain = TransitionGainCurve.interpolate(outgoing[lane].curve, elapsed: time, duration: duration)
                 let inGain = TransitionGainCurve.interpolate(incoming[lane].curve, elapsed: time, duration: duration)
-                var l = outgoing[lane].left[frame] * outGain, r = outgoing[lane].right[frame] * outGain
+                var l = outgoing[lane].samples.sample(channel: 0, frame: frame, offset: outOffset) * outGain
+                var r = outgoing[lane].samples.sample(channel: 1, frame: frame, offset: outOffset) * outGain
                 if lane == 0 {
                     l = left.process(l, filter, roundFeedback: sweepVariable)
                     r = right.process(r, filter, roundFeedback: sweepVariable)
                 }
                 outL += l; outR += r
-                inL += incoming[lane].left[frame] * inGain; inR += incoming[lane].right[frame] * inGain
+                inL += incoming[lane].samples.sample(channel: 0, frame: frame, offset: inOffset) * inGain
+                inR += incoming[lane].samples.sample(channel: 1, frame: frame, offset: inOffset) * inGain
             }
             if let expansion {
                 // Same outgoing changeover node: original build bypasses the stem sweep, then shares
