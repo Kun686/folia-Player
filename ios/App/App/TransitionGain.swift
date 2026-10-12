@@ -42,15 +42,17 @@ struct TransitionGainCurve {
 }
 
 final class TransitionGain {
-    struct Clock { let renderedEnd: Double?; let curveStart: Double?; let generation: UInt64? }
+    struct Clock { let renderedEnd: Double?; let curveStart: Double?; let generation: UInt64?; let stemFailed: Bool }
     private final class Command {
         let curve: TransitionGainCurve?
+        let stems: NativeStemTransition?
         let restoreSeconds: Double
         let cancelledAt: Double?
         let generation: UInt64
-        init(generation: UInt64, curve: TransitionGainCurve? = nil, restoreSeconds: Double = 0.03, cancelledAt: Double? = nil) {
+        init(generation: UInt64, curve: TransitionGainCurve? = nil, stems: NativeStemTransition? = nil,
+             restoreSeconds: Double = 0.03, cancelledAt: Double? = nil) {
             self.generation = generation
-            self.curve = curve; self.restoreSeconds = restoreSeconds; self.cancelledAt = cancelledAt
+            self.curve = curve; self.stems = stems; self.restoreSeconds = restoreSeconds; self.cancelledAt = cancelledAt
         }
     }
     private let lock = NSLock()
@@ -59,9 +61,12 @@ final class TransitionGain {
     private var renderedEnd: Double?
     private var curveStart: Double?
     private var appliedGeneration: UInt64?
+    private var stemFailed = false
     var clock: Clock {
         lock.lock(); defer { lock.unlock() }
-        return Clock(renderedEnd: renderedEnd, curveStart: curveStart, generation: appliedGeneration)
+        // Retired PCM is no longer render-owned. Reclaim it on this control-side status read.
+        retired = nil
+        return Clock(renderedEnd: renderedEnd, curveStart: curveStart, generation: appliedGeneration, stemFailed: stemFailed)
     }
     // AVAudioEngine pulls this graph serially. Render owns these fields, including both decks' quantum.
     private var active: Command?
@@ -91,6 +96,28 @@ final class TransitionGain {
         retired = nil; ready = command
         return true
     }
+    @discardableResult func scheduleStems(_ stems: NativeStemTransition, generation expected: UInt64) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        guard expected == generation, stems.claim() else { return false }
+        retired = nil; ready = Command(generation: expected, stems: stems)
+        return true
+    }
+    // Removing/replacing a participating decoder invalidates its independent PCM bus as well.
+    func removeStemSource(_ source: UUID) {
+        lock.lock(); defer { lock.unlock() }
+        let matches: (NativeStemTransition?) -> Bool = { $0?.outgoing == source || $0?.incoming == source }
+        guard matches((ready ?? active)?.stems) else { return }
+        generation &+= 1; pendingTrim = nil; retired = nil
+        ready = Command(generation: generation, cancelledAt: renderedEnd.map { $0 - 1 })
+    }
+    // The caller has stopped AVAudioEngine and all pulls. Large windows are released on control.
+    func closeWhileStopped() {
+        lock.lock(); defer { lock.unlock() }
+        generation &+= 1; ready = nil; retired = nil; active = nil; pendingTrim = nil
+        renderedEnd = nil; curveStart = nil; appliedGeneration = nil; stemFailed = false
+        quantum = nil; outID = nil; inID = nil; restoreFrames = 0
+        trimFrom = 1; trimTo = 1; trimFrames = 0
+    }
     @discardableResult func trim(gain: Double, seconds: Double, generation expected: UInt64) -> Bool {
         guard gain.isFinite, (0...1).contains(gain), seconds.isFinite, seconds > 0, seconds <= 1 else { return false }
         lock.lock(); defer { lock.unlock() }
@@ -107,6 +134,7 @@ final class TransitionGain {
     }
 
     private func value(incoming: Bool, at frame: Double) -> Float {
+        if let stems = active?.stems { return stems.gain(incoming: incoming, elapsed: frame - start) }
         if let curve = active?.curve { return curve.value(incoming: incoming, elapsed: frame - start) }
         guard restoreFrames > 0, frame < start + restoreFrames else { return 1 }
         let from = incoming ? inFrom : outFrom
@@ -130,6 +158,12 @@ final class TransitionGain {
                     curveStart = start
                     restoreFrames = 0
                     trimFrom = 1; trimTo = 1; trimFrames = 0
+                } else if let stems = next.stems {
+                    stems.setOutgoingLevel(stems.outgoing == outID ? outFrom : stems.outgoing == inID ? inFrom : 1)
+                    outID = stems.outgoing; inID = stems.incoming
+                    // A native source starts on a PCM frame. Round all three lanes together, <1 sample late.
+                    start = ceil(frame + stems.hold * rate); curveStart = start; restoreFrames = 0
+                    trimFrom = 1; trimTo = 1; trimFrames = 0
                 } else {
                     start = frame; curveStart = nil; restoreFrames = next.restoreSeconds * rate
                     trimFrom = trimValue(at: heldAt); trimTo = 1; trimStart = frame; trimFrames = restoreFrames
@@ -142,6 +176,21 @@ final class TransitionGain {
             renderedEnd = frame + Double(frames)
             lock.unlock()
         }
+        active?.stems?.beginQuantum(at: frame, frames: frames)
+        if lock.try() { stemFailed = active?.stems?.failed ?? false; lock.unlock() }
+    }
+
+    // A third source shares command adoption with both decoder inserts, regardless of pull order.
+    @discardableResult func processStems(_ buffers: UnsafeMutablePointer<AudioBufferList>, frames: Int,
+                                        sampleTime: Double) -> Bool {
+        let list = UnsafeMutableAudioBufferListPointer(buffers)
+        guard frames > 0, frames <= 65536, sampleTime.isFinite, abs(sampleTime) < 4_503_599_627_370_496,
+              sampleTime.rounded() == sampleTime, list.count == 1, list[0].mNumberChannels == 2,
+              Int(list[0].mDataByteSize) >= frames * 2 * MemoryLayout<Float>.size,
+              let data = list[0].mData?.assumingMemoryBound(to: Float.self) else { return false }
+        data.update(repeating: 0, count: frames * 2)
+        beginQuantum(sampleTime, frames: frames, rate: NativeStemPCM.rate)
+        return active?.stems?.render(data, frames: frames, elapsed: sampleTime - start) ?? true
     }
 
     // Decoder buffers are interleaved stereo. Validation precedes clock changes and sample writes.

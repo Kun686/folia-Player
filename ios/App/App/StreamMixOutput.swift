@@ -8,6 +8,7 @@ final class StreamMixOutput {
     let node: AVAudioUnit
     let unit: AudioEffectUnit
     let transitionGain: TransitionGain
+    private let stems: NativeStemSource
     private struct Deck {
         let input: AVAudioMixerNode, node: AVAudioUnit, processor: TransitionDeckProcessor
     }
@@ -24,6 +25,7 @@ final class StreamMixOutput {
 
     private init(node: AVAudioUnit, unit: AudioEffectUnit, gain: TransitionGain, decks: [Deck]) {
         self.node = node; self.unit = unit; transitionGain = gain; self.decks = decks
+        stems = NativeStemSource(gain: gain)
         let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2)!
         engine.attach(mixer); engine.attach(node)
         for (index, deck) in decks.enumerated() {
@@ -31,6 +33,8 @@ final class StreamMixOutput {
             engine.connect(deck.input, to: deck.node, format: format)
             engine.connect(deck.node, to: mixer, fromBus: 0, toBus: AVAudioNodeBus(index), format: format)
         }
+        engine.attach(stems.node)
+        engine.connect(stems.node, to: mixer, fromBus: 0, toBus: 2, format: stems.format)
         engine.connect(mixer, to: node, format: format)
         engine.connect(node, to: engine.mainMixerNode, format: format)
         observer = NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange,
@@ -128,8 +132,25 @@ final class StreamMixOutput {
             seconds: envelope.overlap, hold: envelope.hold, bands: envelope.bands, echo: envelope.echo)
         return transitionGain.schedule(curve, generation: generation)
     }
+    // Prepared/aligned windows only. Model work and media-position selection stay outside the audio graph.
+    func scheduleStems(outgoing: AudioPlayer, incoming: AudioPlayer, outPCM: NativeStemPCM, inPCM: NativeStemPCM,
+                       gesture: NativeStemGesture, bus: NativeStemBusParameters, hold: Double,
+                       generation: UInt64) throws -> Bool {
+        guard !closed, let out = sources[ObjectIdentifier(outgoing)]?.source,
+              let next = sources[ObjectIdentifier(incoming)]?.source else { throw MobileFailure("audio-failed") }
+        guard out.format.sampleRate == NativeStemPCM.rate, next.format.sampleRate == NativeStemPCM.rate,
+              mixer.outputFormat(forBus: 0).sampleRate == NativeStemPCM.rate else {
+            throw MobileFailure("unsupported-audio-format")
+        }
+        let pcm = try NativeStemMixer(outgoing: outPCM, incoming: inPCM, gesture: gesture, bus: bus,
+            outLevel: out.replayGain.amplitude, inLevel: next.replayGain.amplitude)
+        let schedule = try NativeStemTransition(outgoing: out.identity, incoming: next.identity, mixer: pcm,
+            seconds: gesture.schedule.windowSec, hold: hold, splice: bus.spliceSec)
+        return transitionGain.scheduleStems(schedule, generation: generation)
+    }
     func remove(_ player: AudioPlayer) {
         guard let entry = sources.removeValue(forKey: ObjectIdentifier(player)) else { return }
+        transitionGain.removeStemSource(entry.source.identity)
         analysis.remove(entry.source.capture)
         engine.disconnectNodeOutput(entry.source.node)
         engine.detach(entry.source.node)
@@ -149,6 +170,7 @@ final class StreamMixOutput {
         closed = true; configurationChanged = nil
         if let observer { NotificationCenter.default.removeObserver(observer) }; observer = nil
         engine.stop(); analysis.close()
+        transitionGain.closeWhileStopped()
         for entry in sources.values { engine.detach(entry.source.node); entry.source.close() }
         sources.removeAll()
     }

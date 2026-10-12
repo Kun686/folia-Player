@@ -2,6 +2,7 @@
 
 2026-10-12。**PASS（离线 PCM 与原生音频图自动验证）；尚未接入用户播放队列。**
 这是完整 Automix 的音频输出实现步骤，接续 [手势接口](STEM_GESTURE.md)，不是完整 Automix 交付声明。
+后续共同音频时钟、三路输出图与取消调度已经补充验证，见 [STEM_CLOCK.md](STEM_CLOCK.md)；下文保留本批边界。
 个人 mobile.28、界面、在线账户和服务器均未更新；没有新增生产依赖。
 ORT 工程接入仍待 [原审批](AUTOMIX_INTEGRATION_DECISION.md)，本批不加载模型。
 
