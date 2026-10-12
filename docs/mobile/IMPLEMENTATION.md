@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+后续 `ffdd06a` 修复主题生成区域的原生触摸滚动，只增加一条局部 CSS，保留播放器及原生配置。
+12 项 WebKit、最终 iPad QA 横竖屏滚动／进度拖动／控制器点按和准确源码 CI 通过。
+个人安装仍为 mobile.28；其他触摸区域、键盘旋转尚待处理，见 [SHEET_TOUCH.md](SHEET_TOUCH.md)。
+
 后续源码接入原版 AI／封面主题生成、Keychain 配置、取消与自动生成偏好；92 项逻辑、48 项 WebKit 与10 项独立原生 XCTest 通过。
 真实 AI 服务与真机新入口未验收，个人 mobile.28 未更新，见 [AI_THEMES.md](AI_THEMES.md)。
 

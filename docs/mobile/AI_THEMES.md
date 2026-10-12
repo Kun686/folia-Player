@@ -47,7 +47,7 @@ UI 测试中的 AI 输出与凭据均为生成样本。已有歌曲主题回归�
 
 证据：`.mobile-test-results/ai-qa-evidence.json`、`ai-qa-settings-saved.png`、`ai-qa-generated.png`、`ai-qa-settings-restored.png`、`ai-qa-theme-restored.png`、`ai-touch-build.log`、`ai-touch-native-build.log`。构建仍显示 mobile.28 的开发版本号，**独立 QA Bundle ID 与个人安装不同**，未改个人 `BUILD_RECORD.json`。
 
-旋转后布局能显示并能返回竖屏，但 CUA 的横屏滚动／拖动未观察到页面移动；不能据此判定是输入工具还是 App 滚动问题，完整横屏触摸验收保持 UNVERIFIED，后续需针对该点诊断。测试结束已关闭本次启动的模拟器，无测试服务器或日志采集器保留。
+首轮旋转后布局可显示，但横屏拖动未观察到页面移动。后续 `ffdd06a` 在未加诊断代码的包中复现到主题生成 fieldset 空白区域，增加局部 `touch-action: pan-y` 后，最终 iPad QA 横竖屏滚动、进度拖动和控制器点按回归通过；12 项 WebKit 与准确源码 CI 通过，见 [SHEET_TOUCH.md](SHEET_TOUCH.md)。全局原生滚动开关方案因进度拖动回归被拒绝，原配置保留。其他表单区域及完整键盘／旋转矩阵仍未验收，不把局部通过扩展为全部触摸通过。测试结束关闭本次模拟器，未保留测试服务器或日志采集器。
 
 ## 回退与剩余工作
 
