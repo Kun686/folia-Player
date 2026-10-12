@@ -100,6 +100,15 @@ import AVFoundation
     """# }
 
     func testOriginalModelsWithLivePlaybackAndCadenza() async throws {
+        try await originalJointLoad(includingHandover: false)
+    }
+
+    func testOriginalModelsCompleteStemHandoverWithCadenza() async throws {
+        try await originalJointLoad(includingHandover: true)
+    }
+
+    // Reuse the same original-model preparation; the optional leg observes the actual queue adoption.
+    private func originalJointLoad(includingHandover: Bool) async throws {
         guard Bundle.main.bundleIdentifier == "app.folia.validation.App" else {
             throw XCTSkip("Joint load is restricted to the independent QA identity")
         }
@@ -222,6 +231,9 @@ import AVFoundation
             XCTAssertGreaterThan(pcm.frames, 10000); XCTAssertGreaterThan(pcm.rms, 0.00001)
             XCTAssertEqual(stopped, 0, "Playback stopped during the measured phase")
             XCTAssertGreaterThan(player.playbackPosition - startPosition, 0.5)
+            if phase == "models", includingHandover, outcome == "ready" {
+                try await originalStemHandover(player, web: web, audio: audio, documents: documents)
+            }
         }
         let attachment = XCTAttachment(data: try Data(contentsOf: report), uniformTypeIdentifier: "public.json")
         attachment.name = "joint-load"; attachment.lifetime = .keepAlways; add(attachment)
@@ -229,5 +241,63 @@ import AVFoundation
         let screenshot = XCTAttachment(image: picture); screenshot.name = "joint-cadenza"; screenshot.lifetime = .keepAlways; add(screenshot)
         let modelPhase = try XCTUnwrap(phases.first { $0["phase"] as? String == "models" })
         XCTAssertEqual(modelPhase["outcome"] as? String, "ready", "Protected cancellation is not completed Automix preparation")
+    }
+
+    // Seek only to the production planner's measured cue, then leave adoption and mixing to its render clock.
+    private func originalStemHandover(_ player: PlaybackEngine, web: WKWebView,
+                                      audio: OutputMeasurement, documents: URL) async throws {
+        try await waitForStream {
+            let state = player.crossfade?.analysisDiagnostics
+            return state?["planKind"] as? String == "fade" && state?["planning"] as? Bool == false
+        }
+        let plan = try XCTUnwrap(player.crossfade?.analysisDiagnostics)
+        let outStart = try XCTUnwrap(plan["planOutStart"] as? Double)
+        XCTAssertEqual(player.index, 0)
+        try player.command("seek", position: max(0, outStart - 1.5))
+        try await waitForStream { player.outputIsPlaying && player.stream?.seeking == false }
+        _ = try await jointJS(web, jointFrameProbe); audio.reset()
+        let started = ProcessInfo.processInfo.systemUptime
+        var samples: [[String: Any]] = [], sawStem = false, finished = false, stopped = 0
+        defer {
+            let pcm = audio.read()
+            let result: [String: Any] = ["plan": plan, "samples": samples, "sawStem": sawStem,
+                "finished": finished, "notPlayingSamples": stopped, "seconds": ProcessInfo.processInfo.systemUptime - started,
+                "audioFrames": pcm.frames, "audioRMS": pcm.rms, "audioChannels": pcm.channels,
+                "source": "original-models-and-music; production-planner; seek-to-cue"]
+            if let data = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) {
+                try? data.write(to: documents.appendingPathComponent("joint-handover.json"), options: .atomic)
+                let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+                attachment.name = "joint-handover"; attachment.lifetime = .keepAlways; add(attachment)
+            }
+        }
+        while ProcessInfo.processInfo.systemUptime - started < 40 {
+            try await Task.sleep(for: .milliseconds(100))
+            let clock = player.streamOutput?.transitionGain.clock
+            let renderedStem = player.crossfade?.isStemFading == true && clock?.stemFailed == false
+                && (clock?.renderedEnd ?? 0) > (clock?.curveStart ?? .infinity) + 512
+            sawStem = sawStem || renderedStem
+            if !player.outputIsPlaying { stopped += 1 }
+            samples.append(["elapsed": ProcessInfo.processInfo.systemUptime - started, "index": player.index,
+                "position": player.playbackPosition, "playing": player.outputIsPlaying,
+                "stem": renderedStem, "fading": player.crossfade?.isFading ?? false,
+                "stemFailed": clock?.stemFailed ?? false, "stemClockInvalid": clock?.stemClockInvalid ?? false,
+                "preparation": player.crossfade?.stemPreparationStatus ?? "missing",
+                "decks": player.streamOutput?.attachedCount ?? 0])
+            if samples.count % 50 == 1 {
+                print("FOLIA_JOINT_HANDOVER elapsed=\(Int(ProcessInfo.processInfo.systemUptime-started)) index=\(player.index) stem=\(renderedStem) preparation=\(player.crossfade?.stemPreparationStatus ?? "missing")")
+            }
+            if player.index == 1, player.crossfade?.isFading == false {
+                finished = true; break
+            }
+        }
+        XCTAssertTrue(sawStem, "Original inferred stems must reach the actual shared audio graph")
+        XCTAssertTrue(finished, "The original transition must finish and release the outgoing deck")
+        XCTAssertFalse(samples.contains { $0["stemFailed"] as? Bool == true || $0["stemClockInvalid"] as? Bool == true },
+                       "A later fallback must not count as a completed stem handover")
+        XCTAssertEqual(stopped, 0); XCTAssertEqual(player.index, 1)
+        XCTAssertEqual(player.streamOutput?.attachedCount, 1)
+        XCTAssertGreaterThan(audio.read().frames, 10000); XCTAssertGreaterThan(audio.read().rms, 0.00001)
+        let frames = try await jointJS(web, "window.__foliaJoint.count")
+        XCTAssertGreaterThan((frames as? Int) ?? 0, 10, "WebContent rAF scheduling must continue during handover")
     }
 }

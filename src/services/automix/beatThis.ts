@@ -49,7 +49,8 @@ const melToHz = (mel: number): number => {
  * The triangles are laid out in HERTZ between mel-spaced corners, which is what torchaudio does -
  * not in the mel domain, where they would be symmetric. Same corners, different slopes.
  */
-const buildFilterbank = (): Float64Array[] => {
+type MelFilter = { weights: Float64Array; first: number; end: number };
+const buildFilterbank = (): MelFilter[] => {
     const bins = N_FFT / 2 + 1;
     const melMin = hzToMel(F_MIN);
     const melMax = hzToMel(F_MAX);
@@ -67,11 +68,15 @@ const buildFilterbank = (): Float64Array[] => {
             const falling = right === centre ? 0 : (right - hz) / (right - centre);
             row[bin] = Math.max(0, Math.min(rising, falling));
         }
-        return row;
+        // Keep the original weights and addition order, omitting only exact zero terms for finite FFTs.
+        let first = 0, end = bins;
+        while (first < end && row[first] === 0) first += 1;
+        while (end > first && row[end - 1] === 0) end -= 1;
+        return { weights: row, first, end };
     });
 };
 
-let filterbank: Float64Array[] | null = null;
+let filterbank: MelFilter[] | null = null;
 /**
  * Periodic Hann, the STFT convention - `size`, not `size - 1`, in the denominator.
  *
@@ -144,13 +149,17 @@ export const melSpectrogram = async (mono: Float32Array, transform: typeof fft =
             imag[index] = 0;
         }
         transform(real, imag);
+        let finite = true;
         for (let bin = 0; bin < magnitude.length; bin += 1) {
             magnitude[bin] = Math.sqrt(real[bin] * real[bin] + imag[bin] * imag[bin]) * scale;
+            if (!Number.isFinite(magnitude[bin])) finite = false;
         }
         for (let band = 0; band < N_MELS; band += 1) {
-            const row = filterbank[band];
+            const filter = filterbank[band], row = filter.weights;
+            // NaN/Infinity multiplied by zero is NaN: retain the dense behavior for invalid spectra.
+            const first = finite ? filter.first : 0, end = finite ? filter.end : magnitude.length;
             let energy = 0;
-            for (let bin = 0; bin < magnitude.length; bin += 1) energy += magnitude[bin] * row[bin];
+            for (let bin = first; bin < end; bin += 1) energy += magnitude[bin] * row[bin];
             data[frame * N_MELS + band] = Math.log1p(LOG_MULTIPLIER * Math.max(energy, AMIN));
         }
     }

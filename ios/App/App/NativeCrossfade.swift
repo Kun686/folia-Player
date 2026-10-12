@@ -46,6 +46,12 @@ final class NativeCrossfade {
     private(set) var performance = false
     private(set) var stemPreparationStatus = "not-attempted"
     var isFading: Bool { fade != nil }
+    // Bounded QA observations of the actual coordinator, without replacing resource notifications.
+    var analysisDiagnostics: [String: Any] {
+        ["profiles": profiles.diagnostics, "planning": work != nil, "armed": armed,
+         "mode": mode, "enabled": enabled, "planKind": plan?.kind ?? "none",
+         "planInStart": plan?.inStart ?? -1, "planOutStart": plan?.outStart ?? -1]
+    }
     var isStemFading: Bool {
         guard let fade, let clock = owner?.streamOutput?.transitionGain.clock else { return false }
         return clock.generation == fade.gainGeneration && clock.stemActive

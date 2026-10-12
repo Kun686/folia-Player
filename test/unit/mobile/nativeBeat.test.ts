@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { analysePCM, prepareBeatPCM, beatGridJSON } from '@/services/automix/nativeProfileRuntime';
 import { aggregateChunks, beatsFromLogits, melSpectrogram, splitForModel, type MelChunk } from '@/services/automix/beatThis';
 import { analyseTrack } from '@/services/automix/trackProfile';
@@ -13,6 +15,36 @@ const analyse = (mono: Float32Array, grid?: string) => new Promise<unknown>((res
 });
 
 describe('native Beat This boundary', () => {
+  it('preserves complete original dense mel bytes for silence, padding, impulses and broadband inputs', async () => {
+    const reference = JSON.parse(readFileSync(new URL('./fixtures/mel-dense-reference.json', import.meta.url), 'utf8')) as {
+      cases: { pattern: string; length: number; frames: number; chunks: { start: number; frames: number; sha256: string }[] }[];
+    };
+    for (const row of reference.cases) {
+      let seed = 123456789;
+      const mono = Float32Array.from({ length: row.length }, (_, i) => {
+        if (row.pattern === 'silence') return 0;
+        if (row.pattern === 'impulse') return i === 512 ? 16 : 0;
+        if (row.pattern === 'ramp') return (i % 257 - 128) / 8;
+        if (row.pattern === 'square') return i % 73 < 37 ? 0.5 : -0.5;
+        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+        return (seed / 4294967296 - 0.5) * 2;
+      });
+      const result = await prepare(mono);
+      expect(result.frames).toBe(row.frames);
+      expect(result.chunks.map(c => ({ start: c.start, frames: c.frames,
+        sha256: createHash('sha256').update(Buffer.from(c.data.buffer, c.data.byteOffset, c.data.byteLength)).digest('hex'),
+      }))).toEqual(row.chunks);
+    }
+  });
+  it('keeps invalid FFT spectra invalid even outside a filter nonzero range', async () => {
+    for (const value of [NaN, Infinity]) {
+      const mel = await melSpectrogram(new Float32Array(441), (real, imag) => {
+        real.fill(0); imag.fill(0); real[0] = value;
+      });
+      expect(mel.data.length).toBeGreaterThan(0);
+      expect(mel.data.every(Number.isNaN)).toBe(true);
+    }
+  });
   it('reuses the exact centred mel and chunk padding with an injected equivalent FFT', async () => {
     const mono = Float32Array.from({ length: 22050 * 31 }, (_, i) => Math.sin(i * 0.13) * 0.2);
     let calls = 0;

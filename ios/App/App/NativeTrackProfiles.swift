@@ -17,6 +17,11 @@ final class NativeTrackProfiles {
     private var pressure = false
     private(set) var revision = 0
     var hasPending: Bool { !tasks.isEmpty }
+    // Read on the queue owner's thread, on demand; never expose source identities or signed URLs.
+    var diagnostics: [String: Any] {
+        ["resourcePressure": pressure, "pending": tasks.count, "wanted": wanted.count,
+         "completed": values.count, "revision": revision, "usesBeatModel": beatModel != nil]
+    }
     var changed: (() -> Void)?
     init(local: LocalMediaLibrary, profiler: NativeTrackProfiler = NativeTrackProfiler(), configuration: URLSessionConfiguration = .ephemeral, mediaCache: NativeMediaCache? = nil) {
         self.local = local; self.profiler = profiler; self.configuration = configuration; self.mediaCache = mediaCache

@@ -29,6 +29,34 @@ import AVFoundation
         XCTAssertTrue(a.allSatisfy(\.isFinite))
         return zip(a, b).reduce(Float(0)) { max($0, abs($1.0 - $1.1)) }
     }
+    func testNativeMelPreparationPreservesDenseBytesAndMeasuresCost() async throws {
+        let root = try beatFixtures(), script = root.appendingPathComponent("dense-profiles.js")
+        guard FileManager.default.fileExists(atPath: script.path) else { throw XCTSkip("Stage the fixed pre-optimization runtime") }
+        XCTAssertEqual(NativeProfileCache.digest(try Data(contentsOf: script)), "e808b91deba8211bfae1e9a1281c3fb43d099b65ddcc462fe53b955d8ef69080")
+        guard ProcessInfo.processInfo.thermalState.rawValue < ProcessInfo.ThermalState.serious.rawValue else {
+            throw XCTSkip("Preparation timing requires a device below serious thermal pressure")
+        }
+        let pcm = try beatData(root, "mid.f32") as NSData
+        let thermalBefore = ProcessInfo.processInfo.thermalState.rawValue
+        let started = ProcessInfo.processInfo.systemUptime
+        let dense = try await NativeBeatAnalysis(scriptURL: script).prepare(pcm)
+        let denseSeconds = ProcessInfo.processInfo.systemUptime - started
+        guard ProcessInfo.processInfo.thermalState.rawValue < ProcessInfo.ThermalState.serious.rawValue else {
+            throw XCTSkip("Thermal pressure rose during baseline preparation")
+        }
+        let optimizedStart = ProcessInfo.processInfo.systemUptime
+        let optimized = try await NativeBeatAnalysis().prepare(pcm)
+        let optimizedSeconds = ProcessInfo.processInfo.systemUptime - optimizedStart
+        XCTAssertEqual(optimized.frames, dense.frames); XCTAssertEqual(optimized.starts, dense.starts)
+        XCTAssertEqual(optimized.lengths, dense.lengths); XCTAssertEqual(optimized.inputs, dense.inputs)
+        let metrics: [String: Any] = ["denseSeconds": denseSeconds, "optimizedSeconds": optimizedSeconds,
+            "thermalBefore": thermalBefore, "thermalAfter": ProcessInfo.processInfo.thermalState.rawValue,
+            "frames": dense.frames, "chunks": dense.inputs.count, "pcmFrames": pcm.length / 4]
+        let data = try JSONSerialization.data(withJSONObject: metrics, options: [.sortedKeys])
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = "mel-preparation-timing"; attachment.lifetime = .keepAlways; add(attachment)
+        print("FOLIA_MEL_TIMING " + String(decoding: data, as: UTF8.self))
+    }
     func testNativeBeatMelModelAggregationMatchesOriginalMusic() async throws {
         let root = try beatFixtures(), analyzer = NativeBeatAnalysis()
         let prepared = try await analyzer.prepare(beatData(root, "mid.f32") as NSData)

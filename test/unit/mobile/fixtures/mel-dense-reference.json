@@ -1,0 +1,79 @@
+{
+  "sourceSHA256": "d624df5aa26d2ccdd8c66c30b0eba917165d6f47e975fb76cc3b30691948b418",
+  "bundleSHA256": "e808b91deba8211bfae1e9a1281c3fb43d099b65ddcc462fe53b955d8ef69080",
+  "baselineCommit": "3b57ca129247e3cee5c2a848d13f343a912d20e8",
+  "cases": [
+    {
+      "pattern": "silence",
+      "length": 1,
+      "frames": 1,
+      "chunks": [
+        {
+          "start": -6,
+          "frames": 13,
+          "sha256": "5739b6a552ed2a59d243131a19d1f56911a039e059749b4a6755797c46156a59"
+        }
+      ]
+    },
+    {
+      "pattern": "silence",
+      "length": 22050,
+      "frames": 51,
+      "chunks": [
+        {
+          "start": -6,
+          "frames": 63,
+          "sha256": "352a3cd0dc8546f5362a37e0c1a1b6a0a3729a0ed50a3002af0307b61d5aa8b9"
+        }
+      ]
+    },
+    {
+      "pattern": "impulse",
+      "length": 1025,
+      "frames": 3,
+      "chunks": [
+        {
+          "start": -6,
+          "frames": 15,
+          "sha256": "fa686407919765edc7885d51f1c3f54de1a6ef917b8912c806605f07e5ff0088"
+        }
+      ]
+    },
+    {
+      "pattern": "ramp",
+      "length": 441,
+      "frames": 2,
+      "chunks": [
+        {
+          "start": -6,
+          "frames": 14,
+          "sha256": "a382feb448e5ca898d07097e96710ecbf394f21ece1403cbe6ca81e0be871ae5"
+        }
+      ]
+    },
+    {
+      "pattern": "square",
+      "length": 4096,
+      "frames": 10,
+      "chunks": [
+        {
+          "start": -6,
+          "frames": 22,
+          "sha256": "b6c49f58841a0faf7eae8bc453196b0682ff69054a5d872065aa3f2e7dd12799"
+        }
+      ]
+    },
+    {
+      "pattern": "noise",
+      "length": 4099,
+      "frames": 10,
+      "chunks": [
+        {
+          "start": -6,
+          "frames": 22,
+          "sha256": "eddf29ed986108d253fb118b3f43f880df4c407b26ba0c4d0e1a3ba962f02f98"
+        }
+      ]
+    }
+  ]
+}

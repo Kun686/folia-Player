@@ -49,14 +49,15 @@ Xcode 命令的成功退出不算联合验收通过。没有关闭保护或在�
 该批次不能算全部通过，原始失败保留；没有延长超时或关闭资源保护。
 卸载QA、停止手机负载，再用干净QA安装只重试这两项：仍为 **0通过、2失败、0跳过**，
 同样超时于准备位置。该独立重试没有记录逐项热状态，不能仅凭较早的serious观测排除其他
-真机时序原因；不再重试。需要在记录实际热状态、profile阶段与预加载状态的条件下继续定位。
+真机时序原因；当轮不再重试。后续加入实际热状态、profile阶段与预加载状态记录后，
+两项独立测试在 fair 状态下通过，详见下述后续记录；早先原始失败保留。
 
 iPad Pro 11-inch M5 / iOS26.5 **模拟器10通过、0失败、0跳过**：两项静音边界、
 两项取消／恢复及六项原拍点测试。复用原始30秒音乐参考与固定模型，mel与logits最大绝对差
 均为0，拍点网格完全相等，两份完整／部分profile在既有1e-6容差内；缓存分区、批次取消、
 取消后恢复与PCM释放均通过。该结果不覆盖手机联合温升或物理iPad验收。
 
-完整 Automix 仍未通过联合验收。串行化后的实际速度与温升改善、原模型完整准备、
+完整 Automix 仍未通过真机联合验收。串行化后的实际速度与温升改善、真机原模型完整准备、
 WebContent与主进程总内存、锁屏及长期运行、物理iPad与人工听感仍待验证。
 本轮原模型数值对照只在模拟器重跑；原JS算法、固定参考数据及模型摘要保持原样。
 回退本次调度与诊断改动即可恢复前版，无持久数据迁移。
@@ -71,8 +72,22 @@ WebContent与主进程总内存、锁屏及长期运行、物理iPad与人工听
 - `regression-command.json`／`serialization-regression.xcresult`：两项调度回归。
 - `serialized-command.json`／`serialized.xcresult`／`serialized-summary.json`：热状态跳过。
 - `queue-regression-command.json`／`queue-regression.xcresult`：18项通过及两项静音边界超时。
-- `queue-isolated-retry-command.json`／`queue-isolated-retry.xcresult`：干净QA中两项相同超时，未解决。
+- `queue-isolated-retry-command.json`／`queue-isolated-retry.xcresult`：当轮干净QA中两项相同超时。
 - `simulator-command.json`／`simulator.xcresult`／`simulator-summary.json`：10项模拟器验证。
 - `package-instrumented.json`、`package-serialized.json`：独立签名与123项前端资源一致性。
 
 包体包含测试插件，不代表个人IPA体积增量；主进程内存采样不包含WebContent。
+
+## 后续记录：前处理与实际交接
+
+2026-10-12，加入只读诊断后，两项静音边界真机用例 **2通过、0失败、0跳过**，
+逐次采样均为 fair、无分析压力，三个准备分支在3.795／3.391／3.355秒达到1.83秒预加载位置。
+该结果支持资源状态是相关因素，但不能单凭它把所有历史超时都归因于热状态。
+
+串行版真机联合重测 **0通过、1失败、0跳过**：阶段记录确认第二项分析一直等待，
+没有与第一项预处理重叠；第一项仍在预处理期间触发 serious，尚未进入ORT。
+起始温度历史不同，不用与上一轮的耗时比较温升改善。
+
+随后只去除原mel计算中严格为零的乘加，保留数值语义；原模型数值对照、模拟器完整准备、
+实际分轨交接及界面联合运行通过。用户要求先继续不依赖真机的工作后，未再运行手机测试。
+优化后的手机性能、温升及联合验收仍未验证。详见 [MEL_PREPARATION.md](MEL_PREPARATION.md)。

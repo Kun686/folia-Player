@@ -59,10 +59,39 @@ import AVFoundation
             storage.removePersistentDomain(forName: "folia.profile-queue-tests")
             let tested = PlaybackEngine(gateway: FailingGateway(), storage: storage, local: local, usesStereoOutput: true)
             tested.network.cancel()
+            let started = ProcessInfo.processInfo.systemUptime
+            var samples: [[String: Any]] = [], lastSample = -1.0
+            func sample(_ phase: String) {
+                var row = tested.crossfade?.analysisDiagnostics ?? [:]
+                row["phase"] = phase; row["elapsed"] = ProcessInfo.processInfo.systemUptime - started
+                row["thermal"] = ProcessInfo.processInfo.thermalState.rawValue
+                row["playing"] = tested.outputIsPlaying; row["position"] = tested.playbackPosition
+                row["prepared"] = tested.preparedStream != nil
+                row["preparedPosition"] = tested.preparedStream?.entry.preparedPosition ?? -1
+                row["preparedBuffered"] = tested.preparedStream?.entry.audio.bufferedDuration ?? -1
+                row["preparedSeeking"] = tested.preparedStream?.entry.seeking ?? false
+                row["streamFailed"] = tested.stream?.hasFailed ?? false
+                samples.append(row)
+                if let data = try? JSONSerialization.data(withJSONObject: row, options: [.sortedKeys]) {
+                    print("FOLIA_PROFILE_PREPARATION " + String(decoding: data, as: UTF8.self))
+                }
+            }
+            defer {
+                if let data = try? JSONSerialization.data(withJSONObject: samples, options: [.sortedKeys]) {
+                    let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+                    attachment.name = "profile-preparation"; attachment.lifetime = .keepAlways; add(attachment)
+                }
+            }
+            sample("created")
             _ = try tested.setTransitionSettings(["enabled": true, "mode": "crossfade", "crossfadeMaxSec": 1.0])
             try tested.setQueue(songs, at: 0)
-            do { try await waitForStream { tested.outputIsPlaying && (tested.preparedStream?.entry.preparedPosition ?? 0) > 1 } }
-            catch { tested.stop(); tested.clearOutput(); throw error }
+            do { try await waitForStream {
+                let elapsed = ProcessInfo.processInfo.systemUptime - started
+                if elapsed - lastSample >= 1 { sample("waiting"); lastSample = elapsed }
+                return tested.outputIsPlaying && (tested.preparedStream?.entry.preparedPosition ?? 0) > 1
+            } }
+            catch { sample("failed"); tested.stop(); tested.clearOutput(); throw error }
+            sample("ready")
             return (tested, root)
         } catch { try? FileManager.default.removeItem(at: root); throw error }
     }
