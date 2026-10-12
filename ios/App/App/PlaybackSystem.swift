@@ -27,11 +27,12 @@ extension PlaybackEngine {
                 if let item = player.currentItem { observeStatus(item, epoch: generation) }
                 try activate(); player.play()
             }
-        case "pause": intentToPlay = false; resumeAfterInterruption = false; networkResume = nil; pauseOutput()
-        case "next": failures = 0; move(1)
-        case "previous": failures = 0; move(-1)
+        case "pause": personalFM.cancelPending(); intentToPlay = false; resumeAfterInterruption = false; networkResume = nil; pauseOutput()
+        case "next": personalFM.cancelSelection(); failures = 0; move(1)
+        case "previous": personalFM.cancelSelection(); failures = 0; move(-1)
         case "seek":
             guard let position, position.isFinite, position >= 0 else { throw MobileFailure("invalid-position") }
+            personalFM.cancelSelection()
             let duration = playbackDuration, target = duration > 0 ? min(position, duration) : position
             if usesStereoOutput {
                 if let stream {

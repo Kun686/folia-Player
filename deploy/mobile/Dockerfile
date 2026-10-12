@@ -6,6 +6,7 @@ COPY deploy/docker/backend/package.json deploy/docker/backend/package-lock.json 
 RUN npm ci --omit=dev --ignore-scripts --no-audit
 COPY deploy/mobile/*.mjs ./deploy/mobile/
 COPY shared/mobile ./shared/mobile
+COPY src/services/onlineMusic/fmModes.ts ./src/services/onlineMusic/fmModes.ts
 COPY src/utils/replayGain.ts ./src/utils/replayGain.ts
 COPY LICENSE ./LICENSE
 USER node

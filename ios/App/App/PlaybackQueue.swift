@@ -78,6 +78,8 @@ extension PlaybackEngine {
                   currentRef.isEqual(nextRef) else { throw MobileFailure("invalid-current-song") }
         }
         discardPrepared()
+        personalFM.cancelSelection()
+        if validated.isEmpty { personalFM.leave() }
         detachedSong = song; queue = validated; index = currentIndex
         prefetch(); persist(); publish()
     }
@@ -85,6 +87,7 @@ extension PlaybackEngine {
         promotePreparedItem()
         guard expectedRevision == queueRevision else { throw MobileFailure("queue-changed") }
         guard queue.indices.contains(target) else { throw MobileFailure("invalid-queue") }
+        personalFM.cancelSelection()
         failures = 0; intentToPlay = true; select(target)
     }
 

@@ -12,9 +12,11 @@ import type { NativeAISettings, NativeAISettingsEdit, NativeAIResponse } from '.
 import type { NativeSyncSettings, NativeSyncSettingsEdit, NativeSyncOperation, NativeSyncResponse } from './nativeSync';
 import type { NativeModelsState } from './nativeModels';
 import type { AutomixModelName } from '../services/automix/modelAvailability';
+import type { PersonalFmSelection } from '../services/onlineMusic/fmModes';
 
 // src/mobile/bridge.ts — native owns transport secrets, playback and queue state.
 export interface PlaybackSnapshot {
+  personalFM?: { active: boolean; selection: PersonalFmSelection | null; loading: boolean; fallback: boolean; error: string | null };
   queue: SongResult[]; index: number; position: number; duration: number; playing: boolean;
   repeat: 'off' | 'all' | 'one'; error?: string; revision: number;
   currentSong: SongResult | null; queueRevision: number;
@@ -93,12 +95,14 @@ export interface FoliaNativePlugin {
   setTransitionSettings(options: { settings: NativeTransitionSettings }): Promise<NativeTransitionSettings>;
   bootstrap(): Promise<{ server: string; sessions: Record<string, Record<string, string>> }>;
   configure(options: { server: string; token: string }): Promise<void>;
-  health(): Promise<{ protocol: number; providers: string[]; songLikeProviders?: string[]; catalogProviders?: string[]; playlistEditProviders?: string[]; dailyProviders?: string[] }>;
+  health(): Promise<{ protocol: number; providers: string[]; songLikeProviders?: string[]; catalogProviders?: string[]; playlistEditProviders?: string[]; dailyProviders?: string[]; personalFmProviders?: string[] }>;
   saveSession(options: { provider: string; values: Record<string, string> }): Promise<void>;
   clearSession(options: { provider: string }): Promise<void>;
   request(options: { id: string; payload: Record<string, unknown> }): Promise<{ status: number; body: string; headers: Record<string, string> }>;
   cancelRequests(options: { ids: string[] }): Promise<void>;
   setQueue(options: { songs: SongResult[]; index: number }): Promise<void>;
+  startPersonalFM(options: { selection: PersonalFmSelection }): Promise<PlaybackSnapshot>;
+  leavePersonalFM(): Promise<void>;
   editQueue(options: { songs: SongResult[]; currentIndex: number; queueRevision: number }): Promise<PlaybackSnapshot>;
   selectQueue(options: { index: number; queueRevision: number }): Promise<void>;
   command(options: { action: 'play' | 'pause' | 'next' | 'previous' | 'seek' | 'repeat'; position?: number; mode?: string }): Promise<void>;

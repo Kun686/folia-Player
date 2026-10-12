@@ -1,3 +1,4 @@
+import { canonicalNeteaseSong } from '../../../shared/mobile/neteaseSong';
 import { extractCloudLyricText } from '../../utils/lyrics/neteasePayload';
 import { resolveNeteasePlayback } from '../../../shared/mobile/providerPlayback';
 import type { SongResult, UnifiedSong } from '../../types';
@@ -205,27 +206,7 @@ export const normalizeNeteaseSong = (raw: unknown): UnifiedSong => {
     const normalized = typeof neteaseApi.normalizeSongResult === 'function'
         ? neteaseApi.normalizeSongResult(raw)
         : normalizeNeteaseSongFallback(raw);
-    const isCloud = normalized.t === 1 || normalized.t === 2 || normalized.sourceType === 'cloud';
-    return {
-        id: normalized.id,
-        name: normalized.name,
-        artists: normalized.artists,
-        album: normalized.album,
-        durationMs: normalized.durationMs,
-        aliases: normalized.aliases || [],
-        translatedNames: normalized.translatedNames || [],
-        isPureMusic: normalized.isPureMusic,
-        fee: normalized.fee,
-        noCopyrightRcmd: normalized.noCopyrightRcmd,
-        resourceState: normalized.resourceState,
-        privilege: normalized.privilege,
-        sourceRef: {
-            kind: 'online',
-            providerId: 'netease',
-            mediaId: String(normalized.id),
-            ...(isCloud ? { variant: 'cloud' } : {}),
-        },
-    };
+    return canonicalNeteaseSong(normalized);
 };
 
 const getLyrics = async (

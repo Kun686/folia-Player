@@ -1,6 +1,8 @@
+import { requestNeteaseFm } from '../../shared/mobile/neteaseFm';
+import { normalizeSongResult, normalizeSongPrivilege, toHttps } from '../../shared/mobile/neteaseSong';
 import { getProcessedLyricPayload } from '../utils/lyrics/neteasePayload';
 import { getMobileRuntime, providerFetch } from './mobileRuntime';
-import { NeteaseUser, NeteasePlaylist, NoCopyrightRecommendation, SongPrivilege, SongResult } from "../types";
+import { NeteaseUser, NeteasePlaylist, SongPrivilege, SongResult } from "../types";
 import { readProviderSessionValue, removeProviderSessionValue, writeProviderSessionValue } from './onlineMusic/providerStorage';
 import type { PersonalFmRequestOptions } from '../types/onlineMusic';
 
@@ -186,79 +188,6 @@ const fetchWithCreds = async (endpoint: string, options: RequestInit = {}) => {
   return data;
 };
 
-const toHttps = (url?: unknown) => {
-  if (typeof url !== 'string' || !url) return '';
-  return url.replace(/^http:/, 'https:');
-};
-
-const normalizeArtistName = (value: any): string => {
-  if (typeof value === 'string') return value;
-  if (value && typeof value.name === 'string') return value.name;
-  return '';
-};
-
-const normalizeArtists = (source: any): { id: number; name: string }[] => {
-  if (!source) return [];
-  if (Array.isArray(source)) {
-    return source
-      .map((artist: any, index: number) => ({
-        id: Number(artist?.id ?? index),
-        name: normalizeArtistName(artist),
-      }))
-      .filter((artist) => artist.name);
-  }
-
-  if (typeof source === 'string') {
-    return source
-      .split(/[\/,]/)
-      .map((name) => name.trim())
-      .filter(Boolean)
-      .map((name, index) => ({ id: index, name }));
-  }
-
-  return [];
-};
-
-const getCloudCoverFallback = (raw: any) =>
-  raw?.simpleSong?.al?.picUrl ||
-  raw?.simpleSong?.album?.coverUrl ||
-  raw?.simpleSong?.album?.picUrl ||
-  raw?.al?.picUrl ||
-  raw?.album?.coverUrl ||
-  raw?.album?.picUrl ||
-  raw?.cover;
-
-const normalizeSongPrivilege = (raw: any): SongPrivilege | undefined => {
-  if (!raw || typeof raw !== 'object') {
-    return undefined;
-  }
-
-  return {
-    id: typeof raw.id === 'number' ? raw.id : undefined,
-    fee: typeof raw.fee === 'number' ? raw.fee : undefined,
-    payed: typeof raw.payed === 'number' ? raw.payed : undefined,
-    st: typeof raw.st === 'number' ? raw.st : undefined,
-    pl: typeof raw.pl === 'number' ? raw.pl : undefined,
-    dl: typeof raw.dl === 'number' ? raw.dl : undefined,
-    flag: typeof raw.flag === 'number' ? raw.flag : undefined,
-    cs: typeof raw.cs === 'boolean' ? raw.cs : undefined,
-  };
-};
-
-const normalizeNoCopyrightRecommendation = (raw: any): NoCopyrightRecommendation | null => {
-  if (!raw || typeof raw !== 'object') {
-    return null;
-  }
-
-  return {
-    type: typeof raw.type === 'number' ? raw.type : undefined,
-    typeDesc: typeof raw.typeDesc === 'string' ? raw.typeDesc : undefined,
-    songId: typeof raw.songId === 'string' || typeof raw.songId === 'number' ? raw.songId : undefined,
-    thirdPartySong: raw.thirdPartySong ?? null,
-    expInfo: raw.expInfo ?? null,
-  };
-};
-
 const applyPrivilegeToSong = (song: SongResult, privilege?: SongPrivilege): SongResult => {
   if (!privilege) {
     return song;
@@ -303,68 +232,6 @@ const mergeSongsWithPrivileges = (songs: any, privileges: any): SongResult[] => 
       privilege,
     };
   });
-};
-
-const normalizeSongResult = (raw: any): SongResult => {
-  const base = raw?.simpleSong || raw;
-  const tValue = Number(base?.t ?? raw?.t ?? 0) as 0 | 1 | 2;
-  const sourceType: SongResult['sourceType'] = tValue === 1 || tValue === 2 ? 'cloud' : 'netease';
-
-  const artists = normalizeArtists(
-    base?.ar ||
-    base?.artists
-  );
-
-  const albumName =
-    base?.al?.name ||
-    base?.album?.name ||
-    'Unknown Album';
-
-  const albumId = Number(
-    base?.al?.id ??
-    base?.album?.id ??
-    raw?.al?.id ??
-    raw?.album?.id ??
-    0
-  );
-
-  const picUrl = toHttps(getCloudCoverFallback(raw));
-  const duration = Number(
-    base?.durationMs ??
-    base?.dt ??
-    base?.duration ??
-    raw?.duration ??
-    raw?.songLength ??
-    0
-  );
-
-  return {
-    id: Number(base?.id ?? raw?.id ?? 0),
-    name: base?.name || raw?.songName || raw?.fileName || 'Unknown Song',
-    artists,
-    album: {
-      id: albumId,
-      name: albumName,
-      coverUrl: picUrl || undefined,
-    },
-    durationMs: duration,
-    aliases: Array.isArray(base?.alia) ? base.alia : [],
-    translatedNames: Array.isArray(base?.tns) ? base.tns : [],
-    t: tValue,
-    sourceType,
-    sourceRef: {
-      kind: 'online',
-      providerId: 'netease',
-      mediaId: String(Number(base?.id ?? raw?.id ?? 0)),
-      ...(sourceType === 'cloud' ? { variant: 'cloud' } : {}),
-    },
-    fee: typeof (base?.fee ?? raw?.fee) === 'number' ? Number(base?.fee ?? raw?.fee) : undefined,
-    noCopyrightRcmd: normalizeNoCopyrightRecommendation(base?.noCopyrightRcmd ?? raw?.noCopyrightRcmd),
-    resourceState: typeof (base?.resourceState ?? raw?.resourceState) === 'boolean'
-      ? Boolean(base?.resourceState ?? raw?.resourceState)
-      : undefined,
-    privilege: normalizeSongPrivilege(base?.privilege ?? raw?.privilege),
-  };
 };
 
 export const isSongMarkedUnavailable = (
@@ -806,27 +673,11 @@ export const neteaseApi = {
   // and returns 3 tracks either way (measured). The queue controller's near-end refill is what
   // keeps the stream going, exactly as it does for the plain FM endpoint.
   getPersonalFm: async (options?: PersonalFmRequestOptions) => {
-    const fetchDefaultFm = () => fetchWithCreds(`/personal_fm?timestamp=${Date.now()}`);
-    const mode = options?.mode;
-    if (!mode || mode === 'DEFAULT') {
-      return fetchDefaultFm();
-    }
-
-    const params = new URLSearchParams({ mode });
-    if (mode === 'SCENE_RCMD' && options?.submode) {
-      params.set('submode', options.submode);
-    }
-
-    try {
-      const res = await fetchWithCreds(`/personal/fm/mode?${params.toString()}&timestamp=${Date.now()}`);
-      if (Array.isArray(res?.data) && res.data.length > 0) {
-        return res;
-      }
-      console.warn('[Netease] personal fm mode unsupported, falling back', { mode, code: res?.code });
-    } catch (error) {
-      console.warn('[Netease] personal fm mode request failed, falling back', { mode, error });
-    }
-    return fetchDefaultFm();
+    const { response } = await requestNeteaseFm(options, (path, query) => {
+      const params = new URLSearchParams({ ...query, timestamp: String(Date.now()) });
+      return fetchWithCreds(path + '?' + params);
+    });
+    return response;
   },
 
   getDailyRecommendedSongs: async (afresh = false) => {

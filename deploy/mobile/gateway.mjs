@@ -1,3 +1,4 @@
+import { readNeteaseFm } from '../../shared/mobile/neteaseFm.ts';
 import { timingSafeEqual, createHash } from 'node:crypto';
 import express from 'express';
 import { authorizeTarget, fault } from './policy.mjs';
@@ -67,10 +68,27 @@ export function createMobileApp({ token, bases, providers = ['netease', 'qq', 'k
     songLikeProviders: enabled.has('netease') ? ['netease'] : [],
     playlistEditProviders: enabled.has('netease') ? ['netease'] : [],
     dailyProviders: enabled.has('netease') ? ['netease'] : [],
+    personalFmProviders: enabled.has('netease') ? ['netease'] : [],
     catalogProviders: [...enabled].filter(provider => ['netease', 'qq'].includes(provider)) }));
   app.post('/mobile/request', route(async (req, res, signal) => {
     if (!req.body || typeof req.body !== 'object') throw fault('invalid-request');
     res.json(await upstream(req.body, signal));
+  }));
+  app.post('/mobile/fm', route(async (req, res, signal) => {
+    if (req.body?.provider !== 'netease') throw fault('unsupported', 404);
+    if (!enabled.has('netease')) throw fault('provider-disabled', 404);
+    const cookie = req.body?.session?.cookie;
+    if (typeof cookie !== 'string' || !cookie || cookie.length > 24000) throw fault('auth-required', 401);
+    const result = await readNeteaseFm(req.body.selection, async (path, query) => {
+      signal.throwIfAborted();
+      const result = await upstream({ provider: 'netease', path, query: { ...query, cookie, timestamp: Date.now() } }, signal);
+      signal.throwIfAborted();
+      if ([401, 403].includes(result.status)) throw fault('auth-required', 401);
+      if (result.status === 429) throw fault('rate-limited', 429);
+      if (result.status >= 400) throw fault('upstream-unavailable', 502);
+      try { return JSON.parse(result.body); } catch { throw fault('invalid-response', 502); }
+    });
+    res.json(result);
   }));
   app.post('/mobile/resolve', route(async (req, res, signal) => {
     const { song, quality = 'standard', session = {} } = req.body ?? {};

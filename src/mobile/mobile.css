@@ -169,5 +169,7 @@
 .mobile-daily-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin-bottom: 12px; }
 .mobile-daily-actions label { margin: 0; }
 .mobile-daily-actions select { appearance: auto; height: 44px; min-height: 44px; font-size: 16px; }
+.personal-fm-sheet[open] { margin: auto; width: min(520px, calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 32px)); max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 32px); }
+.personal-fm-sheet::backdrop { background: #000a; }
 .online-catalog-sheet p { margin-block: 8px; overflow-wrap: anywhere; }
 @media (max-height: 450px) { .online-catalog-sheet[open] { padding: 8px 12px; } .online-catalog-sheet > header { margin-bottom: 4px; } }

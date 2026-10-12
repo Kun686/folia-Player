@@ -17,7 +17,7 @@ class GatewayClient: NSObject, URLSessionTaskDelegate {
         return url.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
     func send(_ path: String, body: [String: Any]? = nil) async throws -> [String: Any] {
-        guard ["/mobile/request", "/mobile/resolve", "/mobile/health"].contains(path) else { throw MobileFailure("forbidden") }
+        guard ["/mobile/request", "/mobile/resolve", "/mobile/health", "/mobile/fm"].contains(path) else { throw MobileFailure("forbidden") }
         let config = try SecureStore.read("gateway")
         let base = try Self.validatedServer(config["server"] as? String ?? "")
         guard let token = config["token"] as? String, !token.isEmpty, let url = URL(string: base + path) else { throw MobileFailure("configure-server") }
@@ -34,6 +34,11 @@ class GatewayClient: NSObject, URLSessionTaskDelegate {
               let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw MobileFailure("invalid-response") }
         guard (200..<300).contains(http.statusCode) else { throw MobileFailure(object["code"] as? String ?? "network") }
         return object
+    }
+    func personalFM(_ selection: [String: Any]) async throws -> [String: Any] {
+        let session = try SecureStore.read("session.netease")
+        guard let cookie = session["cookie"] as? String, !cookie.isEmpty else { throw MobileFailure("auth-required") }
+        return try await send("/mobile/fm", body: ["provider": "netease", "selection": selection, "session": ["cookie": cookie]])
     }
     func resolve(_ song: [String: Any], quality: String = "standard") async throws -> NativeAudioSource {
         guard NativeAudioSettings.audioQualities.contains(quality) else { throw MobileFailure("invalid-audio-settings") }

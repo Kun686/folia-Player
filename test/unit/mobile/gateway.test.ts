@@ -18,6 +18,35 @@ async function fixture(fetchImpl: any = vi.fn(async () => new Response('{}')), p
   return { post, fetchImpl, health };
 }
 describe('mobile gateway', () => {
+  it('serves native FM with canonical songs and no gateway credential forwarding', async () => {
+    const { post, fetchImpl } = await fixture(vi.fn(async () => new Response(JSON.stringify({ code: 200, data: [
+      { id: 42, name: 'Radio', artists: [{ id: 1, name: 'Artist' }], album: { id: 2, name: 'Album' }, duration: 1000 },
+    ] }))));
+    const body = { provider: 'netease', selection: { mode: 'SCENE_RCMD', scene: 'FOCUS' }, session: { cookie: 'fixture-platform' } };
+    expect((await post('/mobile/fm', body, 'bad')).status).toBe(401);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    const response = await post('/mobile/fm', body);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ selection: body.selection, fallback: false, songs: [{ sourceRef: { kind: 'online', providerId: 'netease', mediaId: '42' } }] });
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url.origin).toBe(bases.netease); expect(url.pathname).toBe('/personal/fm/mode');
+    expect(url.searchParams.get('submode')).toBe('FOCUS'); expect(url.searchParams.get('cookie')).toBe('fixture-platform');
+    expect(init.headers.authorization).toBeUndefined(); expect(init.redirect).toBe('error');
+  });
+  it.each([301, 401, 403, 429])('stops native FM on provider code %s without fallback', async code => {
+    const { post, fetchImpl } = await fixture(vi.fn(async () => new Response(JSON.stringify({ code }))));
+    const response = await post('/mobile/fm', { provider: 'netease', selection: { mode: 'EXPLORE' }, session: { cookie: 'fixture' } });
+    expect(response.status).toBe(code === 429 ? 429 : 401); expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+  it('rejects native FM without a session, unknown modes and disabled providers before requests', async () => {
+    const { post, fetchImpl } = await fixture(undefined, ['netease']);
+    const body = { provider: 'netease', selection: { mode: 'DEFAULT' }, session: { cookie: 'fixture' } };
+    expect((await post('/mobile/fm', { ...body, session: {} })).status).toBe(401);
+    expect((await post('/mobile/fm', { ...body, selection: { mode: 'INVENTED' } })).status).toBe(400);
+    expect((await post('/mobile/fm', { ...body, provider: 'qq' })).status).toBe(404);
+    expect((await post('/mobile/request', { provider: 'netease', path: '/personal/fm/mode', query: { mode: 'SCENE_RCMD' } })).status).toBe(400);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
   it.each([
     ['/recommend/songs', { afresh: false }], ['/recommend/songs', { afresh: true }],
     ['/recommend/songs/dislike', { id: 42 }], ['/history/recommend/songs', {}],
@@ -68,7 +97,7 @@ describe('mobile gateway', () => {
   });
   it('advertises no like writes for a QQ-only gateway', async () => {
     const { health } = await fixture(undefined, ['qq']);
-    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['qq'], songLikeProviders: [], catalogProviders: ['qq'], playlistEditProviders: [], dailyProviders: [] });
+    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['qq'], songLikeProviders: [], catalogProviders: ['qq'], playlistEditProviders: [], dailyProviders: [], personalFmProviders: [] });
   });
   it.each([true, false])('forwards only the authorized NetEase like route with explicit like=%s', async liked => {
     const { post, fetchImpl } = await fixture(vi.fn(async () => new Response('{"code":200}')));
@@ -95,7 +124,7 @@ describe('mobile gateway', () => {
   });
   it('advertises only enabled services and rejects disabled API, lyrics and playback', async () => {
     const { post, fetchImpl, health } = await fixture(undefined, ['netease', 'qq']);
-    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['netease', 'qq'], songLikeProviders: ['netease'], catalogProviders: ['netease', 'qq'], playlistEditProviders: ['netease'], dailyProviders: ['netease'] });
+    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['netease', 'qq'], songLikeProviders: ['netease'], catalogProviders: ['netease', 'qq'], playlistEditProviders: ['netease'], dailyProviders: ['netease'], personalFmProviders: ['netease'] });
     for (const body of [{ provider: 'kugou', path: '/login/qr/key' },
       { provider: 'lyrics', path: 'https://lyrics.kugou.com/v1/search' }]) {
       expect((await post('/mobile/request', body)).status).toBe(404);

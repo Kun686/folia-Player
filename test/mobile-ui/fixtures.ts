@@ -54,7 +54,7 @@ export const test = base.extend<{ nativeBridge: void }>({
     win.fixtureCommands = [];
     const emit = () => { state.revision++; subscriber?.({ ...state }); };
     win.fixtureEmitPlayback = (patch: Record<string, unknown>) => { Object.assign(state, patch); emit(); };
-    const methods = ['getModels', 'downloadModel', 'cancelModel', 'removeModels', 'importModel', 'bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile', 'sharePlaylistFile',
+    const methods = ['startPersonalFM', 'leavePersonalFM', 'getModels', 'downloadModel', 'cancelModel', 'removeModels', 'importModel', 'bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile', 'sharePlaylistFile',
       'readLocalFolders', 'beginFolderImport', 'readFolderImport', 'prepareFolderImport', 'finishFolderImport', 'cancelFolderImport', 'removeLocalFolder',
       'readLocalLibrary', 'editLocalLibrary', 'localCatalog', 'importAudio', 'localDetails', 'readLocalLyrics', 'readLocalMatch', 'writeLocalMatch', 'selectLocalLyrics', 'importLyrics', 'pickLyricFile', 'saveLocalLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
       'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache', 'listExportLyrics', 'readExportLyrics', 'shareLyricArchive', 'getSleepTimer', 'setSleepTimer', 'getAISettings', 'setAISettings', 'aiRequest', 'cancelAIRequest', 'getSyncSettings', 'setSyncSettings', 'syncRequest', 'cancelSyncRequest'];
@@ -72,6 +72,10 @@ export const test = base.extend<{ nativeBridge: void }>({
         if (method === 'addListener') { if (options.eventName === 'sleepTimer') sleepSubscriber = cb; else if (options.eventName === 'mediaCache') cacheSubscriber = cb as () => void; else if (options.eventName === 'playback') subscriber = cb; } return 'callback-1';
       },
       nativePromise: async (_plugin: string, method: string, options: any) => {
+        if (method === 'startPersonalFM' || method === 'leavePersonalFM') {
+          if (win.fixtureFmBridge) return win.fixtureFmBridge(method, options);
+          throw new Error('fm-fixture-not-configured');
+        }
         if (['getModels', 'downloadModel', 'cancelModel', 'removeModels', 'importModel'].includes(method)) {
           if (win.fixtureModelBridge) return win.fixtureModelBridge(method, options);
           if (method === 'getModels') return structuredClone(win.fixtureModels);

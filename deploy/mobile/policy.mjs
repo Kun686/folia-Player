@@ -1,10 +1,12 @@
+import { validateFmSelection } from '../../shared/mobile/neteaseFm.ts';
+
 // deploy/mobile/policy.mjs — fixed upstream capabilities, never an arbitrary proxy.
 export const routes = {
   netease: new Set(['/register/anonimous', '/login/qr/key', '/login/qr/create', '/login/qr/check',
     '/login/status', '/logout', '/user/account', '/user/detail', '/user/playlist', '/playlist/detail',
     '/playlist/track/all', '/song/detail', '/song/url/v1', '/cloudsearch', '/search', '/lyric', '/lyric/new', '/cloud/lyric/get', '/song/chorus', '/likelist', '/like',
     '/album', '/artist/detail', '/artist/songs', '/artist/album', '/playlist/tracks',
-    '/recommend/songs', '/recommend/songs/dislike', '/history/recommend/songs', '/history/recommend/songs/detail']),
+    '/personal_fm', '/personal/fm/mode', '/recommend/songs', '/recommend/songs/dislike', '/history/recommend/songs', '/history/recommend/songs/detail']),
   qq: new Set(['/login/qr/key', '/login/qr/create', '/login/qr/check', '/login/qr/cancel',
     '/login/status', '/login/channels', '/logout', '/user/detail', '/user/playlist', '/user/playlist-detail',
     '/user/liked-songs', '/getAlbumInfo', '/getSingerHotsong', '/getSingerAlbum']),
@@ -41,6 +43,10 @@ export function authorizeTarget(input, bases) {
   if (!routes[provider].has(parsed.pathname) && !qqRead) throw fault('unsupported', 404);
   const params = { ...Object.fromEntries(parsed.searchParams), ...(input.query ?? {}) };
   if (provider === 'netease') {
+    if (parsed.pathname === '/personal/fm/mode') {
+      validateFmSelection({ mode: params.mode, scene: params.submode });
+      if (params.limit !== undefined) throw fault('invalid-request');
+    }
     if (parsed.pathname === '/recommend/songs' && !['true', 'false'].includes(String(params.afresh))) throw fault('invalid-request');
     if (parsed.pathname === '/recommend/songs/dislike' && !/^[1-9][0-9]{0,19}$/.test(String(params.id))) throw fault('invalid-request');
     if (parsed.pathname === '/history/recommend/songs/detail') {

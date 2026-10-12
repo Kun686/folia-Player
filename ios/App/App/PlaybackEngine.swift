@@ -17,6 +17,7 @@ final class PlaybackEngine {
     let audioRules = NativeTransitionPlanner()
     var transitionSettings = NativeTransitionSettings()
     let gateway: GatewayClient
+    let personalFM = NativePersonalFM()
     let storage: UserDefaults
     let sleepTimer: NativeSleepTimer
     let local: LocalMediaLibrary
@@ -80,6 +81,7 @@ final class PlaybackEngine {
         artwork.changed = { [weak self] in self?.updateNowPlaying() }
         player.actionAtItemEnd = .advance
         player.automaticallyWaitsToMinimizeStalling = true
+        personalFM.engine = self
         restore()
         libraryRefreshTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -117,25 +119,28 @@ final class PlaybackEngine {
             DispatchQueue.main.async { self?.publish() }
         }
     }
-    func setQueue(_ songs: [[String: Any]], at position: Int) throws {
+    func setQueue(_ songs: [[String: Any]], at position: Int, preservingFM: Bool = false) throws {
         guard !songs.isEmpty, songs.count <= 1000, songs.indices.contains(position) else { throw MobileFailure("invalid-queue") }
         sleepTimer.reconcile()
-        queue = try songs.map(Self.sanitizedSong).map(canonicalLocalSong); failures = 0; intentToPlay = true
+        let validated = try songs.map(Self.sanitizedSong).map(canonicalLocalSong)
+        if !preservingFM { personalFM.leave() }
+        queue = validated; failures = 0; intentToPlay = true
         select(position)
     }
     func nextIndex(_ delta: Int = 1, automatic: Bool = false) -> Int? {
         guard !queue.isEmpty else { return nil }
-        if automatic && repeatMode == "one" { return index }
+        if !personalFM.active && automatic && repeatMode == "one" { return index }
         let target = index + delta
         if queue.indices.contains(target) { return target }
-        if repeatMode == "all" { return delta < 0 ? queue.count - 1 : 0 }
+        if !personalFM.active && repeatMode == "all" { return delta < 0 ? queue.count - 1 : 0 }
         return nil
     }
     func move(_ delta: Int, automatic: Bool = false) {
         if let next = nextIndex(delta, automatic: automatic) {
             if !automatic { intentToPlay = true }
             select(next)
-        } else if automatic { intentToPlay = false; pauseOutput(); publish() }
+        } else if delta > 0 && personalFM.active { personalFM.waitForNext(automatic: automatic) }
+        else if automatic { intentToPlay = false; pauseOutput(); publish() }
     }
     // Every new playback intent invalidates previous resolves and preloads.
     func select(_ target: Int, refresh: Bool = false, position: Double = 0) {
@@ -179,6 +184,7 @@ final class PlaybackEngine {
         }
     }
     func prefetch() {
+        personalFM.refill()
         if usesStereoOutput { prefetchStream(); return }
         guard currentSong != nil, player.currentItem != nil, let next = nextIndex(automatic: true),
               let song = queue.indices.contains(next) ? queue[next] : detachedSong else { return }
@@ -213,6 +219,7 @@ final class PlaybackEngine {
         if let next = nextIndex() { select(next) }
     }
     func stop(_ code: String? = nil) {
+        personalFM.cancelPending()
         crossfade?.cancel()
         generation += 1; task?.cancel(); discardPrepared(); stalledRecovery?.cancel(); stalledRecovery = nil; networkResume = nil
         statusObservation = nil; observedItem = nil
@@ -220,6 +227,7 @@ final class PlaybackEngine {
         intentToPlay = false; pauseOutput(); error = code; persist(); publish()
     }
     func invalidateProvider(_ provider: String) {
+        if provider == "netease" { personalFM.leave() }
         mediaCacheEpoch += 1
         let previous = mediaCachePurges[provider]
         mediaCachePurges[provider] = Task { [mediaCache, coverCache, lyricCache] in
@@ -261,7 +269,7 @@ final class PlaybackEngine {
         ["queue": queue, "index": index, "currentSong": currentSong as Any? ?? NSNull(), "queueRevision": queueRevision,
          "position": playbackPosition,
          "duration": playbackDuration, "playing": outputIsPlaying,
-         "repeat": repeatMode, "error": error ?? "", "revision": revision,
+         "repeat": repeatMode, "error": error ?? "", "revision": revision, "personalFM": personalFM.snapshot,
          "transitionCue": crossfade?.cueSnapshot as Any? ?? NSNull(),
          "audioProcessingAvailable": meter?.processingAvailable() ?? false,
          "audioEffects": meter?.effectState() ?? ["available": false, "pending": false, "error": ""]]
@@ -276,7 +284,7 @@ final class PlaybackEngine {
     func persist() {
         lastSave = Date()
         if let data = try? JSONSerialization.data(withJSONObject: ["queue": queue, "index": index, "currentSong": currentSong as Any? ?? NSNull(),
-            "position": playbackPosition, "repeat": repeatMode]) {
+            "position": playbackPosition, "repeat": repeatMode, "personalFM": personalFM.selection as Any? ?? NSNull()]) {
             storage.set(data, forKey: "folia.queue")
         }
     }
@@ -291,9 +299,11 @@ final class PlaybackEngine {
         if !queue.indices.contains(index) { index = -1 }
         if let song = saved["currentSong"] as? [String: Any] { detachedSong = try? Self.sanitizedSong(song) }
         if !["off", "all", "one"].contains(repeatMode) { repeatMode = "off" }
+        if !queue.isEmpty { personalFM.restore(saved["personalFM"]) }
         // Restore paused; no network traffic or unexpected audio until the user presses play.
     }
     deinit {
+        personalFM.cancelPending()
         crossfade?.cancel()
         libraryRefreshTask?.cancel()
         task?.cancel(); preload?.cancel(); stalledRecovery?.cancel(); network.cancel()

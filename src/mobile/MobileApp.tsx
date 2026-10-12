@@ -13,6 +13,7 @@ import type { OnlineCatalogTarget } from './onlineCatalog';
 import OnlinePlaylistPicker from './OnlinePlaylistPicker';
 import OnlinePlaylistManager from './OnlinePlaylistManager';
 import DailyRecommendations from './DailyRecommendations';
+import PersonalFM from './PersonalFM';
 import { createMobilePlaylistEditor } from './mobilePlaylistEditor';
 import { removeFromCache } from '../services/db';
 import type { ProviderCollection } from '../types/onlineMusic';
@@ -145,6 +146,8 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       <div className="section-heading"><h2>{queueView ? t('mobile.queue') : t(isCached ? 'options.mediaCache' : isLocal ? 'mobile.local' : 'mobile.playlists')}</h2>
         <button aria-pressed={queueView} onClick={() => setQueueView(!queueView)}>{t('mobile.queue')} · {playback.state.queue.length}</button></div>
       {isLocal && !queueView && <LocalLibraryNav browser={localBrowser} clearQuery={() => setQuery('')} />}
+      <PersonalFM provider={queueView ? '' : provider} enabled={available.personalFmProviders.includes(provider)} signedIn={!!catalog.user}
+        state={playback.state} busy={queueBusy} work={queueWork} playing={() => setExpanded(true)} />
       <DailyRecommendations provider={queueView ? '' : provider} enabled={available.dailyProviders.includes(provider)} signedIn={!!catalog.user}
         queueBusy={queueBusy} queueError={queueError} add={(song, next) => void add(song, next)} actions={onlineActions}
         play={(tracks, index) => queueWork(async () => { await flushSessions(); await native.setQueue({ songs: tracks, index }); setExpanded(true); })} />

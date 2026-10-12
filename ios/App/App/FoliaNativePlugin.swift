@@ -7,7 +7,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "FoliaNativePlugin"
     public let jsName = "FoliaNative"
     public let pluginMethods: [CAPPluginMethod] = ["bootstrap", "configure", "health", "saveSession", "clearSession",
-        "request", "cancelRequests", "setQueue", "editQueue", "selectQueue", "command", "getState", "shareQR", "copyText", "shareLyricFile", "sharePlaylistFile",
+        "request", "cancelRequests", "startPersonalFM", "leavePersonalFM", "setQueue", "editQueue", "selectQueue", "command", "getState", "shareQR", "copyText", "shareLyricFile", "sharePlaylistFile",
         "localCatalog", "importAudio", "localDetails", "importLyrics", "pickLyricFile", "saveLocalLyrics", "readLocalLyrics", "selectLocalLyrics", "readLocalMatch", "writeLocalMatch", "readLocalLibrary", "editLocalLibrary", "removeLocal", "audioLevels",
         "getAudioSettings", "setAudioSettings", "getTransitionSettings", "setTransitionSettings", "getMediaCacheSettings", "setMediaCacheSettings",
         "mediaCacheState", "clearMediaCache", "songCover", "coverCacheState", "clearCoverCache",
@@ -64,6 +64,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         self.engine.discardPrepared()
         self.requests.values.forEach { $0.cancel() }; self.requests.removeAll()
         try SecureStore.write("gateway", ["server": server, "token": token])
+        self.engine.personalFM.cancelPending()
         self.engine.prefetch()
         call.resolve()
     } }
@@ -84,6 +85,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         let previous = try SecureStore.read("session." + provider)
         let changed = ["cookie", "token", "userid"].contains { (previous[$0] as? String) != values[$0] }
         try SecureStore.write("session." + provider, values)
+        if changed && provider == "netease" { self.engine.personalFM.leave(); self.engine.persist(); self.engine.publish() }
         if changed { self.engine.crossfade?.cancelLyricRequests() }
         Task { @MainActor in
             do {
@@ -115,6 +117,17 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func cancelRequests(_ call: CAPPluginCall) { run(call) {
         for id in call.getArray("ids", String.self) ?? [] { self.requests[id]?.cancel() }
         call.resolve()
+    } }
+    @objc func startPersonalFM(_ call: CAPPluginCall) { run(call) {
+        guard let selection = call.getObject("selection"), JSONSerialization.isValidJSONObject(selection),
+              selection.count <= 2 else { throw MobileFailure("invalid-fm-mode") }
+        Task { @MainActor in
+            do { try await self.engine.personalFM.start(selection); call.resolve(self.engine.snapshot()) }
+            catch { call.reject(error is CancellationError ? "cancelled" : (error as? MobileFailure)?.code ?? "network") }
+        }
+    } }
+    @objc func leavePersonalFM(_ call: CAPPluginCall) { run(call) {
+        self.engine.personalFM.leave(); self.engine.persist(); self.engine.publish(); call.resolve()
     } }
     @objc func setQueue(_ call: CAPPluginCall) { run(call) {
         guard let songs = call.getArray("songs", JSObject.self), let index = call.getInt("index") else { throw MobileFailure("invalid-queue") }
