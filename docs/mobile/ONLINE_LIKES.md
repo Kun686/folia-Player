@@ -32,6 +32,14 @@
 - 首轮 QQ 队列样本同时设置了当前歌曲，触发了本场景未提供响应的歌词读取警告。最终样本仅设置待播队列，收藏仍使用真实 QQ provider，未修改生产歌词逻辑。
 - 收藏成功／失败、回读、关闭后待写入、退出迟到结果、混合队列平台身份、旧网关及 QQ 只读均由受控测试验证。真实平台读写、原生交互和物理设备均为 NOT_RUN。
 
+### 构建与源码一致性
+
+- 源码 `4921dbcd5b859243bf1c46a399482eecc41e8086` 的 [CI 38193746032](https://github.com/Kun686/folia-Player/actions/runs/38193746032) 为 `completed / success`；包含音频 vendor 校验、类型检查、移动逻辑测试和移动构建，记录 `ci.json`。CI 不包含这次本地 WebKit 或原生交互验收。
+- `npm run ios:sync` PASS（`build.log`）；独立 Release 模拟器 QA 构建 PASS（`native-build.log`）。本轮没有启动、安装或操作原生 App，构建不能代替交互验收。
+- QA Bundle ID 为 `app.folia.validation.App`，最低系统 17.0；包内构建身份与上述源码一致，125 个前端资源逐文件 SHA256 与同步目录一致，模拟器 ad hoc 签名 `codesign --verify --deep --strict` PASS（`package.json`）。版本文字沿用 `0.7.16-mobile.28`，不能与个人安装包混同。
+- 个人 `BUILD_RECORD.json` SHA256 保持 `ec176ad6a9b5d72435ada9d0fa3a8e399e7c7ed0047045b7991423d1adb2de73`。原 README、生产依赖及锁文件均未变更。
+- 本轮构建／测试均已结束，无测试端口监听或本轮遗留构建、Playwright、Vite、Simulator 进程；模拟器均未启动，记录 `cleanup.json`。
+
 ## 部署与回退
 
 此代码尚未部署到 `music.nb686.cn`，也未安装到个人 iPhone。必须在更新网关后才能从新客户端写入网易云收藏；旧客户端忽略新增健康检查字段，新客户端连接旧网关保持只读。
