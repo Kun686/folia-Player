@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { expansionPlanJSON, stemCurveJSON, stemPlanJSON, renderExpansionPCM } from '@/services/automix/nativeRuntime';
+import { expansionPlanJSON, stemCurveJSON, stemPlanJSON, renderExpansionPCM, expansionSampleMapPCM } from '@/services/automix/nativeRuntime';
 import { expansionMask, planExpansion, renderExpansion } from '@/services/automix/expansionGesture';
 import { outgoingCurves, incomingCurves } from '@/services/automix/stemGesture';
 
@@ -8,6 +8,19 @@ const request = (windowSec = 12, expansion: number | null = null) => ({ version:
   outgoingBarSec: 2, incomingBarSec: 2, outgoingBeatsPerBar: 4, downbeats: [],
   vocals: Array(Math.floor(windowSec / 0.05)).fill(0.5), mix: Array(Math.floor(windowSec / 0.05)).fill(0.5), incoming: {} });
 describe('native performance gesture', () => {
+  it.each([0.25, 0.5, 0.75, 1])('keeps exact original samples when %s material is bound after planning', intensity => {
+    const plan = JSON.parse(expansionPlanJSON(JSON.stringify(request(12, intensity))));
+    const text = JSON.stringify({version: 1, plan}), map = expansionSampleMapPCM(text);
+    expect(map).toBeInstanceOf(Float64Array);
+    const source = Float32Array.from({length: 529200 + 2048}, (_, i) => Math.sin(i * 0.173) * (i % 11 - 5));
+    for (const offset of [0, 1, 2048]) {
+      const material = source.subarray(offset, offset + 529200);
+      const expected = renderExpansionPCM(material, text);
+      const actual = Float32Array.from({length: map.length / 2}, (_, i) =>
+        (map[i * 2] < 0 ? 0 : material[map[i * 2]]) * map[i * 2 + 1]);
+      expect(new Uint8Array(actual.buffer)).toEqual(new Uint8Array(expected.buffer));
+    }
+  });
   it.each([0.25, 0.5, 0.75, 1])('uses the original %s plan and masks only its outgoing stems', intensity => {
     const input = request(12, intensity), { handover } = JSON.parse(stemPlanJSON(JSON.stringify(input)));
     const plan = planExpansion(intensity, handover.swap, 2, 12, 4)!;
@@ -42,10 +55,12 @@ describe('native performance gesture', () => {
     for (const patch of [{ windowSec: 31 }, { from: -1 }, { to: plan.from }, { spinbackSec: 11 },
       { repeats: [] }, { repeats: Array(257).fill(plan.repeats[0]) }, { repeats: [{...plan.repeats[0], rate: 2}] }]) {
       expect(() => renderExpansionPCM(source, JSON.stringify({ version: 1, plan: {...plan, ...patch} }))).toThrow();
+      expect(() => expansionSampleMapPCM(JSON.stringify({ version: 1, plan: {...plan, ...patch} }))).toThrow();
     }
     for (const data of [new Float32Array(0), new Float32Array(1323001), new Float32Array([NaN])]) {
       expect(() => renderExpansionPCM(data, JSON.stringify({version: 1, plan}))).toThrow();
     }
     expect(() => renderExpansionPCM(source, ' '.repeat(262145))).toThrow();
+    expect(() => expansionSampleMapPCM(' '.repeat(262145))).toThrow();
   });
 });

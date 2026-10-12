@@ -11,6 +11,7 @@ struct NativeLiveStemHandover {
     let outgoing: NativeStemWindow, incoming: NativeStemWindow
     let clocks: NativeStemClocks, plannedStart: Double
     let gesture: NativeStemGesture, bus: NativeStemBusParameters
+    let expansion: NativeExpansionProgram?
 }
 
 actor NativeStemHandover {
@@ -18,17 +19,20 @@ actor NativeStemHandover {
     private let expansion = NativeExpansionRenderer()
 
     // Keep the original observations/curves, while the render thread binds packed PCM to actual media time.
-    // Performance builds require a separately aligned render; the current queue has performance disabled.
+    // A performance build shares the original sample walk and binds its rounded material at adoption.
     func prepareLive(outgoing: NativeStemWindow, incoming: NativeStemWindow,
                      options: NativeStemAnalysisContext, clocks: NativeStemClocks, plannedStart: Double,
                      planner: NativeTransitionPlanner) async throws -> NativeLiveStemHandover? {
         try Task.checkCancellation()
-        guard options.expansion == nil else { throw MobileFailure("invalid-expansion-pcm") }
         guard let request = try await analysis.request(out: outgoing, incoming: incoming, options: options, planner: planner) else { return nil }
         let gesture = try await planner.stems(request), bus = try await planner.stemBus()
+        let build: NativeExpansionProgram?
+        if let plan = gesture.expansion {
+            build = try await expansion.program(outgoing, plannedOffset: (options.outAt - outgoing.from) * NativeStemPCM.rate, plan: plan)
+        } else { build = nil }
         try Task.checkCancellation()
         return NativeLiveStemHandover(outgoing: outgoing, incoming: incoming, clocks: clocks,
-                                     plannedStart: plannedStart, gesture: gesture, bus: bus)
+                                     plannedStart: plannedStart, gesture: gesture, bus: bus, expansion: build)
     }
 
     // Observations precede late wiring compensation, exactly as in scheduleStemGesture.

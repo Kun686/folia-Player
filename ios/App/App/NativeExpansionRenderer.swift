@@ -15,19 +15,40 @@ actor NativeExpansionRenderer {
         try render(plan: plan) { pcm.stems[$0]! }
     }
 
-    // One channel per call bounds cancellation latency; each call retains the original complete render.
-    // No JS values, callbacks or PCM owners escape the autorelease pool/VM. Only copied Float32 returns.
-    private func render(plan: NativeExpansionPlan, channels: (NativeStemName) throws -> [[Float]]) throws -> NativeExpansionPCM {
+    func program(_ window: NativeStemWindow, plannedOffset: Double, plan: NativeExpansionPlan) throws -> NativeExpansionProgram {
         try Task.checkCancellation(); try plan.validate()
-        return try autoreleasepool {
+        return try withRuntime { context, runtime in
+            let value = runtime.invokeMethod("expansionSampleMapPCM", withArguments: [try planText(plan)])
+            try Task.checkCancellation()
+            guard context.exception == nil, let value else { throw MobileFailure("invalid-expansion-pcm") }
+            let map = try NativeFloat32Bridge.copyDoubles(value, count: plan.frames * 2)
+            return try NativeExpansionProgram(plan: plan, map: map, window: window, plannedOffset: plannedOffset)
+        }
+    }
+
+    private func planText(_ plan: NativeExpansionPlan) throws -> String {
+        struct Request: Encodable { let version = 1; let plan: NativeExpansionPlan }
+        let text = String(decoding: try JSONEncoder().encode(Request(plan: plan)), as: UTF8.self)
+        guard text.utf8.count <= 262144 else { throw MobileFailure("invalid-expansion-plan") }
+        return text
+    }
+    private func withRuntime<T>(_ body: (JSContext, JSValue) throws -> T) throws -> T {
+        try autoreleasepool {
             guard let scriptURL, let script = try? String(contentsOf: scriptURL, encoding: .utf8),
                   script.utf8.count <= 1048576, let context = JSContext() else { throw MobileFailure("transition-runtime-unavailable") }
             context.evaluateScript(script, withSourceURL: scriptURL)
             guard context.exception == nil, let runtime = context.objectForKeyedSubscript("FoliaTransitions"),
                   runtime.forProperty("protocolVersion")?.toInt32() == 1 else { throw MobileFailure("transition-runtime-unavailable") }
-            struct Request: Encodable { let version = 1; let plan: NativeExpansionPlan }
-            let text = String(decoding: try JSONEncoder().encode(Request(plan: plan)), as: UTF8.self)
-            guard text.utf8.count <= 262144 else { throw MobileFailure("invalid-expansion-plan") }
+            return try body(context, runtime)
+        }
+    }
+
+    // One channel per call bounds cancellation latency; each call retains the original complete render.
+    // No JS values, callbacks or PCM owners escape the autorelease pool/VM. Only copied Float32 returns.
+    private func render(plan: NativeExpansionPlan, channels: (NativeStemName) throws -> [[Float]]) throws -> NativeExpansionPCM {
+        try Task.checkCancellation(); try plan.validate()
+        return try withRuntime { context, runtime in
+            let text = try planText(plan)
             let deadline = ProcessInfo.processInfo.systemUptime + 10
             var output = Array(repeating: Array(repeating: Float(0), count: plan.frames), count: 2)
             for name in plan.stems {

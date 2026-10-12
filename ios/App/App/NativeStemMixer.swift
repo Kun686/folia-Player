@@ -25,6 +25,21 @@ final class NativeStemMixer {
         }
     }
     private struct Lane { let samples: Samples, curve: [Float] }
+    private enum Build {
+        case pcm(NativeExpansionPCM), program(NativeExpansionProgram)
+        var plan: NativeExpansionPlan {
+            switch self { case .pcm(let value): return value.plan; case .program(let value): return value.plan }
+        }
+        var peak: Double {
+            switch self { case .pcm(let value): return Double(value.peak); case .program(let value): return value.peak }
+        }
+        func sample(channel: Int, frame: Int, offset: Int) -> Float {
+            switch self {
+            case .pcm(let value): return value.sample(channel: channel, frame: frame)
+            case .program(let value): return value.sample(channel: channel, frame: frame, sourceOffset: offset)
+            }
+        }
+    }
     // Web Audio connects the outgoing sweep to changeover before the other three gain nodes.
     private static let order: [NativeStemName] = [.other, .drums, .bass, .vocals]
     private let outgoing: [Lane], incoming: [Lane]
@@ -33,7 +48,8 @@ final class NativeStemMixer {
     private let outFrames: Int, inFrames: Int
     private var outOffset = 0.0, inOffset = 0.0
     private var aligned: Bool
-    private let expansion: NativeExpansionPCM?, expansionLevel: Float
+    private let expansion: Build?, expansionLevel: Float
+    private var expansionOffset = 0
     let frames: Int
     private(set) var position = 0
     private var left = AudioEffectBiquadState(), right = AudioEffectBiquadState()
@@ -43,18 +59,19 @@ final class NativeStemMixer {
          bus: NativeStemBusParameters, outLevel: Double = 1, inLevel: Double = 1,
          expansion: NativeExpansionPCM? = nil) throws {
         try self.init(outgoing: Input(outgoing), incoming: Input(incoming), gesture: gesture, bus: bus,
-                      outLevel: outLevel, inLevel: inLevel, expansion: expansion, aligned: true)
+                      outLevel: outLevel, inLevel: inLevel, expansion: expansion.map(Build.pcm), aligned: true)
     }
     // Retain the existing compact windows; binding changes only two scalars, with no PCM copy in render.
     convenience init(outgoing: NativeStemWindow, incoming: NativeStemWindow, gesture: NativeStemGesture,
-                     bus: NativeStemBusParameters, outLevel: Double = 1, inLevel: Double = 1) throws {
+                     bus: NativeStemBusParameters, outLevel: Double = 1, inLevel: Double = 1,
+                     expansion: NativeExpansionProgram? = nil) throws {
         guard outgoing.role == .tail, incoming.role == .head else { throw MobileFailure("invalid-stem-window") }
         try self.init(outgoing: Input(outgoing), incoming: Input(incoming), gesture: gesture, bus: bus,
-                      outLevel: outLevel, inLevel: inLevel, expansion: nil, aligned: false)
+                      outLevel: outLevel, inLevel: inLevel, expansion: expansion.map(Build.program), aligned: false)
     }
     private init(outgoing: Input, incoming: Input, gesture: NativeStemGesture,
                  bus: NativeStemBusParameters, outLevel: Double, inLevel: Double,
-                 expansion: NativeExpansionPCM?, aligned: Bool) throws {
+                 expansion: Build?, aligned: Bool) throws {
         let seconds = gesture.schedule.windowSec, sweep = gesture.schedule.otherSweep
         guard seconds.isFinite, (0.8...30).contains(seconds),
               bus.curve.count == 8192, bus.curve.allSatisfy({ $0.isFinite && abs($0) <= 1 }),
@@ -87,7 +104,7 @@ final class NativeStemMixer {
         self.incoming = try lanes(incoming, gesture.incoming, inLevel, order: [.drums, .bass, .other, .vocals])
         guard gesture.expansion == expansion?.plan,
               expansion == nil || (expansion!.plan.windowSec == seconds
-                && Double(expansion!.peak) * outLevel < Double(Float.greatestFiniteMagnitude) / 16) else {
+                && expansion!.peak * outLevel < Double(Float.greatestFiniteMagnitude) / 16) else {
             throw MobileFailure("invalid-expansion-pcm")
         }
         self.expansion = expansion; expansionLevel = Float(outLevel)
@@ -104,6 +121,10 @@ final class NativeStemMixer {
             offset.isFinite && offset >= 0 && offset < Double(count) && floor(offset + 0.5) + length <= Double(count)
         }
         guard covered(outgoingOffset, outFrames), covered(incomingOffset, inFrames) else { return false }
+        if let expansion, case .program(let program) = expansion {
+            guard let offset = program.sourceOffset(at: outgoingOffset) else { return false }
+            expansionOffset = offset
+        }
         outOffset = outgoingOffset; inOffset = incomingOffset; aligned = true
         return true
     }
@@ -144,8 +165,8 @@ final class NativeStemMixer {
             if let expansion {
                 // Same outgoing changeover node: original build bypasses the stem sweep, then shares
                 // the 8ms element splice, ReplayGain and common limiter. Never add it after the limiter.
-                outL += expansion.sample(channel: 0, frame: frame) * expansionLevel
-                outR += expansion.sample(channel: 1, frame: frame) * expansionLevel
+                outL += expansion.sample(channel: 0, frame: frame, offset: expansionOffset) * expansionLevel
+                outR += expansion.sample(channel: 1, frame: frame, offset: expansionOffset) * expansionLevel
             }
             let splice = bus.spliceSec * NativeStemPCM.rate
             let outChange = Float(min(1, time / splice)), inChange = Float(min(1, max(0, (duration - time) / splice)))

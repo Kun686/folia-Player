@@ -285,6 +285,33 @@ export const renderExpansion = (
 ): Float32Array[] => {
     const total = Math.max(1, Math.round((plan.to - plan.from) * sampleRate));
     const out = channels.map(() => new Float32Array(total));
+    walkExpansionSamples(plan, sampleRate, (target, read, gain) => {
+        for (let channel = 0; channel < channels.length; channel += 1) {
+            const source = channels[channel];
+            const sample = read >= 0 && read < source.length ? source[read] : 0;
+            out[channel][target] = sample * gain;
+        }
+    });
+    return out;
+};
+
+/** Exact source addresses and Double gains, prepared before native playback binds its media offset. */
+export const expansionSampleMap = (plan: ExpansionPlan, sampleRate: number, sourceFrames: number): Float64Array => {
+    const total = Math.max(1, Math.round((plan.to - plan.from) * sampleRate));
+    const result = new Float64Array(total * 2);
+    for (let i = 0; i < total; i += 1) result[i * 2] = -1;
+    walkExpansionSamples(plan, sampleRate, (target, read, gain) => {
+        result[target * 2] = read >= 0 && read < sourceFrames ? read : -1;
+        result[target * 2 + 1] = gain;
+    });
+    return result;
+};
+
+// One original walk serves prepared PCM and late-bound reads; no second repeat/spinback algorithm.
+const walkExpansionSamples = (
+    plan: ExpansionPlan, sampleRate: number, write: (target: number, source: number, gain: number) => void,
+): void => {
+    const total = Math.max(1, Math.round((plan.to - plan.from) * sampleRate));
     const edge = Math.max(1, Math.round(EDGE_SEC * sampleRate));
     const spinFrom = plan.spinbackSec > 0
         ? Math.max(0, total - Math.round(plan.spinbackSec * sampleRate))
@@ -299,22 +326,17 @@ export const renderExpansion = (
         const sliceLength = Math.max(1, Math.round(repeat.sourceLength * sampleRate));
         const run = stop - start;
         const fade = Math.max(1, Math.min(edge, Math.floor(run / 2)));
-        for (let channel = 0; channel < channels.length; channel += 1) {
-            const source = channels[channel];
-            const target = out[channel];
-            for (let i = 0; i < run; i += 1) {
-                const phase = (i * repeat.rate) % sliceLength;
-                const read = sliceAt + Math.floor(phase);
-                const sample = read >= 0 && read < source.length ? source[read] : 0;
-                // Faded around the WRAP, not merely at the two ends of the slot. Read faster than it
-                // is long, a slice wraps part way through - at rate 1.2 that is 83% in - and the wrap
-                // is a jump BACKWARDS in the source. Unfaded it is a hard discontinuity in the middle
-                // of every repeat, growing as the rise does - a second thing that can be heard as a
-                // rewind on top of the one the divisions used to cause.
-                const toWrap = Math.min(phase, sliceLength - phase) / repeat.rate;
-                const shape = Math.min(1, toWrap / fade, (run - 1 - i) / fade);
-                target[start + i] = sample * Math.max(0, shape);
-            }
+        for (let i = 0; i < run; i += 1) {
+            const phase = (i * repeat.rate) % sliceLength;
+            const read = sliceAt + Math.floor(phase);
+            // Faded around the WRAP, not merely at the two ends of the slot. Read faster than it
+            // is long, a slice wraps part way through - at rate 1.2 that is 83% in - and the wrap
+            // is a jump BACKWARDS in the source. Unfaded it is a hard discontinuity in the middle
+            // of every repeat, growing as the rise does - a second thing that can be heard as a
+            // rewind on top of the one the divisions used to cause.
+            const toWrap = Math.min(phase, sliceLength - phase) / repeat.rate;
+            const shape = Math.min(1, toWrap / fade, (run - 1 - i) / fade);
+            write(start + i, read, Math.max(0, shape));
         }
     }
 
@@ -324,23 +346,17 @@ export const renderExpansion = (
         // shape of a hand on a platter: slowest at the moment of contact, fastest as it lets go.
         const origin = Math.round(plan.to * sampleRate);
         const decay = Math.max(1, Math.round(run * SPINBACK_DECAY));
-        for (let channel = 0; channel < channels.length; channel += 1) {
-            const source = channels[channel];
-            const target = out[channel];
-            let read = origin;
-            for (let i = 0; i < run; i += 1) {
-                read -= 1 + (SPINBACK_TOP_RATE - 1) * (i / run);
-                const at = Math.floor(read);
-                const sample = at >= 0 && at < source.length ? source[at] : 0;
-                // `run - 1 - i`, so the last sample is exactly zero. Off by one it lands at
-                // 1/decay of full scale instead - inaudible as a level and a step as an edge,
-                // which is the one thing that would put a click on the drop itself.
-                const left = run - 1 - i;
-                target[spinFrom + i] = sample * (left < decay ? left / decay : 1);
-            }
+        let read = origin;
+        for (let i = 0; i < run; i += 1) {
+            read -= 1 + (SPINBACK_TOP_RATE - 1) * (i / run);
+            const at = Math.floor(read);
+            // `run - 1 - i`, so the last sample is exactly zero. Off by one it lands at
+            // 1/decay of full scale instead - inaudible as a level and a step as an edge,
+            // which is the one thing that would put a click on the drop itself.
+            const left = run - 1 - i;
+            write(spinFrom + i, at, left < decay ? left / decay : 1);
         }
     }
-    return out;
 };
 
 /**

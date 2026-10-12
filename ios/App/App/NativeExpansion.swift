@@ -40,3 +40,53 @@ struct NativeExpansionPCM {
         return Float(Double(row[left]) + (Double(row[left + 1]) - Double(row[left])) * fraction)
     }
 }
+
+// Original JS sample addresses/gains are immutable. Render only binds the original rounded source
+// slice; repeat, wrap and spinback arithmetic never runs in Swift or on the audio thread.
+struct NativeExpansionProgram {
+    let plan: NativeExpansionPlan, peak: Double
+    private let map: [Double], lanes: [NativeStemWindow.Packed]
+    private let materialFrames: Int, windowFrames: Int, plannedOffset: Double
+    var storedBytes: Int { map.count * MemoryLayout<Double>.size }
+
+    init(plan: NativeExpansionPlan, map: [Double], window: NativeStemWindow, plannedOffset: Double) throws {
+        try plan.validate()
+        let length = Int((plan.windowSec * NativeStemPCM.rate).rounded())
+        guard window.role == .tail, plannedOffset.isFinite, plannedOffset >= 0,
+              plannedOffset.rounded() + Double(length) <= Double(window.frames), map.count == plan.frames * 2 else {
+            throw MobileFailure("invalid-expansion-pcm")
+        }
+        for i in stride(from: 0, to: map.count, by: 2) {
+            guard map[i].isFinite, map[i].rounded() == map[i], map[i] >= -1, map[i] < Double(length),
+                  map[i + 1].isFinite, (0...1).contains(map[i + 1]) else { throw MobileFailure("invalid-expansion-pcm") }
+        }
+        self.plan = plan; self.map = map; self.plannedOffset = plannedOffset
+        materialFrames = window.frames; windowFrames = length
+        lanes = plan.stems.map { window.packed[NativeStemName(rawValue: $0)!]! }
+        peak = lanes.reduce(0) { $0 + $1.gain * 32768 / 32767 }
+    }
+    // Keep round(planned) + round(late), not round(planned + late): they differ at half samples.
+    func sourceOffset(at actualOffset: Double) -> Int? {
+        guard actualOffset.isFinite, actualOffset >= plannedOffset - 1e-6,
+              actualOffset <= Double(materialFrames) else { return nil }
+        let offset = Int(plannedOffset.rounded()) + Int(max(0, actualOffset - plannedOffset).rounded())
+        return offset <= materialFrames - windowFrames ? offset : nil
+    }
+    func sample(channel: Int, frame: Int, sourceOffset: Int) -> Float {
+        let position = Double(frame) - plan.from * NativeStemPCM.rate
+        guard position >= 0, position < Double(plan.frames) else { return 0 }
+        let left = min(Int(position), plan.frames - 2), fraction = position - Double(left)
+        func restored(_ index: Int) -> Float {
+            let address = Int(map[index * 2]), gain = map[index * 2 + 1]
+            guard address >= 0 else { return 0 }
+            var value: Float = 0
+            for lane in lanes {
+                let raw = lane.sample(at: Double(sourceOffset + address), channel: channel, frames: materialFrames)
+                value += Float(Double(raw) * gain)
+            }
+            return value
+        }
+        let a = Double(restored(left)), b = Double(restored(left + 1))
+        return Float(a + (b - a) * fraction)
+    }
+}

@@ -26,18 +26,24 @@ enum NativeFloat32Bridge {
     }
 
     static func copy(_ value: JSValue, count: Int) throws -> [Float] {
-        guard (1...1_323_000).contains(count), let context = value.context, let raw = value.jsValueRef else {
+        try copy(value, count: count, limit: 1_323_000, type: kJSTypedArrayTypeFloat32Array, element: Float.self)
+    }
+    static func copyDoubles(_ value: JSValue, count: Int) throws -> [Double] {
+        try copy(value, count: count, limit: 2_646_000, type: kJSTypedArrayTypeFloat64Array, element: Double.self)
+    }
+    private static func copy<T>(_ value: JSValue, count: Int, limit: Int, type: JSTypedArrayType, element: T.Type) throws -> [T] {
+        guard (1...limit).contains(count), let context = value.context, let raw = value.jsValueRef else {
             throw MobileFailure("invalid-expansion-pcm")
         }
         let ctx = context.jsGlobalContextRef
         var error: JSValueRef?
-        guard JSValueGetTypedArrayType(ctx, raw, &error) == kJSTypedArrayTypeFloat32Array, error == nil,
+        guard JSValueGetTypedArrayType(ctx, raw, &error) == type, error == nil,
               let object = JSValueToObject(ctx, raw, &error), error == nil,
               JSObjectGetTypedArrayLength(ctx, object, &error) == count, error == nil,
               let bytes = JSObjectGetTypedArrayBytesPtr(ctx, object, &error), error == nil else {
             throw MobileFailure("invalid-expansion-pcm")
         }
         // The pointer is valid only until the next JSC call; finish the native copy immediately.
-        return Array(UnsafeBufferPointer(start: bytes.assumingMemoryBound(to: Float.self), count: count))
+        return Array(UnsafeBufferPointer(start: bytes.assumingMemoryBound(to: T.self), count: count))
     }
 }

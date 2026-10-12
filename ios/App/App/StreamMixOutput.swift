@@ -149,7 +149,8 @@ final class StreamMixOutput {
         let alignment = try NativeStemAlignment(clocks: prepared.clocks, plannedStart: prepared.plannedStart,
             outFrom: prepared.outgoing.from, inFrom: prepared.incoming.from, outgoing: outTempo, incoming: inTempo)
         let pcm = try NativeStemMixer(outgoing: prepared.outgoing, incoming: prepared.incoming,
-            gesture: prepared.gesture, bus: prepared.bus, outLevel: out.replayGain.amplitude, inLevel: next.replayGain.amplitude)
+            gesture: prepared.gesture, bus: prepared.bus, outLevel: out.replayGain.amplitude, inLevel: next.replayGain.amplitude,
+            expansion: prepared.expansion)
         let stems = try NativeStemTransition(outgoing: out.identity, incoming: next.identity, mixer: pcm,
             seconds: prepared.gesture.schedule.windowSec, hold: 0, splice: prepared.bus.spliceSec, alignment: alignment)
         return transitionGain.replace(stems, fallback: try gainCurve(outgoing: outgoing, incoming: incoming, envelope: fallback), generation: generation)

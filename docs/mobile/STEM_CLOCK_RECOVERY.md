@@ -4,6 +4,9 @@
 **PASS_GENERATED_AUDIO_DEVICE_AND_SIMULATOR / FULL_AUTOMIX_IN_PROGRESS**。
 仅独立 QA 包；个人 App 保持 mobile.28。未改界面、依赖、原模型或公开能力开关。
 
+后续 [实时扩展效果的素材绑定](LIVE_EXPANSION.md) 已接入独立 QA 队列，最终两端各通过
+80 项生成音频测试。下文保留本阶段历史记录，模型联合负载仍未验收。
+
 ## 问题与最小复现
 
 基线 `afbca4e00dba733e9c67d2595e58e32349e6fa52` 已能使不连续时钟下的分轨 PCM 失效，

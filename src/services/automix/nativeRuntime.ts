@@ -15,7 +15,7 @@ import { fail, object, numeric, optionalNumber, numbers, read } from './nativeTr
 // nativeRuntime.ts — JSON boundary for the original planners, bundled for Apple's JavaScriptCore.
 export { protocolVersion } from './nativeTransitionInput';
 export { stemPlanJSON, stemCurveJSON, stemBusJSON, stemWindowJSON, expansionPlanJSON } from './nativeStemRuntime';
-export { renderExpansionPCM } from './nativeExpansionRuntime';
+export { renderExpansionPCM, expansionSampleMapPCM } from './nativeExpansionRuntime';
 export { stemEnvelopeJSON, stemVocalEndJSON, stemObservationJSON } from './nativeStemAnalysis';
 const styles: TransitionStyle[] = ['beatCut', 'bassSwap', 'tailRide', 'plainBlend'];
 

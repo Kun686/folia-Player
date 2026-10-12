@@ -28,6 +28,43 @@ struct ExpansionReference: Decodable {
 }
 
 @MainActor extension NativeTests {
+    func testLateBoundExpansionMatchesOriginalRoundedMaterialAndRejectsUncoveredSources() async throws {
+        let (reference, rows) = try ExpansionReference.load(), planner = NativeTransitionPlanner(), renderer = NativeExpansionRenderer()
+        let bus = try await planner.stemBus()
+        var maximum: Float = 0, compared = 0, largestMap = 0
+        for (index, entry) in reference.cases.enumerated() {
+            let gesture = try await planner.stems(JSONSerialization.data(withJSONObject: XCTUnwrap(rows[index]["input"])))
+            guard let plan = gesture.expansion else { continue }
+            let outgoing = try StemStorageReference.window(frames: entry.frames + 4096)
+            let incoming = try StemStorageReference.window(frames: entry.frames + 4096, role: .head)
+            let program = try await renderer.program(outgoing, plannedOffset: 0.25, plan: plan)
+            largestMap = max(largestMap, program.storedBytes)
+            XCTAssertEqual(program.sourceOffset(at: 0.74), 0, "Round planned and late separately")
+            XCTAssertNil(program.sourceOffset(at: -1)); XCTAssertNil(program.sourceOffset(at: .nan))
+            XCTAssertNil(program.sourceOffset(at: Double(outgoing.frames)))
+            for late in [0.0, 0.49, 1024.25] {
+                let result = try await NativeStemWindowPair.prepare(out: outgoing, incoming: incoming,
+                    outAt: 0.25 / 44100, inAt: 0.75 / 44100, seconds: entry.seconds, lateBy: late / 44100, planner: planner)
+                let windows = try XCTUnwrap(result)
+                let rendered = try await renderer.render(windows, plan: plan)
+                let expected = try NativeStemMixer(outgoing: windows.outgoing, incoming: windows.incoming,
+                    gesture: gesture, bus: bus, outLevel: entry.outLevel, inLevel: entry.inLevel, expansion: rendered)
+                let actual = try NativeStemMixer(outgoing: outgoing, incoming: incoming, gesture: gesture, bus: bus,
+                    outLevel: entry.outLevel, inLevel: entry.inLevel, expansion: program)
+                XCTAssertTrue(actual.bind(outgoingOffset: 0.25 + late, incomingOffset: 0.75 + late))
+                let a = StemClockFixture.buffer(257), b = StemClockFixture.buffer(257)
+                while actual.position < actual.frames {
+                    XCTAssertTrue(actual.render(a.mutableAudioBufferList, frames: 257))
+                    XCTAssertTrue(expected.render(b.mutableAudioBufferList, frames: 257))
+                    for i in 0..<514 { maximum = max(maximum, abs(a.floatChannelData![0][i] - b.floatChannelData![0][i])); compared += 1 }
+                }
+            }
+            XCTAssertThrowsError(try NativeStemMixer(outgoing: outgoing, incoming: incoming, gesture: gesture, bus: bus))
+            print("FOLIA_LIVE_EXPANSION_CASE name=\(entry.name) maxPCM=\(maximum) mapBytes=\(program.storedBytes)")
+        }
+        XCTAssertLessThan(maximum, 0.000001)
+        print("FOLIA_LIVE_EXPANSION referenceSamples=\(compared) maxPCM=\(maximum) largestMapBytes=\(largestMap)")
+    }
     func testOriginalExpansionRenderAndOutputMatchWebKit() async throws {
         let (reference, rows) = try ExpansionReference.load(), planner = NativeTransitionPlanner(), renderer = NativeExpansionRenderer()
         let bus = try await planner.stemBus(); var maximum: Float = 0, hashes = 0, samples = 0
@@ -103,6 +140,10 @@ struct ExpansionReference: Decodable {
             let array = try NativeFloat32Bridge.make(data!, in: context, errorCode: "test-memory")
             data = nil; XCTAssertNotNil(owner)
             XCTAssertEqual(try NativeFloat32Bridge.copy(array, count: 2), [0.25, -0.75])
+            let doubles = context.evaluateScript("new Float64Array([1.25, -0.75])")!
+            XCTAssertEqual(try NativeFloat32Bridge.copyDoubles(doubles, count: 2), [1.25, -0.75])
+            XCTAssertThrowsError(try NativeFloat32Bridge.copyDoubles(array, count: 2))
+            XCTAssertThrowsError(try NativeFloat32Bridge.copyDoubles(doubles, count: 3))
             XCTAssertThrowsError(try NativeFloat32Bridge.copy(array, count: 3))
             XCTAssertThrowsError(try NativeFloat32Bridge.copy(context.evaluateScript("new Float64Array(2)")!, count: 2))
         }

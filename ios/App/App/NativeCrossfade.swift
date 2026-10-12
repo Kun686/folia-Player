@@ -43,6 +43,7 @@ final class NativeCrossfade {
     private(set) var mode = "crossfade"
     private(set) var enabled = false
     private(set) var maximumSeconds = 5.0
+    private(set) var performance = false
     private(set) var stemPreparationStatus = "not-attempted"
     var isFading: Bool { fade != nil }
     var isStemFading: Bool {
@@ -66,12 +67,12 @@ final class NativeCrossfade {
     deinit { work?.cancel(); release?.cancel(); balance.cancel(); preplay?.cancel(); fade?.tail?.dispose() }
 
     // Both original planners share this lifecycle; unavailable profiles remain unknown, never fabricated.
-    func configure(enabled: Bool, maximumSeconds: Double, mode: String = "crossfade") throws {
+    func configure(enabled: Bool, maximumSeconds: Double, mode: String = "crossfade", performance: Bool = false) throws {
         guard ["crossfade", "automix"].contains(mode), maximumSeconds.isFinite, (1...25).contains(maximumSeconds) else {
             throw MobileFailure("invalid-transition-settings")
         }
-        guard self.enabled != enabled || self.maximumSeconds != maximumSeconds || self.mode != mode else { return }
-        self.enabled = enabled; self.maximumSeconds = maximumSeconds; self.mode = mode
+        guard self.enabled != enabled || self.maximumSeconds != maximumSeconds || self.mode != mode || self.performance != performance else { return }
+        self.enabled = enabled; self.maximumSeconds = maximumSeconds; self.mode = mode; self.performance = performance
         profiles.useBeatModel(enabled && mode == "automix" ? beatModel : nil)
         stems.useModel(enabled && mode == "automix" ? stemModel : nil)
         owner?.streamOutput?.setAnalysisEnabled(enabled)
@@ -218,7 +219,7 @@ final class NativeCrossfade {
                     let vocalEnd = tail.flatMap { window in window.vocalEnd.map { window.from + $0 } }
                     let bpm = fromProfile?["bpm"] as? Double ?? live?.tempo?.bpm
                     let request: [String: Any] = ["version": 1,
-                        "settings": ["mode": selectedMode, "crossfadeMaxSec": maximum, "performance": false],
+                        "settings": ["mode": selectedMode, "crossfadeMaxSec": maximum, "performance": self.performance],
                         "from": ["duration": fromDuration, "lines": self.lyrics.value(currentSong) as Any? ?? NSNull(), "profile": fromProfile as Any? ?? NSNull(), "vocalEnd": vocalEnd as Any? ?? NSNull()],
                         "to": ["duration": toDuration, "lines": self.lyrics.value(upcomingSong) as Any? ?? NSNull(), "profile": toProfile as Any? ?? NSNull()],
                         "bpm": bpm as Any? ?? NSNull(), "at": position]
@@ -312,7 +313,7 @@ final class NativeCrossfade {
         let prepared = try await stemHandover.prepareLive(outgoing: pair.outgoing, incoming: pair.incoming,
             options: context, clocks: clocks, plannedStart: start, planner: planner)
         stemPreparationStatus = prepared == nil
-            ? "uncovered out=\(outAt) in=\(inAt) seconds=\(envelope.overlap) tail=\(pair.outgoing.frames) head=\(pair.incoming.frames)" : "ready"
+            ? "uncovered out=\(outAt) in=\(inAt) seconds=\(envelope.overlap) tail=\(pair.outgoing.frames) head=\(pair.incoming.frames)" : (prepared?.expansion == nil ? "ready" : "ready-expansion")
         return prepared
     }
     @MainActor private func startBalance(output: StreamMixOutput, outgoing: StreamOccurrence, incoming: StreamOccurrence,
