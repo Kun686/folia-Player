@@ -27,7 +27,7 @@
 - 移动端每次拉一个分桶、列表每页 50 条；累计远端主题 JSON 限 16 MB，重复分页游标／超过 1000 页明确失败。过大的单桶或单次上传明确报错，没有截断结果或伪报完整同步。
 - ZIP 压缩文件和展开内容均限 16 MB；导出 JSON 另设 15 MB 预留格式开销。导入复用已安装 fflate 的解压过滤器预检展开大小，不提取到文件系统。
 
-## 测试证据
+## 首批同步基线测试证据
 
 | 边界 | 结果 |
 | --- | --- |
@@ -69,4 +69,12 @@
 | TypeScript | PASS，`typecheck-final.log`；首轮测试回调返回类型错误修正后重跑 |
 | 本次原生测试 | 无 Swift 改动，沿用上一批原生 fixture 证据，不重复计数 |
 
-包校验和独立原生页面观察在完成后另记；上面的 WebKit fixture 结果不作为原生触摸或真实服务验收。
+本批最终源码 `243900f8e8af8a63f69995d479a35dc004dfd654` 已推送，准确源码 [Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38190749377) 为 PASS。`npm run ios:sync` 和独立签名 Release 构建均 PASS；125 项包内 public 资源与同步目录逐项 SHA-256 一致，MinimumOSVersion 17.0，证据为 `build.log`、`native-build.log`、`signature.log`、`package.json`。包内仍显示 mobile.28 开发版本号，Bundle ID 为 `app.folia.validation.App`，不代表个人 mobile.28 已更新。
+
+本批 Release 包已安装到独立 iPad Pro 11-inch M5／iPadOS 26.5 模拟器。通过实际 UI 输入 `https://sync.example.invalid`，保持启用关闭、Token 为空，没有点击测试或同步。观察到“同步设置已保存”，终止并重新启动 App 后，地址、关闭状态及无凭据状态仍恢复；保存流程调用原生 Keychain，而非 WebKit fixture。截图：`native-saved-portrait.png`、`native-restored.png`。
+
+同一页面竖屏→横屏→竖屏切换后内容和控件正常显示；横屏从面板右侧空白区拖动可滚动到 ZIP 操作和状态，见 `native-landscape-scroll.png`。本次键盘仅覆盖硬件输入及系统输入辅助栏；软件键盘遮挡、iPhone 原生布局、iPad 多任务窗口和真实凭据恢复保持 NOT_RUN。输入工具首轮遗漏 URL 冒号被表单校验拒绝，改为显式键入冒号后保存成功；不将工具输入失败当作服务连接测试。
+
+上面的 WebKit fixture、本批原生页面短测与上一批原生网络 fixture 各自独立；真实服务认证、上传下载和跨设备数据一致性仍为 NOT_RUN。个人安装及 `BUILD_RECORD.json` 均未变，记录 SHA-256 为 `ec176ad6a9b5d72435ada9d0fa3a8e399e7c7ed0047045b7991423d1adb2de73`。
+
+本批结束已终止 QA App、关闭指定模拟器和 Simulator 窗口；没有启动持续日志采集，测试服务器与构建进程均已结束。QA 容器保留关闭状态的无效地址，后续测试需自行配置真实服务，不会自动连接该示例地址。
