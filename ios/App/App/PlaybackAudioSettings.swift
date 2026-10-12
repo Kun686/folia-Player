@@ -36,8 +36,9 @@ struct NativeAudioSettings: Codable {
     var equalizer = NativeEqualizerSettings()
     var replayGainMode = "off"
     var audioQuality = "standard"
+    var playbackFadeEnabled = true
     var neteaseScrobbleEnabled = false
-    private enum CodingKeys: String, CodingKey { case volume, isMuted, equalizer, replayGainMode, audioQuality, neteaseScrobbleEnabled }
+    private enum CodingKeys: String, CodingKey { case volume, isMuted, equalizer, replayGainMode, audioQuality, neteaseScrobbleEnabled, playbackFadeEnabled }
     init() {}
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -45,6 +46,7 @@ struct NativeAudioSettings: Codable {
         isMuted = try values.decode(Bool.self, forKey: .isMuted)
         equalizer = try values.decode(NativeEqualizerSettings.self, forKey: .equalizer)
         replayGainMode = try values.decodeIfPresent(String.self, forKey: .replayGainMode) ?? "off"
+        playbackFadeEnabled = try values.decodeIfPresent(Bool.self, forKey: .playbackFadeEnabled) ?? true
         neteaseScrobbleEnabled = try values.decodeIfPresent(Bool.self, forKey: .neteaseScrobbleEnabled) ?? false
         audioQuality = try values.decodeIfPresent(String.self, forKey: .audioQuality) ?? "standard"
     }

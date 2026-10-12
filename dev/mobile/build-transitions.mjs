@@ -62,3 +62,10 @@ await build({
     lib: { entry: 'src/mobile/nativeListeningRuntime.ts', name: 'FoliaListening', formats: ['iife'], fileName: () => 'listening.js' },
   },
 });
+await build({
+  configFile: false, root, publicDir: false,
+  build: {
+    target: 'safari17', outDir: 'dist-mobile/native', emptyOutDir: false,
+    lib: { entry: 'src/mobile/nativePlaybackFadeRuntime.ts', name: 'FoliaPlaybackFade', formats: ['iife'], fileName: () => 'playback-fade.js' },
+  },
+});

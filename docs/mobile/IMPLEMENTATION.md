@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+原版暂停／恢复淡入淡出已接入移动原生输出，复用原控制器，频谱随声音淡出；音量与 Automix 增益独立。
+58 项逻辑、9 项 WebKit 和最终 14 项原生模拟器测试通过，构建与资源核对通过。
+本批真机、真实音源听感及系统挂起验收 NOT_RUN，个人 App 与服务器未更新，见 [PLAYBACK_FADE.md](PLAYBACK_FADE.md)。
+
 网易云听歌打卡已接通原生播放事件、后台请求、会话取消和默认关闭的设置，复用原算法与协议。
 286 项逻辑、21 项 WebKit（布局修正后另复测 6 项）及 15 项原生模拟器测试通过，含真实解码的自动计量与 EOF 切歌上报。
 网关直接 Node 加载检查通过；真实账号写入／真机 NOT_RUN，个人 App 与服务器未更新，见 [LISTENING_REPORT.md](LISTENING_REPORT.md)。

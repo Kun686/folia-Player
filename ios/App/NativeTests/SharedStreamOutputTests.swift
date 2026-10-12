@@ -143,6 +143,41 @@ private final class SharedStreamProbe {
         XCTAssertTrue(first.isEngineRunning)
     }
 
+    func testTransportFadeIsAfterBothDecksAndEffectsAndIndependentOfMasterVolume() async throws {
+        let url = try sharedConstantFile(seconds: 8)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let first = try await preparedExternalPlayer(url), second = try await preparedExternalPlayer(url)
+        let graph = try SharedStreamProbe(players: [first, second], effect: await AudioEffectUnit.makeNode())
+        defer { graph.stop() }
+        XCTAssertTrue(first.startPreparedPlayback()); XCTAssertTrue(second.startPreparedPlayback())
+        _ = try graph.render()
+        graph.engine.mainMixerNode.outputVolume = 0.4
+        _ = try graph.render()
+        XCTAssertEqual(try graph.render(), 0.1, accuracy: 0.00001)
+        graph.unit.transportGain.ramp(to: 0, seconds: 0.2)
+        _ = try graph.render(blocks: 20)
+        XCTAssertEqual(try graph.render(), 0, accuracy: 0.000001)
+        // The final insert can synthesize noise even when sources are silent.
+        var effects = NativeEqualizerSettings.neutral; effects["noise"] = 0.6; effects["space"] = 0.5
+        graph.unit.meter.effects.configure(effects)
+        _ = try graph.render(blocks: 20)
+        XCTAssertEqual(try graph.render(), 0, accuracy: 0.000001)
+        XCTAssertEqual(graph.engine.mainMixerNode.outputVolume, 0.4)
+        graph.unit.requestDiscontinuity()
+        _ = graph.unit.meter.snapshot(); _ = try graph.render()
+        let spectrum = graph.unit.meter.snapshot()
+        XCTAssertTrue(spectrum["available"] as? Bool == true)
+        XCTAssertTrue((spectrum["spectrum"] as? [Int])?.allSatisfy { $0 == 0 } == true,
+                      "The visualizer must see faded PCM, including synthesized effects")
+        graph.unit.transportGain.ramp(to: 1, seconds: 0.2)
+        _ = try graph.render(blocks: 20)
+        XCTAssertNotEqual(try graph.render(), 0)
+        graph.engine.mainMixerNode.outputVolume = 0
+        _ = try graph.render()
+        graph.unit.transportGain.ramp(to: 0, seconds: 0); graph.unit.transportGain.ramp(to: 1, seconds: 0.2)
+        XCTAssertEqual(try graph.render(blocks: 20), 0, accuracy: 0.000001)
+    }
+
     func testExternallyRenderedDecoderSeeksAndEndsWithoutOwningHardware() async throws {
         let url = try sharedConstantFile(seconds: 1)
         defer { try? FileManager.default.removeItem(at: url) }

@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+原版暂停／恢复淡入淡出已接入移动原生输出，复用原控制器，频谱随声音淡出；音量与 Automix 增益独立。
+58 项逻辑、9 项 WebKit 和最终 14 项原生模拟器测试通过，构建与资源核对通过。
+本批真机、真实音源听感及系统挂起验收 NOT_RUN，个人 App 与服务器未更新，见 [PLAYBACK_FADE.md](PLAYBACK_FADE.md)。
+
 听歌打卡的生产队列接线、后台请求、取消与原版开关通过 286 项逻辑、21 项 WebKit 和 15 项原生模拟器测试；
 布局修正后 6 项受影响 WebKit 再次通过。生成 WAV 经真实解码、生产计时器和自然 EOF 切歌向受控 transport 上报。
 真实网易云接受记录、系统挂起／真机验收 NOT_RUN；个人 App 与服务器未更新，见 [LISTENING_REPORT.md](LISTENING_REPORT.md)。

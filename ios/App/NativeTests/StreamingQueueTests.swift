@@ -193,6 +193,7 @@ import AVFoundation
         try await waitForStream { tested.outputIsPlaying && tested.playbackPosition > before }
         XCTAssertTrue(tested.stream === entry); XCTAssertEqual(tested.generation, epoch)
         try tested.command("pause")
+        try await waitForStream { !tested.outputIsPlaying }
         let paused = tested.playbackPosition
         NotificationCenter.default.post(name: .AVAudioEngineConfigurationChange, object: output.engine)
         try await Task.sleep(nanoseconds: 100_000_000)

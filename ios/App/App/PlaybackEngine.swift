@@ -13,6 +13,9 @@ final class PlaybackEngine {
     var preparedStream: (index: Int, entry: StreamOccurrence, at: Date)?
     var streamTimer: DispatchSourceTimer?
     var crossfade: NativeCrossfade?
+    lazy var playbackFade: NativePlaybackFade? = makePlaybackFade()
+    var playbackFadeToken: Int?
+    var preparingPlaybackFade = false
     var audioSettings = NativeAudioSettings()
     let audioRules = NativeTransitionPlanner()
     var transitionSettings = NativeTransitionSettings()
@@ -150,6 +153,7 @@ final class PlaybackEngine {
     // Every new playback intent invalidates previous resolves and preloads.
     func select(_ target: Int, refresh: Bool = false, position: Double = 0) {
         guard queue.indices.contains(target) || (target == -1 && detachedSong != nil) else { return }
+        playbackFade?.flush(); playbackFadeToken = nil
         listeningSeek = nil
         if !refresh { listening.finishOccurrence() } else { listening.discontinuity() }
         if usesStereoOutput { selectStream(target, refresh: refresh, position: position); return }
@@ -265,12 +269,16 @@ final class PlaybackEngine {
     var hasCurrentOutput: Bool { usesStereoOutput ? stream != nil : player.currentItem != nil }
     var outputIsPlaying: Bool { usesStereoOutput ? stream?.playing == true && streamOutput?.running == true : player.timeControlStatus == .playing }
     var playbackPosition: Double { usesStereoOutput ? (stream?.position ?? restoredPosition) : (player.currentItem == nil ? restoredPosition : finiteTime(player.currentTime())) }
-    func pauseOutput() {
+    func pauseOutput(preservingFade: Bool = false) {
+        playbackFadeToken = nil
         listening.discontinuity()
         crossfade?.cancel()
         if usesStereoOutput { stream?.pause(); streamOutput?.pause() } else { player.pause() }
+        if !preservingFade { playbackFade?.cancel() }
     }
     func clearOutput() {
+        playbackFade?.cancel(); playbackFadeToken = nil
+        streamOutput?.unit.transportGain.ramp(to: 1, seconds: 0)
         crossfade?.cancel()
         if usesStereoOutput { stream?.dispose(); stream = nil; meter = nil }
         else { player.removeAllItems() }
@@ -283,7 +291,7 @@ final class PlaybackEngine {
     func snapshot() -> [String: Any] {
         ["queue": queue, "index": index, "currentSong": currentSong as Any? ?? NSNull(), "queueRevision": queueRevision,
          "position": playbackPosition,
-         "duration": playbackDuration, "playing": outputIsPlaying,
+         "duration": playbackDuration, "playing": intentToPlay && outputIsPlaying,
          "repeat": repeatMode, "error": error ?? "", "revision": revision, "personalFM": personalFM.snapshot,
          "listening": listening.snapshot,
          "transitionCue": crossfade?.cueSnapshot as Any? ?? NSNull(),
@@ -291,6 +299,7 @@ final class PlaybackEngine {
          "audioEffects": meter?.effectState() ?? ["available": false, "pending": false, "error": ""]]
     }
     func publish() {
+        finishPlaybackFadeIn()
         listening.observe(song: currentSong, position: playbackPosition, duration: playbackDuration,
             playing: outputIsPlaying && stream?.seeking != true && listeningSeek == nil, quality: audioSettings.audioQuality)
         revision += 1; updateNowPlaying()

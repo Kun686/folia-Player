@@ -71,9 +71,12 @@ final class AudioMeter {
         cursor = 0; sampledAt = -Double.infinity; resetAnalysis = true
     }
     // The tap invokes this even when no WebView, animation or spectrum consumer is running.
-    func process(_ buffers: UnsafeMutablePointer<AudioBufferList>, frames: Int, discontinuity: Bool = false) {
+    func process(_ buffers: UnsafeMutablePointer<AudioBufferList>, frames: Int, discontinuity: Bool = false,
+                 transportGain: TransportGain? = nil) {
         equalizer.process(buffers, frames: frames, discontinuity: discontinuity)
         effects.process(buffers, frames: frames, discontinuity: discontinuity)
+        // Match the original graph: effects -> transport fade -> analysis (master volume is applied to its copy).
+        transportGain?.process(buffers, frames: frames, rate: sampleRate)
         consume(buffers, frames: frames, discontinuity: discontinuity)
     }
     // Capture the most recent complete window, downmixed to mono as specified by Web Audio.

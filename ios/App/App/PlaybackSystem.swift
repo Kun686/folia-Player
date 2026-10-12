@@ -17,7 +17,7 @@ extension PlaybackEngine {
             if usesStereoOutput {
                 if let stream, !stream.hasEnded, !stream.hasFailed, error == nil {
                     observeStream(stream, epoch: generation)
-                    try activate(); try stream.play()
+                    try activate(); try resumeStream(stream)
                     if preparedStream == nil { prefetch() }
                 } else { select(index, position: restoredPosition) }
                 break
@@ -27,12 +27,13 @@ extension PlaybackEngine {
                 if let item = player.currentItem { observeStatus(item, epoch: generation) }
                 try activate(); player.play()
             }
-        case "pause": personalFM.cancelPending(); intentToPlay = false; resumeAfterInterruption = false; networkResume = nil; pauseOutput()
+        case "pause": personalFM.cancelPending(); pauseWithFade()
         case "next": personalFM.cancelSelection(); failures = 0; move(1)
         case "previous": personalFM.cancelSelection(); failures = 0; move(-1)
         case "seek":
             guard let position, position.isFinite, position >= 0 else { throw MobileFailure("invalid-position") }
             personalFM.cancelSelection()
+            playbackFade?.flush(); playbackFadeToken = nil
             let duration = playbackDuration, target = duration > 0 ? min(position, duration) : position
             if usesStereoOutput {
                 if let stream {
@@ -108,7 +109,10 @@ extension PlaybackEngine {
         })
         observers.append(center.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] note in
             if (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt) == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue {
-                try? self?.command("pause")
+                guard let self else { return }
+                self.personalFM.cancelPending(); self.intentToPlay = false
+                self.resumeAfterInterruption = false; self.networkResume = nil
+                self.pauseOutput(); self.persist(); self.publish()
             }
         })
         observers.append(center.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.persist() })
@@ -168,7 +172,7 @@ extension PlaybackEngine {
             MPMediaItemPropertyArtist: artists,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: playbackPosition,
             MPMediaItemPropertyPlaybackDuration: playbackDuration,
-            MPNowPlayingInfoPropertyPlaybackRate: usesStereoOutput ? (outputIsPlaying ? (stream?.rate ?? 1) : 0.0) : Double(player.rate),
+            MPNowPlayingInfoPropertyPlaybackRate: usesStereoOutput ? (intentToPlay && outputIsPlaying ? (stream?.rate ?? 1) : 0.0) : Double(player.rate),
             MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue]
         if let image = artwork.image { info[MPMediaItemPropertyArtwork] = image }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info

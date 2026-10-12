@@ -11,6 +11,16 @@ const settings = () => ({ volume: 0.6, isMuted: true, equalizer: structuredClone
 const settle = async () => { await new Promise(resolve => setTimeout(resolve, 0)); };
 beforeEach(() => { vi.resetAllMocks(); bridge.getAudioSettings.mockResolvedValue(settings()); });
 describe('native audio settings synchronization', () => {
+  it('restores the original fade default and saves/rolls back the original command action', async () => {
+    const disconnect = connectAudioSettings(vi.fn()); await settle();
+    expect(useAudioSettingsStore.getState().playbackFadeEnabled).toBe(true);
+    bridge.setAudioSettings.mockImplementation(async ({ settings }) => settings);
+    useAudioSettingsStore.getState().handleTogglePlaybackFade(false); await settle();
+    expect(bridge.setAudioSettings).toHaveBeenLastCalledWith({ settings: expect.objectContaining({ playbackFadeEnabled: false }) });
+    bridge.setAudioSettings.mockRejectedValue(new Error('rejected'));
+    useAudioSettingsStore.getState().handleTogglePlaybackFade(true); await settle();
+    expect(useAudioSettingsStore.getState().playbackFadeEnabled).toBe(false); disconnect();
+  });
   it('restores native state without sending stale local defaults back', async () => {
     useAudioSettingsStore.getState().setAudioQuality('hires');
     const report = vi.fn(), disconnect = connectAudioSettings(report);

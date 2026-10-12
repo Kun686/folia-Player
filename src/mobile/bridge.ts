@@ -30,7 +30,7 @@ export interface NativeMediaCacheState {
   settings: NativeMediaCacheSettings; count: number; bytes: number; pending: number;
   revision: number; error: string | null; songs: SongResult[];
 }
-export interface NativeAudioSettings { neteaseScrobbleEnabled?: boolean; volume: number; isMuted: boolean; equalizer: AudioEqualizerSettings; replayGainMode: ReplayGainMode; audioQuality: AudioQualityPreference }
+export interface NativeAudioSettings { playbackFadeEnabled?: boolean; neteaseScrobbleEnabled?: boolean; volume: number; isMuted: boolean; equalizer: AudioEqualizerSettings; replayGainMode: ReplayGainMode; audioQuality: AudioQualityPreference }
 export interface NativeTransitionSettings { enabled: boolean; mode: 'crossfade' | 'automix'; crossfadeMaxSec: number }
 export interface NativeSleepTimerState { hours: number; minutes: number; enabled: boolean; deadlineMs: number | null; revision: number }
 export type NativeSleepTimerEdit = Partial<Pick<NativeSleepTimerState, 'hours' | 'minutes' | 'enabled'>>;

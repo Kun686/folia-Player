@@ -23,6 +23,7 @@ final class AudioEffectUnit: AUAudioUnit {
     private var inputs: AUAudioUnitBusArray!
     private var outputs: AUAudioUnitBusArray!
     private let renderState = EffectRenderState()
+    var transportGain: TransportGain { renderState.transportGain }
     var meter: AudioMeter { renderState.meter }
     // A deck uses the same validated AU buffer adapter, while the final insert retains the full effects.
     func useDeck(_ processor: TransitionDeckProcessor) throws {
@@ -83,6 +84,7 @@ final class AudioEffectUnit: AUAudioUnit {
 // Buffers are allocated before render starts; no FFT, allocation or blocking lock in this adapter.
 private final class EffectRenderState {
     let meter = AudioMeter()
+    let transportGain = TransportGain()
     var deck: TransitionDeckProcessor?
     var storage: AVAudioPCMBuffer?
     var needsReset = true
@@ -134,7 +136,7 @@ private final class EffectRenderState {
             resetLock.unlock()
         }
         let discontinuity = needsReset || (validTime && endSample.map { abs($0 - time.mSampleTime) > 0.5 } == true)
-        meter.process(output, frames: Int(frames), discontinuity: discontinuity)
+        meter.process(output, frames: Int(frames), discontinuity: discontinuity, transportGain: transportGain)
         needsReset = false
         endSample = validTime ? time.mSampleTime + Double(frames) : nil
         // Noise/reverb can produce output even if upstream was marked silent.

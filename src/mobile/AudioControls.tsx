@@ -25,6 +25,7 @@ export default function AudioControls({ light, theme, unavailable, effects, repl
   const replayGainMode = usePlaybackStore(s => s.replayGainMode);
   const setReplayGainMode = usePlaybackStore(s => s.setReplayGainMode);
   const audio = useAudioSettingsStore(useShallow(s => ({
+    playbackFadeEnabled: s.playbackFadeEnabled, togglePlaybackFade: s.handleTogglePlaybackFade,
     volume: s.volume, isMuted: s.isMuted, enabled: s.audioEqualizerSettings.enabled,
     audioQuality: s.audioQuality, setAudioQuality: s.setAudioQuality,
     effectsRequested: s.audioEqualizerSettings.enabled && !isNeutralAudioEffects(s.audioEqualizerSettings.effects),
@@ -62,6 +63,10 @@ export default function AudioControls({ light, theme, unavailable, effects, repl
       <ReplayGainControl isDaylight={light} values={replayGain} mode={replayGainMode} onChangeMode={setReplayGainMode} />
     </fieldset>
     </details>
+    <label className="playback-fade-toggle"><input type="checkbox" checked={audio.playbackFadeEnabled}
+      disabled={!status.ready} aria-describedby="playback-fade-hint"
+      onChange={event => audio.togglePlaybackFade(event.target.checked)} />{t('options.playbackFade')}</label>
+    <p className="quality-hint" id="playback-fade-hint">{t('options.playbackFadeDesc')}</p>
     <ListeningControl saved={status.ready} state={listening} />
     {message && <p role="alert">{message}</p>}
     {!status.ready && status.error && <button onClick={() => setAttempt(a => a + 1)}>{t('mobile.retry')}</button>}

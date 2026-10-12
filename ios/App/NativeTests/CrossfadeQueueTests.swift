@@ -72,6 +72,8 @@ import AVFoundation
         defer { tested.stop(); tested.clearOutput() }
         let incoming = try XCTUnwrap(tested.stream)
         try tested.command("pause")
+        XCTAssertTrue(tested.crossfade!.isFading, "Audible decks settle only after the transport fade")
+        try await waitForStream { !tested.outputIsPlaying }
         XCTAssertFalse(tested.crossfade!.isFading); XCTAssertFalse(tested.outputIsPlaying)
         XCTAssertEqual(tested.streamOutput?.attachedCount, 1); XCTAssertTrue(tested.stream === incoming)
         let stopped = tested.playbackPosition

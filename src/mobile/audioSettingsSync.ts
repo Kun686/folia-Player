@@ -14,18 +14,20 @@ export function connectAudioSettings(report: (ready: boolean, error: boolean) =>
       if (store.isMuted !== value.isMuted) store.handleToggleMute();
       store.handleSetAudioEqualizerSettings(value.equalizer);
       store.setAudioQuality(value.audioQuality);
+      store.handleTogglePlaybackFade(value.playbackFadeEnabled !== false);
       store.handleToggleNeteaseScrobble(value.neteaseScrobbleEnabled === true);
       usePlaybackStore.getState().setReplayGainMode(value.replayGainMode);
     },
     subscribe: changed => {
       const publish = () => {
         const state = useAudioSettingsStore.getState();
-        changed({ neteaseScrobbleEnabled: state.neteaseScrobbleEnabled, volume: state.volume, isMuted: state.isMuted, equalizer: state.audioEqualizerSettings, audioQuality: state.audioQuality,
+        changed({ playbackFadeEnabled: state.playbackFadeEnabled, neteaseScrobbleEnabled: state.neteaseScrobbleEnabled, volume: state.volume, isMuted: state.isMuted, equalizer: state.audioEqualizerSettings, audioQuality: state.audioQuality,
           replayGainMode: usePlaybackStore.getState().replayGainMode });
       };
       const audio = useAudioSettingsStore.subscribe((state, previous) => {
         if (state.volume !== previous.volume || state.isMuted !== previous.isMuted ||
             state.audioEqualizerSettings !== previous.audioEqualizerSettings || state.audioQuality !== previous.audioQuality ||
+            state.playbackFadeEnabled !== previous.playbackFadeEnabled ||
             state.neteaseScrobbleEnabled !== previous.neteaseScrobbleEnabled) publish();
       });
       const playback = usePlaybackStore.subscribe((state, previous) => {
