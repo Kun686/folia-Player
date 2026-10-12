@@ -26,6 +26,7 @@ vi.mock('@/services/netease', () => ({
         getFavoriteAlbums: vi.fn(), getUserCloud: vi.fn(),
         getPlaylistDetailDynamic: vi.fn(), getAlbumDetailDynamic: vi.fn(), subscribePlaylist: vi.fn(), subscribeAlbum: vi.fn(),
         getPlaylistTracks: vi.fn(),
+        getPlaylistDetail: vi.fn(),
         updatePlaylistTracks: vi.fn(),
         getDailyRecommendedSongs: vi.fn(), getDailyRecommendationHistoryDates: vi.fn(),
         getDailyRecommendationHistoryDetail: vi.fn(), dislikeDailyRecommendedSong: vi.fn(),
@@ -51,6 +52,30 @@ const song: UnifiedSong = {
 
 describe('neteaseProvider', () => {
     beforeEach(() => vi.clearAllMocks());
+
+    it.each([301, 401, 403, 429, 502, undefined])('rejects failed recommendations and details, code %s', async code => {
+        vi.mocked(neteaseApi.getPersonalizedPlaylists).mockResolvedValue({ code, result: [] });
+        vi.mocked(neteaseApi.getPlaylistDetail).mockResolvedValue({ code, playlist: { id: 8 } });
+        for (const read of [() => neteaseProvider.recommendations!.getRecommendedCollections!(35),
+            () => neteaseProvider.catalog!.getPlaylistDetail!(8)]) {
+            await expect(read()).rejects.toMatchObject({ code: [301, 401, 403].includes(code!) ? 'auth-required' : 'unavailable' });
+        }
+    });
+    it.each([undefined, {}, [{ id: 0, name: 'Bad' }], [{ id: 1, name: '' }], [null]])('rejects malformed recommendation collections %j', async result => {
+        vi.mocked(neteaseApi.getPersonalizedPlaylists).mockResolvedValue({ code: 200, result });
+        await expect(neteaseProvider.recommendations!.getRecommendedCollections!(35)).rejects.toMatchObject({ code: 'unavailable' });
+    });
+    it('keeps confirmed empty recommendations distinct and normalizes detailed playlist ownership', async () => {
+        vi.mocked(neteaseApi.getPersonalizedPlaylists).mockResolvedValue({ code: 200, result: [] });
+        await expect(neteaseProvider.recommendations!.getRecommendedCollections!(35)).resolves.toEqual([]);
+        vi.mocked(neteaseApi.getPlaylistDetail).mockResolvedValue({ code: 200, playlist: {
+            id: 8, type: 0, name: 'Actual', creator: { userId: 9, nickname: 'Owner' }, trackCount: 151, trackUpdateTime: 1234,
+        } });
+        expect(await neteaseProvider.catalog!.getPlaylistDetail!('8', { id: 8, providerId: 'netease', name: 'Card', type: 'playlist' }))
+            .toMatchObject({ id: 8, providerId: 'netease', type: 'playlist', name: 'Actual', trackCount: 151, tracksUpdatedAt: 1234, creator: { id: 9 } });
+        vi.mocked(neteaseApi.getPlaylistDetail).mockResolvedValue({ code: 200, playlist: { id: 10 } });
+        await expect(neteaseProvider.catalog!.getPlaylistDetail!(8)).rejects.toMatchObject({ code: 'unavailable' });
+    });
 
     it.each([true, false])('returns confirmed subscription status %s without truthy coercion', async status => {
         vi.mocked(neteaseApi.getPlaylistDetailDynamic).mockResolvedValue({ code: 200, subscribed: status });
@@ -335,6 +360,7 @@ describe('neteaseProvider', () => {
 
     it('maps personalized playlist copywriter into the unified description field', async () => {
         vi.mocked(neteaseApi.getPersonalizedPlaylists).mockResolvedValue({
+            code: 200,
             result: [{
                 id: 7,
                 name: 'Recommended Playlist',

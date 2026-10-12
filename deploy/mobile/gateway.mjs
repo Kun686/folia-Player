@@ -70,6 +70,7 @@ export function createMobileApp({ token, bases, providers = ['netease', 'qq', 'k
     subscriptionProviders: enabled.has('netease') ? ['netease'] : [],
     dailyProviders: enabled.has('netease') ? ['netease'] : [],
     personalFmProviders: enabled.has('netease') ? ['netease'] : [],
+    recommendedCollectionProviders: enabled.has('netease') ? ['netease'] : [],
     userAlbumProviders: [...enabled].filter(provider => ['netease', 'qq'].includes(provider)),
     cloudProviders: enabled.has('netease') ? ['netease'] : [],
     catalogProviders: [...enabled].filter(provider => ['netease', 'qq'].includes(provider)) }));

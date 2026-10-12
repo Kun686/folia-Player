@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+开发源码新增原版网易云推荐歌单入口，复用 35 条推荐、账号资源和原目录分页，接通播放／队列／收藏。
+补读歌单创建者后再开放操作，旧网关禁用新入口；QQ 沿用原能力，无新依赖或播放器外观变化。
+本轮不依赖真机，个人 App 与服务器未更新，见 [RECOMMENDED_PLAYLISTS.md](RECOMMENDED_PLAYLISTS.md)。
+
 开发源码新增网易云歌单／专辑收藏与取消收藏，复用原 Omni、权限、控制器及现有会话写入锁。
 状态未知或写入未确认时要求重新读取；QQ 保持原只读能力。没有新增依赖或修改播放器外观。
 本轮仅不依赖真机的工作，服务器与个人 mobile.28 未更新，见 [COLLECTION_SUBSCRIPTIONS.md](COLLECTION_SUBSCRIPTIONS.md)。

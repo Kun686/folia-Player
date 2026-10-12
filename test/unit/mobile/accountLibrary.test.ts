@@ -7,9 +7,34 @@ const user = { id: 9, nickname: 'Listener' };
 const album = (id: number): ProviderCollection => ({ id, providerId: 'qq', type: 'album', name: String(id) });
 const port = () => ({ getProviderUserAlbums: vi.fn(async (_provider: string, _user: unknown, page: { limit: number; offset: number }) => ({
   items: Array.from({ length: page.offset ? 1 : 50 }, (_, i) => album(page.offset + i)), hasMore: page.offset === 0, nextOffset: page.offset ? 51 : 50,
-})), getProviderCloudCollection: vi.fn(async () => null as ProviderCollection | null) });
+})), getProviderRecommendedCollections: vi.fn(async () => [] as ProviderCollection[]), getProviderCloudCollection: vi.fn(async () => null as ProviderCollection | null) });
 const deferred = <T>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(r => { resolve = r; }); return { promise, resolve }; };
 describe('mobile original account library', () => {
+  it('uses the original 35-item recommendation limit, preserves order and does not fetch unrelated feeds', async () => {
+    const api = port(), items = [3, 1, 2].map(id => ({ ...album(id), type: 'playlist', providerId: 'netease' }));
+    api.getProviderRecommendedCollections.mockResolvedValue(items);
+    const resource = createMobileAccountLibrary('netease', user, 'recommendations', api, () => true);
+    await resource.ensure(); await resource.ensure();
+    expect(api.getProviderRecommendedCollections).toHaveBeenCalledExactlyOnceWith('netease', 35);
+    expect(resource.getSnapshot()).toMatchObject({ status: 'ready', data: items });
+    expect(api.getProviderUserAlbums).not.toHaveBeenCalled(); expect(api.getProviderCloudCollection).not.toHaveBeenCalled();
+    api.getProviderRecommendedCollections.mockRejectedValueOnce(new Error('raw session'));
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await resource.reload(); expect(resource.getSnapshot()).toMatchObject({ status: 'error', data: items });
+      expect(log.mock.calls[0][1].message).toBe('account-library-unavailable');
+    } finally { log.mockRestore(); }
+    api.getProviderRecommendedCollections.mockResolvedValue([]);
+    await resource.reload(); expect(resource.getSnapshot()).toMatchObject({ status: 'ready', data: [] });
+  });
+  it.each(['close', 'session'])('discards late recommendation data after %s', async reason => {
+    const api = port(), pending = deferred<ProviderCollection[]>(); let current = true;
+    api.getProviderRecommendedCollections.mockReturnValueOnce(pending.promise);
+    const resource = createMobileAccountLibrary('netease', user, 'recommendations', api, () => current);
+    const work = resource.ensure(); if (reason === 'close') resource.setOwner(null); else current = false;
+    pending.resolve([{ ...album(1), providerId: 'netease', type: 'playlist' }]); await work;
+    expect(resource.getSnapshot()).toMatchObject({ owner: null, data: [], loaded: false });
+  });
   it('loads all favorite pages with explicit provider and original page size', async () => {
     const api = port(), resource = createMobileAccountLibrary('qq', user, 'albums', api, () => true);
     await resource.ensure(); await resource.ensure();

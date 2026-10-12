@@ -8,7 +8,7 @@ import { createMobileAccountLibrary, type AccountLibraryKind } from './mobileAcc
 
 // OnlineAccountLibrary.tsx — touch entries for original favorite albums and the NetEase cloud drive.
 interface Props {
-  provider: string; user: ProviderUser | null; albumsEnabled: boolean; cloudEnabled: boolean;
+  provider: string; user: ProviderUser | null; albumsEnabled: boolean; cloudEnabled: boolean; recommendationsEnabled: boolean;
   open(collection: ProviderCollection): void;
 }
 function CollectionRow({ index, style, collections, open }: RowComponentProps<{
@@ -16,9 +16,9 @@ function CollectionRow({ index, style, collections, open }: RowComponentProps<{
 }>) {
   const { t } = useTranslation(), collection = collections[index];
   return <div style={style} className="song-row"><button className="song-main"
-    aria-label={collection.type === 'cloud' ? t('mobile.accountCloud') : t('mobile.catalogAlbum', { name: collection.name })}
+    aria-label={collection.type === 'cloud' ? t('mobile.accountCloud') : t(collection.type === 'playlist' ? 'mobile.catalogPlaylist' : 'mobile.catalogAlbum', { name: collection.name })}
     onClick={() => open(collection)}><span><strong>{collection.type === 'cloud' ? t('mobile.accountCloud') : collection.name}</strong>
-      <small>{collection.artists?.map(artist => artist.name).join(' / ')}</small></span></button></div>;
+      <small>{collection.type === 'playlist' ? collection.description : collection.artists?.map(artist => artist.name).join(' / ')}</small></span></button></div>;
 }
 function AccountLibrarySheet({ provider, user, kind, open, close }: Props & { user: ProviderUser; kind: AccountLibraryKind; close(): void }) {
   const { t } = useTranslation(), dialog = useRef<HTMLDialogElement>(null);
@@ -29,7 +29,7 @@ function AccountLibrarySheet({ provider, user, kind, open, close }: Props & { us
     resource.setOwner({ providerId: provider, userId: user.id }); void resource.ensure();
     return () => resource.setOwner(null);
   }, [resource, provider, user.id]);
-  const title = t(kind === 'albums' ? 'mobile.accountAlbums' : 'mobile.accountCloud');
+  const title = t(kind === 'albums' ? 'mobile.accountAlbums' : kind === 'recommendations' ? 'mobile.recommendedPlaylists' : 'mobile.accountCloud');
   return <dialog ref={dialog} className="sheet online-catalog-sheet" aria-label={title}
     onCancel={event => { if (event.target === event.currentTarget) close(); }}
     onClose={event => { if (event.target === event.currentTarget) close(); }}>
@@ -50,8 +50,10 @@ export default function OnlineAccountLibrary(props: Props) {
     <div className="collection-actions">
       <button disabled={!props.user || !props.albumsEnabled} onClick={() => setKind('albums')}>{t('mobile.accountAlbums')}</button>
       {props.provider === 'netease' && <button disabled={!props.user || !props.cloudEnabled} onClick={() => setKind('cloud')}>{t('mobile.accountCloud')}</button>}
+      {props.provider === 'netease' && <button disabled={!props.user || !props.recommendationsEnabled} onClick={() => setKind('recommendations')}>{t('mobile.recommendedPlaylists')}</button>}
     </div>
     {!props.albumsEnabled && <p className="muted">{t('mobile.accountLibraryUnavailable')}</p>}
+    {props.provider === 'netease' && !props.recommendationsEnabled && <p className="muted">{t('mobile.recommendationsUnavailable')}</p>}
     {props.user && kind && <AccountLibrarySheet {...props} user={props.user} kind={kind} close={() => setKind(null)} />}
   </div>;
 }

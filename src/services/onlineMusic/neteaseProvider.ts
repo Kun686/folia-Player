@@ -465,6 +465,15 @@ export const neteaseProvider: OnlineMusicProvider = {
         },
     },
     catalog: {
+        async getPlaylistDetail(id, existingCollection) {
+            const response = await neteaseApi.getPlaylistDetail(toNeteaseId(id));
+            const playlist = response?.playlist;
+            requireCatalogResponse(response, !!playlist && typeof playlist === 'object' && !Array.isArray(playlist) &&
+                String(playlist.id) === String(id));
+            const normalized = normalizeCollection({ ...playlist, type: 'playlist' });
+            return { ...existingCollection, ...normalized, name: normalized.name || existingCollection?.name || '',
+                coverUrl: normalized.coverUrl || existingCollection?.coverUrl };
+        },
         async getPlaylistTracks(id, limit, offset) {
             const response = await neteaseApi.getPlaylistTracks(toNeteaseId(id), limit, offset);
             requireCatalogResponse(response, Array.isArray(response?.songs));
@@ -556,7 +565,9 @@ export const neteaseProvider: OnlineMusicProvider = {
         },
         async getRecommendedCollections(limit) {
             const response = await neteaseApi.getPersonalizedPlaylists(limit);
-            return (response?.result || []).map((item: any) => normalizeCollection(item));
+            requireCatalogResponse(response, Array.isArray(response?.result) && response.result.every((item: any) =>
+                item && /^[1-9][0-9]*$/.test(String(item.id)) && typeof item.name === 'string' && item.name.trim()));
+            return response.result.map((item: any) => normalizeCollection({ ...item, type: 'playlist' }));
         },
         async getHistoryEntries() {
             const response = await neteaseApi.getDailyRecommendationHistoryDates();

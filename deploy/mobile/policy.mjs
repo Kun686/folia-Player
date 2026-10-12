@@ -7,7 +7,7 @@ export const routes = {
     '/playlist/track/all', '/song/detail', '/song/url/v1', '/cloudsearch', '/search', '/lyric', '/lyric/new', '/cloud/lyric/get', '/song/chorus', '/likelist', '/like',
     '/album', '/album/sublist', '/user/cloud', '/artist/detail', '/artist/songs', '/artist/album', '/playlist/tracks',
     '/album/detail/dynamic', '/playlist/detail/dynamic', '/album/sub', '/playlist/subscribe',
-    '/personal_fm', '/personal/fm/mode', '/recommend/songs', '/recommend/songs/dislike', '/history/recommend/songs', '/history/recommend/songs/detail']),
+    '/personal_fm', '/personal/fm/mode', '/personalized', '/recommend/songs', '/recommend/songs/dislike', '/history/recommend/songs', '/history/recommend/songs/detail']),
   qq: new Set(['/login/qr/key', '/login/qr/create', '/login/qr/check', '/login/qr/cancel',
     '/login/status', '/login/channels', '/logout', '/user/detail', '/user/playlist', '/user/playlist-detail',
     '/user/liked-songs', '/user/albums', '/getAlbumInfo', '/getSingerHotsong', '/getSingerAlbum']),
@@ -44,6 +44,10 @@ export function authorizeTarget(input, bases) {
   if (!routes[provider].has(parsed.pathname) && !qqRead) throw fault('unsupported', 404);
   const params = { ...Object.fromEntries(parsed.searchParams), ...(input.query ?? {}) };
   if (provider === 'netease') {
+    if (parsed.pathname === '/personalized') {
+      if (!/^[1-9][0-9]*$/.test(String(params.limit ?? '')) || Number(params.limit) > 100 ||
+          Object.keys(params).some(key => !['limit', 'cookie', 'timestamp'].includes(key))) throw fault('invalid-request');
+    }
     const subscriptionWrite = ['/album/sub', '/playlist/subscribe'].includes(parsed.pathname);
     if (subscriptionWrite || ['/album/detail/dynamic', '/playlist/detail/dynamic'].includes(parsed.pathname)) {
       if (!/^[1-9][0-9]{0,19}$/.test(String(params.id ?? '')) ||

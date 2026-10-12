@@ -467,6 +467,14 @@ export const omni = {
         return withActiveProvider(async provider => provider.recommendations?.getPersonalFm?.(options) ?? []);
     },
 
+    async getProviderRecommendedCollections(providerId: OmniProviderId, limit: number): Promise<OmniCollection[]> {
+        const provider = requireOnlineMusicProvider(providerId);
+        if (!providerSupports(provider, 'recommendations') || !provider.recommendations?.getRecommendedCollections) {
+            return unsupported(providerId, 'recommended-collections');
+        }
+        return provider.recommendations.getRecommendedCollections(limit);
+    },
+
     async getDailySongs(refresh?: boolean): Promise<UnifiedSong[]> {
         return withActiveProvider(async provider => provider.recommendations?.getDailySongs?.(refresh) ?? []);
     },

@@ -56,6 +56,20 @@ afterEach(() => {
 });
 
 describe('omni routing', () => {
+    it('routes recommendations by explicit provider without requesting the other home feeds', async () => {
+        const selected = provider(providerId, undefined), other = provider(otherProviderId, undefined);
+        selected.capabilities = { ...capabilities, recommendations: true };
+        const list = { id: 7, type: 'playlist', name: 'Recommended', providerId };
+        selected.recommendations = { getRecommendedCollections: vi.fn(async () => [list]),
+            getDailySongs: vi.fn(), getPersonalFm: vi.fn() };
+        registerOnlineMusicProvider(selected); registerOnlineMusicProvider(other);
+        useOnlineProviderAccountStore.getState().setActiveProviderId(otherProviderId);
+        expect(await omni.getProviderRecommendedCollections(providerId, 35)).toEqual([list]);
+        expect(selected.recommendations.getRecommendedCollections).toHaveBeenCalledWith(35);
+        expect(selected.recommendations.getDailySongs).not.toHaveBeenCalled(); expect(selected.recommendations.getPersonalFm).not.toHaveBeenCalled();
+        await expect(omni.getProviderRecommendedCollections(otherProviderId, 35)).rejects.toMatchObject({ code: 'unsupported' });
+        expect(useOnlineProviderAccountStore.getState().activeProviderId).toBe(otherProviderId);
+    });
     it('routes favorite albums explicitly without changing the active provider', async () => {
         const selected = provider(providerId, undefined), other = provider(otherProviderId, undefined);
         selected.capabilities = { ...capabilities, userAlbums: true };

@@ -1,12 +1,21 @@
 import type { Album, Artist, SongResult } from '../types';
 import type { OnlineGridViewCollectionDescriptor } from '../library/core/contracts/collection';
 import { resolveSongCatalogRef } from '../services/onlineMusic/catalogRefs';
+import { omni } from '../services/onlineMusic/omni';
 
 // onlineCatalog.ts — retain the original provider's canonical album/artist identity.
 export type OnlineCatalogTarget = { song: SongResult; kind: 'album' | 'artist'; entity: Album | Artist }
   | { collection: OnlineGridViewCollectionDescriptor };
 export async function resolveOnlineCatalog(target: OnlineCatalogTarget): Promise<OnlineGridViewCollectionDescriptor> {
-  if ('collection' in target) return target.collection;
+  if ('collection' in target) {
+    if (target.collection.type !== 'playlist') return target.collection;
+    // Recommended cards may omit creator identity. Resolve ownership before exposing subscription controls.
+    const detail = await omni.getCollectionDetail(target.collection);
+    const owner = String(detail?.creator?.id ?? '').trim();
+    if (!detail || detail.providerId !== target.collection.providerId || String(detail.id) !== String(target.collection.id) ||
+        detail.type !== 'playlist' || !owner || owner === '0') throw new Error('catalog-unavailable');
+    return { ...detail, source: 'online' };
+  }
   const { sourceRef } = target.song;
   if (sourceRef?.kind !== 'online') throw new Error('catalog-unavailable');
   const ref = await resolveSongCatalogRef({ ...target.song, sourceRef }, target.kind, target.entity);

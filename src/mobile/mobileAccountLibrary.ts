@@ -1,11 +1,11 @@
 import type { ProviderCollection, ProviderUser } from '../types/onlineMusic';
 import type { omni } from '../services/onlineMusic/omni';
-import { createHomeFeedResource, loadAllFavoriteAlbums } from '../library/core/services/onlineHomeFeeds';
+import { createHomeFeedResource, loadAllFavoriteAlbums, HOME_FEED_RECOMMENDATION_LIMIT } from '../library/core/services/onlineHomeFeeds';
 
 // mobileAccountLibrary.ts — original account feeds, explicitly routed and scoped to the opening session.
-export type AccountLibraryKind = 'albums' | 'cloud';
+export type AccountLibraryKind = 'albums' | 'cloud' | 'recommendations';
 export function createMobileAccountLibrary(provider: string, user: ProviderUser, kind: AccountLibraryKind,
-  api: Pick<typeof omni, 'getProviderUserAlbums' | 'getProviderCloudCollection'>, sameSession: () => boolean) {
+  api: Pick<typeof omni, 'getProviderUserAlbums' | 'getProviderCloudCollection' | 'getProviderRecommendedCollections'>, sameSession: () => boolean) {
   const resource = createHomeFeedResource<ProviderCollection[]>({
     label: 'account library', empty: [],
     load: async (_owner, current) => {
@@ -15,7 +15,8 @@ export function createMobileAccountLibrary(provider: string, user: ProviderUser,
       };
       try {
         check();
-        const collections = kind === 'albums' ? await loadAllFavoriteAlbums({
+        const collections = kind === 'recommendations' ? await api.getProviderRecommendedCollections(provider, HOME_FEED_RECOMMENDATION_LIMIT)
+          : kind === 'albums' ? await loadAllFavoriteAlbums({
           getUserAlbums: async (userId, page) => {
             check();
             const result = await api.getProviderUserAlbums(provider, userId, page);

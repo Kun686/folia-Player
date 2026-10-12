@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+开发源码新增网易云推荐歌单入口，接通原目录分页、播放队列及收藏，先确认创建者再开放操作。
+受控数据已用于验证原推荐流程；真实平台／原生容器／物理设备均 NOT_RUN，
+个人 App 与服务器未更新，见 [RECOMMENDED_PLAYLISTS.md](RECOMMENDED_PLAYLISTS.md)。
+
 开发源码新增网易云歌单／专辑收藏与取消收藏，复用原权限、控制器和会话写入锁。
 受控响应验证不等于真实收藏成功；本批真实账号读写／原生容器／真机均 NOT_RUN，
 服务器与个人 mobile.28 未更新，见 [COLLECTION_SUBSCRIPTIONS.md](COLLECTION_SUBSCRIPTIONS.md)。

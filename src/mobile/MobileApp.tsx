@@ -153,6 +153,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         state={playback.state} busy={queueBusy} work={queueWork} playing={() => setExpanded(true)} />
       {!queueView && <OnlineAccountLibrary key={provider + ':' + String(catalog.user?.id)} provider={provider} user={catalog.user}
         albumsEnabled={available.userAlbumProviders.includes(provider)} cloudEnabled={available.cloudProviders.includes(provider)}
+        recommendationsEnabled={available.recommendedCollectionProviders.includes(provider)}
         open={collection => {
           if (collection.type === 'cloud') { setQuery(''); void catalog.load({ collection }); }
           else setOnlineTarget({ collection: { ...collection, source: 'online' } });
