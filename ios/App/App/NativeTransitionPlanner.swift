@@ -92,6 +92,10 @@ actor NativeTransitionPlanner {
         return NativeStemGesture(schedule: schedule, outgoing: out, incoming: incoming)
     }
 
+    func stemBus() throws -> NativeStemBusParameters {
+        try decode(NativeStemBusParameters.self, method: "stemBusJSON", input: Data("{\"version\":1}".utf8))
+    }
+
     // Only this actor touches JS values. Request data is passed as an argument, never evaluated as source.
     private func decode<T: Decodable>(_ type: T.Type, method: String, input: Data) throws -> T {
         try Task.checkCancellation()

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { stemCurveJSON, stemPlanJSON } from '@/services/automix/nativeRuntime';
+import { stemCurveJSON, stemPlanJSON, stemBusJSON } from '@/services/automix/nativeRuntime';
+import { stemBusParameters } from '@/services/automix/stemBus';
 import { CELL_SEC, incomingCurves, outgoingCurves, planStemHandover,
     OTHER_SWEEP_END, OTHER_SWEEP_HZ } from '@/services/automix/stemGesture';
 
@@ -38,6 +39,12 @@ const reference = (input: ReturnType<typeof request>) => {
 };
 
 describe('native stem gesture boundary', () => {
+    it('transfers the complete original limiter table and splice/filter parameters within the bridge limit', () => {
+        const result = stemBusJSON('{"version":1}'), { curve, ...parameters } = stemBusParameters();
+        expect(Buffer.byteLength(result)).toBeLessThanOrEqual(262144);
+        expect(JSON.parse(result)).toEqual({ ...parameters, curve: [...curve] });
+        expect(() => stemBusJSON('{"version":2}')).toThrow('invalid-transition-input');
+    });
     it.each(cases)('preserves plan and every curve sample: $name', ({ input }) => {
         const expected = reference(input);
         expect(JSON.parse(stemPlanJSON(json(input)))).toEqual(expected);

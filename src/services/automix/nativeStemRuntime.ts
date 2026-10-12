@@ -3,6 +3,7 @@ import { CELL_SEC, incomingCurves, outgoingCurves, planStemHandover,
 import { AUTOMIX_MIN_OVERLAP_SEC } from './transitionPlanner';
 import { fail, numeric, numbers, object, read } from './nativeTransitionInput';
 import type { StemName } from './stems';
+import { stemBusParameters } from './stemBus';
 
 // nativeStemRuntime.ts — original handover rules on measured envelopes; no PCM, inference or audio I/O.
 // This boundary accepts one original 30-second separated window, never a whole song.
@@ -37,6 +38,12 @@ function plan(request: Record<string, unknown>) {
 
 export function stemPlanJSON(text: string): string {
     return JSON.stringify(plan(read(text)));
+}
+
+export function stemBusJSON(text: string): string {
+    read(text);
+    const { curve, ...parameters } = stemBusParameters();
+    return JSON.stringify({ ...parameters, curve: Array.from(curve) });
 }
 
 /** One Float32 curve per bounded response; retains all original 200Hz samples, including both ends. */

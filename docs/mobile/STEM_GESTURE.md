@@ -64,3 +64,5 @@ ORT 工程接入仍遵循 [接入评估](AUTOMIX_INTEGRATION_DECISION.md) 的 PE
 个人构建记录 SHA256 仍为 `ec176ad6a9b5d72435ada9d0fa3a8e399e7c7ed0047045b7991423d1adb2de73`。
 可按独立提交撤回新增桥接、测试与共享校验提取；不涉及用户数据迁移。
 进一步启用仍须完成模型依赖授权、原分轨调度／扩展手势、实际PCM对照以及播放／动画联合资源检查。
+
+后续四轨总线PCM实现与原WebKit自动对照见 [STEM_MIX.md](STEM_MIX.md)；该步骤仍未接入用户队列。

@@ -1,5 +1,8 @@
 # Folia iPhone / iPad 实现与安装
 
+开发源码进一步实现原版四轨总线的PCM混音：90项逻辑、原WebKit参考生成、6项原生测试通过，
+最大PCM误差9.536743e-7；尚未接入用户队列或模型，个人App未更新，见 [STEM_MIX.md](STEM_MIX.md)。
+
 开发源码新增原版分轨手势的原生计算接口，直接复用原计划与200Hz曲线。
 93项逻辑、7项原生JavaScriptCore测试通过；尚未连接模型推理与实际四轨输出，个人App未更新，见 [STEM_GESTURE.md](STEM_GESTURE.md)。
 
