@@ -1,5 +1,8 @@
 # Folia iPhone / iPad 实现与安装
 
+开发源码修复 Tilt 初始化时的 React 生命周期错误，以及绘光辉光滤镜的 Pixi 8.21 旧式调用警告。
+保留原分段、动效和画质参数；没有新增依赖或更新个人 App，见 [VISUALIZER_RUNTIME.md](VISUALIZER_RUNTIME.md)。
+
 开发源码修复搜索点播覆盖整队的问题：恢复原版选择已有歌曲／只追加当前歌曲的行为，保留混合来源队列。
 搜索失败与空结果分开，原不可播放标记生效；没有改变歌单整队播放、播放器或动画。
 个人 App 与服务器未更新，详见 [SEARCH_PLAYBACK.md](SEARCH_PLAYBACK.md)。

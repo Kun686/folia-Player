@@ -1,5 +1,8 @@
 # 真实服务与真机验收表
 
+开发源码修复 Tilt 生命周期错误与绘光纹理池调用警告；WebKit 使用真实 renderer 和受控播放状态，
+本批原生容器／物理设备／性能验收均 NOT_RUN，见 [VISUALIZER_RUNTIME.md](VISUALIZER_RUNTIME.md)。
+
 开发源码已对齐 QQ／网易云搜索点播的原版队列行为，并修复网易云搜索失败被当作空结果的问题。
 受控界面／逻辑验证与真实平台、原生容器及物理设备分开记录；个人 App 未更新，
 本批验收范围见 [SEARCH_PLAYBACK.md](SEARCH_PLAYBACK.md)。

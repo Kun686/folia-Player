@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useInsertionEffect } from 'react';
+import React, { useMemo, useState, useRef, useInsertionEffect, useLayoutEffect } from 'react';
 import { motion, AnimatePresence, MotionValue, motionValue } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { prepareWithSegments, layoutWithLines } from '@chenglou/pretext';
@@ -601,7 +601,8 @@ const VisualizerTilt: React.FC<VisualizerTiltProps & { staticMode?: boolean; }> 
         });
     }, [activeLine, layout]);
 
-    useInsertionEffect(() => {
+    // Initialize the visible segment before paint; insertion effects cannot schedule React state.
+    useLayoutEffect(() => {
         const handler = (latest: number) => {
             if (!segmentTimings || !activeLine) {
                 setVisibleSegmentIndex(-1);

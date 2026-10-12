@@ -203,8 +203,8 @@ export const createBloomFilter = (pixi: PixiModule, initial: BloomOptions): Bloo
             for (let level = 1; level <= count; level += 1) {
                 const resolution = baseResolution / 2 ** level;
                 if (Math.min(width, height) * resolution < 2) break;
-                // 用位置参数的签名：folia 装的 Pixi 8.20 还没有对象形式（8.21 起对象形式为主、位置参数仍可用）。
-                const target = TexturePool.getOptimalTexture(width, height, resolution, false);
+                // 原位置参数用于 Pixi 8.20；当前 8.21 使用等价的对象形式，保留采样尺寸和分辨率。
+                const target = TexturePool.getOptimalTexture({ width, height, resolution, antialias: false });
                 const params = downUniforms.uniforms.uParams as Float32Array;
                 params[0] = threshold;
                 params[1] = knee;
@@ -221,7 +221,7 @@ export const createBloomFilter = (pixi: PixiModule, initial: BloomOptions): Bloo
             const scratch: Texture[] = [];
             for (let index = chain.length - 2; index >= 0; index -= 1) {
                 const same = chain[index]!;
-                const target = TexturePool.getOptimalTexture(width, height, same.source.resolution, false);
+                const target = TexturePool.getOptimalTexture({ width, height, resolution: same.source.resolution, antialias: false });
                 mapFor(current, same, upUniforms.uniforms.uAddMap as Float32Array, upUniforms.uniforms.uAddClamp as Float32Array, spread);
                 upUniforms.update();
                 up.resources.uAdd = same.source;
