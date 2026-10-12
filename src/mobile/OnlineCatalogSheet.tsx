@@ -8,12 +8,15 @@ import { captureProviderSession } from './runtime';
 import { resolveOnlineCatalog, type OnlineCatalogTarget } from './onlineCatalog';
 import OnlineCatalogActions from './OnlineCatalogActions';
 import OnlineCatalogContent from './OnlineCatalogContent';
+import type { MobilePlaylistEditor } from './mobilePlaylistEditor';
+import OnlineCollectionSubscription from './OnlineCollectionSubscription';
 
 // OnlineCatalogSheet.tsx — scoped navigation; dismissing or replacing a target rejects late resolution.
-export default function OnlineCatalogSheet({ target, play, add, busy, close, error: queueError, songActions }: {
+export default function OnlineCatalogSheet({ target, play, add, busy, close, error: queueError, songActions, editor, subscriptionProviders }: {
   target: OnlineCatalogTarget; play(songs: SongResult[], index: number): void;
   add(song: SongResult, next?: boolean): void; busy: boolean; close(): void;
   error: string; songActions(song: SongResult): ReactNode;
+  editor: MobilePlaylistEditor; subscriptionProviders: string[];
 }) {
   const { t } = useTranslation(), dialog = useRef<HTMLDialogElement>(null);
   const [stack, setStack] = useState<OnlineCatalogTarget[]>([target]);
@@ -44,6 +47,8 @@ export default function OnlineCatalogSheet({ target, play, add, busy, close, err
       {stack.length > 1 && <button disabled={busy} onClick={() => setStack(previous => previous.slice(0, -1))}>{t('mobile.catalogBack')}</button>}
       <button onClick={close}>{t('mobile.close')}</button></header>
     {queueError && <p role="alert">{t('mobile.' + queueError)}</p>}
+    {resolved && <OnlineCollectionSubscription key={'subscription:' + collectionKey(resolved)} collection={resolved} editor={editor}
+      writable={subscriptionProviders.includes(resolved.providerId)} />}
     {error ? <p role="alert">{t('mobile.error')} <button onClick={() => setRetry(value => value + 1)}>{t('mobile.retry')}</button></p>
       : resolved ? <OnlineCatalogContent key={collectionKey(resolved)} collection={resolved} play={play} add={add} busy={busy}
           open={collection => open({ collection })}

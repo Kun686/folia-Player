@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+开发源码新增网易云歌单／专辑收藏与取消收藏，复用原 Omni、权限、控制器及现有会话写入锁。
+状态未知或写入未确认时要求重新读取；QQ 保持原只读能力。没有新增依赖或修改播放器外观。
+本轮仅不依赖真机的工作，服务器与个人 mobile.28 未更新，见 [COLLECTION_SUBSCRIPTIONS.md](COLLECTION_SUBSCRIPTIONS.md)。
+
 开发源码新增 QQ／网易云收藏专辑和网易云云盘入口，复用原 Omni、分页资源、曲目身份及播放队列。
 失败不误当空曲库，关闭／账号变化隔离晚到结果；无新增依赖。当前仅离线开发与受控验证，
 服务器和个人 mobile.28 未更新，见 [ACCOUNT_LIBRARY.md](ACCOUNT_LIBRARY.md)。

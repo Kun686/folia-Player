@@ -537,7 +537,9 @@ export const neteaseProvider: OnlineMusicProvider = {
             const response = type === 'playlist'
                 ? await neteaseApi.getPlaylistDetailDynamic(toNeteaseId(id))
                 : await neteaseApi.getAlbumDetailDynamic(toNeteaseId(id));
-            return type === 'playlist' ? Boolean(response?.subscribed) : Boolean(response?.isSub);
+            const status = type === 'playlist' ? response?.subscribed : response?.isSub;
+            requireCatalogResponse(response, typeof status === 'boolean');
+            return status;
         },
     },
     recommendations: {
@@ -604,8 +606,12 @@ export const neteaseProvider: OnlineMusicProvider = {
             if (codes.some(code => code !== 200)) throw new OnlineProviderError('unavailable', 'NetEase did not confirm the playlist edit', 'netease');
         },
         async subscribePlaylist(playlist, subscribed) {
-            await neteaseApi.subscribePlaylist(toNeteaseId(typeof playlist === 'object' ? playlist.id : playlist), subscribed);
+            const response = await neteaseApi.subscribePlaylist(toNeteaseId(typeof playlist === 'object' ? playlist.id : playlist), subscribed);
+            requireCatalogResponse(response, true);
         },
-        async subscribeAlbum(id, subscribed) { await neteaseApi.subscribeAlbum(toNeteaseId(id), subscribed); },
+        async subscribeAlbum(id, subscribed) {
+            const response = await neteaseApi.subscribeAlbum(toNeteaseId(id), subscribed);
+            requireCatalogResponse(response, true);
+        },
     },
 };

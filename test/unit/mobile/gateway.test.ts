@@ -18,6 +18,33 @@ async function fixture(fetchImpl: any = vi.fn(async () => new Response('{}')), p
   return { post, fetchImpl, health };
 }
 describe('mobile gateway', () => {
+  it.each(['/album/sub', '/playlist/subscribe', '/album/detail/dynamic', '/playlist/detail/dynamic'])('allows only bounded authenticated subscription requests for %s', async path => {
+    const { post, fetchImpl, health } = await fixture();
+    expect((await (await health()).json()).subscriptionProviders).toEqual(['netease']);
+    const write = !path.endsWith('/dynamic'), query = { id: 8, ...(write ? { t: 1 } : {}), cookie: 'fixture' };
+    const body = { provider: 'netease', path, query, headers: { Authorization: 'Bearer secret' } };
+    expect((await post('/mobile/request', body, 'bad')).status).toBe(401); expect(fetchImpl).not.toHaveBeenCalled();
+    expect((await post('/mobile/request', body)).status).toBe(200);
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url.origin).toBe(bases.netease); expect(url.pathname).toBe(path);
+    expect(init.headers.authorization).toBeUndefined(); expect(init.redirect).toBe('error');
+    if (write) {
+      expect((await post('/mobile/request', { ...body, query: { ...query, t: 2 } })).status).toBe(200);
+      for (const t of [undefined, 0, 3, 'true', '1.0', '1,2', {}]) {
+        expect((await post('/mobile/request', { ...body, query: { ...query, t } })).status).toBe(400);
+      }
+    }
+    const before = fetchImpl.mock.calls.length;
+    for (const id of [undefined, 0, -1, '1.5', '1,2', {}, '1'.repeat(21)]) {
+      expect((await post('/mobile/request', { ...body, query: { ...query, id } })).status).toBe(400);
+    }
+    for (const key of ['proxy', 'checkToken', 'url', 'limit']) {
+      expect((await post('/mobile/request', { ...body, query: { ...query, [key]: 'x' } })).status).toBe(400);
+    }
+    expect((await post('/mobile/request', { ...body, provider: 'qq' })).status).toBe(404);
+    expect((await post('/mobile/request', { ...body, method: 'POST', body: '{}' })).status).toBe(403);
+    expect(fetchImpl.mock.calls.length).toBe(before);
+  });
   it.each([['netease', '/album/sublist'], ['netease', '/user/cloud'], ['qq', '/user/albums']])('routes %s account library %s with bounded read-only paging', async (provider, path) => {
     const { post, fetchImpl } = await fixture();
     const body = { provider, path, query: { limit: 50, offset: 50 }, headers: { Authorization: 'Bearer secret' } };
@@ -113,7 +140,7 @@ describe('mobile gateway', () => {
   });
   it('advertises no like writes for a QQ-only gateway', async () => {
     const { health } = await fixture(undefined, ['qq']);
-    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['qq'], songLikeProviders: [], catalogProviders: ['qq'], playlistEditProviders: [], dailyProviders: [], personalFmProviders: [], userAlbumProviders: ['qq'], cloudProviders: [] });
+    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['qq'], songLikeProviders: [], catalogProviders: ['qq'], playlistEditProviders: [], subscriptionProviders: [], dailyProviders: [], personalFmProviders: [], userAlbumProviders: ['qq'], cloudProviders: [] });
   });
   it.each([true, false])('forwards only the authorized NetEase like route with explicit like=%s', async liked => {
     const { post, fetchImpl } = await fixture(vi.fn(async () => new Response('{"code":200}')));
@@ -140,7 +167,7 @@ describe('mobile gateway', () => {
   });
   it('advertises only enabled services and rejects disabled API, lyrics and playback', async () => {
     const { post, fetchImpl, health } = await fixture(undefined, ['netease', 'qq']);
-    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['netease', 'qq'], songLikeProviders: ['netease'], catalogProviders: ['netease', 'qq'], playlistEditProviders: ['netease'], dailyProviders: ['netease'], personalFmProviders: ['netease'], userAlbumProviders: ['netease', 'qq'], cloudProviders: ['netease'] });
+    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['netease', 'qq'], songLikeProviders: ['netease'], catalogProviders: ['netease', 'qq'], playlistEditProviders: ['netease'], subscriptionProviders: ['netease'], dailyProviders: ['netease'], personalFmProviders: ['netease'], userAlbumProviders: ['netease', 'qq'], cloudProviders: ['netease'] });
     for (const body of [{ provider: 'kugou', path: '/login/qr/key' },
       { provider: 'lyrics', path: 'https://lyrics.kugou.com/v1/search' }]) {
       expect((await post('/mobile/request', body)).status).toBe(404);

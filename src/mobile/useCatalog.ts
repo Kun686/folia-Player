@@ -17,6 +17,6 @@ export function useCatalog(provider: string, connected: boolean) {
     if (connected) void session.refresh();
     return () => { session.dispose(); void cancelProvider(provider).catch(() => {}); };
   }, [session, provider, connected]);
-  return { ...state, refresh: session.refresh, load: session.load, loadCollections: session.loadCollections,
+  return { ...state, provider, refresh: session.refresh, load: session.load, loadCollections: session.loadCollections,
     refreshCollection: session.refreshCollection, logout: session.logout, error: state.accountError || state.trackError || state.logoutError };
 }

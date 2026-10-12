@@ -9,6 +9,7 @@ import { createMobileSongLikes } from './mobileSongLikes';
 import OnlineSongLike from './OnlineSongLike';
 import OnlineCatalogActions from './OnlineCatalogActions';
 import OnlineCatalogSheet from './OnlineCatalogSheet';
+import OnlineCollectionSubscription from './OnlineCollectionSubscription';
 import type { OnlineCatalogTarget } from './onlineCatalog';
 import OnlinePlaylistPicker from './OnlinePlaylistPicker';
 import OnlinePlaylistManager from './OnlinePlaylistManager';
@@ -83,7 +84,8 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const catalog = useCatalog(provider, !!server && isNative && providerEnabled);
   const catalogRef = useRef(catalog); catalogRef.current = catalog;
   const playlistEditor = useMemo(() => createMobilePlaylistEditor(omni, captureProviderSession, flushSessions, removeFromCache,
-    collection => { void catalogRef.current.refreshCollection(collection); }), []);
+    collection => { void catalogRef.current.refreshCollection(collection); },
+    collection => { if (catalogRef.current.provider === collection.providerId) return catalogRef.current.refresh().then(() => undefined); }), []);
   const playlistAction = (song: SongResult) => song.sourceRef?.kind === 'online' && omni.canAddSongToPlaylist(song) &&
     <><button disabled={!available.playlistEditProviders.includes(song.sourceRef.providerId)}
       onClick={() => setPlaylistSong(song)}>{t('mobile.onlinePlaylistAdd')}</button>
@@ -175,6 +177,9 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       {!isLocal && !isCached && !queueView && catalog.collections.length > 0 && <div className="collections">{catalog.collections.map(collection =>
         <button key={mobileCollectionKey(collection)} onClick={() => void catalog.load({ collection })}><Music2 size={18} />{collection.name}</button>)}</div>}
       {!isLocal && !isCached && !queueView && <div className="collection-actions">
+        {catalog.collection && catalog.user && <OnlineCollectionSubscription
+          key={mobileCollectionKey(catalog.collection) + ':' + String(catalog.user.id)} collection={catalog.collection}
+          user={catalog.user} editor={playlistEditor} writable={available.subscriptionProviders.includes(provider)} />}
         {catalog.collection && catalog.user && available.playlistEditProviders.includes(provider) && playlistEditor.canEdit(catalog.collection, catalog.user) &&
           <button onClick={() => setManagedPlaylist(catalog.collection)}>{t('mobile.onlinePlaylistManage')}</button>}
         {catalog.collectionsMore && <button disabled={catalog.accountBusy} onClick={() => void catalog.loadCollections()}>{t('mobile.morePlaylists')}</button>}
@@ -212,6 +217,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       saved={value => { if (value === server) location.reload(); else setServer(value); }} close={() => setSettings(false)} />}
     {login && <LoginSheet provider={provider} refresh={catalog.refresh} close={() => setLogin(false)} />}
     {onlineTarget && <OnlineCatalogSheet target={onlineTarget} busy={queueBusy} error={queueError} close={() => setOnlineTarget(null)}
+      editor={playlistEditor} subscriptionProviders={available.subscriptionProviders}
       play={(tracks, index) => void queueWork(async () => {
         await flushSessions(); await native.setQueue({ songs: tracks, index }); setOnlineTarget(null); setExpanded(true);
       })} add={(song, next) => void add(song, next)}

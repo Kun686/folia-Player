@@ -67,6 +67,7 @@ export function createMobileApp({ token, bases, providers = ['netease', 'qq', 'k
   app.get('/mobile/health', (_req, res) => res.json({ protocol: 1, providers: [...enabled],
     songLikeProviders: enabled.has('netease') ? ['netease'] : [],
     playlistEditProviders: enabled.has('netease') ? ['netease'] : [],
+    subscriptionProviders: enabled.has('netease') ? ['netease'] : [],
     dailyProviders: enabled.has('netease') ? ['netease'] : [],
     personalFmProviders: enabled.has('netease') ? ['netease'] : [],
     userAlbumProviders: [...enabled].filter(provider => ['netease', 'qq'].includes(provider)),

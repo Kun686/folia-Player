@@ -119,7 +119,8 @@ const fetchWithCreds = async (endpoint: string, options: RequestInit = {}) => {
   const needsTimestamp =
     endpoint.includes('/login') ||
     endpoint.includes('/user') ||
-    endpoint.includes('/playlist/detail') || endpoint.startsWith('/like?') || endpoint.startsWith('/likelist?');
+    endpoint.includes('/playlist/detail') || endpoint.startsWith('/album/detail/dynamic?') || endpoint.startsWith('/album/sublist?') ||
+    endpoint.startsWith('/like?') || endpoint.startsWith('/likelist?');
 
   let finalUrl = url;
   if (needsTimestamp) {

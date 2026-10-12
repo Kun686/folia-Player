@@ -24,6 +24,7 @@ vi.mock('@/services/netease', () => ({
         likeSong: vi.fn(),
         getUserPlaylists: vi.fn(),
         getFavoriteAlbums: vi.fn(), getUserCloud: vi.fn(),
+        getPlaylistDetailDynamic: vi.fn(), getAlbumDetailDynamic: vi.fn(), subscribePlaylist: vi.fn(), subscribeAlbum: vi.fn(),
         getPlaylistTracks: vi.fn(),
         updatePlaylistTracks: vi.fn(),
         getDailyRecommendedSongs: vi.fn(), getDailyRecommendationHistoryDates: vi.fn(),
@@ -50,6 +51,40 @@ const song: UnifiedSong = {
 
 describe('neteaseProvider', () => {
     beforeEach(() => vi.clearAllMocks());
+
+    it.each([true, false])('returns confirmed subscription status %s without truthy coercion', async status => {
+        vi.mocked(neteaseApi.getPlaylistDetailDynamic).mockResolvedValue({ code: 200, subscribed: status });
+        vi.mocked(neteaseApi.getAlbumDetailDynamic).mockResolvedValue({ code: 200, isSub: status });
+        expect(await neteaseProvider.catalog!.getSubscriptionStatus!('playlist', '8')).toBe(status);
+        expect(await neteaseProvider.catalog!.getSubscriptionStatus!('album', '9')).toBe(status);
+        expect(neteaseApi.getPlaylistDetailDynamic).toHaveBeenCalledWith(8);
+        expect(neteaseApi.getAlbumDetailDynamic).toHaveBeenCalledWith(9);
+    });
+    it.each([301, 401, 403, 429, 502, undefined])('rejects subscription errors with code %s', async code => {
+        vi.mocked(neteaseApi.getPlaylistDetailDynamic).mockResolvedValue({ code, subscribed: false });
+        vi.mocked(neteaseApi.getAlbumDetailDynamic).mockResolvedValue({ code, isSub: false });
+        vi.mocked(neteaseApi.subscribePlaylist).mockResolvedValue({ code });
+        vi.mocked(neteaseApi.subscribeAlbum).mockResolvedValue({ code });
+        for (const run of [() => neteaseProvider.catalog!.getSubscriptionStatus!('playlist', 8),
+            () => neteaseProvider.catalog!.getSubscriptionStatus!('album', 9),
+            () => neteaseProvider.mutations!.subscribePlaylist!(8, true), () => neteaseProvider.mutations!.subscribeAlbum!(9, false)]) {
+            await expect(run()).rejects.toMatchObject({ code: [301, 401, 403].includes(code!) ? 'auth-required' : 'unavailable' });
+        }
+    });
+    it.each([undefined, null, 'false', 0, {}, []])('rejects malformed subscription flags %j', async status => {
+        vi.mocked(neteaseApi.getPlaylistDetailDynamic).mockResolvedValue({ code: 200, subscribed: status });
+        vi.mocked(neteaseApi.getAlbumDetailDynamic).mockResolvedValue({ code: 200, isSub: status });
+        await expect(neteaseProvider.catalog!.getSubscriptionStatus!('playlist', 8)).rejects.toMatchObject({ code: 'unavailable' });
+        await expect(neteaseProvider.catalog!.getSubscriptionStatus!('album', 9)).rejects.toMatchObject({ code: 'unavailable' });
+    });
+    it.each([true, false])('preserves explicit subscription write %s and accepts confirmed success', async next => {
+        vi.mocked(neteaseApi.subscribePlaylist).mockResolvedValue({ code: 200 });
+        vi.mocked(neteaseApi.subscribeAlbum).mockResolvedValue({ code: 200 });
+        await neteaseProvider.mutations!.subscribePlaylist!({ id: '8', providerId: 'netease', type: 'playlist', name: 'List' }, next);
+        await neteaseProvider.mutations!.subscribeAlbum!('9', next);
+        expect(neteaseApi.subscribePlaylist).toHaveBeenCalledWith(8, next);
+        expect(neteaseApi.subscribeAlbum).toHaveBeenCalledWith(9, next);
+    });
 
     it.each([301, 401, 403, 429, 502, undefined])('rejects failed account library responses with code %s', async code => {
         vi.mocked(neteaseApi.getFavoriteAlbums).mockResolvedValue({ code, data: [] } as any);

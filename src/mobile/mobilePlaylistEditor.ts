@@ -6,17 +6,26 @@ import { resolveCollectionMutationBranches } from '../library/core/model/collect
 import { createCollectionMutationController } from '../library/core/services/collectionMutations';
 import { resolveOnlineTracksCacheKey } from '../library/core/services/onlineCollectionCache';
 import { getProviderCacheKey } from '../services/onlineMusic/providerStorage';
+import { isCloudDriveCollection } from '../library/core/model/collectionIdentity';
 
 // mobilePlaylistEditor.ts — original collection rules with native-session ownership and writes surviving dialog dismissal.
 export interface PlaylistAccount { user: ProviderUser; current(): boolean }
 export function createMobilePlaylistEditor(api: typeof omni, capture: (provider: string) => () => boolean,
-  flush: () => Promise<void>, removeCache: (key: string) => Promise<void>, changed: (collection: ProviderCollection) => void) {
+  flush: () => Promise<void>, removeCache: (key: string) => Promise<void>, changed: (collection: ProviderCollection) => void,
+  subscriptionChanged: (collection: ProviderCollection) => Promise<void> | void = changed) {
   const pending = new Map<string, Promise<void>>();
   const canEdit = (collection: ProviderCollection, user: ProviderUser) => resolveCollectionMutationBranches({
     descriptor: { ...collection, source: 'online' }, resourceKind: 'online', currentUserId: user.id,
     canEditCollectionTracks: api.canEditCollectionTracks(collection), canSubscribeCollection: false,
     isCloudDrive: false, dailyDate: '', port: {},
   }).canEditPlaylist;
+  const supportsSubscription = (collection: ProviderCollection) => ['album', 'playlist'].includes(collection.type) &&
+    !isCloudDriveCollection(collection) && api.canSubscribeCollection(collection);
+  const canSubscribe = (collection: ProviderCollection, user: ProviderUser) => resolveCollectionMutationBranches({
+    descriptor: { ...collection, source: 'online' }, resourceKind: 'online', currentUserId: user.id,
+    canEditCollectionTracks: api.canEditCollectionTracks(collection), canSubscribeCollection: supportsSubscription(collection),
+    isCloudDrive: isCloudDriveCollection(collection), dailyDate: '', port: {},
+  }).showSubscribeButton;
   const wait = async (provider: string) => { await pending.get(provider)?.catch(() => undefined); };
   const readAccount = async (provider: string): Promise<PlaylistAccount> => {
     const current = capture(provider);
@@ -28,10 +37,10 @@ export function createMobilePlaylistEditor(api: typeof omni, capture: (provider:
     return { user, current };
   };
   // A sent write is never retried automatically. The next reader waits for it to settle.
-  const run = async (collection: ProviderCollection, account: PlaylistAccount, work: () => Promise<void>) => {
+  const run = async (collection: ProviderCollection, account: PlaylistAccount, work: () => Promise<void>, permitted = canEdit) => {
     if (pending.has(collection.providerId)) throw new Error('playlist-busy');
     const operation = Promise.resolve().then(async () => {
-      if (!account.current() || !canEdit(collection, account.user)) throw new Error('account-changed');
+      if (!account.current() || !permitted(collection, account.user)) throw new Error('account-changed');
       await flush();
       const user = await api.getLoginStatus(collection.providerId);
       if (!account.current() || !user || String(user.id) !== String(account.user.id)) throw new Error('account-changed');
@@ -47,7 +56,36 @@ export function createMobilePlaylistEditor(api: typeof omni, capture: (provider:
     if (song.sourceRef?.kind !== 'online' || song.sourceRef.providerId !== collection.providerId) throw new Error('wrong-provider');
   };
   return {
-    canEdit, wait, readAccount,
+    canEdit, wait, readAccount, supportsSubscription, canSubscribe,
+    // Read before creating the original controller: its desktop !null behavior must never submit an unknown mobile state.
+    async subscription(collection: ProviderCollection, account: PlaylistAccount) {
+      if (!account.current()) throw new Error('account-changed');
+      if (!canSubscribe(collection, account.user)) return null;
+      await wait(collection.providerId);
+      if (!account.current()) throw new Error('account-changed');
+      let status: boolean;
+      try { status = await api.getSubscriptionStatus(collection); }
+      catch { throw new Error('subscription-unconfirmed'); }
+      if (!account.current() || typeof status !== 'boolean') throw new Error('subscription-unconfirmed');
+      let confirmed = true;
+      const controller = createCollectionMutationController({ descriptor: { ...collection, source: 'online' }, resource: null,
+        currentUserId: account.user.id, removeCacheEntry: removeCache,
+        port: { onCollectionMutated: async () => {
+          if (!account.current()) return;
+          try { await subscriptionChanged(collection); }
+          catch { console.warn('[MobileCollection] Library refresh failed'); }
+        } },
+        omni: { ...api, canSubscribeCollection: value => account.current() && canSubscribe(value, account.user),
+          getSubscriptionStatus: async () => status,
+          subscribe: async (value, next) => {
+            if (!confirmed || controller.getSnapshot().subscribed === null) throw new Error('subscription-unconfirmed');
+            try { await run(value, account, () => api.subscribe(value, next), canSubscribe); status = next; }
+            catch { confirmed = false; throw new Error('subscription-unconfirmed'); }
+          },
+        },
+      });
+      return controller;
+    },
     async add(song: SongResult, collection: ProviderCollection, account: PlaylistAccount) {
       validateSong(song, collection);
       if (!api.canAddSongToPlaylist(song)) throw new Error('unsupported');
