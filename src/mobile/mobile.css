@@ -43,6 +43,9 @@
 .sheet header { margin-bottom: 20px; } .sheet p { font-size: 14px; line-height: 1.6; margin-block: 16px; }
 .sheet label { display: flex; flex-direction: column; gap: 10px; margin-block: 20px; font-size: 13px; }
 .sheet .solid { color: var(--bg); background: var(--text); width: 100%; }
+.mobile-sync-settings fieldset { min-width: 0; border: 0; padding: 0; touch-action: pan-y; }
+.mobile-sync-actions { display: grid; gap: 10px; }
+.mobile-sync-actions button { min-height: 44px; padding: 10px 12px; background: var(--raised); border-radius: 10px; }
 .sleep-timer-sheet fieldset { min-width: 0; border: 0; padding: 0; }
 .sleep-timer-sheet fieldset > div { height: auto; padding: 16px 0; }
 .sleep-timer-sheet fieldset > div > div { padding: 12px 0; }

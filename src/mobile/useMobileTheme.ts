@@ -27,6 +27,11 @@ export function useMobileTheme(song: SongResult | null, songEpoch: number, captu
   const songKey = song ? getPlaybackSongKey(song) : null;
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; loadEpoch.current++; actionEpoch.current++; }; }, []);
   useEffect(() => {
+    const refresh = () => { if (!saving.current) setReload(value => value + 1); };
+    window.addEventListener('folia-themes-synced', refresh);
+    return () => window.removeEventListener('folia-themes-synced', refresh);
+  }, []);
+  useEffect(() => {
     const epoch = ++loadEpoch.current;
     if (!song) { setCache({ key: null, value: empty }); setLoading(false); return; }
     const first = !started.current;

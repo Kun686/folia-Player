@@ -36,8 +36,14 @@ export const createSyncLibraryZipBlob = (bundle: SyncLibraryExportBundle): Blob 
     return new Blob([zipped], { type: 'application/zip' });
 };
 
-export const readSyncLibraryZipFile = async (file: File): Promise<SyncLibraryExportBundle> => {
-    const files = unzipSync(new Uint8Array(await file.arrayBuffer()));
+export const readSyncLibraryZipFile = async (file: File, maxBytes?: number): Promise<SyncLibraryExportBundle> => {
+    if (maxBytes !== undefined && file.size > maxBytes) throw new Error('sync-library-too-large');
+    let expanded = 0;
+    const files = unzipSync(new Uint8Array(await file.arrayBuffer()), maxBytes === undefined ? {} : { filter: info => {
+        expanded += info.originalSize;
+        if (expanded > maxBytes) throw new Error('sync-library-too-large');
+        return ['meta.json', 'themes/themes.json', 'settings/current.json'].includes(info.name);
+    } });
     const meta = parseZipJson(files, 'meta.json') as { kind?: unknown; schemaVersion?: unknown; exportedAt?: unknown } | null;
     if (!meta || meta.kind !== ARCHIVE_KIND || meta.schemaVersion !== SYNC_SCHEMA_VERSION || typeof meta.exportedAt !== 'string') {
         throw new Error('Invalid Folia sync zip export');

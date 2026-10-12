@@ -1,8 +1,10 @@
+import { syncEn, syncZh } from './localeSync';
 import { aiEn, aiZh } from './localeAI';
 import { foldersEn, foldersZh, foldersIn } from './localeFolders';
 
 // src/mobile/locale.ts
 export const mobileEn = {
+  sync: syncEn,
   ai: aiEn,
   themeEditor: 'Theme Park · Theme editor', themeEditorSections: 'Theme editor sections', themePreview: 'Preview theme',
   themeTarget: 'Theme target', themeSong: 'Save for: {{name}}', themeSongChanged: 'The song changed. Your draft remains here; reopen the editor for the current song.',
@@ -77,6 +79,7 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  sync: syncZh,
   ai: aiZh,
   themeEditor: 'Theme Park · 主题编辑', themeEditorSections: '主题编辑分类', themePreview: '预览主题',
   themeTarget: '主题保存目标', themeSong: '保存到歌曲：{{name}}', themeSongChanged: '歌曲已切换，草稿仍保留在此。请重新打开编辑器编辑当前歌曲。',
@@ -151,6 +154,7 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  sync: syncEn,
   ai: aiEn,
   themeEditor: 'Theme Park · Editor tema', themeEditorSections: 'Bagian editor tema', themePreview: 'Pratinjau tema',
   themeTarget: 'Tujuan tema', themeSong: 'Simpan untuk: {{name}}', themeSongChanged: 'Lagu berubah. Draf tetap di sini; buka ulang editor untuk lagu saat ini.',

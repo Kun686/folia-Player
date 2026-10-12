@@ -1,4 +1,6 @@
 import { SYNC_PROVIDER, type SyncProviderConfig, type SyncRuntimeStatus } from './syncTypes';
+import { getMobileRuntime } from '../mobileRuntime';
+import { assertSyncCurrent, syncStorageKey, type SyncConnection } from './syncConnection';
 
 // src/services/sync/syncConfig.ts
 // Local persistence for user-owned sync server settings and runtime status.
@@ -46,7 +48,10 @@ const emitEvent = (eventName: string) => {
     }
 };
 
-export const getSyncConfig = (): SyncProviderConfig => {
+export const getSyncConfig = (): SyncConnection => {
+    const runtime = getMobileRuntime();
+    // Never read legacy browser credentials inside a native container, including failed native initialization.
+    if (runtime) return runtime.sync?.() ?? { ...DEFAULT_CONFIG };
     const stored = readJson<Partial<SyncProviderConfig>>(SYNC_CONFIG_STORAGE_KEY, {});
     return {
         ...DEFAULT_CONFIG,
@@ -59,6 +64,7 @@ export const getSyncConfig = (): SyncProviderConfig => {
 };
 
 export const saveSyncConfig = (config: SyncProviderConfig) => {
+    if (getMobileRuntime()) throw new Error('sync-native-settings-required');
     if (!isBrowser()) {
         return;
     }
@@ -73,21 +79,22 @@ export const saveSyncConfig = (config: SyncProviderConfig) => {
 };
 
 export const isSyncConfigured = (config = getSyncConfig()) => (
-    config.enabled && Boolean(config.workerBaseUrl && config.authToken)
+    config.enabled && Boolean(config.workerBaseUrl && (config.nativeSession?.hasToken ?? config.authToken))
 );
 
-export const getSyncStatus = (): SyncRuntimeStatus => readJson(SYNC_STATUS_STORAGE_KEY, DEFAULT_STATUS);
+export const getSyncStatus = (config = getSyncConfig()): SyncRuntimeStatus => readJson(syncStorageKey(config, SYNC_STATUS_STORAGE_KEY), DEFAULT_STATUS);
 
-export const setSyncStatus = (patch: Partial<SyncRuntimeStatus>) => {
+export const setSyncStatus = (patch: Partial<SyncRuntimeStatus>, config = getSyncConfig()) => {
+    assertSyncCurrent(config);
     if (!isBrowser()) {
         return;
     }
 
     const next = {
-        ...getSyncStatus(),
+        ...getSyncStatus(config),
         ...patch,
     };
-    window.localStorage.setItem(SYNC_STATUS_STORAGE_KEY, JSON.stringify(next));
+    window.localStorage.setItem(syncStorageKey(config, SYNC_STATUS_STORAGE_KEY), JSON.stringify(next));
     emitEvent(SYNC_STATUS_EVENT);
 };
 

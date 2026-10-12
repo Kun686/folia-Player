@@ -50,7 +50,7 @@ export const test = base.extend<{ nativeBridge: void }>({
     const methods = ['bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile', 'sharePlaylistFile',
       'readLocalFolders', 'beginFolderImport', 'readFolderImport', 'prepareFolderImport', 'finishFolderImport', 'cancelFolderImport', 'removeLocalFolder',
       'readLocalLibrary', 'editLocalLibrary', 'localCatalog', 'importAudio', 'localDetails', 'readLocalLyrics', 'readLocalMatch', 'writeLocalMatch', 'selectLocalLyrics', 'importLyrics', 'pickLyricFile', 'saveLocalLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
-      'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache', 'listExportLyrics', 'readExportLyrics', 'shareLyricArchive', 'getSleepTimer', 'setSleepTimer', 'getAISettings', 'setAISettings', 'aiRequest', 'cancelAIRequest'];
+      'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache', 'listExportLyrics', 'readExportLyrics', 'shareLyricArchive', 'getSleepTimer', 'setSleepTimer', 'getAISettings', 'setAISettings', 'aiRequest', 'cancelAIRequest', 'getSyncSettings', 'setSyncSettings', 'syncRequest', 'cancelSyncRequest'];
     win.Capacitor = {
       PluginHeaders: [{ name: 'FoliaNative', methods: [...methods.map(name => ({ name, rtype: 'promise' })), { name: 'addListener' }, { name: 'removeListener' }] }],
       nativeCallback: (_plugin: string, method: string, options: any, cb: (state: unknown) => void) => {
@@ -61,6 +61,11 @@ export const test = base.extend<{ nativeBridge: void }>({
         if (method === 'addListener') { if (options.eventName === 'sleepTimer') sleepSubscriber = cb; else if (options.eventName === 'mediaCache') cacheSubscriber = cb as () => void; else if (options.eventName === 'playback') subscriber = cb; } return 'callback-1';
       },
       nativePromise: async (_plugin: string, method: string, options: any) => {
+        if (['getSyncSettings', 'setSyncSettings', 'syncRequest', 'cancelSyncRequest'].includes(method)) {
+          if (win.fixtureSyncBridge) return win.fixtureSyncBridge(method, options);
+          if (method === 'getSyncSettings') return { enabled: false, baseURL: '', hasToken: false, scope: 'fixture-disabled', revision: 0 };
+          throw new Error('sync-fixture-not-configured');
+        }
         if (['getAISettings', 'setAISettings', 'aiRequest', 'cancelAIRequest'].includes(method)) {
           if (win.fixtureAIBridge) return win.fixtureAIBridge(method, options);
           throw new Error('ai-fixture-not-configured');

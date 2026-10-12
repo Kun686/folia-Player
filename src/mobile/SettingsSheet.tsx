@@ -10,6 +10,7 @@ import BatchLyricExportDialog from './BatchLyricExportDialog';
 import SleepTimerSheet from './SleepTimerSheet';
 import type { useNativeSleepTimer } from './useNativeSleepTimer';
 import AISettingsSheet from './AISettingsSheet';
+import SyncSettingsSheet from './SyncSettingsSheet';
 
 // src/mobile/SettingsSheet.tsx
 export default function SettingsSheet({ appearance, mediaCache, timer, server, light, setLight, saved, close }: {
@@ -25,6 +26,7 @@ export default function SettingsSheet({ appearance, mediaCache, timer, server, l
   const [batch, setBatch] = useState(false);
   const [sleep, setSleep] = useState(false);
   const [aiSettings, setAISettings] = useState(false);
+  const [syncSettings, setSyncSettings] = useState(false);
   const save = async () => {
     setBusy(true); setError(false);
     try {
@@ -41,6 +43,7 @@ export default function SettingsSheet({ appearance, mediaCache, timer, server, l
   if (batch) return <BatchLyricExportDialog light={light} theme={light ? appearance.theme.light : appearance.theme.dark} close={() => setBatch(false)} />;
   if (sleep) return <SleepTimerSheet timer={timer} light={light} theme={light ? appearance.theme.light : appearance.theme.dark} close={() => setSleep(false)} />;
   if (aiSettings) return <AISettingsSheet close={() => setAISettings(false)} />;
+  if (syncSettings) return <SyncSettingsSheet close={() => setSyncSettings(false)} />;
   return <div className="sheet-backdrop"><section className="sheet" role="dialog" aria-modal="true" aria-label={t('mobile.settings')}>
     <header><h2>{t('mobile.settings')}</h2><button onClick={close}>{t('mobile.close')}</button></header>
     <p>{t('mobile.optionalServer')}</p>
@@ -57,6 +60,7 @@ export default function SettingsSheet({ appearance, mediaCache, timer, server, l
     <MediaCacheControls cache={mediaCache} light={light} />
     <button onClick={() => setSleep(true)}>{t('commandPalette.sleepTimerTitle')}</button>
     <button onClick={() => setAISettings(true)}>{t('mobile.ai.settings')}</button>
+    <button onClick={() => setSyncSettings(true)}>{t('options.r2Sync')}</button>
     <ResourceCacheControls />
     <ResourceCacheControls category="lyrics" />
     <button onClick={() => setBatch(true)}>{t('lyricExport.settingsEntry')}</button>

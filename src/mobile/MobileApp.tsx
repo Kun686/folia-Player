@@ -33,6 +33,7 @@ import { useNativeSleepTimer } from './useNativeSleepTimer';
 import PlayerPanel from './PlayerPanel';
 import type { SongResult } from '../types';
 import { addMobileSongs, editMobileQueue, type QueueAction } from './queueActions';
+import { initializeSyncCoordinator } from '../services/sync/syncCoordinator';
 
 // src/mobile/MobileApp.tsx — library and full-window player share the original native playback state.
 export default function MobileApp({ initialServer }: { initialServer: string }) {
@@ -48,6 +49,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const light = useThemeSettingsStore(s => s.isDaylight);
   const setLight = useThemeSettingsStore(s => s.setDaylightPreference);
   useAppPreferences();
+  useEffect(() => initializeSyncCoordinator(), []);
   const [error, setError] = useState(false);
   const [queueError, setQueueError] = useState('');
   const [queueBusy, setQueueBusy] = useState(false);

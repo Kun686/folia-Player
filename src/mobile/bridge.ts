@@ -9,6 +9,7 @@ import type { NativeTransitionCue } from './nativeTransitionCue';
 import type { LocalLyricSnapshot } from '../utils/lyrics/localLyricSnapshot';
 import type { AudioQualityPreference } from '../types/onlineMusic';
 import type { NativeAISettings, NativeAISettingsEdit, NativeAIResponse } from './nativeAI';
+import type { NativeSyncSettings, NativeSyncSettingsEdit, NativeSyncOperation, NativeSyncResponse } from './nativeSync';
 
 // src/mobile/bridge.ts — native owns transport secrets, playback and queue state.
 export interface PlaybackSnapshot {
@@ -30,6 +31,10 @@ export interface NativeSleepTimerState { hours: number; minutes: number; enabled
 export type NativeSleepTimerEdit = Partial<Pick<NativeSleepTimerState, 'hours' | 'minutes' | 'enabled'>>;
 export type PlaybackEvent = Omit<PlaybackSnapshot, 'queue' | 'currentSong'> & Partial<Pick<PlaybackSnapshot, 'queue' | 'currentSong'>>;
 export interface FoliaNativePlugin {
+  getSyncSettings(): Promise<NativeSyncSettings>;
+  setSyncSettings(options: { revision: number; settings: NativeSyncSettingsEdit }): Promise<NativeSyncSettings>;
+  syncRequest(options: { id: string; revision: number; operation: NativeSyncOperation; body?: string }): Promise<NativeSyncResponse>;
+  cancelSyncRequest(options: { id: string }): Promise<void>;
   getAISettings(): Promise<NativeAISettings>;
   setAISettings(options: { revision: number; settings: NativeAISettingsEdit }): Promise<NativeAISettings>;
   aiRequest(options: { id: string; revision: number; provider: NativeAISettings['provider']; body: string }): Promise<NativeAIResponse>;

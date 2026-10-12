@@ -1,8 +1,10 @@
 import type { SongResult } from '../types';
 import type { OnlineLyricsStorage } from './onlineLyricsStorage';
+import type { SyncConnection } from './sync/syncConnection';
 
 // src/services/mobileRuntime.ts — injected only by the bundled mobile entry.
 export interface MobileRuntime {
+  sync?: () => SyncConnection;
   fetch(input: string, init?: RequestInit): Promise<Response>;
   read(provider: string, key: string): string | null;
   write(provider: string, key: string, value: string | null): void;

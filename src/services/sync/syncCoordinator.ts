@@ -1,7 +1,7 @@
 import { getSyncConfig, isSyncConfigured, setSyncStatus } from './syncConfig';
 import { getRemoteState, testSyncConnection } from './syncClient';
-import type { SyncProviderConfig } from './syncTypes';
-import { applySyncedVisualSettings, buildSyncedSettingsRecord, readSyncableSettingsState } from './settingsSnapshot';
+import { assertSyncCurrent, syncStorageKey, type SyncConnection } from './syncConnection';
+import { applySyncedVisualSettings, buildSyncedSettingsRecord, getSyncedSettingsSignature, readSyncableSettingsState } from './settingsSnapshot';
 import {
     fetchRemoteSyncState,
     fetchRemoteSettingsIfNewer,
@@ -25,34 +25,38 @@ let isSyncingInProgress = false;
 
 const isBrowser = () => typeof window !== 'undefined';
 
-const getLocalSettingsUpdatedAt = () => (
-    isBrowser() ? window.localStorage.getItem(LOCAL_SETTINGS_UPDATED_AT_KEY) : null
+const getLocalSettingsUpdatedAt = (config: SyncConnection) => (
+    isBrowser() ? window.localStorage.getItem(syncStorageKey(config, LOCAL_SETTINGS_UPDATED_AT_KEY)) : null
 );
 
-const setLocalSettingsUpdatedAt = (updatedAt: string) => {
+const setLocalSettingsUpdatedAt = (config: SyncConnection, updatedAt: string) => {
+    assertSyncCurrent(config);
     if (isBrowser()) {
-        window.localStorage.setItem(LOCAL_SETTINGS_UPDATED_AT_KEY, updatedAt);
+        window.localStorage.setItem(syncStorageKey(config, LOCAL_SETTINGS_UPDATED_AT_KEY), updatedAt);
     }
 };
 
-const pushCurrentSettings = async () => {
-    if (!isSyncConfigured()) {
+const pushCurrentSettings = async (config: SyncConnection) => {
+    if (!isSyncConfigured(config)) {
         return false;
     }
 
     const updatedAt = new Date().toISOString();
     const record = buildSyncedSettingsRecord(readSyncableSettingsState(), updatedAt);
-    setLocalSettingsUpdatedAt(updatedAt);
-    return await pushRemoteSettings(record);
+    const signature = getSyncedSettingsSignature(readSyncableSettingsState());
+    const pushed = await pushRemoteSettings(record, config);
+    assertSyncCurrent(config);
+    if (signature === getSyncedSettingsSignature(readSyncableSettingsState())) setLocalSettingsUpdatedAt(config, updatedAt);
+    return pushed;
 };
 
 export const initializeSyncCoordinator = () => {
-    void syncNow({ syncThemes: true, applyRemoteSettings: false, pushSettings: false });
+    void syncNow({ syncThemes: true, applyRemoteSettings: false, pushSettings: false }).catch(() => undefined);
 
     return () => {};
 };
 
-export const testSyncProviderConnection = async (config: SyncProviderConfig) => {
+export const testSyncProviderConnection = async (config: SyncConnection) => {
     const response = await testSyncConnection(config);
     if (!response.ok) {
         return false;
@@ -61,20 +65,23 @@ export const testSyncProviderConnection = async (config: SyncProviderConfig) => 
     return Boolean(await getRemoteState(config));
 };
 
-export const pullRemoteVisualSettings = async (remoteState?: SyncRemoteState | null) => {
-    if (!isSyncConfigured()) {
+export const pullRemoteVisualSettings = async (remoteState?: SyncRemoteState | null, config = getSyncConfig(),
+    expectedSignature = getSyncedSettingsSignature(readSyncableSettingsState())) => {
+    if (!isSyncConfigured(config)) {
         return false;
     }
 
-    const remoteSettings = await fetchRemoteSettingsIfNewer(getLocalSettingsUpdatedAt(), remoteState);
+    const remoteSettings = await fetchRemoteSettingsIfNewer(getLocalSettingsUpdatedAt(config), remoteState, config);
     if (!remoteSettings) {
         return false;
     }
 
+    assertSyncCurrent(config);
+    if (config.nativeSession && expectedSignature !== getSyncedSettingsSignature(readSyncableSettingsState())) throw new Error('sync-local-settings-changed');
     applyingRemoteSettings = true;
     try {
         applySyncedVisualSettings(readSyncableSettingsState(), remoteSettings.data);
-        setLocalSettingsUpdatedAt(remoteSettings.updatedAt);
+        setLocalSettingsUpdatedAt(config, remoteSettings.updatedAt);
         return true;
     } finally {
         applyingRemoteSettings = false;
@@ -91,20 +98,21 @@ export type SyncNowResult = {
     pushedLocalSettings: boolean;
 };
 
-export const syncNow = async (options: { syncThemes?: boolean; applyRemoteSettings?: boolean; pushSettings?: boolean } = {}): Promise<SyncNowResult | null> => {
+export const syncNow = async (options: { syncThemes?: boolean; applyRemoteSettings?: boolean; pushSettings?: boolean } = {}, config = getSyncConfig()): Promise<SyncNowResult | null> => {
     if (isSyncingInProgress) {
         return null;
     }
 
-    const config = getSyncConfig();
     if (!isSyncConfigured(config)) {
         return null;
     }
 
+    assertSyncCurrent(config);
+    const expectedSignature = getSyncedSettingsSignature(readSyncableSettingsState());
     isSyncingInProgress = true;
-    setSyncStatus({ state: 'syncing', lastError: null });
     try {
-        const remoteState = await fetchRemoteSyncState();
+        setSyncStatus({ state: 'syncing', lastError: null }, config);
+        const remoteState = await fetchRemoteSyncState(config);
         let themeSyncResult = {
             uploadedCount: 0,
             downloadedCount: 0,
@@ -113,18 +121,18 @@ export const syncNow = async (options: { syncThemes?: boolean; applyRemoteSettin
             skippedRemoteThemeScan: true,
         };
         if (options.syncThemes ?? true) {
-            themeSyncResult = await pushMissingLocalThemesToRemote(remoteState);
+            themeSyncResult = await pushMissingLocalThemesToRemote(remoteState, config);
         }
         
         let appliedRemoteSettings = false;
         let pushedLocalSettings = false;
         if (options.applyRemoteSettings) {
-            appliedRemoteSettings = await pullRemoteVisualSettings(remoteState);
+            appliedRemoteSettings = await pullRemoteVisualSettings(remoteState, config, expectedSignature);
         }
         if (options.pushSettings) {
-            pushedLocalSettings = await pushCurrentSettings();
+            pushedLocalSettings = await pushCurrentSettings(config);
         }
-        setSyncStatus({ state: 'success', lastSyncAt: new Date().toISOString(), lastError: null });
+        setSyncStatus({ state: 'success', lastSyncAt: new Date().toISOString(), lastError: null }, config);
         const summary = {
             uploadedThemeCount: themeSyncResult.uploadedCount,
             downloadedThemeCount: themeSyncResult.downloadedCount,
@@ -140,19 +148,25 @@ export const syncNow = async (options: { syncThemes?: boolean; applyRemoteSettin
         }
         return summary;
     } catch (error) {
+        if (config.nativeSession) {
+            assertSyncCurrent(config);
+            setSyncStatus({ state: 'error', lastError: 'sync-failed' }, config);
+            throw error;
+        }
         console.error('[sync] Sync failed:', error);
-        setSyncStatus({ state: 'error', lastError: error instanceof Error ? error.message : String(error) });
+        assertSyncCurrent(config);
+        setSyncStatus({ state: 'error', lastError: config.nativeSession ? 'sync-failed' : error instanceof Error ? error.message : String(error) }, config);
         return null;
     } finally {
         isSyncingInProgress = false;
     }
 };
 
-export const exportSyncLibraryBundle = async (): Promise<SyncLibraryExportBundle> => {
-    setSyncStatus({ state: 'syncing', lastError: null });
+export const exportSyncLibraryBundle = async (config = getSyncConfig()): Promise<SyncLibraryExportBundle> => {
+    setSyncStatus({ state: 'syncing', lastError: null }, config);
     try {
         const settings = buildSyncedSettingsRecord(readSyncableSettingsState(), new Date().toISOString());
-        const themes = await mergeLocalThemesIntoRecords(await listAllRemoteThemeRecords());
+        const themes = await mergeLocalThemesIntoRecords(await listAllRemoteThemeRecords(config), config);
         const bundle: SyncLibraryExportBundle = {
             kind: 'folia-sync-export',
             schemaVersion: SYNC_SCHEMA_VERSION,
@@ -160,13 +174,14 @@ export const exportSyncLibraryBundle = async (): Promise<SyncLibraryExportBundle
             settings,
             themes,
         };
-        setSyncStatus({ state: 'success', lastSyncAt: bundle.exportedAt, lastError: null });
+        setSyncStatus({ state: 'success', lastSyncAt: bundle.exportedAt, lastError: null }, config);
         console.info('[sync] Export completed', {
             themeCount: bundle.themes.length,
         });
         return bundle;
     } catch (error) {
-        setSyncStatus({ state: 'error', lastError: error instanceof Error ? error.message : String(error) });
+        assertSyncCurrent(config);
+        setSyncStatus({ state: 'error', lastError: config.nativeSession ? 'sync-failed' : error instanceof Error ? error.message : String(error) }, config);
         throw error;
     }
 };
@@ -178,28 +193,32 @@ export const isSyncLibraryExportBundle = (value: unknown): value is SyncLibraryE
 export const importSyncLibraryBundle = async (
     bundle: unknown,
     options: { pushRemote?: boolean } = {},
+    config = getSyncConfig(),
 ) => {
     const validatedBundle = parseSyncLibraryExportBundle(bundle);
     if (!validatedBundle) {
         throw new Error('Invalid Folia sync export');
     }
 
-    setSyncStatus({ state: 'syncing', lastError: null });
+    setSyncStatus({ state: 'syncing', lastError: null }, config);
     try {
-        await saveSyncLibraryBundleToLocalCache(validatedBundle);
+        const signature = getSyncedSettingsSignature(readSyncableSettingsState());
+        await saveSyncLibraryBundleToLocalCache(validatedBundle, config);
+        assertSyncCurrent(config);
+        if (config.nativeSession && signature !== getSyncedSettingsSignature(readSyncableSettingsState())) throw new Error('sync-local-settings-changed');
         if (validatedBundle.settings) {
             applyingRemoteSettings = true;
             try {
                 applySyncedVisualSettings(readSyncableSettingsState(), validatedBundle.settings.data);
-                setLocalSettingsUpdatedAt(validatedBundle.settings.updatedAt);
+                setLocalSettingsUpdatedAt(config, validatedBundle.settings.updatedAt);
             } finally {
                 applyingRemoteSettings = false;
             }
         }
         if (options.pushRemote ?? true) {
-            await pushSyncLibraryBundleToRemote(validatedBundle);
+            await pushSyncLibraryBundleToRemote(validatedBundle, config);
         }
-        setSyncStatus({ state: 'success', lastSyncAt: new Date().toISOString(), lastError: null });
+        setSyncStatus({ state: 'success', lastSyncAt: new Date().toISOString(), lastError: null }, config);
         console.info('[sync] Import completed', {
             pushedRemote: options.pushRemote ?? true,
             themeCount: validatedBundle.themes.length,
@@ -207,7 +226,8 @@ export const importSyncLibraryBundle = async (
         });
         return true;
     } catch (error) {
-        setSyncStatus({ state: 'error', lastError: error instanceof Error ? error.message : String(error) });
+        assertSyncCurrent(config);
+        setSyncStatus({ state: 'error', lastError: config.nativeSession ? 'sync-failed' : error instanceof Error ? error.message : String(error) }, config);
         throw error;
     }
 };

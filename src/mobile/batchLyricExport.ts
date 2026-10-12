@@ -9,7 +9,7 @@ import { localMatchTarget } from '../utils/localMatchDocument';
 import { native } from './bridge';
 
 // batchLyricExport.ts — adapt native catalogs to the original batch pipeline; share only the finished ZIP.
-async function readArchive(blob: Blob, signal?: AbortSignal): Promise<string> {
+export async function readArchive(blob: Blob, signal?: AbortSignal): Promise<string> {
     throwIfAborted(signal);
     if (blob.size > 16_000_000) throw new Error('lyric-archive-too-large');
     return new Promise((resolve, reject) => {

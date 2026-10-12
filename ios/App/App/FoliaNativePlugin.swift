@@ -14,18 +14,21 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         "readLyricCache", "writeLyricCache", "lyricCacheState", "clearLyricCache",
         "listExportLyrics", "readExportLyrics", "shareLyricArchive", "getSleepTimer", "setSleepTimer",
         "readLocalFolders", "beginFolderImport", "readFolderImport", "prepareFolderImport", "finishFolderImport", "cancelFolderImport", "removeLocalFolder",
-        "getAISettings", "setAISettings", "aiRequest", "cancelAIRequest"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
+        "getAISettings", "setAISettings", "aiRequest", "cancelAIRequest",
+        "getSyncSettings", "setSyncSettings", "syncRequest", "cancelSyncRequest"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
     let picker = LocalImportPicker()
     let lyricFileShare = LyricFileShare()
     var importing = false
     var folders: FolderImportBridge!
     var ai: NativeAIClient!
+    var sync: NativeSyncClient!
     private let gateway = GatewayClient()
     var engine: PlaybackEngine!
     private var requests: [String: Task<Void, Never>] = [:]
     public override func load() {
         DispatchQueue.main.async {
             self.ai = NativeAIClient()
+            self.sync = NativeSyncClient()
             self.engine = PlaybackEngine(gateway: self.gateway, usesStereoOutput: true)
             self.folders = FolderImportBridge(plugin: self)
             self.engine.mediaCacheChanged = { [weak self] in self?.notifyListeners("mediaCache", data: [:]) }

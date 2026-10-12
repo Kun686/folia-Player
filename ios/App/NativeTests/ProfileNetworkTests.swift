@@ -30,16 +30,17 @@ final class ProfileHTTPProtocol: URLProtocol, @unchecked Sendable {
     private let gate = NSLock()
     private var closed = false
     private var fixture: ProfileHTTPFixture?
-    static func add(_ fixture: ProfileHTTPFixture) -> URL {
-        let key = UUID().uuidString + ".wav"
+    static func add(_ fixture: ProfileHTTPFixture, route: String? = nil) -> URL {
+        // Keep each fixture isolated even when clients append a fixed protocol route.
+        let key = "/" + UUID().uuidString + (route.map { "/" + $0 } ?? ".wav")
         lock.lock(); fixtures[key] = fixture; lock.unlock()
-        return URL(string: "https://profile.invalid/" + key)!
+        return URL(string: "https://profile.invalid" + key)!
     }
-    static func remove(_ url: URL) { lock.lock(); fixtures.removeValue(forKey: url.lastPathComponent); lock.unlock() }
+    static func remove(_ url: URL) { lock.lock(); fixtures.removeValue(forKey: url.path); lock.unlock() }
     override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "profile.invalid" }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
-        Self.lock.lock(); let found = Self.fixtures[request.url!.lastPathComponent]; Self.lock.unlock()
+        Self.lock.lock(); let found = Self.fixtures[request.url!.path]; Self.lock.unlock()
         guard let found else { client?.urlProtocol(self, didFailWithError: URLError(.fileDoesNotExist)); return }
         fixture = found; found.request(request)
         let range = (request.value(forHTTPHeaderField: "Range") ?? "bytes=0-").dropFirst(6).split(separator: "-", omittingEmptySubsequences: false)

@@ -1,6 +1,7 @@
 import { native } from './bridge';
 import { installMobileRuntime } from '../services/mobileRuntime';
 import { openNativeLyricsStorage } from './lyricStorage';
+import { loadMobileSyncSettings, mobileSyncConnection } from './syncRuntime';
 
 // src/mobile/runtime.ts — memory mirror is hydrated before provider imports; no credential localStorage.
 let sessions: Record<string, Record<string, string>> = {};
@@ -55,7 +56,9 @@ async function request(input: string, init: RequestInit = {}) {
 export async function initializeRuntime() {
   const state = await native.bootstrap();
   sessions = state.sessions;
-  installMobileRuntime({ fetch: request,
+  // Optional sync failure must not block playback startup or fall back to browser-stored credentials.
+  await loadMobileSyncSettings().catch(() => undefined);
+  installMobileRuntime({ fetch: request, sync: mobileSyncConnection,
     lyrics: {
       open: async song => {
         const provider = song.sourceRef?.kind === 'online' ? song.sourceRef.providerId : 'local';

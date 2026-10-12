@@ -107,8 +107,9 @@ const ensureLegacyThemeSyncRegistryMigrated = async () => {
     await legacyMigrationPromise;
 };
 
-export const readThemeSyncRegistry = async (): Promise<Record<string, ThemeSyncRegistryRecord>> => {
+export const readThemeSyncRegistry = async (options: { strict?: boolean } = {}): Promise<Record<string, ThemeSyncRegistryRecord>> => {
     if (!hasIndexedDb()) {
+        if (options.strict) throw new Error('sync-storage-unavailable');
         return {};
     }
 
@@ -123,7 +124,8 @@ export const readThemeSyncRegistry = async (): Promise<Record<string, ThemeSyncR
             }
         });
         return records;
-    } catch {
+    } catch (error) {
+        if (options.strict) throw error;
         return {};
     }
 };
@@ -213,4 +215,4 @@ export const getThemeCacheKeyFromFingerprint = (fingerprint: string) => (
     ?? `${DUAL_THEME_CACHE_PREFIX}sync_${encodeURIComponent(fingerprint)}`
 );
 
-export const getThemeSyncRegistryRecords = async () => Object.values(await readThemeSyncRegistry());
+export const getThemeSyncRegistryRecords = async (options: { strict?: boolean } = {}) => Object.values(await readThemeSyncRegistry(options));

@@ -14,6 +14,8 @@ import {
 } from './syncClient';
 import { createSongSyncFingerprint, createSongSyncFingerprintCandidates } from './syncFingerprint';
 import { getPlaybackSongKey } from '../../utils/appPlaybackGuards';
+import { assertSyncCurrent, syncStorageKey, type SyncConnection } from './syncConnection';
+import { captureSyncLocal, collectSnapshotUploads, commitSyncThemes } from './syncLocalStore';
 import { buildThemeBucketSummaries, getThemeBucketId } from './syncMerkle';
 import {
     createLegacyNeteaseThemeSyncRecord,
@@ -58,11 +60,6 @@ export type ThemeSyncUploadResult = {
 
 const isBrowser = () => typeof window !== 'undefined';
 
-const getConfiguredSync = () => {
-    const config = getSyncConfig();
-    return isSyncConfigured(config) ? config : null;
-};
-
 const isRemoteNewer = (remoteUpdatedAt: string | null | undefined, localUpdatedAt: string | null | undefined) => {
     if (!remoteUpdatedAt) {
         return false;
@@ -70,13 +67,13 @@ const isRemoteNewer = (remoteUpdatedAt: string | null | undefined, localUpdatedA
     return !localUpdatedAt || Date.parse(remoteUpdatedAt) > Date.parse(localUpdatedAt);
 };
 
-const readThemeSyncWatermark = (): ThemeSyncWatermark | null => {
+const readThemeSyncWatermark = (config: SyncConnection): ThemeSyncWatermark | null => {
     if (!isBrowser()) {
         return null;
     }
 
     try {
-        const parsed = JSON.parse(window.localStorage.getItem(THEME_SYNC_WATERMARK_KEY) ?? 'null') as Partial<ThemeSyncWatermark> | null;
+        const parsed = JSON.parse(window.localStorage.getItem(syncStorageKey(config, THEME_SYNC_WATERMARK_KEY)) ?? 'null') as Partial<ThemeSyncWatermark> | null;
         if (!parsed || typeof parsed.localRegistrySignature !== 'string') {
             return null;
         }
@@ -91,9 +88,10 @@ const readThemeSyncWatermark = (): ThemeSyncWatermark | null => {
     }
 };
 
-const writeThemeSyncWatermark = (watermark: ThemeSyncWatermark) => {
+const writeThemeSyncWatermark = (config: SyncConnection, watermark: ThemeSyncWatermark) => {
+    assertSyncCurrent(config);
     if (isBrowser()) {
-        window.localStorage.setItem(THEME_SYNC_WATERMARK_KEY, JSON.stringify(watermark));
+        window.localStorage.setItem(syncStorageKey(config, THEME_SYNC_WATERMARK_KEY), JSON.stringify(watermark));
     }
 };
 
@@ -143,9 +141,9 @@ const isThemeWatermarkFresh = (
     && watermark.localRegistrySignature === localRegistrySignature
 );
 
-export const fetchRemoteSyncState = async (): Promise<SyncRemoteState | null> => {
-    const config = getConfiguredSync();
-    if (!config) {
+export const fetchRemoteSyncState = async (config = getSyncConfig()): Promise<SyncRemoteState | null> => {
+    assertSyncCurrent(config);
+    if (!isSyncConfigured(config)) {
         return null;
     }
 
@@ -159,9 +157,10 @@ export const fetchRemoteSyncState = async (): Promise<SyncRemoteState | null> =>
 export const fetchRemoteSettingsIfNewer = async (
     localUpdatedAt: string | null,
     remoteState?: SyncRemoteState | null,
+    config = getSyncConfig(),
 ): Promise<SyncedSettingsRecord | null> => {
-    const config = getConfiguredSync();
-    if (!config) {
+    assertSyncCurrent(config);
+    if (!isSyncConfigured(config)) {
         return null;
     }
     if (remoteState && !isRemoteNewer(remoteState.settingsUpdatedAt, localUpdatedAt)) {
@@ -176,14 +175,14 @@ export const fetchRemoteSettingsIfNewer = async (
     return remoteSettings;
 };
 
-export const pushRemoteSettings = async (record: SyncedSettingsRecord) => {
-    const config = getConfiguredSync();
-    if (!config) {
+export const pushRemoteSettings = async (record: SyncedSettingsRecord, config = getSyncConfig()) => {
+    assertSyncCurrent(config);
+    if (!isSyncConfigured(config)) {
         return false;
     }
 
     await putRemoteSettings(config, record);
-    setSyncStatus({ state: 'success', lastSyncAt: new Date().toISOString(), lastError: null });
+    setSyncStatus({ state: 'success', lastSyncAt: new Date().toISOString(), lastError: null }, config);
     return true;
 };
 
@@ -210,9 +209,9 @@ const saveRemoteThemeToLocalCache = async (
     return registryRecord;
 };
 
-export const getSyncedThemeForSong = async (song: SongResult | null): Promise<DualTheme | null> => {
-    const config = getConfiguredSync();
-    if (!config) {
+export const getSyncedThemeForSong = async (song: SongResult | null, config = getSyncConfig()): Promise<DualTheme | null> => {
+    assertSyncCurrent(config);
+    if (!isSyncConfigured(config)) {
         return null;
     }
 
@@ -221,6 +220,7 @@ export const getSyncedThemeForSong = async (song: SongResult | null): Promise<Du
         return null;
     }
 
+    const snapshot = config.nativeSession ? await captureSyncLocal(config) : null;
     const records = await getRemoteThemes(config, fingerprints);
     const recordByFingerprint = new Map(records.map(record => [record.fingerprint, record]));
     const matched = fingerprints.map(fingerprint => recordByFingerprint.get(fingerprint)).find(Boolean);
@@ -229,6 +229,10 @@ export const getSyncedThemeForSong = async (song: SongResult | null): Promise<Du
     }
 
     const theme = sanitizeDualTheme(matched.theme);
+    if (snapshot) {
+        const written = await commitSyncThemes(config, snapshot, [matched]);
+        return written ? theme : null;
+    }
     if (song?.id != null) {
         await saveToCache(`dual_theme_${getPlaybackSongKey(song)}`, theme);
     }
@@ -240,14 +244,15 @@ export const saveSyncedThemeForSong = async (
     song: SongResult | null,
     theme: DualTheme,
     source: SyncedThemeSource,
+    config = getSyncConfig(),
 ) => {
-    const config = getConfiguredSync();
+    assertSyncCurrent(config);
     const fingerprint = createSongSyncFingerprint(song);
     const updatedAt = new Date().toISOString();
     if (fingerprint) {
         await registerThemeSyncRecordForSong(song, source, updatedAt);
     }
-    if (!config || !fingerprint) {
+    if (!isSyncConfigured(config) || !fingerprint) {
         return false;
     }
 
@@ -258,7 +263,7 @@ export const saveSyncedThemeForSong = async (
         updatedAt,
     };
     await putRemoteThemes(config, [record]);
-    setSyncStatus({ state: 'success', lastSyncAt: updatedAt, lastError: null });
+    setSyncStatus({ state: 'success', lastSyncAt: updatedAt, lastError: null }, config);
     console.info('[sync] Theme uploaded', {
         fingerprint,
         source,
@@ -319,24 +324,32 @@ const collectLocalThemeUploadEntries = async (
     return uploadEntries;
 };
 
-const getRemoteThemesForBuckets = async (bucketIds: number[]) => {
-    const config = getConfiguredSync();
-    if (!config || bucketIds.length === 0) {
+const getRemoteThemesForBuckets = async (bucketIds: number[], config: SyncConnection) => {
+    assertSyncCurrent(config);
+    if (!isSyncConfigured(config) || bucketIds.length === 0) {
         return [];
     }
 
     const remoteRecords: SyncedThemeRecord[] = [];
-    for (let index = 0; index < bucketIds.length; index += THEME_BUCKET_FETCH_SIZE) {
-        remoteRecords.push(...await getRemoteThemesByBuckets(config, bucketIds.slice(index, index + THEME_BUCKET_FETCH_SIZE)));
+    const size = config.nativeSession ? 1 : THEME_BUCKET_FETCH_SIZE;
+    let bytes = 0;
+    for (let index = 0; index < bucketIds.length; index += size) {
+        const batch = await getRemoteThemesByBuckets(config, bucketIds.slice(index, index + size));
+        if (config.nativeSession) {
+            bytes += new TextEncoder().encode(JSON.stringify(batch)).byteLength;
+            if (bytes > 16_000_000) throw new Error('sync-library-too-large');
+        }
+        remoteRecords.push(...batch);
     }
     return remoteRecords;
 };
 
 export const pushMissingLocalThemesToRemote = async (
     remoteState?: SyncRemoteState | null,
+    config = getSyncConfig(),
 ): Promise<ThemeSyncUploadResult> => {
-    const config = getConfiguredSync();
-    if (!config) {
+    assertSyncCurrent(config);
+    if (!isSyncConfigured(config)) {
         return {
             uploadedCount: 0,
             downloadedCount: 0,
@@ -346,7 +359,7 @@ export const pushMissingLocalThemesToRemote = async (
         };
     }
 
-    const state = remoteState ?? await fetchRemoteSyncState();
+    const state = remoteState ?? await fetchRemoteSyncState(config);
     if (!state) {
         return {
             uploadedCount: 0,
@@ -357,10 +370,12 @@ export const pushMissingLocalThemesToRemote = async (
         };
     }
 
-    await hydrateLegacyNeteaseThemeSyncRecords();
-    const localRecords = await getThemeSyncRegistryRecords();
+    const snapshot = config.nativeSession ? await captureSyncLocal(config) : null;
+    if (!snapshot) await hydrateLegacyNeteaseThemeSyncRecords();
+    const localRecords = snapshot?.records ?? await getThemeSyncRegistryRecords();
+    assertSyncCurrent(config);
     const localRegistrySignature = getLocalThemeRegistrySignature(localRecords);
-    const existingWatermark = readThemeSyncWatermark();
+    const existingWatermark = readThemeSyncWatermark(config);
     if (isThemeWatermarkFresh(existingWatermark, state, localRegistrySignature)) {
         return {
             uploadedCount: 0,
@@ -387,7 +402,7 @@ export const pushMissingLocalThemesToRemote = async (
         }))
         .map(bucket => bucket.bucketId);
     if (diffBucketIds.length === 0) {
-        writeThemeSyncWatermark({
+        writeThemeSyncWatermark(config, {
             remoteThemesUpdatedAt: state.themesUpdatedAt,
             remoteThemeCount: state.themeCount,
             localRegistrySignature,
@@ -403,13 +418,14 @@ export const pushMissingLocalThemesToRemote = async (
 
     const diffBucketIdSet = new Set(diffBucketIds);
     const affectedLocalRecords = localRecords.filter(record => diffBucketIdSet.has(getThemeBucketId(record.fingerprint)));
-    const remoteRecords = await getRemoteThemesForBuckets(diffBucketIds);
+    const remoteRecords = await getRemoteThemesForBuckets(diffBucketIds, config);
     const remoteRecordMap = new Map(remoteRecords.map(record => [record.fingerprint, record]));
     const localRecordMap = new Map(localRecords.map(record => [record.fingerprint, record]));
     let downloadedCount = 0;
     const downloadedRegistryRecords: NonNullable<Awaited<ReturnType<typeof saveRemoteThemeToLocalCache>>>[] = [];
 
-    for (const remoteRecord of remoteRecords) {
+    if (snapshot) downloadedCount = await commitSyncThemes(config, snapshot, remoteRecords);
+    for (const remoteRecord of snapshot ? [] : remoteRecords) {
         const localRecord = localRecordMap.get(remoteRecord.fingerprint);
         if (localRecord && !isRemoteNewer(remoteRecord.updatedAt, localRecord.updatedAt)) {
             continue;
@@ -425,20 +441,24 @@ export const pushMissingLocalThemesToRemote = async (
         await upsertThemeSyncRecords(downloadedRegistryRecords);
     }
 
-    const uploadEntries = await collectLocalThemeUploadEntries(remoteRecordMap, affectedLocalRecords);
+    const uploadEntries = snapshot
+        ? collectSnapshotUploads(snapshot, remoteRecordMap, new Set(affectedLocalRecords.map(record => record.fingerprint)))
+        : await collectLocalThemeUploadEntries(remoteRecordMap, affectedLocalRecords);
+    assertSyncCurrent(config);
     for (let index = 0; index < uploadEntries.length; index += THEME_BATCH_SIZE) {
         await putRemoteThemes(config, uploadEntries.slice(index, index + THEME_BATCH_SIZE));
     }
 
     if (uploadEntries.length === 0) {
-        const nextLocalRecords = await getThemeSyncRegistryRecords();
+        const nextLocalRecords = await getThemeSyncRegistryRecords({ strict: !!config.nativeSession });
+        assertSyncCurrent(config);
         const nextLocalBuckets = buildThemeBucketSummaries(nextLocalRecords);
         const bucketsAreNowEqual = diffBucketIds.every((bucketId) => {
             const remoteBucket = remoteBuckets.get(bucketId);
             return remoteBucket !== undefined && areThemeBucketsEqual(nextLocalBuckets[bucketId], remoteBucket);
         });
         if (bucketsAreNowEqual) {
-            writeThemeSyncWatermark({
+            writeThemeSyncWatermark(config, {
                 remoteThemesUpdatedAt: state.themesUpdatedAt,
                 remoteThemeCount: state.themeCount,
                 localRegistrySignature: getLocalThemeRegistrySignature(nextLocalRecords),
@@ -447,7 +467,7 @@ export const pushMissingLocalThemesToRemote = async (
     }
 
     if (uploadEntries.length > 0) {
-        setSyncStatus({ state: 'success', lastSyncAt: new Date().toISOString(), lastError: null });
+        setSyncStatus({ state: 'success', lastSyncAt: new Date().toISOString(), lastError: null }, config);
     }
     return {
         uploadedCount: uploadEntries.length,
@@ -458,33 +478,51 @@ export const pushMissingLocalThemesToRemote = async (
     };
 };
 
-export const listAllRemoteThemeRecords = async () => {
-    const config = getConfiguredSync();
-    if (!config) {
+export const listAllRemoteThemeRecords = async (config = getSyncConfig()) => {
+    assertSyncCurrent(config);
+    if (!isSyncConfigured(config)) {
         return [];
     }
 
     const themes: SyncedThemeRecord[] = [];
     let cursor: string | null = null;
+    const seen = new Set<string>();
+    let bytes = 0;
     do {
-        const page = await listRemoteThemes(config, { cursor, limit: LIST_PAGE_SIZE });
+        assertSyncCurrent(config);
+        const page = await listRemoteThemes(config, { cursor, limit: config.nativeSession ? 50 : LIST_PAGE_SIZE });
+        if (config.nativeSession) {
+            bytes += new TextEncoder().encode(JSON.stringify(page.themes)).byteLength;
+            if (bytes > 16_000_000) throw new Error('sync-library-too-large');
+        }
         themes.push(...page.themes);
         cursor = page.cursor;
+        if (cursor && (seen.has(cursor) || seen.size >= 1000)) throw new Error('sync-invalid-cursor');
+        if (cursor) seen.add(cursor);
     } while (cursor);
     return themes;
 };
 
 export const mergeLocalThemesIntoRecords = async (
     remoteThemes: SyncedThemeRecord[],
+    config = getSyncConfig(),
 ) => {
-    await hydrateLegacyNeteaseThemeSyncRecords();
+    const snapshot = config.nativeSession ? await captureSyncLocal(config) : null;
+    if (!snapshot) await hydrateLegacyNeteaseThemeSyncRecords();
     const recordMap = new Map(remoteThemes.map(record => [record.fingerprint, record]));
-    const localUploads = await collectLocalThemeUploadEntries(recordMap);
+    const localUploads = snapshot ? collectSnapshotUploads(snapshot, recordMap, new Set(snapshot.records.map(record => record.fingerprint)))
+        : await collectLocalThemeUploadEntries(recordMap);
+    assertSyncCurrent(config);
     localUploads.forEach(record => recordMap.set(record.fingerprint, record));
     return Array.from(recordMap.values()).sort((a, b) => a.fingerprint.localeCompare(b.fingerprint));
 };
 
-export const saveSyncLibraryBundleToLocalCache = async (bundle: SyncLibraryExportBundle) => {
+export const saveSyncLibraryBundleToLocalCache = async (bundle: SyncLibraryExportBundle, config = getSyncConfig()) => {
+    if (config.nativeSession) {
+        const snapshot = await captureSyncLocal(config);
+        await commitSyncThemes(config, snapshot, bundle.themes, true);
+        return;
+    }
     const registryRecords: NonNullable<Awaited<ReturnType<typeof saveRemoteThemeToLocalCache>>>[] = [];
     for (const record of bundle.themes) {
         const registryRecord = await saveRemoteThemeToLocalCache(record, undefined, true);
@@ -497,9 +535,9 @@ export const saveSyncLibraryBundleToLocalCache = async (bundle: SyncLibraryExpor
     }
 };
 
-export const pushSyncLibraryBundleToRemote = async (bundle: SyncLibraryExportBundle) => {
-    const config = getConfiguredSync();
-    if (!config) {
+export const pushSyncLibraryBundleToRemote = async (bundle: SyncLibraryExportBundle, config = getSyncConfig()) => {
+    assertSyncCurrent(config);
+    if (!isSyncConfigured(config)) {
         return false;
     }
 
@@ -509,6 +547,6 @@ export const pushSyncLibraryBundleToRemote = async (bundle: SyncLibraryExportBun
     for (let index = 0; index < bundle.themes.length; index += THEME_BATCH_SIZE) {
         await putRemoteThemes(config, bundle.themes.slice(index, index + THEME_BATCH_SIZE));
     }
-    setSyncStatus({ state: 'success', lastSyncAt: new Date().toISOString(), lastError: null });
+    setSyncStatus({ state: 'success', lastSyncAt: new Date().toISOString(), lastError: null }, config);
     return true;
 };
