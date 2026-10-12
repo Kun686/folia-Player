@@ -76,7 +76,8 @@ extension PlaybackEngine {
     @MainActor func clearMediaCache() async throws {
         mediaCacheEpoch += 1
         // Stop analysis-driven downloads before clearing, without stopping audible decks.
-        crossfade?.cancelAnalysis()
+        crossfade?.clearingMediaCache(true)
+        defer { crossfade?.clearingMediaCache(false) }
         try await mediaCache.clear()
     }
 }

@@ -1,7 +1,11 @@
 import Foundation
 
 // NativeStemInference.swift — decoded complete-media window → shared ORT work → original packing and vocal exit.
-actor NativeStemInference {
+protocol NativeStemSeparating: Sendable {
+    func separate(_ material: NativeStemMaterial, model: URL) async throws -> NativeStemWindow
+}
+
+actor NativeStemInference: NativeStemSeparating {
     private let inference = NativeORTInference()
     private let analysis = NativeStemAnalysis()
 

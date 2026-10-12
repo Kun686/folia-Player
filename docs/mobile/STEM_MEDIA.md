@@ -3,8 +3,9 @@
 2026-10-12。**PASS（原生模拟器自动测试）；模型与用户队列尚未接入。**
 接续 [分轨测量](STEM_ANALYSIS.md)，补齐本地文件／已有完整音频缓存到原版 30 秒 head／tail 的读取接口。
 后续压缩音频对照发现分步解码／重采样的尾端差异，已改为单次系统转换；见 [STEM_CODEC.md](STEM_CODEC.md)。
-个人 mobile.28、界面、账户、服务器与模型未更新；ORT 工程接入仍为
-[PENDING_APPROVAL](AUTOMIX_INTEGRATION_DECISION.md)。
+本历史阶段未更新个人 mobile.28、界面、账户、服务器与模型，当时 ORT 工程接入待批准。
+后续用户已批准 [ORT 接入](AUTOMIX_INTEGRATION_DECISION.md)，当前队列接入和真机失败边界见
+[STEM_QUEUE_INTEGRATION.md](STEM_QUEUE_INTEGRATION.md)，不改变本文原有测试结论。
 
 ## 复用与实现
 

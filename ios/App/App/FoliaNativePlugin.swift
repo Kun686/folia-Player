@@ -215,6 +215,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         Task { @MainActor in
             do {
                 try await self.engine.local.remove(id)
+                self.engine.crossfade?.localMediaRemoved(id)
                 self.engine.removeSongs { song in
                     let ref = song["sourceRef"] as? [String: Any]
                     return ref?["kind"] as? String == "local" && ref?["mediaId"] as? String == id

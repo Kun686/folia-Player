@@ -54,6 +54,13 @@ extension PlaybackEngine {
     }
     func setupSystem() {
         let center = NotificationCenter.default
+        observers.append(center.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.crossfade?.resourcePressure(true)
+        })
+        observers.append(center.addObserver(forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.crossfade?.resourcePressure(ProcessInfo.processInfo.thermalState.rawValue >= ProcessInfo.ThermalState.serious.rawValue)
+        })
+        crossfade?.resourcePressure(ProcessInfo.processInfo.thermalState.rawValue >= ProcessInfo.ThermalState.serious.rawValue)
         observers.append(center.addObserver(forName: .AVPlayerItemPlaybackStalled, object: nil, queue: .main) { [weak self] note in
             guard let self, let item = note.object as? AVPlayerItem,
                   item === self.observedItem, item === self.player.currentItem else { return }
@@ -98,6 +105,7 @@ extension PlaybackEngine {
         })
         observers.append(center.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.persist() })
         observers.append(center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.crossfade?.resourcePressure(ProcessInfo.processInfo.thermalState.rawValue >= ProcessInfo.ThermalState.serious.rawValue)
             self?.sleepTimer.reconcile(); self?.publish()
         })
         let remote = MPRemoteCommandCenter.shared()

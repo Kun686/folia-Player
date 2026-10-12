@@ -4,7 +4,7 @@ import QuartzCore
 // NativeCrossfade.swift — original crossfade plans on the native identity queue, independent of WebView timers.
 final class NativeCrossfade {
     private struct Key: Equatable {
-        let epoch: Int, queueRevision: Int, profileRevision: Int, lyricRevision: Int, planningSecond: Int
+        let epoch: Int, queueRevision: Int, profileRevision: Int, lyricRevision: Int, stemRevision: Int, planningSecond: Int
         let outgoing: ObjectIdentifier, incoming: ObjectIdentifier
         let fromDuration: Double, toDuration: Double
     }
@@ -23,7 +23,10 @@ final class NativeCrossfade {
     private let planner = NativeTransitionPlanner()
     private let balance = NativeBalanceCorrection()
     private let profiles: NativeTrackProfiles
+    private let stems: NativeTrackStems
     private var beatModel: URL?
+    private var stemModel: URL?
+    private var clearingCache = false
     private let lyrics: NativeLyrics
     private var work: Task<Void, Never>?
     private var release: DispatchWorkItem?
@@ -39,12 +42,18 @@ final class NativeCrossfade {
     private(set) var maximumSeconds = 5.0
     var isFading: Bool { fade != nil }
 
-    init(owner: PlaybackEngine, profiler: NativeTrackProfiler = NativeTrackProfiler(), lyrics: NativeLyrics? = nil, profiles: NativeTrackProfiles? = nil) {
+    init(owner: PlaybackEngine, profiler: NativeTrackProfiler = NativeTrackProfiler(), lyrics: NativeLyrics? = nil,
+         profiles: NativeTrackProfiles? = nil, stems: NativeTrackStems? = nil) {
         self.owner = owner
-        self.profiles = profiles ?? NativeTrackProfiles(local: owner.local, profiler: profiler, configuration: owner.mediaNetworkConfiguration ?? .ephemeral, mediaCache: owner.mediaCache)
+        let profiles = profiles ?? NativeTrackProfiles(local: owner.local, profiler: profiler, configuration: owner.mediaNetworkConfiguration ?? .ephemeral, mediaCache: owner.mediaCache)
+        self.profiles = profiles
+        self.stems = stems ?? NativeTrackStems(local: owner.local, mediaCache: owner.mediaCache,
+            profilesIdle: { [weak profiles] in profiles?.hasPending != true },
+            providerBarrier: { [weak owner] in owner?.mediaCachePurges[$0] })
         self.lyrics = lyrics ?? NativeLyrics(local: owner.local, gateway: owner.gateway, cache: owner.lyricCache)
         self.profiles.changed = { [weak self] in self?.tick() }
         self.lyrics.changed = { [weak self] in self?.tick() }
+        self.stems.changed = { [weak self] in self?.tick() }
     }
     deinit { work?.cancel(); release?.cancel(); balance.cancel(); fade?.tail?.dispose() }
 
@@ -56,6 +65,7 @@ final class NativeCrossfade {
         guard self.enabled != enabled || self.maximumSeconds != maximumSeconds || self.mode != mode else { return }
         self.enabled = enabled; self.maximumSeconds = maximumSeconds; self.mode = mode
         profiles.useBeatModel(enabled && mode == "automix" ? beatModel : nil)
+        stems.useModel(enabled && mode == "automix" ? stemModel : nil)
         owner?.streamOutput?.setAnalysisEnabled(enabled)
         if !enabled { cancel(); owner?.prefetch() } else { invalidatePlan() }
         tick()
@@ -70,14 +80,14 @@ final class NativeCrossfade {
         balance.cancel()
         invalidatePlan()
         // Seeking unchanged decks invalidates timing, not their measured bytes. A fading tail is obsolete.
-        if !preservingAnalysis || fade != nil { profiles.cancel(); lyrics.cancel() }
+        if !preservingAnalysis || fade != nil { profiles.cancel(); lyrics.cancel(); stems.cancel() }
         fade?.tail?.dispose(); fade = nil
         owner?.streamOutput?.transitionGain.cancel()
     }
     func removeTail(where matches: ([String: Any]) -> Bool) {
         if let fade, matches(fade.tailSong) { cancel() }
     }
-    func invalidateProvider(_ provider: String) { invalidatePlan(); profiles.invalidateProvider(provider); lyrics.invalidateProvider(provider) }
+    func invalidateProvider(_ provider: String) { invalidatePlan(); profiles.invalidateProvider(provider); lyrics.invalidateProvider(provider); stems.remove(provider: provider) }
     func providerLyricsChanged(_ provider: String) {
         lyrics.invalidateProvider(provider)
         if !isFading { invalidatePlan(); tick() }
@@ -87,15 +97,26 @@ final class NativeCrossfade {
         if !isFading { invalidatePlan(); tick() }
     }
     func cancelLyricRequests() { lyrics.cancel() }
-    func cancelAnalysis() { profiles.cancel() }
-    func modelsChanged(beat: URL?) {
-        beatModel = beat
+    func cancelAnalysis() { profiles.cancel(); stems.cancel() }
+    func modelsChanged(beat: URL?, stems model: URL? = nil) {
+        beatModel = beat; stemModel = model
+        let previous = stems.revision
+        stems.useModel(enabled && mode == "automix" ? model : nil)
         // Crossfade needs measured silence edges, never model inference just because weights exist.
-        guard profiles.useBeatModel(enabled && mode == "automix" ? beat : nil) else { return }
+        let changed = profiles.useBeatModel(enabled && mode == "automix" ? beat : nil)
+        guard changed || previous != stems.revision else { return }
         // An audible transition keeps its schedule; subsequent plans use the new measured capability.
         if !isFading { invalidatePlan(); tick() }
     }
-    func mediaAvailable(_ identity: String) { profiles.mediaAvailable(identity); tick() }
+    func mediaAvailable(_ identity: String) { profiles.mediaAvailable(identity); stems.mediaAvailable(identity); tick() }
+    func clearingMediaCache(_ active: Bool) {
+        clearingCache = active
+        if active { profiles.cancel(); stems.cancel(); stems.clearOnline(); if !isFading { invalidatePlan() } }
+        else { tick() }
+    }
+    func localMediaRemoved(_ id: String) { stems.remove(localID: id) }
+    func localMediaChanged() { stems.localMediaChanged() }
+    func resourcePressure(_ active: Bool) { stems.resourcePressure(active) }
     func cacheSettingsChanged() { profiles.resetOnline(); if !isFading { invalidatePlan(); tick() } }
     func localLyricsChanged(_ id: String) {
         lyrics.invalidate(id)
@@ -129,8 +150,9 @@ final class NativeCrossfade {
         for (song, url) in [(currentSong, outgoing.sourceURL), (upcomingSong, pending.entry.sourceURL)] {
             if let identity = NativeProfileIdentity(song) { sources[identity.key] = url }
         }
-        profiles.update([currentSong, upcomingSong], sources: sources)
+        if !clearingCache { profiles.update([currentSong, upcomingSong], sources: sources) }
         lyrics.update([currentSong, upcomingSong])
+        if mode == "automix", !clearingCache { stems.update(outgoing: currentSong, incoming: upcomingSong) }
         if Date().timeIntervalSince(pending.at) >= 120 {
             owner.discardPrepared(); owner.prefetch(); return
         }
@@ -143,6 +165,7 @@ final class NativeCrossfade {
         let current = Key(epoch: owner.generation, queueRevision: owner.queueRevision,
                           profileRevision: armed ? (key?.profileRevision ?? profiles.revision) : profiles.revision,
                           lyricRevision: armed ? (key?.lyricRevision ?? lyrics.revision) : lyrics.revision,
+                          stemRevision: armed ? (key?.stemRevision ?? stems.revision) : stems.revision,
                           planningSecond: armed ? (key?.planningSecond ?? 0) : (mode == "automix" ? Int(owner.playbackPosition) : 0),
                           outgoing: ObjectIdentifier(outgoing), incoming: ObjectIdentifier(pending.entry),
                           fromDuration: fromDuration, toDuration: toDuration)
@@ -157,10 +180,12 @@ final class NativeCrossfade {
                     guard !Task.isCancelled, self.matches(current) else { self.discardStale(current); return }
                     let live = measured.flatMap { state in state.time.flatMap { CACurrentMediaTime() - $0 < 0.25 ? state : nil } }
                     let fromProfile = self.profiles.value(currentSong), toProfile = self.profiles.value(upcomingSong)
+                    let tail = self.stems.value(currentSong, role: .tail)
+                    let vocalEnd = tail.flatMap { window in window.vocalEnd.map { window.from + $0 } }
                     let bpm = fromProfile?["bpm"] as? Double ?? live?.tempo?.bpm
                     let request: [String: Any] = ["version": 1,
                         "settings": ["mode": selectedMode, "crossfadeMaxSec": maximum, "performance": false],
-                        "from": ["duration": fromDuration, "lines": self.lyrics.value(currentSong) as Any? ?? NSNull(), "profile": fromProfile as Any? ?? NSNull()],
+                        "from": ["duration": fromDuration, "lines": self.lyrics.value(currentSong) as Any? ?? NSNull(), "profile": fromProfile as Any? ?? NSNull(), "vocalEnd": vocalEnd as Any? ?? NSNull()],
                         "to": ["duration": toDuration, "lines": self.lyrics.value(upcomingSong) as Any? ?? NSNull(), "profile": toProfile as Any? ?? NSNull()],
                         "bpm": bpm as Any? ?? NSNull(), "at": position]
                     let result = try await self.planner.plan(JSONSerialization.data(withJSONObject: request))

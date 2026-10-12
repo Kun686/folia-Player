@@ -48,6 +48,7 @@ extension FoliaNativePlugin {
     @MainActor private func publishFolderChange() async {
         // A successful atomic commit must not be reported as failed just because a subsequent view refresh fails.
         if let snapshot = try? await engine.refreshLocalLibrary(), let songs = snapshot["songs"] as? [[String: Any]] {
+            engine.crossfade?.localMediaChanged()
             let live = Set(songs.compactMap { NativeProfileIdentity($0)?.localID })
             engine.removeSongs { song in NativeProfileIdentity(song)?.localID.map { !live.contains($0) } ?? false }
             for id in live { engine.crossfade?.localLyricsChanged(id) }

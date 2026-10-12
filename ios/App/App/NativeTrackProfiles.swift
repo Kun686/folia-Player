@@ -15,6 +15,7 @@ final class NativeTrackProfiles {
     private var order: [String] = []
     private var beatModel: URL?
     private(set) var revision = 0
+    var hasPending: Bool { !tasks.isEmpty }
     var changed: (() -> Void)?
     init(local: LocalMediaLibrary, profiler: NativeTrackProfiler = NativeTrackProfiler(), configuration: URLSessionConfiguration = .ephemeral, mediaCache: NativeMediaCache? = nil) {
         self.local = local; self.profiler = profiler; self.configuration = configuration; self.mediaCache = mediaCache

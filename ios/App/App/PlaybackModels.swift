@@ -33,7 +33,8 @@ import Foundation
     private func publish() { revision += 1; changed?() }
     private func apply() {
         let beat = ready && !suspended.contains(.beatThis) ? latest?.paths[.beatThis] : nil
-        engine?.crossfade?.modelsChanged(beat: beat)
+        let stems = ready && !suspended.contains(.htdemucs) ? latest?.paths[.htdemucs] : nil
+        engine?.crossfade?.modelsChanged(beat: beat, stems: stems)
     }
     func snapshot() -> [String: Any] {
         let models = latest?.models.map { value -> [String: Any] in

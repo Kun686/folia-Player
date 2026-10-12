@@ -55,7 +55,7 @@ actor NativeMediaCache {
     }
     func remove(_ identity: NativeProfileIdentity) throws {
         let key = Self.key(identity); jobs.removeValue(forKey: key)?.task.cancel()
-        try files.remove(key); notify()
+        try files.remove(key); notify(identity.key)
     }
     // Sharing a job does not transfer ownership to one caller: cancelling an analysis must not cancel an EOF cache write.
     func store(_ identity: NativeProfileIdentity, song: [String: Any], source: URL) async throws -> NativeCachedMedia? {
