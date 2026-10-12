@@ -10,6 +10,11 @@ import OnlineSongLike from './OnlineSongLike';
 import OnlineCatalogActions from './OnlineCatalogActions';
 import OnlineCatalogSheet from './OnlineCatalogSheet';
 import type { OnlineCatalogTarget } from './onlineCatalog';
+import OnlinePlaylistPicker from './OnlinePlaylistPicker';
+import OnlinePlaylistManager from './OnlinePlaylistManager';
+import { createMobilePlaylistEditor } from './mobilePlaylistEditor';
+import { removeFromCache } from '../services/db';
+import type { ProviderCollection } from '../types/onlineMusic';
 import { usePlayback } from './usePlayback';
 import { useMobileTheme } from './useMobileTheme';
 import { useCatalog } from './useCatalog';
@@ -50,6 +55,8 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const [settings, setSettings] = useState(false);
   const [entityId, setEntityId] = useState<string>();
   const [onlineTarget, setOnlineTarget] = useState<OnlineCatalogTarget | null>(null);
+  const [playlistSong, setPlaylistSong] = useState<SongResult | null>(null);
+  const [managedPlaylist, setManagedPlaylist] = useState<ProviderCollection | null>(null);
   const [login, setLogin] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [queueView, setQueueView] = useState(false);
@@ -71,6 +78,13 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const appearance = useMobileTheme(playback.state.currentSong, playback.songEpoch, playback.captureSongGuard);
   const sleepTimer = useNativeSleepTimer();
   const catalog = useCatalog(provider, !!server && isNative && providerEnabled);
+  const catalogRef = useRef(catalog); catalogRef.current = catalog;
+  const playlistEditor = useMemo(() => createMobilePlaylistEditor(omni, captureProviderSession, flushSessions, removeFromCache,
+    collection => { void catalogRef.current.refreshCollection(collection); }), []);
+  const playlistAction = (song: SongResult) => song.sourceRef?.kind === 'online' && omni.canAddSongToPlaylist(song) &&
+    <><button disabled={!available.playlistEditProviders.includes(song.sourceRef.providerId)}
+      onClick={() => setPlaylistSong(song)}>{t('mobile.onlinePlaylistAdd')}</button>
+      {!available.playlistEditProviders.includes(song.sourceRef.providerId) && <p className="muted">{t('mobile.onlinePlaylistUnavailable')}</p>}</>;
   const local = useLocalCatalog();
   const folders = useLocalFolders(), [folderScope, setFolderScope] = useState<FolderScope | null>(null);
   const folderView = useMemo(() => localFolderView(folders.catalog, local.songs, folderScope), [folders.catalog, local.songs, folderScope]);
@@ -143,6 +157,8 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       {!isLocal && !isCached && !queueView && catalog.collections.length > 0 && <div className="collections">{catalog.collections.map(collection =>
         <button key={mobileCollectionKey(collection)} onClick={() => void catalog.load({ collection })}><Music2 size={18} />{collection.name}</button>)}</div>}
       {!isLocal && !isCached && !queueView && <div className="collection-actions">
+        {catalog.collection && catalog.user && available.playlistEditProviders.includes(provider) && playlistEditor.canEdit(catalog.collection, catalog.user) &&
+          <button onClick={() => setManagedPlaylist(catalog.collection)}>{t('mobile.onlinePlaylistManage')}</button>}
         {catalog.collectionsMore && <button disabled={catalog.accountBusy} onClick={() => void catalog.loadCollections()}>{t('mobile.morePlaylists')}</button>}
         {catalog.accountError && <button disabled={catalog.accountBusy} onClick={() => void catalog.refresh()}>{t('mobile.retryPlaylists')}</button>}
         {catalog.trackError && <button disabled={catalog.busy} onClick={() => void catalog.load()}>{t('mobile.retrySongs')}</button>}
@@ -160,6 +176,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
           writable={available.songLikeProviders.includes(song.sourceRef.providerId)} />}
           <OnlineCatalogActions song={song} enabled={song.sourceRef?.kind === 'online' && available.catalogProviders.includes(song.sourceRef.providerId)}
             open={target => { close(); setOnlineTarget(target); }} />
+          {playlistAction(song)}
           <LocalSongPlaylistActions song={song} controller={localPlaylists}
           selected={isLocal && !queueView ? localBrowser.selected : undefined} close={close} /></>}
         remove={isLocal && !queueView ? song => { if (window.confirm(t('mobile.confirmRemove', { name: song.name }))) void local.remove(song); } : undefined} />
@@ -184,8 +201,14 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       play={(tracks, index) => void queueWork(async () => {
         await flushSessions(); await native.setQueue({ songs: tracks, index }); setOnlineTarget(null); setExpanded(true);
       })} add={(song, next) => void add(song, next)}
-      songActions={song => song.sourceRef?.kind === 'online' && <OnlineSongLike song={song} likes={likes}
-        writable={available.songLikeProviders.includes(song.sourceRef.providerId)} />} />}
+      songActions={song => <>{song.sourceRef?.kind === 'online' && <OnlineSongLike song={song} likes={likes}
+        writable={available.songLikeProviders.includes(song.sourceRef.providerId)} />}{playlistAction(song)}</>} />}
+    {playlistSong && <OnlinePlaylistPicker song={playlistSong} editor={playlistEditor} close={() => setPlaylistSong(null)} />}
+    {managedPlaylist && <OnlinePlaylistManager collection={managedPlaylist} editor={playlistEditor} close={() => setManagedPlaylist(null)}
+      queueBusy={queueBusy} queueError={queueError}
+      play={(tracks, index) => void queueWork(async () => {
+        await flushSessions(); await native.setQueue({ songs: tracks, index }); setManagedPlaylist(null); setExpanded(true);
+      })} add={(song, next) => void add(song, next)} />}
     {entityId && local.snapshot && <LocalEntityDialog snapshot={local.snapshot} id={entityId} light={light}
       close={() => setEntityId(undefined)} selected={id => { localBrowser.select(id); void local.refresh(); }} />}
     {localPlaylists.request && <LocalPlaylistDialog controller={localPlaylists} request={localPlaylists.request} />}

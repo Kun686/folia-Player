@@ -5,6 +5,11 @@ import { modelsEn, modelsZh } from './localeModels';
 
 // src/mobile/locale.ts
 export const mobileEn = {
+  onlinePlaylistAdd: 'Add to online playlist', onlinePlaylistManage: 'Edit playlist tracks',
+  onlinePlaylistError: 'The result could not be confirmed. Check your sign-in and reload before trying again.',
+  onlinePlaylistReload: 'Reload playlist state', onlinePlaylistEmpty: 'No editable playlists found.',
+  onlinePlaylistConfirm: 'Remove {{song}} from {{playlist}}?', onlinePlaylistUnavailable: 'This connection does not support online playlist edits. Update the music server to enable them.',
+
   catalogAlbum: 'Album: {{name}}', catalogArtist: 'Artist: {{name}}',
   catalogUnavailable: 'Album and artist browsing is unavailable on this connection. Check the connection or update the music server.',
   catalogSections: 'Artist catalog', catalogTopSongs: 'Top songs', catalogTitle: 'Online music catalog', catalogBack: 'Back',
@@ -90,6 +95,11 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  onlinePlaylistAdd: '加入在线歌单', onlinePlaylistManage: '编辑歌单歌曲',
+  onlinePlaylistError: '未能确认操作结果，请检查登录并重新读取后再操作。',
+  onlinePlaylistReload: '重新读取歌单状态', onlinePlaylistEmpty: '没有可编辑的歌单。',
+  onlinePlaylistConfirm: '从「{{playlist}}」移除「{{song}}」？', onlinePlaylistUnavailable: '当前连接不支持在线歌单编辑，需要更新音乐服务器。',
+
   catalogAlbum: '专辑：{{name}}', catalogArtist: '歌手：{{name}}',
   catalogUnavailable: '当前连接尚不支持专辑与歌手浏览，请检查连接或更新音乐服务器。',
   catalogSections: '歌手作品', catalogTopSongs: '热门歌曲', catalogTitle: '在线音乐目录', catalogBack: '返回上一级',
@@ -175,6 +185,11 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  onlinePlaylistAdd: 'Tambah ke playlist online', onlinePlaylistManage: 'Edit lagu playlist',
+  onlinePlaylistError: 'Hasil belum dapat dipastikan. Periksa akun lalu muat ulang sebelum mencoba lagi.',
+  onlinePlaylistReload: 'Muat ulang status playlist', onlinePlaylistEmpty: 'Tidak ada playlist yang dapat diedit.',
+  onlinePlaylistConfirm: 'Hapus {{song}} dari {{playlist}}?', onlinePlaylistUnavailable: 'Koneksi ini tidak mendukung edit playlist online. Perbarui server musik.',
+
   catalogAlbum: 'Album: {{name}}', catalogArtist: 'Artis: {{name}}',
   catalogUnavailable: 'Koneksi ini belum mendukung album dan artis. Periksa koneksi atau perbarui server musik.',
   catalogSections: 'Katalog artis', catalogTopSongs: 'Lagu populer', catalogTitle: 'Katalog musik online', catalogBack: 'Kembali',

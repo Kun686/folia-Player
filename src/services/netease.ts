@@ -629,7 +629,7 @@ export const neteaseApi = {
   // --- Playlist Data ---
   getPlaylistTracks: async (id: number, limit = 50, offset = 0) => {
     const res = await fetchWithCreds(`/playlist/track/all?id=${id}&limit=${limit}&offset=${offset}`);
-    res.songs = mergeSongsWithPrivileges(res.songs, res.privileges);
+    if (Array.isArray(res.songs)) res.songs = mergeSongsWithPrivileges(res.songs, res.privileges);
     return res;
   },
 

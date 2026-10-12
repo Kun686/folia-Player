@@ -25,6 +25,18 @@ function setup() {
   return { session, port };
 }
 describe('mobile catalog session', () => {
+  it('refreshes the edited collection but never replaces a later search or another provider', async () => {
+    const { session, port } = setup();
+    await session.load({ collection: collection(8) });
+    expect(session.getSnapshot().collection).toMatchObject({ id: 8, providerId: 'qq' });
+    await session.refreshCollection(collection(8));
+    expect(port.api.getCollectionTracks).toHaveBeenCalledTimes(2);
+    await session.refreshCollection(collection(8, 'netease'));
+    expect(port.api.getCollectionTracks).toHaveBeenCalledTimes(2);
+    await session.load({ query: 'new' }); await session.refreshCollection(collection(8));
+    expect(port.api.getCollectionTracks).toHaveBeenCalledTimes(2);
+    expect(session.getSnapshot()).toMatchObject({ collection: null, songs: [song(2)] });
+  });
   it('reads beyond 100 playlists, keeps source identity and merges overlapping pages', async () => {
     const { session, port } = setup();
     port.api.getProviderUserPlaylists.mockResolvedValueOnce(page(Array.from({ length: 100 }, (_, id) => collection(id)), 100, true))

@@ -484,6 +484,7 @@ export const neteaseProvider: OnlineMusicProvider = {
     catalog: {
         async getPlaylistTracks(id, limit, offset) {
             const response = await neteaseApi.getPlaylistTracks(toNeteaseId(id), limit, offset);
+            requireCatalogResponse(response, Array.isArray(response?.songs));
             const items = (response?.songs || []).map(normalizeNeteaseSong);
             return { items, hasMore: items.length === limit, nextOffset: offset + items.length };
         },
@@ -605,7 +606,12 @@ export const neteaseProvider: OnlineMusicProvider = {
         async updatePlaylistTracks(operation, playlist, tracks) {
             const playlistId = typeof playlist === 'object' ? playlist.id : playlist;
             const trackIds = tracks.map(track => typeof track === 'object' ? track.id : track);
-            await neteaseApi.updatePlaylistTracks(operation, toNeteaseId(playlistId), trackIds.map(toNeteaseId));
+            const response = await neteaseApi.updatePlaylistTracks(operation, toNeteaseId(playlistId), trackIds.map(toNeteaseId));
+            // API 4.40.1 wraps the successful request object in body; its 512 retry returns a direct body.
+            const body = response?.body ?? response;
+            const codes = [body?.code, response?.code ?? 200, response?.status ?? 200].map(Number);
+            if (codes.some(code => [301, 401, 403].includes(code))) throw new OnlineProviderError('auth-required', 'NetEase playlist edit requires sign-in', 'netease');
+            if (codes.some(code => code !== 200)) throw new OnlineProviderError('unavailable', 'NetEase did not confirm the playlist edit', 'netease');
         },
         async subscribePlaylist(playlist, subscribed) {
             await neteaseApi.subscribePlaylist(toNeteaseId(typeof playlist === 'object' ? playlist.id : playlist), subscribed);

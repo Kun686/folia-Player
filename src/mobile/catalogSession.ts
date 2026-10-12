@@ -13,11 +13,12 @@ export interface CatalogPort {
 }
 export interface CatalogState {
   user: ProviderUser | null; collections: ProviderCollection[]; songs: UnifiedSong[];
+  collection: ProviderCollection | null;
   accountBusy: boolean; busy: boolean; loggingOut: boolean; collectionsMore: boolean; more: boolean;
   accountError: boolean; trackError: boolean; logoutError: boolean;
 }
 type TrackInput = { query?: string; collection?: ProviderCollection };
-const empty = (): CatalogState => ({ user: null, collections: [], songs: [], accountBusy: false, busy: false, loggingOut: false,
+const empty = (): CatalogState => ({ user: null, collections: [], songs: [], collection: null, accountBusy: false, busy: false, loggingOut: false,
   collectionsMore: false, more: false, accountError: false, trackError: false, logoutError: false });
 export const mobileCollectionKey = (value: ProviderCollection) => collectionKey({ ...value, source: 'online' });
 
@@ -53,7 +54,7 @@ export function createCatalogSession(provider: string, port: CatalogPort) {
       if (!currentAccount(request)) return false;
       if (String(user?.id) !== String(state.user?.id)) {
         collectionOffset = 0; publish({ collections: [], collectionsMore: false });
-        if (tracks?.collection) { trackEpoch++; tracks = null; publish({ songs: [], more: false, busy: false, trackError: false }); }
+        if (tracks?.collection) { trackEpoch++; tracks = null; publish({ songs: [], collection: null, more: false, busy: false, trackError: false }); }
       }
       publish({ user });
       // Login persistence does not depend on a successful playlist response.
@@ -76,7 +77,7 @@ export function createCatalogSession(provider: string, port: CatalogPort) {
   const load = async (input?: TrackInput) => {
     if (!active || leaving || (!input && (state.busy || (!state.more && !state.trackError) || !tracks))) return;
     const request = ++trackEpoch;
-    if (input) { tracks = { ...input, offset: 0 }; publish({ songs: [], more: false }); }
+    if (input) { tracks = { ...input, offset: 0 }; publish({ songs: [], collection: input.collection ?? null, more: false }); }
     const page = { ...tracks! };
     publish({ busy: true, trackError: false });
     try {
@@ -107,5 +108,10 @@ export function createCatalogSession(provider: string, port: CatalogPort) {
     start() { active = true; leaving = false; accountEpoch++; trackEpoch++; tracks = null; collectionOffset = 0; publish(empty()); },
     dispose() { active = false; accountEpoch++; trackEpoch++; },
     refresh, load, loadCollections, logout,
+    refreshCollection(collection: ProviderCollection) {
+      if (active && tracks?.collection && mobileCollectionKey(tracks.collection) === mobileCollectionKey(collection)) {
+        return load({ collection: tracks.collection });
+      }
+    },
   };
 }

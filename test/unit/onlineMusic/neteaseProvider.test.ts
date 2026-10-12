@@ -23,6 +23,8 @@ vi.mock('@/services/netease', () => ({
         getLikedSongs: vi.fn(),
         likeSong: vi.fn(),
         getUserPlaylists: vi.fn(),
+        getPlaylistTracks: vi.fn(),
+        updatePlaylistTracks: vi.fn(),
         checkQr: vi.fn(),
         getQrKey: vi.fn(),
         createQr: vi.fn(),
@@ -45,6 +47,33 @@ const song: UnifiedSong = {
 
 describe('neteaseProvider', () => {
     beforeEach(() => vi.clearAllMocks());
+
+    it.each([{ body: { code: 200 }, status: 200 }, { code: 200 }])('accepts the pinned playlist API success shape %j', async response => {
+        vi.mocked(neteaseApi.updatePlaylistTracks).mockResolvedValue(response as any);
+        await expect(neteaseProvider.mutations!.updatePlaylistTracks!('add', 8, [song])).resolves.toBeUndefined();
+        expect(neteaseApi.updatePlaylistTracks).toHaveBeenCalledWith('add', 8, [42]);
+    });
+    it.each([301, 401, 403, 502, 512, undefined])('rejects unconfirmed playlist writes, code %s', async code => {
+        for (const response of [{ code }, { code: 200, body: { code } }]) {
+            vi.mocked(neteaseApi.updatePlaylistTracks).mockResolvedValue(response as any);
+            await expect(neteaseProvider.mutations!.updatePlaylistTracks!('del', 8, [song])).rejects.toMatchObject({
+                code: [301, 401, 403].includes(code!) ? 'auth-required' : 'unavailable',
+            });
+        }
+    });
+    it('rejects failed playlist reads before the editor can mistake them for an empty list', async () => {
+        vi.mocked(neteaseApi.getPlaylistTracks).mockResolvedValue({ code: 301, songs: [] } as any);
+        await expect(neteaseProvider.catalog!.getPlaylistTracks!(8, 50, 0)).rejects.toMatchObject({ code: 'auth-required' });
+        vi.mocked(neteaseApi.getPlaylistTracks).mockResolvedValue({ code: 200, songs: [] } as any);
+        await expect(neteaseProvider.catalog!.getPlaylistTracks!(8, 50, 0)).resolves.toMatchObject({ items: [], hasMore: false });
+    });
+
+    it.each([{ code: 301, body: { code: 200 } }, { status: 502, body: { code: 200 } }])('rejects contradictory playlist response wrappers %j', async response => {
+        vi.mocked(neteaseApi.updatePlaylistTracks).mockResolvedValue(response as any);
+        await expect(neteaseProvider.mutations!.updatePlaylistTracks!('del', 8, [song])).rejects.toMatchObject({
+            code: response.code === 301 ? 'auth-required' : 'unavailable',
+        });
+    });
 
     it.each([301, 401, 403, 429, 500, undefined])('rejects catalog business failure %s instead of caching empty data', async code => {
         vi.mocked(neteaseApi.getAlbum).mockResolvedValue({ code, album: { id: 7 }, songs: [] } as any);

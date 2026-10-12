@@ -3,7 +3,7 @@ export const routes = {
   netease: new Set(['/register/anonimous', '/login/qr/key', '/login/qr/create', '/login/qr/check',
     '/login/status', '/logout', '/user/account', '/user/detail', '/user/playlist', '/playlist/detail',
     '/playlist/track/all', '/song/detail', '/song/url/v1', '/cloudsearch', '/search', '/lyric', '/lyric/new', '/cloud/lyric/get', '/song/chorus', '/likelist', '/like',
-    '/album', '/artist/detail', '/artist/songs', '/artist/album']),
+    '/album', '/artist/detail', '/artist/songs', '/artist/album', '/playlist/tracks']),
   qq: new Set(['/login/qr/key', '/login/qr/create', '/login/qr/check', '/login/qr/cancel',
     '/login/status', '/login/channels', '/logout', '/user/detail', '/user/playlist', '/user/playlist-detail',
     '/user/liked-songs', '/getAlbumInfo', '/getSingerHotsong', '/getSingerAlbum']),
@@ -39,6 +39,11 @@ export function authorizeTarget(input, bases) {
   const qqRead = provider === 'qq' && /^\/(?:getMusicPlay|getSongListDetail|getSongInfo)\/[A-Za-z0-9_-]+(?:\/\d+)?$/.test(parsed.pathname);
   if (!routes[provider].has(parsed.pathname) && !qqRead) throw fault('unsupported', 404);
   const params = { ...Object.fromEntries(parsed.searchParams), ...(input.query ?? {}) };
+  if (provider === 'netease' && parsed.pathname === '/playlist/tracks') {
+    const ids = String(params.tracks ?? '').split(',');
+    if (!['add', 'del'].includes(params.op) || !/^[1-9][0-9]{0,19}$/.test(String(params.pid)) || ids.length > 100
+        || ids.some(id => !/^[1-9][0-9]{0,19}$/.test(id))) throw fault('invalid-request');
+  }
   const catalogId = provider === 'netease' && ['/album', '/artist/detail', '/artist/songs', '/artist/album'].includes(parsed.pathname) ? 'id'
     : provider === 'qq' && parsed.pathname === '/getAlbumInfo' ? 'albummid'
     : provider === 'qq' && ['/getSingerHotsong', '/getSingerAlbum'].includes(parsed.pathname) ? 'singermid' : null;
