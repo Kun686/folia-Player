@@ -67,3 +67,5 @@ QA Bundle ID 为 `app.folia.validation.App`。123 项移动资源及两个空 Ca
 回退本提交即移除该精确锚点通路，不迁移曲库、设置或模型数据。
 测试后两端 QA 已卸载、模拟器关闭，无本轮构建／测试进程残留；个人完整安装元数据前后一致，
 `BUILD_RECORD.json` SHA256 仍为 `ec176ad6a9b5d72435ada9d0fa3a8e399e7c7ed0047045b7991423d1adb2de73`。
+
+后续静音预播的实现、真机结果及未解决的模拟器超时见 [静音预播与可撤销接管](MUTED_PREPLAY.md)。

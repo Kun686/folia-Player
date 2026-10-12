@@ -21,6 +21,7 @@ final class StreamOccurrence: AudioPlayerDelegate {
     private(set) var hasFailed = false
     private var disposed = false
     private var started = false
+    var canPreplay: Bool { !started && !disposed && !hasFailed && !hasEnded && !seeking && seekTask == nil }
     private var wantsPlayback = false
     private var seekTask: Task<Void, Never>?
     private var seekGeneration: UInt64 = 0

@@ -6,14 +6,19 @@ import AVFoundation
 @MainActor extension NativeTests {
     func startCrossfadeQueue(_ source: URL, songs: [[String: Any]]) async throws -> PlaybackEngine {
         let tested = stereoEngine(AudioFixtureGateway(url: source))
+        var phase = "initial-preload"
         do {
             try tested.crossfade?.configure(enabled: true, maximumSeconds: 1)
             try tested.setQueue(songs, at: 0)
             try await waitForStream { tested.outputIsPlaying && tested.preparedStream != nil }
+            phase = "seek-and-handover"
             try tested.command("seek", position: 6.8)
             try await waitForStream { tested.crossfade?.isFading == true && tested.index == 1 && tested.outputIsPlaying }
             return tested
-        } catch { tested.stop(); tested.clearOutput(); throw error }
+        } catch {
+            print("FOLIA_CROSSFADE_TIMEOUT phase=\(phase) index=\(tested.index) position=\(tested.playbackPosition) duration=\(tested.playbackDuration) intent=\(tested.intentToPlay) playing=\(tested.outputIsPlaying) seeking=\(tested.stream?.seeking ?? false) decks=\(tested.streamOutput?.attachedCount ?? 0) pending=\(tested.preparedStream != nil) fading=\(tested.crossfade?.isFading ?? false)")
+            tested.stop(); tested.clearOutput(); throw error
+        }
     }
 
     func testTransitionSettingsPersistRestoreAndRejectInvalidEditsAtomically() throws {

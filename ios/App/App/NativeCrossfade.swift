@@ -36,6 +36,7 @@ final class NativeCrossfade {
     private var armed = false
     private var plannedFrom: [String: Any]?, plannedTo: [String: Any]?
     private var fade: Fade?
+    private var preplay: NativeMutedPreplay?
     private weak var bending: StreamOccurrence?
     private(set) var mode = "crossfade"
     private(set) var enabled = false
@@ -55,7 +56,7 @@ final class NativeCrossfade {
         self.lyrics.changed = { [weak self] in self?.tick() }
         self.stems.changed = { [weak self] in self?.tick() }
     }
-    deinit { work?.cancel(); release?.cancel(); balance.cancel(); fade?.tail?.dispose() }
+    deinit { work?.cancel(); release?.cancel(); balance.cancel(); preplay?.cancel(); fade?.tail?.dispose() }
 
     // Both original planners share this lifecycle; unavailable profiles remain unknown, never fabricated.
     func configure(enabled: Bool, maximumSeconds: Double, mode: String = "crossfade") throws {
@@ -75,6 +76,7 @@ final class NativeCrossfade {
         if let bending { try? bending.requestTempo(rate: 1) }; bending = nil
         armed = false; plannedFrom = nil; plannedTo = nil
         work?.cancel(); work = nil; release?.cancel(); release = nil; key = nil; plan = nil
+        if let preplay { discardPreplay(preplay) }
     }
     func cancel(preservingAnalysis: Bool = false) {
         balance.cancel()
@@ -238,6 +240,12 @@ final class NativeCrossfade {
     private func discardStale(_ expected: Key) {
         if key == expected { invalidatePlan() }
     }
+    private func discardPreplay(_ session: NativeMutedPreplay) {
+        guard preplay === session else { return }
+        preplay = nil
+        if owner?.preparedStream?.entry === session.incoming { owner?.preparedStream = nil }
+        session.cancel()
+    }
     private func differentSongs(_ first: [String: Any], _ second: [String: Any]) -> Bool {
         guard let a = first["sourceRef"] as? [String: Any], let b = second["sourceRef"] as? [String: Any] else { return false }
         // Same identity contract as getPlaybackSongKey: provider metadata and URL are not song identity.
@@ -266,20 +274,14 @@ final class NativeCrossfade {
                 guard let owner = self.owner,
                       let output = owner.streamOutput, let outgoing = owner.stream,
                       let pending = owner.preparedStream, let song = owner.currentSong else { return }
-                // Attach an unstarted decoder (silence), schedule its gain, then release consumption.
-                // This order prevents an incoming track from punching in at full volume before the curve.
-                try pending.entry.attachOutput()
-                let gainGeneration = output.transitionGain.cancel()
-                do {
-                    guard try output.scheduleGain(outgoing: outgoing.audio, incoming: pending.entry.audio,
-                                                  envelope: envelope, generation: gainGeneration) else {
-                        throw MobileFailure("transition-cancelled")
-                    }
-                    try pending.entry.play()
-                } catch {
-                    output.remove(pending.entry.audio); output.transitionGain.cancel()
-                    throw error
-                }
+                // Retain ownership before awaiting audio-thread acknowledgement. Intent cancellation
+                // can now remove the muted source synchronously, before another plan can reuse it.
+                let session = try NativeMutedPreplay(output: output, outgoing: outgoing, incoming: pending.entry)
+                self.preplay = session
+                defer { self.discardPreplay(session) }
+                try await session.start(current: { [weak self] in self?.matches(expected) == true })
+                let gainGeneration = try session.commit(envelope, current: { [weak self] in self?.matches(expected) == true })
+                self.preplay = nil
                 outgoing.clearEvents()
                 owner.task?.cancel(); owner.preload?.cancel(); owner.stalledRecovery?.cancel(); owner.stalledRecovery = nil
                 owner.generation += 1; owner.preparedStream = nil

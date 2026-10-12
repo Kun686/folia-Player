@@ -132,16 +132,32 @@ final class StreamMixOutput {
     // Original envelopes are supplied by NativeTransitionPlanner; no platform rules live in this graph.
     func scheduleGain(outgoing: AudioPlayer, incoming: AudioPlayer, envelope: NativeTransitionEnvelope,
                       generation: UInt64) throws -> Bool {
+        transitionGain.schedule(try gainCurve(outgoing: outgoing, incoming: incoming, envelope: envelope), generation: generation)
+    }
+    func replacePreplay(outgoing: AudioPlayer, incoming: AudioPlayer, envelope: NativeTransitionEnvelope,
+                        generation: UInt64) throws -> UInt64? {
+        transitionGain.replace(try gainCurve(outgoing: outgoing, incoming: incoming, envelope: envelope), generation: generation)
+    }
+    // Constant endpoints keep the next deck silent even if control-side preparation is delayed.
+    func schedulePreplay(outgoing: AudioPlayer, incoming: AudioPlayer, generation: UInt64) throws -> Bool {
+        guard !closed, let out = sources[ObjectIdentifier(outgoing)]?.source,
+              let next = sources[ObjectIdentifier(incoming)]?.source,
+              out.format.sampleRate == next.format.sampleRate else { throw MobileFailure("audio-failed") }
+        let gate = try TransitionGainCurve(outgoing: out.identity, incoming: next.identity,
+            out: [1, 1], input: [0, 0], rate: out.format.sampleRate, seconds: 1)
+        return transitionGain.schedule(gate, generation: generation)
+    }
+    private func gainCurve(outgoing: AudioPlayer, incoming: AudioPlayer,
+                           envelope: NativeTransitionEnvelope) throws -> TransitionGainCurve {
         guard !closed, let out = sources[ObjectIdentifier(outgoing)]?.source,
               let next = sources[ObjectIdentifier(incoming)]?.source else { throw MobileFailure("audio-failed") }
         guard out.format.sampleRate == next.format.sampleRate,
               out.format.sampleRate == mixer.outputFormat(forBus: 0).sampleRate else {
             throw MobileFailure("unsupported-audio-format")
         }
-        let curve = try TransitionGainCurve(outgoing: out.identity, incoming: next.identity,
+        return try TransitionGainCurve(outgoing: out.identity, incoming: next.identity,
             out: envelope.gain.out, input: envelope.gain.in, rate: out.format.sampleRate,
             seconds: envelope.overlap, hold: envelope.hold, bands: envelope.bands, echo: envelope.echo)
-        return transitionGain.schedule(curve, generation: generation)
     }
     // Prepared/aligned windows only. Model work and media-position selection stay outside the audio graph.
     func scheduleStems(outgoing: AudioPlayer, incoming: AudioPlayer, windows: NativeStemWindowPair,

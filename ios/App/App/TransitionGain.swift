@@ -82,6 +82,20 @@ final class TransitionGain {
     // Call on control side before asynchronous planning. A previous result cannot revive a cancelled fade.
     @discardableResult func cancel(immediate: Bool = false) -> UInt64 {
         lock.lock(); defer { lock.unlock() }
+        return cancelLocked(immediate: immediate)
+    }
+    // An obsolete preparation may retire its own source, but cannot restore a newer fade's gains.
+    @discardableResult func cancel(ifCurrent expected: UInt64) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        guard generation == expected else { return false }
+        _ = cancelLocked(immediate: false)
+        return true
+    }
+    func isCurrent(_ expected: UInt64) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return generation == expected
+    }
+    private func cancelLocked(immediate: Bool) -> UInt64 {
         generation &+= 1
         pendingTrim = nil
         // Original rampGain explicitly sets AudioParam.value: WebKit exposes the last rendered sample.
@@ -95,6 +109,14 @@ final class TransitionGain {
         guard expected == generation else { return false }
         retired = nil; ready = command
         return true
+    }
+    // Replace the muted gate atomically. A separate cancel would briefly restore both decks to 1.
+    func replace(_ curve: TransitionGainCurve, generation expected: UInt64) -> UInt64? {
+        lock.lock(); defer { lock.unlock() }
+        guard expected == generation else { return nil }
+        generation &+= 1; pendingTrim = nil; retired = nil
+        ready = Command(generation: generation, curve: curve)
+        return generation
     }
     @discardableResult func scheduleStems(_ stems: NativeStemTransition, generation expected: UInt64) -> Bool {
         lock.lock(); defer { lock.unlock() }

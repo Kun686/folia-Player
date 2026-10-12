@@ -103,6 +103,32 @@ private struct TransitionGainReference: Decodable {
         XCTAssertEqual(buffer.floatChannelData![0][0], 0, "Invalid buffers cannot consume a pending start")
     }
 
+    func testMutedGateReplacementIsAtomicAcrossDeckPullsAndRejectsObsoleteCleanup() throws {
+        let gain = TransitionGain(), out = UUID(), incoming = UUID()
+        let buffer = StemClockFixture.buffer(128)
+        func render(_ source: UUID, _ at: Double) -> Float {
+            buffer.floatChannelData![0].update(repeating: 1, count: 256)
+            XCTAssertTrue(gain.process(buffer.mutableAudioBufferList, frames: 128, sampleTime: at, rate: 44100, source: source))
+            return buffer.floatChannelData![0][0]
+        }
+        XCTAssertEqual(render(out, 0), 1)
+        let gate = try TransitionGainCurve(outgoing: out, incoming: incoming, out: [1, 1], input: [0, 0], rate: 44100, seconds: 1)
+        let stamp = gain.cancel()
+        XCTAssertTrue(gain.schedule(gate, generation: stamp))
+        XCTAssertEqual(render(incoming, 0), 1, "Scheduling after the first pull cannot adopt in the same quantum")
+        XCTAssertNotEqual(gain.clock.generation, stamp)
+        XCTAssertEqual(render(incoming, 128), 0)
+        XCTAssertEqual(gain.clock.generation, stamp); XCTAssertNotNil(gain.clock.curveStart)
+        let audible = try TransitionGainCurve(outgoing: out, incoming: incoming, out: [0.75, 0.75], input: [0.25, 0.25], rate: 44100, seconds: 1)
+        let replacement = try XCTUnwrap(gain.replace(audible, generation: stamp))
+        XCTAssertNotEqual(replacement, stamp)
+        XCTAssertEqual(render(out, 128), 1, "Replacement still uses the gate until the next common quantum")
+        XCTAssertFalse(gain.cancel(ifCurrent: stamp)); XCTAssertNil(gain.replace(gate, generation: stamp))
+        XCTAssertTrue(gain.isCurrent(replacement))
+        XCTAssertEqual(render(out, 256), 0.75); XCTAssertEqual(render(incoming, 256), 0.25)
+        XCTAssertEqual(gain.clock.generation, replacement)
+    }
+
     func testOriginalTransitionEnvelopeControlsTwoRealDecodersInSharedOutput() async throws {
         try await verifyRealDecoderTransition(style: "plainBlend")
     }
