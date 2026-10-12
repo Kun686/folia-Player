@@ -2,7 +2,8 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMotionValueEvent, type MotionValue } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import VisualizerRenderer from '../components/visualizer/VisualizerRenderer';
-import { useVisualizerSettingsStore } from '../stores/useVisualizerSettingsStore';
+import { handleSetVisualizerMode, useVisualizerSettingsStore } from '../stores/useVisualizerSettingsStore';
+import { useRandomVisualizerMode } from '../hooks/useRandomVisualizerMode';
 import { useVisualizerBackgroundConfig } from '../components/visualizer/useVisualizerBackgroundConfig';
 import { useVisualizerTunings } from '../components/visualizer/useVisualizerTunings';
 import { useThemeSettingsStore } from '../stores/useThemeSettingsStore';
@@ -47,6 +48,9 @@ export default function PlayerPanel({ appearance, state, time, visible, light, e
   const [lyricToolsFor, setLyricToolsFor] = useState<string | null>(null);
   const audioSettingsOpen = useAudioSettingsStore(s => s.isAudioEqualizerOpen);
   const mode = useVisualizerSettingsStore(s => s.visualizerMode);
+  const randomMode = useVisualizerSettingsStore(s => s.randomVisualizerModePerSong);
+  useRandomVisualizerMode({ currentSong: state.currentSong, enabled: randomMode,
+    visualizerMode: mode, setVisualizerMode: handleSetVisualizerMode });
   const visualizerOpacity = useVisualizerSettingsStore(s => s.visualizerOpacity);
   const typography = useTypographySettingsStore(useShallow(s => ({
     hideTranslationSubtitle: s.hidePlayerTranslationSubtitle,

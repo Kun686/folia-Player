@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+开发源码补齐原版「每首歌随机歌词动画」的移动触摸入口与换歌行为，并修复配置导入／同步丢失此开关。
+复用原 hook、store 和短码协议；215 项逻辑及 75 项 WebKit 通过，无新依赖或播放器外观调整。
+本批原生／真机验收尚未执行，个人 App 与服务器未更新，见 [RANDOM_VISUALIZER.md](RANDOM_VISUALIZER.md)。
+
 开发源码修复 Tilt 初始化时的 React 生命周期错误，以及绘光辉光滤镜的 Pixi 8.21 旧式调用警告。
 保留原分段、动效和画质参数；没有新增依赖或更新个人 App，见 [VISUALIZER_RUNTIME.md](VISUALIZER_RUNTIME.md)。
 

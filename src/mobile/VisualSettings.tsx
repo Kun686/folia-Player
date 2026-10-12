@@ -41,6 +41,8 @@ export default function VisualSettings({ light, close, appearance, visible, them
     <label>{t('mobile.visualizer')}<select aria-label={t('mobile.visualizer')} value={s.visualizerMode} onChange={e => {
       if (hasVisualizerMode(e.target.value)) s.handleSetVisualizerMode(e.target.value, { notify: false });
     }}>{VISUALIZER_REGISTRY.map(item => <option key={item.mode} value={item.mode}>{getVisualizerModeLabel(item.mode, t)}</option>)}</select></label>
+    <label className="check-label"><input type="checkbox" checked={s.randomVisualizerModePerSong}
+      onChange={e => s.handleToggleRandomVisualizerModePerSong(e.target.checked)} />{t('commandPalette.commands.visualizer-toggle-random-per-song.title')}</label>
     <label>{t('mobile.background')}<select aria-label={t('mobile.background')} value={s.visualizerBackgroundMode ?? 'common'} onChange={e => {
       if (hasVisualizerBackgroundMode(e.target.value)) s.handleSetVisualizerBackgroundMode(e.target.value);
     }}>{VISUALIZER_BACKGROUND_REGISTRY.map(item => <option key={item.mode} value={item.mode}>{getVisualizerBackgroundModeLabel(item.mode, t)}</option>)}</select></label>

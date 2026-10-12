@@ -13,6 +13,20 @@ import {
 // Guards sync schema parsing against malformed sync server responses.
 
 describe('sync schema parsing', () => {
+    it.each([true, false])('preserves the random-per-song setting: %s', enabled => {
+        const record = parseSyncedSettingsRecord({ schemaVersion: 1, updatedAt: '2026-07-08T00:00:00.000Z',
+            data: { randomVisualizerModePerSong: enabled } });
+        expect(record?.data).toEqual({ randomVisualizerModePerSong: enabled });
+    });
+
+    it('ignores absent and malformed random-per-song values instead of coercing them', () => {
+        for (const value of [undefined, null, 'true', 'false', 0, 1, {}, []]) {
+            const record = parseSyncedSettingsRecord({ schemaVersion: 1, updatedAt: '2026-07-08T00:00:00.000Z',
+                data: { randomVisualizerModePerSong: value } });
+            expect(record?.data).not.toHaveProperty('randomVisualizerModePerSong');
+        }
+    });
+
     it('keeps only valid synced visual settings fields', () => {
         const record = parseSyncedSettingsRecord({
             schemaVersion: 1,

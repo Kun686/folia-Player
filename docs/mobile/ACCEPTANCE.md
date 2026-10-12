@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+原版「每首歌随机歌词动画」的移动接入与配置往返修正已通过 215 项逻辑及 75 项 WebKit 检查。
+网络与原生快照为受控数据；本批真实平台／原生容器／真机均 NOT_RUN，个人 App 与服务器未更新。
+行为边界与证据见 [RANDOM_VISUALIZER.md](RANDOM_VISUALIZER.md)。
+
 Automix 已补充调用线程存活期间的内存回归，修正前失败，最终 13 项原生回归通过，含三轮原模型联合交接。
 推理任务在线程结束后返回，保留原串行调度与算法；真机及完整内存验收仍未完成，
 见 [AUTOMIX_THREAD_MEMORY.md](AUTOMIX_THREAD_MEMORY.md)。个人 App 与服务器未更新。
