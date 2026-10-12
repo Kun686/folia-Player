@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { describe, expect, it } from 'vitest';
 import { expansionPlanJSON, stemCurveJSON, stemPlanJSON, renderExpansionPCM, expansionSampleMapPCM } from '@/services/automix/nativeRuntime';
 import { expansionMask, planExpansion, renderExpansion } from '@/services/automix/expansionGesture';
@@ -18,7 +19,10 @@ describe('native performance gesture', () => {
       const expected = renderExpansionPCM(material, text);
       const actual = Float32Array.from({length: map.length / 2}, (_, i) =>
         (map[i * 2] < 0 ? 0 : material[map[i * 2]]) * map[i * 2 + 1]);
-      expect(new Uint8Array(actual.buffer)).toEqual(new Uint8Array(expected.buffer));
+      // Compare every PCM byte without generic deep-equality overhead on CI.
+      const actualBytes = Buffer.from(actual.buffer, actual.byteOffset, actual.byteLength);
+      const expectedBytes = Buffer.from(expected.buffer, expected.byteOffset, expected.byteLength);
+      expect(actualBytes.equals(expectedBytes), `intensity=${intensity}, offset=${offset}`).toBe(true);
     }
   });
   it.each([0.25, 0.5, 0.75, 1])('uses the original %s plan and masks only its outgoing stems', intensity => {
