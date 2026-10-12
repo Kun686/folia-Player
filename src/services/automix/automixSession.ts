@@ -44,6 +44,7 @@ import {
 import { planForMode, type TransitionSettings } from './transitionStrategy';
 import { announceTransition } from './transitionCue';
 import type { TrackProfile } from './trackProfile';
+import { stemWindowCoverage, stemWindowLate } from './stemWindow';
 
 // src/services/automix/automixSession.ts
 // The automix state machine, with every browser and React dependency behind a port so the
@@ -378,15 +379,14 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
     }): boolean => {
         const { context, fromStems, toStems, startMedia, wall } = args;
         const rate = fromStems.buffers.vocals.sampleRate;
-        const offset = Math.round((startMedia - fromStems.from) * rate);
-        const length = Math.round(wall * rate);
+        const { offset, inOffset, length, covered } = stemWindowCoverage(
+            startMedia, fromStems.from, fromStems.buffers.vocals.length,
+            args.inAt, toStems.from, toStems.buffers.vocals.length, wall, rate,
+        );
         // The window has to fit inside what was separated at BOTH ends. A plan made before the
         // separation finished can ask for a longer overlap than the stems cover, and half a window
         // of stems followed by silence is far worse than the crossfade this replaces.
-        const inOffset = Math.round((args.inAt - toStems.from) * rate);
-        if (offset < 0 || inOffset < 0
-            || offset + length > fromStems.buffers.vocals.length
-            || inOffset + length > toStems.buffers.vocals.length) {
+        if (!covered) {
             // With the numbers, because this line is the only evidence that STEM_WINDOW_SEC is set
             // too short: the blend it names would have had a stem gesture under a longer window.
             console.log(`[Automix] stems do not cover this ${wall.toFixed(2)}s window`
@@ -539,10 +539,9 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         // moved. What shifts is which fraction of a second the shape starts on, and the hoisted walk above
         // put that back into the tens of milliseconds.
         const at = Math.max(context.currentTime, args.startAt);
-        const late = Math.min(
-            at - args.startAt,
-            (fromStems.buffers.vocals.length - (offset + length)) / rate,
-            (toStems.buffers.vocals.length - (inOffset + length)) / rate,
+        const late = stemWindowLate(
+            at, args.startAt, fromStems.buffers.vocals.length, toStems.buffers.vocals.length,
+            offset, inOffset, length, rate,
         );
 
         // Both decks sum through one soft limiter rather than straight into the mix. The pair

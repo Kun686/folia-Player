@@ -2,6 +2,7 @@
 
 2026-10-12。**PASS（原WebKit数值对照与原生模拟器自动测试）；完整Automix仍未接入用户队列。**
 接续 [四轨PCM总线](STEM_MIX.md)。本批没有新增依赖、修改模型、更新个人mobile.28或改动界面。
+后续16位窗口、四窗口缓存及原媒体对齐接口已补充验证，见 [STEM_STORAGE.md](STEM_STORAGE.md)；下文保留本批边界。
 ORT工程接入仍见 [待批准方案](AUTOMIX_INTEGRATION_DECISION.md)。
 
 ## 实现与复用

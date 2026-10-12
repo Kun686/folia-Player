@@ -34,11 +34,18 @@ import AudioStreaming
             try await Task.sleep(nanoseconds: 10_000_000)
         }
         guard stable >= 2 else { XCTFail("Real decoders did not become audible"); return }
-        let expectedBuffer = StemClockFixture.buffer(35280), reference = try fixture.mixer()
+        func stored(_ pcm: NativeStemPCM, role: NativeStemRole) throws -> NativeStemWindow {
+            try NativeStemWindow(fromFrame: 0, role: role, mix: pcm.stems[.drums]!, separated: pcm.stems)
+        }
+        let prepared = try await NativeStemWindowPair.prepare(out: stored(fixture.outPCM, role: .tail),
+            incoming: stored(fixture.inPCM, role: .head), outAt: 0, inAt: 0, seconds: 0.8, planner: NativeTransitionPlanner())
+        let windows = try XCTUnwrap(prepared)
+        let expectedBuffer = StemClockFixture.buffer(35280), reference = try NativeStemMixer(outgoing: windows.outgoing,
+            incoming: windows.incoming, gesture: fixture.gesture, bus: fixture.bus)
         XCTAssertTrue(reference.render(expectedBuffer.mutableAudioBufferList, frames: 35280))
         let expectedPCM = expectedBuffer.floatChannelData![0], gain = output.transitionGain
         let generation = gain.cancel(), before = output.engine.manualRenderingSampleTime
-        XCTAssertTrue(try output.scheduleStems(outgoing: first, incoming: second, outPCM: fixture.outPCM, inPCM: fixture.inPCM,
+        XCTAssertTrue(try output.scheduleStems(outgoing: first, incoming: second, windows: windows,
             gesture: fixture.gesture, bus: fixture.bus, hold: 384.25 / 44100, generation: generation))
         var maximum: Float = 0
         for _ in 0..<74 {

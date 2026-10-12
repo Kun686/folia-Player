@@ -133,6 +133,13 @@ final class StreamMixOutput {
         return transitionGain.schedule(curve, generation: generation)
     }
     // Prepared/aligned windows only. Model work and media-position selection stay outside the audio graph.
+    func scheduleStems(outgoing: AudioPlayer, incoming: AudioPlayer, windows: NativeStemWindowPair,
+                       gesture: NativeStemGesture, bus: NativeStemBusParameters, hold: Double,
+                       generation: UInt64) throws -> Bool {
+        guard windows.seconds == gesture.schedule.windowSec else { throw MobileFailure("invalid-stem-alignment") }
+        return try scheduleStems(outgoing: outgoing, incoming: incoming, outPCM: windows.outgoing, inPCM: windows.incoming,
+                                 gesture: gesture, bus: bus, hold: hold, generation: generation)
+    }
     func scheduleStems(outgoing: AudioPlayer, incoming: AudioPlayer, outPCM: NativeStemPCM, inPCM: NativeStemPCM,
                        gesture: NativeStemGesture, bus: NativeStemBusParameters, hold: Double,
                        generation: UInt64) throws -> Bool {

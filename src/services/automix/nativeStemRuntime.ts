@@ -4,6 +4,7 @@ import { AUTOMIX_MIN_OVERLAP_SEC } from './transitionPlanner';
 import { fail, numeric, numbers, object, read } from './nativeTransitionInput';
 import type { StemName } from './stems';
 import { stemBusParameters } from './stemBus';
+import { stemWindowCoverage, stemWindowLate } from './stemWindow';
 
 // nativeStemRuntime.ts — original handover rules on measured envelopes; no PCM, inference or audio I/O.
 // This boundary accepts one original 30-second separated window, never a whole song.
@@ -44,6 +45,19 @@ export function stemBusJSON(text: string): string {
     read(text);
     const { curve, ...parameters } = stemBusParameters();
     return JSON.stringify({ ...parameters, curve: Array.from(curve) });
+}
+
+/** Only timing metadata crosses this bridge; full PCM stays in native memory. */
+export function stemWindowJSON(text: string): string {
+    const request = read(text);
+    const values = ['outAt', 'outFrom', 'outFrames', 'inAt', 'inFrom', 'inFrames', 'seconds', 'lateBy'] as const;
+    for (const key of values) if (!numeric(request[key]) || (request[key] as number) < 0) fail();
+    const { outAt, outFrom, outFrames, inAt, inFrom, inFrames, seconds, lateBy } = request as Record<typeof values[number], number>;
+    if (seconds < AUTOMIX_MIN_OVERLAP_SEC || seconds > MAX_WINDOW_SEC
+        || [outFrames, inFrames].some(frames => !Number.isInteger(frames) || frames < 1 || frames > 1_323_000)) fail();
+    const { offset, inOffset, length, covered } = stemWindowCoverage(outAt, outFrom, outFrames, inAt, inFrom, inFrames, seconds, 44100);
+    return JSON.stringify({ covered,
+        late: covered ? stemWindowLate(lateBy, 0, outFrames, inFrames, offset, inOffset, length, 44100) : 0 });
 }
 
 /** One Float32 curve per bounded response; retains all original 200Hz samples, including both ends. */
