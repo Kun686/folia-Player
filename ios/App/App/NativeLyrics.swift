@@ -39,8 +39,8 @@ actor NativeLyricParser {
         return text
     }
     func onlineStep(_ input: Data) throws -> Data { try call("stepJSON", input: input, limit: 3_000_000) }
-    func localSources(_ snapshot: [String: Any]) throws -> Data? {
-        let input = try JSONSerialization.data(withJSONObject: ["version": 1, "snapshot": snapshot])
+    func localSources(_ snapshot: [String: Any], priority: String = "local") throws -> Data? {
+        let input = try JSONSerialization.data(withJSONObject: ["version": 1, "snapshot": snapshot, "priority": priority])
         let data = try call("sourcesJSON", input: input, inputLimit: 37_000_000)
         guard data.count <= 262144 else { throw MobileFailure("invalid-local-lyrics") }
         return data == Data("null".utf8) ? nil : data
@@ -97,6 +97,7 @@ final class NativeLyrics {
     private var wanted: Set<String> = []
     private var tasks: [String: (UUID, Task<Void, Never>)] = [:]
     private var values: [String: Value] = [:]
+    private var localPriority = "local"
     private(set) var revision = 0
     var changed: (() -> Void)?
     init(local: LocalMediaLibrary, parser: NativeLyricParser = NativeLyricParser(), gateway: GatewayClient = GatewayClient(), cache: NativeLyricCache? = nil,
@@ -121,6 +122,14 @@ final class NativeLyrics {
             invalidateKey(key)
         }
     }
+    func setLocalPriority(_ priority: String) -> Bool {
+        guard ["local", "online"].contains(priority), priority != localPriority else { return false }
+        localPriority = priority
+        for key in Set(values.keys).union(tasks.keys).union(wanted) where key.hasPrefix("local:") {
+            invalidateKey(key)
+        }
+        return true
+    }
     func update(_ songs: [[String: Any]]) {
         let identities = songs.prefix(2).compactMap(NativeProfileIdentity.init).filter { $0.localID != nil || ["netease", "qq"].contains($0.provider ?? "") }
         let ids = Set(identities.map(\.key))
@@ -131,13 +140,14 @@ final class NativeLyrics {
             guard let identity = identities.first(where: { $0.key == id }),
                   let song = songs.first(where: { NativeProfileIdentity($0)?.key == id }) else { continue }
             let stamp = UUID()
+            let priority = localPriority
             let task = Task(priority: .utility) { @MainActor [weak self, local, parser, gateway, session, cache] in
                 let lines: [[String: Any]]?
                 do {
                     if let localID = identity.localID {
                         let source = try await local.readLyricSources(localID)
                         try Task.checkCancellation()
-                        if let data = try await parser.localSources(source) {
+                        if let data = try await parser.localSources(source, priority: priority) {
                             lines = try JSONSerialization.jsonObject(with: data) as? [[String: Any]]
                         } else { lines = nil }
                     } else {

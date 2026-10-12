@@ -146,6 +146,11 @@ final class NativeCrossfade {
         // An active handover keeps its audible schedule; the new file applies to subsequent planning.
         if !isFading { invalidatePlan(); tick() }
     }
+    func localLyricsPriorityChanged(_ priority: String) {
+        guard lyrics.setLocalPriority(priority) else { return }
+        // Keep an audible handover; subsequent plans use the newly selected source.
+        if !isFading { invalidatePlan(); tick() }
+    }
 
     // Native media time decides readiness; the shared render clock decides when a scheduled fade is over.
     func tick() {

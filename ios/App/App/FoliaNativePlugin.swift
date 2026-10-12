@@ -9,7 +9,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = ["bootstrap", "configure", "health", "saveSession", "clearSession",
         "request", "cancelRequests", "startPersonalFM", "leavePersonalFM", "setQueue", "editQueue", "selectQueue", "command", "getState", "shareQR", "copyText", "shareLyricFile", "sharePlaylistFile",
         "localCatalog", "importAudio", "localDetails", "importLyrics", "pickLyricFile", "saveLocalLyrics", "readLocalLyrics", "selectLocalLyrics", "readLocalMatch", "writeLocalMatch", "readLocalLibrary", "editLocalLibrary", "removeLocal", "audioLevels",
-        "getAudioSettings", "setAudioSettings", "getTransitionSettings", "setTransitionSettings", "getMediaCacheSettings", "setMediaCacheSettings",
+        "getAudioSettings", "setAudioSettings", "getLyricSettings", "setLyricSettings", "getTransitionSettings", "setTransitionSettings", "getMediaCacheSettings", "setMediaCacheSettings",
         "mediaCacheState", "clearMediaCache", "songCover", "coverCacheState", "clearCoverCache",
         "readLyricCache", "writeLyricCache", "lyricCacheState", "clearLyricCache",
         "listExportLyrics", "readExportLyrics", "shareLyricArchive", "getSleepTimer", "setSleepTimer",
@@ -170,6 +170,11 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve(try self.engine.sleepTimer.apply(edit))
     } }
     @objc func getAudioSettings(_ call: CAPPluginCall) { run(call) { call.resolve(self.engine.audioSettings.dictionary) } }
+    @objc func getLyricSettings(_ call: CAPPluginCall) { run(call) { call.resolve(self.engine.lyricSettings.dictionary) } }
+    @objc func setLyricSettings(_ call: CAPPluginCall) { run(call) {
+        guard let settings = call.getObject("settings") else { throw MobileFailure("invalid-lyric-settings") }
+        call.resolve(try self.engine.setLyricSettings(settings))
+    } }
     @objc func getTransitionSettings(_ call: CAPPluginCall) { run(call) { call.resolve(self.engine.transitionSettings.dictionary) } }
     @objc func setTransitionSettings(_ call: CAPPluginCall) { run(call) {
         guard let settings = call.getObject("settings") else { throw MobileFailure("invalid-transition-settings") }

@@ -5,6 +5,29 @@ import WebKit
 
 // NativeModelQueueTests.swift — real approved beat weights, capability changes, and the existing identity queue.
 @MainActor extension NativeTests {
+    func testPackagedLyricSettingsBridgeReturnsPersistedPriorityAndRejectsInvalidEdits() async throws {
+        XCTAssertEqual(Bundle.main.bundleIdentifier, "app.folia.validation.App")
+        let controller = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows).compactMap { $0.rootViewController as? CAPBridgeViewController }.first)
+        let web = try XCTUnwrap(controller.webView)
+        try await waitForStream({ !web.isLoading && web.url?.scheme == "capacitor" }, seconds: 15)
+        let plugin = try XCTUnwrap(controller.bridge?.plugin(withName: "FoliaNative") as? FoliaNativePlugin)
+        try await waitForStream { plugin.engine != nil }
+        let engine = try XCTUnwrap(plugin.engine), original = engine.lyricSettings.dictionary
+        engine.stop(); defer { _ = try? engine.setLyricSettings(original) }
+        let result = try await web.callAsyncJavaScript("""
+            const invoke = (method, options = {}) => window.Capacitor.nativePromise('FoliaNative', method, options);
+            await invoke('setLyricSettings', {settings: {localLyricsPriority: 'online'}});
+            let invalid = '';
+            try { await invoke('setLyricSettings', {settings: {localLyricsPriority: 'embedded'}}); }
+            catch (error) { invalid = error.message; }
+            return {settings: await invoke('getLyricSettings'), invalid};
+            """, arguments: [:], in: nil, contentWorld: .page)
+        let values = try XCTUnwrap(result as? [String: Any])
+        XCTAssertEqual((values["settings"] as? [String: Any])?["localLyricsPriority"] as? String, "online")
+        XCTAssertEqual(values["invalid"] as? String, "invalid-lyric-settings")
+        XCTAssertEqual(engine.lyricSettings.localLyricsPriority, "online")
+    }
     func testPackagedTransitionSettingsBridgePersistsPerformanceAndKeepsCapabilitiesClosed() async throws {
         XCTAssertEqual(Bundle.main.bundleIdentifier, "app.folia.validation.App")
         let controller = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }

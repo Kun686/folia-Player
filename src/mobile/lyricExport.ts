@@ -1,4 +1,4 @@
-import type { SongResult } from '../types';
+import type { LocalLyricsPriority, SongResult } from '../types';
 import { buildCurrentSongExportEntry, type RawLyrics } from '../services/lyricExport/currentSongExport';
 import { buildLyricFileBaseName, buildLyricFileContent, LYRIC_EXPORT_EXTENSIONS } from '../services/lyricExport/lyricExportFiles';
 import type { LyricExportFormat } from '../services/lyricExport/types';
@@ -8,12 +8,13 @@ import { localLyricsFromSnapshot } from '../utils/lyrics/localLyricSnapshot';
 import { isPureMusicLyricText } from '../utils/lyrics/pureMusic';
 import { resolveOnlineLyrics, resolveOnlineLyricsPureMusic } from '../utils/onlineLyricsSelection';
 import { native } from './bridge';
+import { useLyricSettingsStore } from '../stores/useLyricSettingsStore';
 
 // lyricExport.ts — native storage supplies raw sources to the original export pipeline, fully offline.
-async function readRawSource(song: SongResult): Promise<(RawLyrics & { localPath?: string }) | null> {
+async function readRawSource(song: SongResult, priority: LocalLyricsPriority): Promise<(RawLyrics & { localPath?: string }) | null> {
     if (song.sourceRef?.kind === 'local') {
         const snapshot = await native.readLocalLyrics({ id: song.sourceRef.mediaId });
-        const selected = await resolveLocalSongLyrics(localLyricsFromSnapshot(snapshot), 'local');
+        const selected = await resolveLocalSongLyrics(localLyricsFromSnapshot(snapshot), priority);
         if (!selected.lyrics || !selected.source) return null;
         const fileName = (song as SongResult & { importedFileName?: string }).importedFileName;
         return {
@@ -36,9 +37,10 @@ async function readRawSource(song: SongResult): Promise<(RawLyrics & { localPath
 }
 
 export async function exportMobileSongLyrics(song: SongResult, format: LyricExportFormat, isCurrent: () => boolean) {
+    const priority = useLyricSettingsStore.getState().localLyricsPriority;
     const entry = await buildCurrentSongExportEntry({
-        song, onScreenLyrics: null, activeLocalLyricsSource: null, localLyricsPriority: 'local',
-        readRawSource, offsetKey: getPlaybackSongKey(song), strictStorage: true,
+        song, onScreenLyrics: null, activeLocalLyricsSource: null, localLyricsPriority: priority,
+        readRawSource: current => readRawSource(current, priority), offsetKey: getPlaybackSongKey(song), strictStorage: true,
     });
     if (!isCurrent()) return 'cancelled';
     if (!entry) return 'empty';

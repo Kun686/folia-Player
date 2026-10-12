@@ -1,4 +1,4 @@
-import type { LocalSong } from '../types';
+import type { LocalLyricsPriority, LocalSong } from '../types';
 import { runLyricExport } from '../services/lyricExport/runLyricExport';
 import { collectOnlineLyricSnapshots, type OnlineLyricExportSnapshot } from '../services/lyricExport/collectOnlineLyrics';
 import { collectLocalLyricSongs } from '../services/lyricExport/collectLocalLyrics';
@@ -24,10 +24,10 @@ export async function readArchive(blob: Blob, signal?: AbortSignal): Promise<str
     });
 }
 
-export async function exportMobileBatchLyrics(options: LyricExportOptions, _priority: unknown, context: LyricExportRunContext = {}) {
+export async function exportMobileBatchLyrics(options: LyricExportOptions, priority: LocalLyricsPriority, context: LyricExportRunContext = {}) {
     const { signal, onProgress } = context;
     let exportToken: string | undefined;
-    const result = await runLyricExport(options, 'local', context, {
+    const result = await runLyricExport(options, priority, context, {
         strictStorage: true,
         online: async () => {
             const inventory = await native.listExportLyrics(); exportToken = inventory.token;
@@ -60,7 +60,7 @@ export async function exportMobileBatchLyrics(options: LyricExportOptions, _prio
                 // The collector reads identity, metadata and source fields only; iOS imports have no retained folder tree.
                 return { ...localMatchTarget(snapshot), filePath: snapshot.fileName } as LocalSong;
             }, signal);
-            const collection = collectLocalLyricSongs(local, 'local', context);
+            const collection = collectLocalLyricSongs(local, priority, context);
             collection.entries = collection.entries.map(entry => ({ ...entry, offsetKey: entry.songKey }));
             return collection;
         },

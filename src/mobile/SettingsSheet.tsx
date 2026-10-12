@@ -11,9 +11,11 @@ import SleepTimerSheet from './SleepTimerSheet';
 import type { useNativeSleepTimer } from './useNativeSleepTimer';
 import AISettingsSheet from './AISettingsSheet';
 import SyncSettingsSheet from './SyncSettingsSheet';
+import LocalLyricPreference, { type useLocalLyricPreference } from './LocalLyricPreference';
 
 // src/mobile/SettingsSheet.tsx
-export default function SettingsSheet({ appearance, mediaCache, timer, server, light, setLight, saved, close }: {
+export default function SettingsSheet({ appearance, mediaCache, timer, server, light, setLight, saved, close, lyricPreference }: {
+  lyricPreference: ReturnType<typeof useLocalLyricPreference>;
   appearance: MobileTheme;
   timer: ReturnType<typeof useNativeSleepTimer>;
   mediaCache: ReturnType<typeof useMediaCache>; server: string; light: boolean; setLight: (value: boolean) => void; saved: (server: string) => void; close: () => void;
@@ -55,6 +57,7 @@ export default function SettingsSheet({ appearance, mediaCache, timer, server, l
       <option value="dark">{t('mobile.dark')}</option><option value="light">{t('mobile.light')}</option>
     </select></label>
     <MediaCacheControls cache={mediaCache} light={light} />
+    <LocalLyricPreference status={lyricPreference} />
     <button onClick={() => setSleep(true)}>{t('commandPalette.sleepTimerTitle')}</button>
     <button onClick={() => setAISettings(true)}>{t('mobile.ai.settings')}</button>
     <button onClick={() => setSyncSettings(true)}>{t('options.r2Sync')}</button>

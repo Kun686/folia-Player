@@ -8,12 +8,14 @@ import { importMobileLocalLyrics } from './localLyricImport';
 import LocalLyricSourceSelector from '../components/panelTab/LocalLyricSourceSelector';
 import { localLyricsFromSnapshot, type LocalLyricSnapshot } from '../utils/lyrics/localLyricSnapshot';
 import { selectLocalSongLyricsSource } from '../utils/lyrics/localSongLyricsSelection';
+import { useLyricSettingsStore } from '../stores/useLyricSettingsStore';
 
 // LocalLyricTools.tsx — original source controls backed by atomic native snapshots, scoped to one mounted song.
 export default function LocalLyricTools({ id, light, time, onDone, captureSongGuard }: {
     id: string; light: boolean; time?: MotionValue<number>; onDone(): void; captureSongGuard(): () => boolean;
 }) {
     const { t } = useTranslation();
+    const priority = useLyricSettingsStore(s => s.localLyricsPriority);
     const [snapshot, setSnapshot] = useState<LocalLyricSnapshot>();
     const [error, setError] = useState(false), [busy, setBusy] = useState(false), [retry, setRetry] = useState(0);
     const [matching, setMatching] = useState(false);
@@ -44,7 +46,7 @@ export default function LocalLyricTools({ id, light, time, onDone, captureSongGu
     return <div className="mobile-local-lyrics">
         <fieldset disabled={!snapshot || busy}>
             <legend>{t('localMusic.lyricsSource')}</legend>
-            <LocalLyricSourceSelector sources={sources} active={song ? selectLocalSongLyricsSource(song, 'local') : null}
+            <LocalLyricSourceSelector sources={sources} active={song ? selectLocalSongLyricsSource(song, priority) : null}
                 isDaylight={light} onChange={source => {
                     if (!snapshot) return;
                     void run(async () => {

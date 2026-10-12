@@ -31,6 +31,16 @@ beforeEach(() => {
     });
 });
 describe('native batch lyric export', () => {
+    it('exports automatic online matches only when the requested local priority selects them', async () => {
+        const base: SongResult = { ...song('qq'), id: 'local-1', sourceRef: { kind: 'local', mediaId: 'local-1' } };
+        io.catalog.mockResolvedValue({ songs: [base] });
+        io.local.mockResolvedValue({ base, fileName: 'priority.flac', lyrics: { token: 'x',
+            content: '[00:01.00]Sidecar', fileName: 'priority.lrc', matched: { matchedLyrics: lyrics } } });
+        const automatic = await exportMobileBatchLyrics({ ...options, scopes: ['local'] }, 'online');
+        expect(automatic.exportedCount).toBe(1);
+        expect(automatic.archive?.manifest.exported[0].source).toBe('online');
+        expect((await exportMobileBatchLyrics({ ...options, scopes: ['local'] }, 'local')).exportedCount).toBe(0);
+    });
     it('exports both providers with distinct keys, saved segmentation, offsets, and original ZIP layout', async () => {
         writeLyricOffset('online:qq:42', 250); writeLyricOffset('42', 999);
         const record = createLyricSegmentationRecord('online:qq:42', 'manual', { [getLyricLineSegmentationKey(lyrics.lines[0])]: ['原始', '歌词'] });

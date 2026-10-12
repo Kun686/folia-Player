@@ -11,6 +11,45 @@ import AVFoundation
          "matchedLyricsSource": "qq", "matchedLyricsSongId": "qq-mid", "matchedIsPureMusic": false,
          "matchedLyrics": ["lines": [["startTime": 1, "endTime": 3, "fullText": "Matched lyric", "words": []]]]]
     }
+    func testNativeLyricPrioritySettingsInvalidateLocalPlansAndPreserveExplicitSource() async throws {
+        let audio = try silentAudio(), root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: audio) }
+        let local = LocalMediaLibrary(root: root), song = try await local.importAudio(audio), id = try XCTUnwrap(song["id"] as? String)
+        let file = root.appendingPathComponent("priority.lrc"); try Data("[00:01.00]Imported lyric".utf8).write(to: file)
+        _ = try await local.importLyrics(file, for: id)
+        let source = try await local.readLyricSources(id)
+        _ = try await local.writeLocalMatch(id, token: XCTUnwrap(source["token"] as? String), document: matchDocument(), source: nil)
+        let storage = UserDefaults(suiteName: UUID().uuidString)!
+        let player = PlaybackEngine(gateway: FailingGateway(), storage: storage, local: local)
+        let lyrics = NativeLyrics(local: local)
+        player.network.cancel(); player.crossfade = NativeCrossfade(owner: player, lyrics: lyrics)
+        defer { lyrics.cancel(); player.stop(); player.clearOutput() }
+        lyrics.update([song])
+        try await waitForStream { lyrics.value(song)?.first?["fullText"] as? String == "Imported lyric" }
+        _ = try player.setLyricSettings(["localLyricsPriority": "online"])
+        XCTAssertNil(lyrics.value(song))
+        lyrics.update([song])
+        try await waitForStream { lyrics.value(song)?.first?["fullText"] as? String == "Matched lyric" }
+        let saved = storage.data(forKey: "folia.lyrics")
+        for invalid in ["unknown", 1, NSNull()] as [Any] {
+            XCTAssertThrowsError(try player.setLyricSettings(["localLyricsPriority": invalid]))
+            XCTAssertEqual(storage.data(forKey: "folia.lyrics"), saved)
+            XCTAssertEqual(player.lyricSettings.localLyricsPriority, "online")
+        }
+        let restored = PlaybackEngine(gateway: FailingGateway(), storage: storage, local: local)
+        restored.network.cancel(); defer { restored.stop(); restored.clearOutput() }
+        XCTAssertEqual(restored.lyricSettings.localLyricsPriority, "online")
+        // A cancelled old read must not overwrite the final priority.
+        for priority in ["local", "online", "local"] {
+            _ = try player.setLyricSettings(["localLyricsPriority": priority]); lyrics.update([song])
+        }
+        try await waitForStream { lyrics.value(song)?.first?["fullText"] as? String == "Imported lyric" }
+        let snapshot = try await local.readLyricSources(id)
+        _ = try await local.selectLyricSource("local", id: id, token: XCTUnwrap(snapshot["token"] as? String))
+        player.crossfade?.localLyricsChanged(id)
+        _ = try player.setLyricSettings(["localLyricsPriority": "online"]); lyrics.update([song])
+        try await waitForStream { lyrics.value(song)?.first?["fullText"] as? String == "Imported lyric" }
+    }
     func testLocalMatchPersistsAtomicallyAndBackgroundLyricsUseMatchedSource() async throws {
         let audio = try silentAudio(), root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: audio) }

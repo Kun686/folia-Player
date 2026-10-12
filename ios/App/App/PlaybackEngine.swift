@@ -19,6 +19,7 @@ final class PlaybackEngine {
     var audioSettings = NativeAudioSettings()
     let audioRules = NativeTransitionPlanner()
     var transitionSettings = NativeTransitionSettings()
+    var lyricSettings = NativeLyricSettings()
     let gateway: GatewayClient
     let personalFM = NativePersonalFM()
     let listening: NativeListeningReporter
@@ -97,6 +98,7 @@ final class PlaybackEngine {
         listening.changed = { [weak self] in self?.publish() }
         listening.refresh()
         crossfade = NativeCrossfade(owner: self)
+        restoreLyricSettings()
         restoreTransitionSettings()
         self.sleepTimer.expired = { [weak self] in try? self?.command("pause") }
         Task { @MainActor [weak self, cache = self.mediaCache] in

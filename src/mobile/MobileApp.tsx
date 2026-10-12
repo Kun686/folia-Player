@@ -50,10 +50,12 @@ import { addMobileSongs, editMobileQueue, playMobileSearchSong, type QueueAction
 import { initializeSyncCoordinator } from '../services/sync/syncCoordinator';
 import OnlineAccountLibrary from './OnlineAccountLibrary';
 import { useSheetViewport } from './useSheetViewport';
+import { useLocalLyricPreference } from './LocalLyricPreference';
 
 // src/mobile/MobileApp.tsx — library and full-window player share the original native playback state.
 export default function MobileApp({ initialServer }: { initialServer: string }) {
   useSheetViewport();
+  const lyricPreference = useLocalLyricPreference();
   const { t } = useTranslation();
   const server = initialServer;
   const [provider, setProvider] = useState(initialServer ? 'netease' : 'local');
@@ -222,7 +224,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         onClick={() => void native.command({ action: playback.state.playing ? 'pause' : 'play' }).catch(() => setError(true))}>
         {playback.state.playing ? <Pause /> : <Play />}</button>
     </footer>
-    {settings && <SettingsSheet appearance={appearance} mediaCache={mediaCache} timer={sleepTimer} server={server} light={light} setLight={setLight}
+    {settings && <SettingsSheet lyricPreference={lyricPreference} appearance={appearance} mediaCache={mediaCache} timer={sleepTimer} server={server} light={light} setLight={setLight}
       saved={() => location.reload()} close={() => setSettings(false)} />}
     {login && <LoginSheet provider={provider} refresh={catalog.refresh} close={() => setLogin(false)} />}
     {onlineTarget && <OnlineCatalogSheet target={onlineTarget} busy={queueBusy} error={queueError} close={() => setOnlineTarget(null)}

@@ -7,6 +7,7 @@ import { dailyEn, dailyZh, dailyIn } from './localeDaily';
 
 // src/mobile/locale.ts
 export const mobileEn = {
+  lyricSettingsError: 'The lyric preference could not be saved or restored. Please retry.',
   listeningUnavailable: 'Listening reports are unavailable on this connection. Check the connection and music server version.',
   listeningChecking: 'Checking listening report support…',
   listeningFailed: 'The listening report was not confirmed. Playback is unaffected; the record will not be retried.',
@@ -102,6 +103,7 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  lyricSettingsError: '歌词偏好未能保存或恢复，请重试。',
   listeningUnavailable: '当前连接暂不支持听歌打卡，请检查连接和音乐服务器版本。',
   listeningChecking: '正在检查听歌打卡支持情况…',
   listeningFailed: '本次听歌记录未确认，播放不受影响；该记录不会重试。',
@@ -197,6 +199,7 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  lyricSettingsError: 'Preferensi lirik tidak dapat disimpan atau dipulihkan. Silakan coba lagi.',
   listeningUnavailable: 'Laporan dengar tidak tersedia. Periksa koneksi dan versi server musik.',
   listeningChecking: 'Memeriksa dukungan laporan dengar…',
   listeningFailed: 'Laporan belum dikonfirmasi. Pemutaran tetap berjalan; laporan tidak akan dicoba ulang.',

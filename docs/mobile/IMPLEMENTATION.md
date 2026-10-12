@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+原版「本地歌曲歌词优先级」已接入移动设置、原生保存、前后台解析及歌词导出，单曲手动来源仍优先。
+45 项逻辑、33 项 WebKit、8 项原生模拟器回归及构建通过；本地类型检查样本修正的最终结果以本提交 CI 为准。
+个人 App／服务器未更新，完整 Automix 发声与真机验收仍待完成，见 [LYRIC_PRIORITY.md](LYRIC_PRIORITY.md)。
+
 Automix「表现模式」已补齐原设置到原生引擎的保存／恢复，兼容旧配置并在失败时回退。
 40 项逻辑、12 项 WebKit、8 项原生模拟器回归及构建通过；公开分轨能力仍保持关闭。
 本批只做独立 QA，个人 App／服务器未更新，真机验收仍待完成，见 [AUTOMIX_SETTINGS.md](AUTOMIX_SETTINGS.md)。

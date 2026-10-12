@@ -10,6 +10,19 @@ vi.mock('@/utils/lyrics/workerClient', async () => {
 });
 const embedded = '[00:01.00]你好\n[00:01.00]Hello\n[00:06.00]结束';
 describe('local lyric sources', () => {
+    it.each(['local', 'online'] as const)('uses %s priority consistently with the original foreground selector', async priority => {
+        const lyrics = { lines: [{ fullText: 'Matched online', startTime: 3, endTime: 8, words: [] }] };
+        for (const lyricsSource of [undefined, 'local', 'embedded', 'online'] as const) {
+            const snapshot: LocalLyricSnapshot = { token: 'x', content: '[00:01.00]Sidecar', fileName: 'song.lrc',
+                embeddedContent: '[00:02.00]Embedded', matched: { title: 'Song', titleOrigin: 'manual-match', artistNames: [], matchedLyrics: lyrics }, lyricsSource };
+            const original = await resolveLocalSongLyrics(localLyricsFromSnapshot(snapshot), priority);
+            expect(JSON.parse(sourcesJSON(JSON.stringify({ version: 1, snapshot, priority })))).toEqual(
+                original.lyrics?.lines.map(({ startTime, endTime, fullText }) => ({ startTime, endTime, fullText, words: [] })));
+        }
+    });
+    it.each([null, true, 1, 'embedded', 'unknown'])('rejects malformed priority %j', priority => {
+        expect(() => sourcesJSON(JSON.stringify({ version: 1, snapshot: {}, priority }))).toThrow('invalid-local-lyrics');
+    });
     it.each([
         { content: '[1000,2000](1000,2000,0)导入', fileName: 'file.yrc', embeddedContent: embedded },
         { content: '[1000,2000](1000,2000,0)导入', fileName: 'file.yrc', embeddedContent: embedded, lyricsSource: 'embedded' },

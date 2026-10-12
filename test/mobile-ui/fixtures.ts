@@ -39,6 +39,7 @@ export const test = base.extend<{ nativeBridge: void }>({
     let cookie = false;
     const effects = { highpass: 20, lowpass: 20000, drive: 0, crush: 0, wow: 0, noise: 0, width: 1, space: 0, punch: 0 };
     win.fixtureTransition = { enabled: false, mode: 'automix', crossfadeMaxSec: 5, performance: false };
+    win.fixtureLyricSettings = JSON.parse(sessionStorage.getItem('fixture-lyric-settings') || 'null') ?? { localLyricsPriority: 'local' };
     win.fixtureAudio = { volume: 1, isMuted: false, replayGainMode: 'off', audioQuality: 'standard', equalizer: { enabled: false, gains: Array(10).fill(0), preset: 'flat', effects,
       customSlots: [1, 2].map(() => ({ gains: Array(10).fill(0), effects })) } };
     const song = { id: 42, name: '测试歌曲', ar: [{ id: 1, name: '测试歌手' }], al: { id: 1, name: '专辑' }, dt: 180000 };
@@ -54,7 +55,7 @@ export const test = base.extend<{ nativeBridge: void }>({
     win.fixtureCommands = [];
     const emit = () => { state.revision++; subscriber?.({ ...state }); };
     win.fixtureEmitPlayback = (patch: Record<string, unknown>) => { Object.assign(state, patch); emit(); };
-    const methods = ['startPersonalFM', 'leavePersonalFM', 'getModels', 'downloadModel', 'cancelModel', 'removeModels', 'importModel', 'bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile', 'sharePlaylistFile',
+    const methods = ['getLyricSettings', 'setLyricSettings', 'startPersonalFM', 'leavePersonalFM', 'getModels', 'downloadModel', 'cancelModel', 'removeModels', 'importModel', 'bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile', 'sharePlaylistFile',
       'readLocalFolders', 'beginFolderImport', 'readFolderImport', 'prepareFolderImport', 'finishFolderImport', 'cancelFolderImport', 'removeLocalFolder',
       'readLocalLibrary', 'editLocalLibrary', 'localCatalog', 'importAudio', 'localDetails', 'readLocalLyrics', 'readLocalMatch', 'writeLocalMatch', 'selectLocalLyrics', 'importLyrics', 'pickLyricFile', 'saveLocalLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
       'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache', 'listExportLyrics', 'readExportLyrics', 'shareLyricArchive', 'getSleepTimer', 'setSleepTimer', 'getAISettings', 'setAISettings', 'aiRequest', 'cancelAIRequest', 'getSyncSettings', 'setSyncSettings', 'syncRequest', 'cancelSyncRequest'];
@@ -164,6 +165,16 @@ export const test = base.extend<{ nativeBridge: void }>({
           win.fixtureCache.songs = []; win.fixtureCache.count = 0; win.fixtureCache.bytes = 0; cacheSubscriber?.(); return {};
         }
         if (method === 'getTransitionSettings') return structuredClone(win.fixtureTransition);
+        if (method === 'getLyricSettings') {
+          if (win.fixtureLyricSettingsLoadFailure) throw new Error('unavailable');
+          return structuredClone(win.fixtureLyricSettings);
+        }
+        if (method === 'setLyricSettings') {
+          if (win.fixtureLyricSettingsFailure) throw new Error('unavailable');
+          win.fixtureLyricSettings = structuredClone(options.settings);
+          sessionStorage.setItem('fixture-lyric-settings', JSON.stringify(win.fixtureLyricSettings));
+          return structuredClone(win.fixtureLyricSettings);
+        }
         if (method === 'setTransitionSettings') {
           if (win.fixtureTransitionFailure) throw new Error('transition-settings-failed');
           win.fixtureTransition = structuredClone(options.settings); return structuredClone(win.fixtureTransition);

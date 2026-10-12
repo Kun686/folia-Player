@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LyricData, SongResult } from '@/types';
 import { createLyricSegmentationRecord, getLyricLineSegmentationKey } from '@/utils/lyrics/lyricSegmentationRecord';
 import { writeLyricOffset } from '@/utils/lyrics/lyricOffsetMemory';
+import { useLyricSettingsStore } from '@/stores/useLyricSettingsStore';
 
 // lyricExport.test.ts — original serialization with native source snapshots; no provider requests.
 const io = vi.hoisted(() => ({ cache: vi.fn(), local: vi.fn(), share: vi.fn(), segment: vi.fn(), desktop: vi.fn() }));
@@ -25,12 +26,27 @@ const raw: LyricData = { lines: [
 const song = (providerId: 'qq' | 'netease'): SongResult => ({ id: 42, name: '歌曲', artists: [{ id: 1, name: '作者' }],
     album: { id: 1, name: '专辑' }, durationMs: 20000, sourceRef: { kind: 'online', providerId, mediaId: '42' } });
 beforeEach(() => {
+    useLyricSettingsStore.getState().handleSetLocalLyricsPriority('local');
     vi.resetAllMocks(); io.segment.mockResolvedValue(null); io.share.mockResolvedValue({ completed: true });
     io.cache.mockResolvedValue({ token: 'a', payload: { lyrics: structuredClone(raw) } });
     for (const key of ['42', 'online:qq:42', 'online:netease:42']) writeLyricOffset(key, 0);
 });
 
 describe('mobile current lyric export', () => {
+    it('captures the local priority for one export and keeps an explicit source authoritative', async () => {
+        const localSong: SongResult = { ...song('qq'), id: 'local-1', sourceRef: { kind: 'local', mediaId: 'local-1' } };
+        const snapshot = { token: 'x', content: '[00:01.00]Sidecar', fileName: 'song.lrc', matched: { matchedLyrics: raw } };
+        useLyricSettingsStore.getState().handleSetLocalLyricsPriority('online');
+        io.local.mockImplementationOnce(async () => {
+            useLyricSettingsStore.getState().handleSetLocalLyricsPriority('local'); return snapshot;
+        });
+        await exportMobileSongLyrics(localSong, 'fia', () => true);
+        expect(JSON.parse(io.share.mock.calls.at(-1)![0].content).source).toBe('online');
+        useLyricSettingsStore.getState().handleSetLocalLyricsPriority('online');
+        io.local.mockResolvedValue({ ...snapshot, lyricsSource: 'local' });
+        await exportMobileSongLyrics(localSong, 'fia', () => true);
+        expect(JSON.parse(io.share.mock.calls.at(-1)![0].content).source).toBe('local');
+    });
     it('preserves raw credits, timing, saved segmentation and provider-specific offset in FIA', async () => {
         const record = createLyricSegmentationRecord('online:qq:42', 'manual', {
             [getLyricLineSegmentationKey(raw.lines[1])]: ['第一', '句歌', '词'],

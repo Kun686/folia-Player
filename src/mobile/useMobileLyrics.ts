@@ -8,6 +8,7 @@ import { native } from './bridge';
 import { useMobileCoverState } from './useMobileCover';
 import { useLyricDisplay } from './useLyricDisplay';
 import { useMobileSegmentation } from './useMobileSegmentation';
+import { useLyricSettingsStore } from '../stores/useLyricSettingsStore';
 
 // src/mobile/useMobileLyrics.ts — reuse the original local parser and online Omni pipeline.
 export function useMobileLyrics(song?: SongResult, editing = false) {
@@ -17,8 +18,10 @@ export function useMobileLyrics(song?: SongResult, editing = false) {
   const [error, setError] = useState(false);
   const [version, setVersion] = useState(0);
   const key = JSON.stringify(song?.sourceRef);
-  const requestKey = JSON.stringify([key, version, editing]);
-  const rawLyrics = loaded?.key === key ? loaded?.lyrics ?? null : null;
+  const priority = useLyricSettingsStore(s => s.localLyricsPriority);
+  const sourceKey = JSON.stringify([key, song?.sourceRef?.kind === 'local' ? priority : null]);
+  const requestKey = JSON.stringify([sourceKey, version, editing]);
+  const rawLyrics = loaded?.key === sourceKey ? loaded?.lyrics ?? null : null;
   const segmentation = useMobileSegmentation(song);
   const lyrics = useLyricDisplay(rawLyrics, song, segmentation.record);
   const wasEditing = useRef<string | undefined>(undefined);
@@ -27,7 +30,7 @@ export function useMobileLyrics(song?: SongResult, editing = false) {
     const skipAutoMatch = wasEditing.current === key && key !== undefined;
     if (!editing) wasEditing.current = undefined;
     let active = true;
-    const setLyrics = (value: LyricData | null) => { if (active) setLoaded({ key, lyrics: value }); };
+    const setLyrics = (value: LyricData | null) => { if (active) setLoaded({ key: sourceKey, lyrics: value }); };
     if (!editing) setLyrics(null);
     setError(false);
     const load = async () => {
@@ -35,7 +38,7 @@ export function useMobileLyrics(song?: SongResult, editing = false) {
       if (song.sourceRef?.kind === 'local') {
         const detail = await native.readLocalLyrics({ id: song.sourceRef.mediaId });
         if (!active) return;
-        const result = await resolveLocalSongLyrics(localLyricsFromSnapshot(detail), 'local');
+        const result = await resolveLocalSongLyrics(localLyricsFromSnapshot(detail), priority);
         if (active) setLyrics(result.lyrics);
       } else {
         const storage = await getMobileRuntime()?.lyrics?.open(song);
@@ -49,6 +52,6 @@ export function useMobileLyrics(song?: SongResult, editing = false) {
     };
     void load().catch(() => { if (active) setError(true); }).finally(() => { if (active) setFinished(requestKey); });
     return () => { active = false; };
-  }, [key, version, editing]);
+  }, [sourceKey, version, editing]);
   return { lyrics, rawLyrics, cover, coverLoading, loading: !!song && finished !== requestKey, error, segmentation, refresh: () => setVersion(v => v + 1) };
 }
