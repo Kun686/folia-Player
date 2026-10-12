@@ -38,6 +38,7 @@ export const aiZh = {
   "ai-rate-limit": "AI 服务限流或额度不足，请稍后重试。",
   "ai-http": "AI 服务返回错误，请检查模型与服务配置后重试。",
   "ai-invalid-response": "AI 返回的主题不完整或无法解析，请重试。",
+  "ai-request-too-large": "歌词或请求超出大小限制，请减少单次处理内容。",
   "ai-response-too-large": "AI 响应超出大小限制，已停止读取。"
 };
 export const aiEn: Record<keyof typeof aiZh, string> = {
@@ -79,5 +80,6 @@ export const aiEn: Record<keyof typeof aiZh, string> = {
   "ai-rate-limit": "AI rate or quota limit reached. Try again later.",
   "ai-http": "The AI service returned an error. Check model and service settings.",
   "ai-invalid-response": "The returned theme is incomplete or invalid. Try again.",
+  "ai-request-too-large": "Lyrics or request exceeded the size limit. Reduce the input and try again.",
   "ai-response-too-large": "AI response exceeded the size limit. Reading stopped."
 };

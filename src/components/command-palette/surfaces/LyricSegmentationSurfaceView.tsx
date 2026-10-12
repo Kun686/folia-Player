@@ -34,7 +34,7 @@ type LyricSegmentationSurfaceViewProps = {
     setStatusMsg: React.Dispatch<React.SetStateAction<StatusMessage | null>>;
     record: LyricSegmentationRecord | null;
     isAiAvailable: boolean;
-    onSave: (lines: Record<string, string[]>, source: LyricSegmentationSource) => Promise<void>;
+    onSave: (lines: Record<string, string[]>, source: LyricSegmentationSource, signal?: AbortSignal) => Promise<void>;
     onReset: () => Promise<void>;
     /** The flag the user is part-way through typing, so the matching button can be highlighted. */
     pendingAction?: LyricSegmentationAction | null;
@@ -42,6 +42,9 @@ type LyricSegmentationSurfaceViewProps = {
     /** Touch hosts supply an input where the desktop command palette normally owns paste. */
     renderImport?: (onImport: (text: string) => Promise<void>, busy: boolean) => React.ReactNode;
     writeClipboard?: (text: string) => Promise<void>;
+    /** Native containers keep the same editor and batching UI with their own request lifecycle. */
+    runSegmentation?: typeof segmentLyricsWithAi;
+    formatAiError?: (error: unknown) => string;
 };
 
 /** Lines the model is asked about. Blank lines are skipped so they cannot shift the row mapping. */
@@ -60,6 +63,8 @@ const LyricSegmentationSurfaceView: React.FC<LyricSegmentationSurfaceViewProps> 
     pendingAction,
     renderImport,
     writeClipboard = text => navigator.clipboard.writeText(text),
+    runSegmentation = segmentLyricsWithAi,
+    formatAiError = error => error instanceof Error ? error.message : String(error),
 }) => {
     const [isRunningAi, setIsRunningAi] = useState(false);
     const [progress, setProgress] = useState<SegmentationProgress | null>(null);
@@ -119,7 +124,7 @@ const LyricSegmentationSurfaceView: React.FC<LyricSegmentationSurfaceViewProps> 
         setIsRunningAi(true);
         try {
             const texts = segmentableLines.map(line => line.fullText);
-            const { boundaries, failures } = await segmentLyricsWithAi(texts, {
+            const { boundaries, failures } = await runSegmentation(texts, {
                 signal: controller.signal,
                 onProgress: next => { if (isMountedRef.current) setProgress(next); },
             });
@@ -136,7 +141,7 @@ const LyricSegmentationSurfaceView: React.FC<LyricSegmentationSurfaceViewProps> 
                     lines[getLyricLineSegmentationKey(line)] = row;
                 }
             });
-            await onSave(lines, 'ai');
+            await onSave(lines, 'ai', controller.signal);
             if (!isMountedRef.current) return;
 
             // Two different partial outcomes, both non-fatal: a whole batch that errored, and
@@ -145,14 +150,14 @@ const LyricSegmentationSurfaceView: React.FC<LyricSegmentationSurfaceViewProps> 
             const skipped = segmentableLines.length - Object.keys(lines).length;
             if (failures.length > 0) {
                 setError(t('lyricSegmentation.partialFailure', '{{count}} batches failed')
-                    .replace('{{count}}', String(failures.length)) + ` — ${failures[0]}`);
+                    .replace('{{count}}', String(failures.length)) + ` — ${formatAiError(new Error(failures[0]))}`);
             } else if (skipped > 0) {
                 setError(t('lyricSegmentation.skippedLines', '{{count}} lines kept the default split')
                     .replace('{{count}}', String(skipped)));
             }
         } catch (aiError) {
             if (!isMountedRef.current || (aiError instanceof DOMException && aiError.name === 'AbortError')) return;
-            setError(aiError instanceof Error ? aiError.message : String(aiError));
+            setError(formatAiError(aiError));
         } finally {
             if (isMountedRef.current) {
                 setIsRunningAi(false);

@@ -4,6 +4,7 @@ import type { SongResult } from '../types';
 import { getPlaybackSongKey } from '../utils/appPlaybackGuards';
 import { isLyricSegmentationRecord } from '../utils/lyrics/lyricSegmentationRecord';
 import { putCacheEntry, readCacheEntry, removeCacheEntry } from './repositories/cacheRepository';
+import { appDatabase } from './appDatabase';
 
 // src/services/lyricSegmentation.ts
 // Persists the per-song word segmentation a user produced with AI or by hand.
@@ -15,7 +16,7 @@ import { putCacheEntry, readCacheEntry, removeCacheEntry } from './repositories/
 // which is accepted: that action is explicitly a full reset.
 
 const LYRIC_SEGMENTATION_KEY_PREFIX = 'lyricSeg_';
-type StorageOptions = { strict?: boolean };
+type StorageOptions = { strict?: boolean; isCurrent?: () => boolean };
 
 /** Uses the provider-prefixed playback key, not song.id, so providers cannot collide. */
 export const getLyricSegmentationCacheKey = (song: SongResult): string => (
@@ -38,6 +39,16 @@ export const saveSongSegmentation = async (
     record: LyricSegmentationRecord,
     options: StorageOptions = {},
 ): Promise<void> => {
+    if (options.isCurrent) {
+        // Native playback/cancellation may change while IndexedDB yields. Abort the transaction rather than save a late AI result.
+        const assertCurrent = () => { if (!options.isCurrent!()) throw new DOMException('Segmentation cancelled', 'AbortError'); };
+        await appDatabase.transaction('rw', appDatabase.api_cache, async () => {
+            assertCurrent();
+            await putCacheEntry(getLyricSegmentationCacheKey(song), record);
+            assertCurrent();
+        });
+        return;
+    }
     // Editors need a rejected write to remain editable instead of reporting an unsaved draft as saved.
     await (options.strict ? putCacheEntry : saveToCache)(getLyricSegmentationCacheKey(song), record);
 };

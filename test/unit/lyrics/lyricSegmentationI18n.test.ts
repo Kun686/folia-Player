@@ -18,7 +18,7 @@ const REQUIRED_KEYS = [
     'statusDefault', 'sourceAi', 'sourceManual', 'appliedCount',
     'runAi', 'cancel', 'copyPrompt', 'copyCurrent', 'reset',
     'inputPlaceholder', 'noLyrics', 'saved', 'restored',
-    'promptCopied', 'currentCopied', 'partialFailure', 'skippedLines', 'copyFailed',
+    'mobileHint', 'mobileAiHint', 'mobileAiInvalidResponse', 'promptCopied', 'currentCopied', 'partialFailure', 'skippedLines', 'copyFailed',
 ];
 
 const REQUIRED_IMPORT_ERROR_KEYS = [

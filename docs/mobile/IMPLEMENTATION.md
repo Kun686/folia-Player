@@ -103,6 +103,7 @@ HTTPS 与网关认证已验证；用户已确认 iPhone 的真实 QQ 登录成�
 用户明确未做网易云长时间锁屏测试，该项保持 NOT_RUN。
 开发源码 `152b2eb` 已接入原精细分词编辑与系统剪贴板桥接，并修复低高度窄窗口控件裁切。
 相关开发阶段自动回归与通用 iOS 编译通过；分词原生交互尚未验证，见 [LYRIC_SEGMENTATION.md](LYRIC_SEGMENTATION.md)。
+后续 AI 分词已接入原编辑器与原生凭据通道，取消／切歌保护最终存储事务；真实模型仍待验证，见 [AI_SEGMENTATION.md](AI_SEGMENTATION.md)。
 上述显示、分词及单曲 `.fia`／LRC 导出已汇入 mobile.13，2026-10-11 原位安装并启动于个人 iPhone，
 设备回读 build 13；准确源码为 `82fb471fa8abad391f1171aae53d12ad140f87b0`。
 原生导出输入检查 2 项通过；用户确认升级后两平台登录保留、播放及导出正常。

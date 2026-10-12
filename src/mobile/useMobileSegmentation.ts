@@ -26,11 +26,11 @@ export function useMobileSegmentation(song?: SongResult) {
     }, [epoch, retry]);
     const ready = loaded?.epoch === epoch && !loaded.error;
     const record = loaded?.epoch === epoch ? loaded.record : null;
-    const write = async (next: LyricSegmentationRecord | null) => {
+    const write = async (next: LyricSegmentationRecord | null, isCurrent?: () => boolean) => {
         if (!song || !ready || !mounted.current || current.current !== epoch || locked.current) throw Error('segmentation-unavailable');
         locked.current = true;
         try {
-            if (next) await saveSongSegmentation(song, next, { strict: true });
+            if (next) await saveSongSegmentation(song, next, { strict: true, isCurrent });
             else await deleteSongSegmentation(song, { strict: true });
             // A write already committed for the old song never replaces the new song's state.
             if (mounted.current && current.current === epoch) setLoaded({ epoch, record: next, error: false });
@@ -39,7 +39,7 @@ export function useMobileSegmentation(song?: SongResult) {
     return {
         record, ready, error: loaded?.epoch === epoch && loaded.error,
         reload: () => { setLoaded(undefined); setRetry(value => value + 1); },
-        save: (lines: Record<string, string[]>, source: LyricSegmentationSource) => write(createLyricSegmentationRecord(key ?? '', source, lines)),
+        save: (lines: Record<string, string[]>, source: LyricSegmentationSource, isCurrent?: () => boolean) => write(createLyricSegmentationRecord(key ?? '', source, lines), isCurrent),
         reset: () => write(null),
     };
 }

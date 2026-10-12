@@ -96,6 +96,9 @@ export interface SegmentationRunResult {
 export interface SegmentLyricsOptions {
     signal?: AbortSignal;
     onProgress?: (progress: SegmentationProgress) => void;
+    /** Native hosts share batching while supplying their credential-safe transport and fatal-error policy. */
+    requestBatch?: typeof segmentBatch;
+    shouldStopOnError?: (error: unknown) => boolean;
 }
 
 /**
@@ -109,7 +112,7 @@ export interface SegmentLyricsOptions {
  */
 export const segmentLyricsWithAi = async (
     lines: string[],
-    { signal, onProgress }: SegmentLyricsOptions = {},
+    { signal, onProgress, requestBatch = segmentBatch, shouldStopOnError }: SegmentLyricsOptions = {},
 ): Promise<SegmentationRunResult> => {
     if (lines.length === 0) {
         throw new Error('No lyric lines to segment');
@@ -126,13 +129,16 @@ export const segmentLyricsWithAi = async (
 
         const batch = lines.slice(start, start + SEGMENTATION_BATCH_SIZE);
         try {
-            const result = await segmentBatch(batch, signal);
+            const result = await requestBatch(batch, signal);
+            if (signal?.aborted) throw new DOMException('Segmentation cancelled', 'AbortError');
             result.forEach((row, offset) => {
                 if (!row) return;
                 boundaries[start + offset] = row;
                 appliedCount += 1;
             });
         } catch (error) {
+            if (signal?.aborted) throw new DOMException('Segmentation cancelled', 'AbortError');
+            if (shouldStopOnError?.(error)) throw error;
             if (error instanceof DOMException && error.name === 'AbortError') {
                 throw error;
             }
