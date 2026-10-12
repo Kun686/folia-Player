@@ -211,7 +211,8 @@ mobile.6之后的源码已优化连续调参的素材复用和播放中的分支
   后续 `346cb23` 补齐歌曲主题缓存、自动／手动切换、外观短码开关和重启恢复；
   复用原来源标识与偏好，防止迟到请求或切歌后的草稿覆盖新歌曲。
   独立 iPad QA 已通过，见 [SONG_THEMES.md](SONG_THEMES.md)。后续 AI／封面生成已接入开发源码并通过自动测试，
-  真实服务与远端主题同步仍待验证／接入，见 [AI_THEMES.md](AI_THEMES.md)。
+  真实 AI 服务仍待验证，见 [AI_THEMES.md](AI_THEMES.md)。可选同步服务已接入原启动／手动主题同步、视觉设置、ZIP 及单曲保存后上传；
+  凭据独立保存在 Keychain，失败保留本地编辑，实际服务与多设备一致性仍待验收，见 [SYNC.md](SYNC.md)。
   开发源码补齐原字体／字幕控件、字号字重、备用字体与透明度；复用原偏好恢复和 FontFace 加载器，
   WebKit 上传字体保存为字节并兼容旧 Blob。取消与存储失败不会替换当前字体，详见 TYPOGRAPHY.md。
   AUAudioUnit + Accelerate处理双声道解码PCM，向原渲染器提供5个频段和频谱；旧AVQueuePlayer/tap路径保留作回退。

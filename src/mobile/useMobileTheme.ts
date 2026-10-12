@@ -10,6 +10,8 @@ import { readStoredLastAppliedThemePointer, resolveCustomThemePreferenceChange, 
   resolveSongThemeAutoGenerateChange, readStoredThemeGenerationSource, type ThemeGenerationSource, type LastAppliedThemePointer } from '../services/themePreferences';
 import { persistMobileThemeChoice, readMobileThemePreferences } from './mobileThemePreferences';
 import type { SyncedThemeSource } from '../services/sync/syncTypes';
+import { getSyncConfig } from '../services/sync/syncConfig';
+import { scheduleSavedThemeUpload } from '../services/sync/savedThemeUpload';
 
 // useMobileTheme.ts — original cache and switching semantics, guarded by native song intent and local edit intent.
 const empty: CachedThemeState = { kind: 'none' };
@@ -92,12 +94,14 @@ export function useMobileTheme(song: SongResult | null, songEpoch: number, captu
   const saveSong = async (value: DualTheme, session: SongThemeEditSession) => {
     if (!session.song || !session.ready || saving.current) throw new Error('theme-not-ready');
     assertThemeIntent(session.isCurrent);
+    const sync = getSyncConfig();
     saving.current = true;
     const intent = ++actionEpoch.current;
     loadEpoch.current++; setLoading(false);
     const current = () => mounted.current && intent === actionEpoch.current && session.isCurrent();
     try {
       const normalized = await saveEditedSongTheme(session.song, value, current);
+      scheduleSavedThemeUpload(session.song, sync);
       assertThemeIntent(current);
       persistMobileThemeChoice('ai', preferences.current);
       setApplied({ kind: 'dual', theme: normalized }); setMode('ai');
@@ -114,10 +118,12 @@ export function useMobileTheme(song: SongResult | null, songEpoch: number, captu
   const saveGenerated = async (value: DualTheme, session: SongThemeEditSession, source: SyncedThemeSource) => {
     if (!session.song || !session.ready || saving.current) throw new Error('theme-not-ready');
     assertThemeIntent(session.isCurrent);
+    const sync = getSyncConfig();
     saving.current = true;
     try {
       const apply = !preferences.current.isCustomThemePreferred;
       const normalized = await saveEditedSongTheme(session.song, value, session.isCurrent, { source, remember: apply });
+      scheduleSavedThemeUpload(session.song, sync);
       assertThemeIntent(session.isCurrent);
       if (apply) { persistMobileThemeChoice('ai', preferences.current); setApplied({ kind: 'dual', theme: normalized }); setMode('ai'); }
       setCache({ key: getPlaybackSongKey(session.song), value: { kind: 'dual', theme: normalized } }); setError(false);

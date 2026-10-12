@@ -5,11 +5,27 @@ import { sanitizeDualTheme } from '../themeSanitizer';
 import { getThemeCacheKeyFromFingerprint, getThemeSyncRegistryRecords, type ThemeSyncRegistryRecord } from './themeSyncRegistry';
 import type { SyncedThemeRecord } from './syncTypes';
 import { assertSyncCurrent, type SyncConnection } from './syncConnection';
+import { parseSyncedThemeRecord } from './syncSchema';
 
 // syncLocalStore.ts — atomic theme/index updates, with compare-before-write so a late download cannot replace a local edit.
 export interface SyncLocalSnapshot {
   records: ThemeSyncRegistryRecord[];
   cache: Map<string, StoredCacheEntry>;
+}
+// Single-song uploads read the committed theme and its original timestamp together, without registering a newer timestamp.
+export async function readSavedThemeForSync(fingerprint: string, config: SyncConnection): Promise<SyncedThemeRecord | null> {
+  return appDatabase.transaction('r', appDatabase.api_cache, appDatabase.theme_registry, async () => {
+    assertSyncCurrent(config);
+    const record = await appDatabase.theme_registry.get(fingerprint);
+    if (!record) return null;
+    if (typeof record.cacheKey !== 'string') throw new Error('sync-invalid-local-record');
+    const cached = await appDatabase.api_cache.get(record.cacheKey);
+    assertSyncCurrent(config);
+    if (!cached) return null;
+    const parsed = parseSyncedThemeRecord({ fingerprint, updatedAt: record.updatedAt, source: record.source, theme: cached.data });
+    if (!parsed) throw new Error('sync-invalid-local-record');
+    return parsed;
+  });
 }
 export async function captureSyncLocal(config: SyncConnection): Promise<SyncLocalSnapshot> {
   await getThemeSyncRegistryRecords({ strict: true }); // Complete the existing legacy migration before opening the transaction.

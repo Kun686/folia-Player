@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, clickPlayerTool } from './fixtures';
 import { BASE_DUAL_THEME } from '../../src/services/baseThemes';
 import { buildThemeBucketSummaries } from '../../src/services/sync/syncMerkle';
 import { unzipSync, strFromU8 } from 'fflate';
@@ -104,4 +104,70 @@ test('cancels an in-flight sync, discards late results and reports failed authen
   await page.evaluate(() => { (window as any).fixtureSyncHTTPError = true; });
   await page.getByRole('button', { name: '测试', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('同步失败');
+});
+
+async function openSongThemes(page: import('@playwright/test').Page) {
+  await configure(page);
+  await page.getByRole('button', { name: '关闭', exact: true }).click();
+  await page.getByRole('button', { name: '关闭', exact: true }).click();
+  await page.getByRole('button', { name: '导入音乐', exact: true }).click();
+  await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
+  await clickPlayerTool(page, '歌词与动效');
+  await expect(page.locator('.mobile-theme-generation').getByRole('button', { name: '为本曲生成主题' })).toBeEnabled();
+}
+async function editSongName(page: import('@playwright/test').Page, name: string) {
+  await page.getByRole('button', { name: 'Theme Park · 主题编辑', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Theme Park · 主题编辑', exact: true });
+  await dialog.getByRole('button', { name: 'AI 主题', exact: true }).click();
+  await dialog.getByRole('button', { name: '信息', exact: true }).click();
+  await dialog.getByRole('textbox').nth(2).fill(name);
+  await dialog.getByRole('button', { name: '保存并应用', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+}
+test('uploads edits only after local commit and keeps the local editor successful when the sync server fails', async ({ page }) => {
+  await openSongThemes(page);
+  await page.evaluate(() => { (window as any).fixtureSyncHTTPError = true; });
+  await editSongName(page, 'Saved despite network error');
+  await expect(page.getByText('已保存的歌曲主题：Saved despite network error', { exact: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureSyncRequests.filter((r: any) => r.operation === 'themePut').length)).toBe(1);
+  const put = await page.evaluate(() => JSON.parse((window as any).fixtureSyncRequests.find((r: any) => r.operation === 'themePut').body));
+  expect(put.themes).toHaveLength(1); expect(put.themes[0]).toMatchObject({ source: 'edited', theme: { dark: { name: 'Saved despite network error' } } });
+  expect(await page.evaluate(() => (window as any).fixtureSyncRequests.some((r: any) => r.operation === 'themeGet'))).toBe(false);
+  await page.evaluate(() => {
+    (window as any).themeWriteFailure = true;
+    const put = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function(value, key) {
+      if ((window as any).themeWriteFailure && this.name === 'api_cache' && String(value.key).startsWith('dual_theme_')) throw new DOMException('Full', 'QuotaExceededError');
+      return key === undefined ? put.call(this, value) : put.call(this, value, key);
+    };
+  });
+  await page.getByRole('button', { name: 'Theme Park · 主题编辑', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Theme Park · 主题编辑', exact: true });
+  await dialog.getByRole('button', { name: 'AI 主题', exact: true }).click();
+  await dialog.getByRole('button', { name: '保存并应用', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toBeVisible();
+  expect(await page.evaluate(() => (window as any).fixtureSyncRequests.filter((r: any) => r.operation === 'themePut').length)).toBe(1);
+});
+test('coalesces pending same-song edits without waiting for the network before closing the editor', async ({ page }) => {
+  await openSongThemes(page);
+  await page.evaluate(() => { (window as any).fixtureSyncDelay = true; });
+  await editSongName(page, 'First saved');
+  await expect.poll(() => page.evaluate(() => typeof (window as any).fixtureSyncRelease)).toBe('function');
+  await editSongName(page, 'Second saved');
+  await editSongName(page, 'Last saved');
+  expect(await page.evaluate(() => (window as any).fixtureSyncRequests.filter((r: any) => r.operation === 'themePut').length)).toBe(1);
+  await page.evaluate(() => { (window as any).fixtureSyncDelay = false; (window as any).fixtureSyncRelease(); });
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureSyncRequests.filter((r: any) => r.operation === 'themePut').length)).toBe(2);
+  const names = await page.evaluate(() => (window as any).fixtureSyncRequests.filter((r: any) => r.operation === 'themePut')
+    .map((r: any) => JSON.parse(r.body).themes[0].theme.dark.name));
+  expect(names).toEqual(['First saved', 'Last saved']);
+});
+test('uploads a cover-generated theme with original fallback provenance', async ({ page }) => {
+  await openSongThemes(page);
+  await page.getByLabel('主题生成来源').selectOption('cover');
+  await page.locator('.mobile-theme-generation').getByRole('button', { name: '为本曲生成主题' }).click();
+  await expect(page.locator('.mobile-theme-generation').getByRole('status')).toContainText('主题已保存并应用');
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureSyncRequests.filter((r: any) => r.operation === 'themePut').length)).toBe(1);
+  const put = await page.evaluate(() => JSON.parse((window as any).fixtureSyncRequests.find((r: any) => r.operation === 'themePut').body));
+  expect(put.themes[0]).toMatchObject({ source: 'fallback', theme: { dark: { provider: 'Built-in' } } });
 });

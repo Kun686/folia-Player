@@ -39,6 +39,14 @@ export async function saveEditedSongTheme(song: SongResult, theme: DualTheme, is
   // A late song switch aborts all rows together, including the last-used fallback and local sync index.
   await appDatabase.transaction('rw', appDatabase.api_cache, appDatabase.theme_registry, async () => {
     assertThemeIntent(isCurrent);
+    if (record) {
+      // The sync server orders writes by updatedAt, including concurrent bulk sync. Same-millisecond edits must remain ordered.
+      const previous = await appDatabase.theme_registry.get(record.fingerprint);
+      const previousTime = typeof previous?.updatedAt === 'string' ? Date.parse(previous.updatedAt) : NaN;
+      if (Number.isFinite(previousTime) && previousTime >= Date.parse(record.updatedAt)) {
+        record.updatedAt = new Date(previousTime + 1).toISOString();
+      }
+    }
     await putCacheEntry(`dual_theme_${getPlaybackSongKey(song)}`, normalized);
     if (record) await writeThemeRegistryEntries([record]);
     if (options.remember !== false) await putCacheEntry('last_dual_theme', normalized);
