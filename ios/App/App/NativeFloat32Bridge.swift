@@ -5,6 +5,13 @@ import JavaScriptCore
 enum NativeFloat32Bridge {
     // JSC holds the immutable PCM owner until its typed array dies, without copying or JSON-boxing samples.
     static func make(_ data: NSData, in context: JSContext, errorCode: String) throws -> JSValue {
+        if data.length == 0 {
+            // Empty NSData has no usable storage pointer; JSC provides a length-based constructor for this case.
+            var exception: JSValueRef?
+            guard let object = JSObjectMakeTypedArray(context.jsGlobalContextRef, kJSTypedArrayTypeFloat32Array, 0, &exception),
+                  exception == nil, let value = JSValue(jsValueRef: object, in: context) else { throw MobileFailure(errorCode) }
+            return value
+        }
         let owner = Unmanaged.passRetained(data).toOpaque()
         var exception: JSValueRef?
         let object = JSObjectMakeTypedArrayWithBytesNoCopy(context.jsGlobalContextRef, kJSTypedArrayTypeFloat32Array,

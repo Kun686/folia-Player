@@ -7,20 +7,20 @@ struct NativeProfileCache {
     private struct Record: Codable { let schema: Int; let payload: Data; let digest: String; let provider: String? }
     let directory: URL
     static func digest(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
-    func key(for file: URL) throws -> String {
+    func key(for file: URL, analysis: String = "v9-gridless-vdsp") throws -> String {
         guard file.isFileURL else { throw MobileFailure("profile-source-unavailable") }
         let values = try FileManager.default.attributesOfItem(atPath: file.path)
         guard let size = values[.size] as? NSNumber, let date = values[.modificationDate] as? Date else { throw MobileFailure("profile-source-unavailable") }
-        return Self.digest(Data("v9-gridless-vdsp|\(file.standardizedFileURL.path)|\(size)|\(date.timeIntervalSince1970)".utf8))
+        return Self.digest(Data("\(analysis)|\(file.standardizedFileURL.path)|\(size)|\(date.timeIntervalSince1970)".utf8))
     }
-    func read(_ key: String) -> Hit? {
+    func read(_ key: String, gridless: Bool = true) -> Hit? {
         let url = directory.appendingPathComponent(key + ".json")
         guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= 393216,
               let data = try? Data(contentsOf: url), let record = try? JSONDecoder().decode(Record.self, from: data),
               record.schema == 1, record.payload.count <= 262144, Self.digest(record.payload) == record.digest else { return nil }
         if record.payload == Data("null".utf8) { return Hit(profile: nil) }
         guard let fields = (try? JSONSerialization.jsonObject(with: record.payload)) as? [String: Any],
-              fields["version"] as? Int == 9, fields["gridless"] as? Bool == true else { return nil }
+              fields["version"] as? Int == 9, fields["gridless"] as? Bool == gridless else { return nil }
         return Hit(profile: record.payload)
     }
     func save(_ profile: Data?, key: String, provider: String? = nil) {

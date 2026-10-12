@@ -32,15 +32,19 @@
 }
 - (NSArray<NSData *> *)runModel:(NSURL *)model kind:(NSString *)kind input:(NSData *)input
                         frames:(NSInteger)frames error:(NSError **)error {
-    return [self runModel:model kind:kind input:input frames:frames window:NO error:error];
+    return [self runModel:model kind:kind inputs:@[input] frameCounts:@[@(frames)] window:NO error:error];
 }
 - (NSArray<NSData *> *)separateWindowAtModel:(NSURL *)model input:(NSData *)input
                                      frames:(NSInteger)frames error:(NSError **)error {
-    return [self runModel:model kind:@"htdemucs" input:input frames:frames window:YES error:error];
+    return [self runModel:model kind:@"htdemucs" inputs:@[input] frameCounts:@[@(frames)] window:YES error:error];
+}
+- (NSArray<NSData *> *)runBeatChunksAtModel:(NSURL *)model inputs:(NSArray<NSData *> *)inputs
+                                    frames:(NSArray<NSNumber *> *)frames error:(NSError **)error {
+    return [self runModel:model kind:@"beat_this" inputs:inputs frameCounts:frames window:NO error:error];
 }
 // A full window shares this single session and RunOptions across all original overlap-add chunks.
-- (NSArray<NSData *> *)runModel:(NSURL *)model kind:(NSString *)kind input:(NSData *)input
-                        frames:(NSInteger)frames window:(BOOL)window error:(NSError **)error {
+- (NSArray<NSData *> *)runModel:(NSURL *)model kind:(NSString *)kind inputs:(NSArray<NSData *> *)inputs
+                   frameCounts:(NSArray<NSNumber *> *)frameCounts window:(BOOL)window error:(NSError **)error {
     auto fail = [&](NSString *code) -> NSArray<NSData *> * {
         if (error) *error = [NSError errorWithDomain:@"FoliaORT" code:1 userInfo:@{NSLocalizedDescriptionKey: code}];
         return nil;
@@ -49,8 +53,15 @@
     if (_used.exchange(true)) return fail(@"ort-job-already-used");
     const bool beat = [kind isEqualToString:@"beat_this"];
     if (!beat && ![kind isEqualToString:@"htdemucs"]) return fail(@"ort-unsupported-model");
-    if (!model.isFileURL || frames < 1 || (beat ? frames > 1500 : window ? frames > 1323000 : frames != 172032))
+    if (!model.isFileURL || inputs.count == 0 || inputs.count > (beat ? 41 : 1) || frameCounts.count != inputs.count)
         return fail(@"ort-invalid-input");
+    for (NSUInteger index = 0; index < inputs.count; ++index) {
+        const NSInteger n = frameCounts[index].integerValue;
+        if (n < 1 || frameCounts[index].doubleValue != n || (beat ? n > 1500 : window ? n > 1323000 : n != 172032) ||
+            inputs[index].length != static_cast<size_t>(n) * (beat ? 128 : 2) * sizeof(float)) return fail(@"ort-invalid-input");
+    }
+    NSData *input = inputs.firstObject;
+    const NSInteger frames = frameCounts.firstObject.integerValue;
     const size_t count = static_cast<size_t>(frames) * (beat ? 128 : 2);
     if (input.length != count * sizeof(float)) return fail(@"ort-invalid-input");
     if (_cancelled.load()) return fail(@"ort-cancelled");
@@ -103,20 +114,31 @@
             }
             return outputs;
         }
-        auto tensor = Ort::Value::CreateTensor<float>(memory, samples.data(), samples.size(), shape.data(), shape.size());
-        auto result = session.Run(*_options, &inputName, &tensor, 1, outputNames, beat ? 2 : 1);
-        _running.store(false);
-        if (_cancelled.load()) return fail(@"ort-cancelled");
         NSMutableArray<NSData *> *outputs = [NSMutableArray new];
-        for (auto &value : result) {
-            if (!value.IsTensor()) return fail(@"ort-invalid-output");
-            auto type = value.GetTensorTypeAndShapeInfo();
-            const auto expected = beat ? std::vector<int64_t>{1, frames} : std::vector<int64_t>{1, 4, 2, frames};
-            if (type.GetElementType() != ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT || type.GetShape() != expected)
-                return fail(@"ort-invalid-output");
-            const float *data = value.GetTensorData<float>();
-            for (size_t i = 0; i < type.GetElementCount(); ++i) if (!std::isfinite(data[i])) return fail(@"ort-invalid-output");
-            [outputs addObject:[NSData dataWithBytes:data length:type.GetElementCount() * sizeof(float)]];
+        // Beat This! receives original JS chunks. Keep one session, return interleaved beat/downbeat outputs.
+        for (NSUInteger index = 0; index < inputs.count; ++index) {
+            if (_cancelled.load()) return fail(@"ort-cancelled");
+            const NSInteger n = frameCounts[index].integerValue;
+            if (index > 0) {
+                samples.resize(inputs[index].length / sizeof(float));
+                memcpy(samples.data(), inputs[index].bytes, inputs[index].length);
+                for (float x : samples) if (!std::isfinite(x)) return fail(@"ort-invalid-input");
+            }
+            const auto tensorShape = beat ? std::vector<int64_t>{1, n, 128} : shape;
+            auto tensor = Ort::Value::CreateTensor<float>(memory, samples.data(), samples.size(), tensorShape.data(), tensorShape.size());
+            auto result = session.Run(*_options, &inputName, &tensor, 1, outputNames, beat ? 2 : 1);
+            if (_cancelled.load()) return fail(@"ort-cancelled");
+            for (auto &value : result) {
+                if (!value.IsTensor()) return fail(@"ort-invalid-output");
+                auto type = value.GetTensorTypeAndShapeInfo();
+                const auto expected = beat ? std::vector<int64_t>{1, n} : std::vector<int64_t>{1, 4, 2, n};
+                if (type.GetElementType() != ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT || type.GetShape() != expected)
+                    return fail(@"ort-invalid-output");
+                const float *data = value.GetTensorData<float>();
+                for (size_t i = 0; i < type.GetElementCount(); ++i) if (!std::isfinite(data[i])) return fail(@"ort-invalid-output");
+                [outputs addObject:[NSData dataWithBytes:data length:type.GetElementCount() * sizeof(float)]];
+            }
+            _completedSegments.store(index + 1);
         }
         return outputs; // Tensors, session, environment and work buffers die before returning to Swift.
     } catch (const std::exception &) {

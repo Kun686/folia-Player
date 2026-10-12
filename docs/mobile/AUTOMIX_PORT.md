@@ -5,6 +5,8 @@
 原动画接线见 [TRANSITION_ANIMATIONS.md](TRANSITION_ANIMATIONS.md)；歌词时间轴已由后续
 [LOCAL_LYRICS.md](LOCAL_LYRICS.md)／[ONLINE_LYRICS.md](ONLINE_LYRICS.md) 接入。
 完整 Automix 的模型推理与分轨表现手势仍未完成，运行库评估见 [AUTOMIX_RUNTIME_DECISION.md](AUTOMIX_RUNTIME_DECISION.md)。
+2026-10-12更新：工程已接入固定ORT、[完整分轨窗口](ORT_WINDOW_INTEGRATION.md)及
+[拍点模型到原歌曲分析](BEAT_PROFILE_INTEGRATION.md)，独立模拟器QA通过；实际模型管理／队列调度与完整模式尚未启用。
 
 ## 已验证：原规则独立于 WebView 执行
 
@@ -68,7 +70,7 @@
 | 本地 profile 获取与分析缓存 | PASS，原分析无模型分支、原生静音边界接线；已随 mobile.9 安装，见文末 |
 | 在线 profile（关闭媒体缓存时） | 已接入原 1.5MiB 前缀策略；受控传输、分析、真实解码队列及输出已通过，真实平台／CDN 未验收，见文末 |
 | 完整音频媒体缓存与离线播放 | PASS，已随 mobile.10 安装，见 MEDIA_CACHE.md；封面／歌词持久缓存仍待移植 |
-| Beat This! / htdemucs 模型与表演手势 | NOT_IMPLEMENTED |
+| Beat This! / htdemucs 模型与表演手势 | 原模型及前后处理已接入独立QA；模型管理、队列预备与完整手势启用仍未完成，见 BEAT_PROFILE_INTEGRATION.md |
 | Crossfade 队列、暂停、拖动、手动选曲与尾曲清理 | PASS，原生测试及设置接线；默认关闭，已随 mobile.9 安装 |
 | 原开关、模式、时长设置 | PASS，原面板／store／桥接／原生持久化；已随 mobile.9 安装 |
 | 逐路实时分析 | 开发源码已接入，148 项原生回归 PASS；未打新包，见 DECK_ANALYSIS.md |

@@ -17,5 +17,9 @@ NS_ASSUME_NONNULL_BEGIN
                                                input:(NSData *)input
                                               frames:(NSInteger)frames
                                                error:(NSError **)error NS_SWIFT_NAME(separateWindow(model:input:frames:));
+- (nullable NSArray<NSData *> *)runBeatChunksAtModel:(NSURL *)model
+                                            inputs:(NSArray<NSData *> *)inputs
+                                            frames:(NSArray<NSNumber *> *)frames
+                                             error:(NSError **)error NS_SWIFT_NAME(runBeatChunks(model:inputs:frames:));
 @end
 NS_ASSUME_NONNULL_END

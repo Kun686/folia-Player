@@ -3,12 +3,15 @@ import JavaScriptCore
 
 // NativeProfileFFT.swift — system double-precision forward FFT; all profile decisions stay in the original analyser.
 final class NativeProfileFFT {
-    private static let count = 2048
-    private let setup = vDSP_DFT_zop_CreateSetupD(nil, vDSP_Length(count), .FORWARD)
-    private var real = [Double](repeating: 0, count: count)
-    private var imag = [Double](repeating: 0, count: count)
-    private var outReal = [Double](repeating: 0, count: count)
-    private var outImag = [Double](repeating: 0, count: count)
+    enum Size: Int { case beat = 1024, profile = 2048 }
+    private let count: Int
+    private let setup: vDSP_DFT_SetupD?
+    private var real: [Double], imag: [Double], outReal: [Double], outImag: [Double]
+    init(size: Size = .profile) {
+        count = size.rawValue
+        setup = vDSP_DFT_zop_CreateSetupD(nil, vDSP_Length(size.rawValue), .FORWARD)
+        real = [Double](repeating: 0, count: size.rawValue); imag = real; outReal = real; outImag = real
+    }
     deinit { if let setup { vDSP_DFT_DestroySetupD(setup) } }
 
     // JSC only guarantees a typed-array pointer until the next API call. Copy each span immediately.
@@ -18,7 +21,7 @@ final class NativeProfileFFT {
         var error: JSValueRef?
         guard JSValueGetTypedArrayType(ctx, raw, &error) == kJSTypedArrayTypeFloat64Array, error == nil,
               let object = JSValueToObject(ctx, raw, &error), error == nil,
-              JSObjectGetTypedArrayLength(ctx, object, &error) == Self.count, error == nil,
+              JSObjectGetTypedArrayLength(ctx, object, &error) == count, error == nil,
               let bytes = JSObjectGetTypedArrayBytesPtr(ctx, object, &error), error == nil else {
             throw MobileFailure("invalid-profile-fft")
         }

@@ -100,7 +100,7 @@ export interface MelSpectrogram {
  * (lyrics stop, visualiser stops) once per analysed track. `analyseTrack` had been through this and
  * carries the fix; this arrived later without it, which is how a closed stutter came back.
  */
-export const melSpectrogram = async (mono: Float32Array): Promise<MelSpectrogram> => {
+export const melSpectrogram = async (mono: Float32Array, transform: typeof fft = fft): Promise<MelSpectrogram> => {
     if (!filterbank) filterbank = buildFilterbank();
     if (!hann) {
         hann = new Float64Array(N_FFT);
@@ -143,7 +143,7 @@ export const melSpectrogram = async (mono: Float32Array): Promise<MelSpectrogram
             real[index] = padded[start + index] * hann[index];
             imag[index] = 0;
         }
-        fft(real, imag);
+        transform(real, imag);
         for (let bin = 0; bin < magnitude.length; bin += 1) {
             magnitude[bin] = Math.sqrt(real[bin] * real[bin] + imag[bin] * imag[bin]) * scale;
         }
