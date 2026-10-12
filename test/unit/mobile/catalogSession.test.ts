@@ -25,6 +25,15 @@ function setup() {
   return { session, port };
 }
 describe('mobile catalog session', () => {
+  it('retains the submitted search identity through paging and clears it for collections and logout', async () => {
+    const { session, port } = setup();
+    expect(session.getSnapshot().searchQuery).toBeNull();
+    port.api.searchProviderSongs.mockResolvedValueOnce(page([song(1)], 1, true));
+    await session.load({ query: 'submitted' }); await session.load();
+    expect(session.getSnapshot().searchQuery).toBe('submitted');
+    await session.load({ collection: collection(1) }); expect(session.getSnapshot().searchQuery).toBeNull();
+    await session.load({ query: 'another' }); await session.logout(); expect(session.getSnapshot().searchQuery).toBeNull();
+  });
   it('refreshes the edited collection but never replaces a later search or another provider', async () => {
     const { session, port } = setup();
     await session.load({ collection: collection(8) });

@@ -101,6 +101,7 @@ describe('useSearchNavigationStore', () => {
     it('appends more netease results when loading the next page', async () => {
         cloudSearchMock
             .mockResolvedValueOnce({
+                code: 200,
                 result: {
                     songs: [
                         { id: 1, name: 'Track 1', artists: [], album: { id: 1, name: 'Album 1' }, durationMs: 1000 },
@@ -110,6 +111,7 @@ describe('useSearchNavigationStore', () => {
                 },
             } as any)
             .mockResolvedValueOnce({
+                code: 200,
                 result: {
                     songs: [
                         { id: 3, name: 'Track 3', artists: [], album: { id: 3, name: 'Album 3' }, durationMs: 1000 },
@@ -138,6 +140,7 @@ describe('useSearchNavigationStore', () => {
 
     it('restores the matching cached search results and scroll position', async () => {
         cloudSearchMock.mockResolvedValueOnce({
+            code: 200,
             result: {
                 songs: [{ id: 9, name: 'Cached', artists: [], album: { id: 1, name: 'Album' }, durationMs: 1000 }],
                 songCount: 1,
@@ -165,6 +168,7 @@ describe('useSearchNavigationStore', () => {
 
     it('does not reuse cached results from a different query', async () => {
         cloudSearchMock.mockResolvedValueOnce({
+            code: 200,
             result: {
                 songs: [{ id: 9, name: 'Cached', artists: [], album: { id: 1, name: 'Album' }, durationMs: 1000 }],
                 songCount: 1,
@@ -274,6 +278,7 @@ describe('useSearchNavigationStore', () => {
                 resolveFirst = resolve;
             }))
             .mockResolvedValueOnce({
+                code: 200,
                 result: {
                     songs: [{ id: 2, name: 'Newest', artists: [], album: { id: 2, name: 'Album' }, durationMs: 1000 }],
                     songCount: 1,
@@ -291,6 +296,7 @@ describe('useSearchNavigationStore', () => {
             deps,
         });
         resolveFirst?.({
+            code: 200,
             result: {
                 songs: [{ id: 1, name: 'Old', artists: [], album: { id: 1, name: 'Album' }, durationMs: 1000 }],
                 songCount: 1,
@@ -321,6 +327,7 @@ describe('useSearchNavigationStore', () => {
     it('retains paged results and can retry after a load-more error', async () => {
         cloudSearchMock
             .mockResolvedValueOnce({
+                code: 200,
                 result: {
                     songs: [{ id: 1, name: 'First', artists: [], album: { id: 1, name: 'Album' }, durationMs: 1000 }],
                     songCount: 2,
@@ -328,6 +335,7 @@ describe('useSearchNavigationStore', () => {
             } as any)
             .mockRejectedValueOnce(new Error('page failed'))
             .mockResolvedValueOnce({
+                code: 200,
                 result: {
                     songs: [{ id: 2, name: 'Second', artists: [], album: { id: 1, name: 'Album' }, durationMs: 1000 }],
                     songCount: 2,

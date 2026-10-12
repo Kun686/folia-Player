@@ -283,8 +283,13 @@ export const neteaseProvider: OnlineMusicProvider = {
     search: {
         async searchSongs(query, limit, offset) {
             const response = await neteaseApi.cloudSearch(query, limit, offset);
-            const items = (response.result?.songs || []).map(normalizeNeteaseSong);
-            const total = Number(response.result?.songCount || items.length);
+            const result = response?.result;
+            requireCatalogResponse(response, Array.isArray(result?.songs) || (result?.songs === undefined && result?.songCount === 0));
+            const items = (result.songs ?? []).map(normalizeNeteaseSong);
+            const count = result.songCount;
+            const total = count === undefined ? offset + items.length : Number(count);
+            requireCatalogResponse(response, (count === undefined || (typeof count === 'number' || typeof count === 'string') && String(count).trim() !== '')
+                && Number.isSafeInteger(total) && total >= items.length && total >= 0);
             return { items, total, hasMore: offset + items.length < total, nextOffset: offset + items.length };
         },
     },

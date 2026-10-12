@@ -290,11 +290,33 @@ describe('neteaseProvider', () => {
 
     it('normalizes search results and paging metadata', async () => {
         vi.mocked(neteaseApi.cloudSearch).mockResolvedValue({
+            code: 200,
             result: { songs: [{ ...song, sourceRef: undefined }], songCount: 2 },
         } as any);
         const page = await neteaseProvider.search!.searchSongs('song', 1, 0);
         expect(page.items[0].sourceRef).toEqual({ kind: 'online', providerId: 'netease', mediaId: '42' });
         expect(page).toMatchObject({ total: 2, hasMore: true, nextOffset: 1 });
+    });
+
+    it.each([301, 401, 403, 429, 500, undefined])('rejects unsuccessful search code %s instead of returning no songs', async code => {
+        vi.mocked(neteaseApi.cloudSearch).mockResolvedValue({ code, result: { songs: [] } });
+        await expect(neteaseProvider.search!.searchSongs('song', 50, 0)).rejects.toMatchObject({
+            code: [301, 401, 403].includes(code!) ? 'auth-required' : 'unavailable',
+        });
+    });
+    it.each([undefined, {}, { songs: {} }, { songs: null }, { songs: [], songCount: -1 },
+        { songs: [], songCount: null }, { songs: [], songCount: true }, { songs: [], songCount: '' },
+        { songs: [], songCount: 'bad' }, { songs: [], songCount: 1.5 }])('rejects malformed search result %j', async result => {
+        vi.mocked(neteaseApi.cloudSearch).mockResolvedValue({ code: 200, result });
+        await expect(neteaseProvider.search!.searchSongs('song', 50, 0)).rejects.toMatchObject({ code: 'unavailable' });
+    });
+    it.each([{ songs: [], songCount: 0 }, { songCount: 0 }, { songs: [] }])('accepts confirmed empty search result %j', async result => {
+        vi.mocked(neteaseApi.cloudSearch).mockResolvedValue({ code: 200, result });
+        await expect(neteaseProvider.search!.searchSongs('song', 50, 0)).resolves.toMatchObject({ items: [], total: 0, hasMore: false, nextOffset: 0 });
+    });
+    it('ends an uncounted later page at its actual offset without inventing a first-page total', async () => {
+        vi.mocked(neteaseApi.cloudSearch).mockResolvedValue({ code: 200, result: { songs: [song] } });
+        await expect(neteaseProvider.search!.searchSongs('song', 50, 50)).resolves.toMatchObject({ total: 51, nextOffset: 51, hasMore: false });
     });
 
     it('normalizes album collection metadata into provider fields', async () => {

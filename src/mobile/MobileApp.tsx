@@ -46,7 +46,7 @@ import SettingsSheet from './SettingsSheet';
 import { useNativeSleepTimer } from './useNativeSleepTimer';
 import PlayerPanel from './PlayerPanel';
 import type { SongResult } from '../types';
-import { addMobileSongs, editMobileQueue, type QueueAction } from './queueActions';
+import { addMobileSongs, editMobileQueue, playMobileSearchSong, type QueueAction } from './queueActions';
 import { initializeSyncCoordinator } from '../services/sync/syncCoordinator';
 import OnlineAccountLibrary from './OnlineAccountLibrary';
 
@@ -102,6 +102,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const mediaCache = useMediaCache();
   const isCached = provider === 'cached';
   const isLocal = provider === 'local';
+  const searchingOnline = !isLocal && !isCached && !queueView && catalog.searchQuery !== null;
   const browsingFolders = isLocal && localBrowser.section === 'folders';
   const songs = useMemo(() => queueView ? playback.state.queue : browsingFolders ? filterMobileLocalSongs(folderView.songs, query) : isLocal ? localBrowser.songs : isCached ? (mediaCache.state?.songs ?? []).filter(song =>
     `${song.name} ${song.artists.map(a => a.name).join(' ')}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) : catalog.songs,
@@ -116,9 +117,11 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
     finally { queueLock.current = false; setQueueBusy(false); }
   };
   const play = async (index: number) => {
+    const current = searchingOnline ? captureProviderSession(provider) : () => true;
     await queueWork(async () => {
       if (songs.some(song => song.sourceRef?.kind === 'online')) await flushSessions();
       if (queueView) await native.selectQueue({ index, queueRevision: playback.state.queueRevision });
+      else if (searchingOnline) await playMobileSearchSong(songs[index], current);
       else await native.setQueue({ songs, index });
       setExpanded(true);
     });
@@ -195,12 +198,15 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       {(catalog.busy || catalog.accountBusy || local.busy) && <p role="status">{t('mobile.loading')}</p>}
       {isLocal && !queueView && localBrowser.browsing ? <LocalCollections collections={localBrowser.collections}
         select={id => { localBrowser.select(id); setQuery(''); }} /> : songs.length ? <SongList songs={songs} play={index => void play(index)} add={(song, next) => void add(song, next)}
+        respectAvailability={searchingOnline}
         busy={queueBusy || localPlaylists.busy} edit={queueView ? edit : undefined} currentIndex={queueView ? playback.state.index : undefined}
         libraryActions={(song, close) => <>{onlineActions(song, close)}
           <LocalSongPlaylistActions song={song} controller={localPlaylists}
           selected={isLocal && !queueView ? localBrowser.selected : undefined} close={close} /></>}
         remove={isLocal && !queueView ? song => { if (window.confirm(t('mobile.confirmRemove', { name: song.name }))) void local.remove(song); } : undefined} />
-        : browsingFolders && !queueView && !folderView.root ? null : <div className="empty"><Music2 size={44} /><p>{t(queueView ? 'mobile.queueEmpty' : isLocal ? (local.songs.length ? 'mobile.empty' : 'mobile.localEmpty') : 'mobile.noSongs')}</p></div>}
+        : (browsingFolders && !queueView && !folderView.root) || (!isLocal && !isCached && !queueView && (catalog.busy || catalog.trackError))
+          ? null : <div className="empty"><Music2 size={44} /><p>{t(queueView ? 'mobile.queueEmpty' : searchingOnline ? 'mobile.empty'
+            : isLocal ? (local.songs.length ? 'mobile.empty' : 'mobile.localEmpty') : 'mobile.noSongs')}</p></div>}
       {!isLocal && !isCached && catalog.more && !queueView && <button disabled={catalog.busy} onClick={() => void catalog.load()}>{t('mobile.more')}</button>}
     </div>
     <PlayerPanel appearance={appearance} state={playback.state} time={playback.currentTime} visible={playback.visible} light={light} songEpoch={playback.songEpoch}

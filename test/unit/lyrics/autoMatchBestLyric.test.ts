@@ -124,7 +124,7 @@ describe('autoMatchBestLyric', () => {
 
     it('bridges a KuGou baseline through a scored NetEase id before probing AMLLDB', async () => {
         searchQQLyricsMock.mockResolvedValue([]);
-        cloudSearchMock.mockResolvedValue({ result: { songs: [{
+        cloudSearchMock.mockResolvedValue({ code: 200, result: { songs: [{
             id: 101,
             name: 'Song Title',
             dt: 200000,
@@ -166,7 +166,7 @@ describe('autoMatchBestLyric', () => {
 
     it('prioritizes NetEase when perfect word-by-word match exists', async () => {
         cloudSearchMock.mockResolvedValue({
-            result: {
+            code: 200, result: {
                 songs: [
                     { id: 101, name: 'Song Title', dt: 200000, ar: [{ name: 'Artist Name' }] }
                 ]
@@ -315,7 +315,7 @@ describe('autoMatchBestLyric', () => {
 
     it('falls back to QQ Music if NetEase match does not have word-by-word lyrics', async () => {
         cloudSearchMock.mockResolvedValue({
-            result: {
+            code: 200, result: {
                 songs: [
                     { id: 101, name: 'Song Title', dt: 200000, ar: [{ name: 'Artist Name' }] }
                 ]
@@ -345,7 +345,7 @@ describe('autoMatchBestLyric', () => {
 
     it('returns a high-confidence line-by-line fallback when no source has word-by-word lyrics', async () => {
         cloudSearchMock.mockResolvedValue({
-            result: {
+            code: 200, result: {
                 songs: [
                     { id: 101, name: 'Song Title', dt: 200000, ar: [{ name: 'Artist Name' }] }
                 ]
@@ -386,7 +386,7 @@ describe('autoMatchBestLyric', () => {
 
     it('stops matching when the NetEase candidate is pure music', async () => {
         cloudSearchMock.mockResolvedValue({
-            result: {
+            code: 200, result: {
                 songs: [
                     { id: 101, name: 'Song Title', dt: 200000, ar: [{ name: 'Artist Name' }] }
                 ]
@@ -428,7 +428,7 @@ describe('autoMatchBestLyric', () => {
     });
 
     it('normalizes accidental ms * 1000 durations before filtering candidates', async () => {
-        cloudSearchMock.mockResolvedValue({ result: { songs: [] } });
+        cloudSearchMock.mockResolvedValue({ code: 200, result: { songs: [] } });
         searchQQLyricsMock.mockResolvedValue([
             {
                 id: 201,
@@ -452,7 +452,7 @@ describe('autoMatchBestLyric', () => {
     });
 
     it('scores the top 10 QQ results and fetches only the highest scoring candidate', async () => {
-        cloudSearchMock.mockResolvedValue({ result: { songs: [] } });
+        cloudSearchMock.mockResolvedValue({ code: 200, result: { songs: [] } });
         const distractors = [
             { id: 200, name: 'Night Of Bloom (Starling Remix)', durationMs: 286000, artists: [{ id: 1, name: 'Xomu' }, { id: 2, name: 'StarlingEDM' }, { id: 3, name: 'nayuta' }], album: { id: 0, name: '' }, qqMid: 'remix' },
             { id: 201, name: 'Night of Bloom', durationMs: 286000, artists: [{ id: 1, name: 'Ayrex' }], album: { id: 0, name: '' }, qqMid: 'wrong-artist-1' },
@@ -541,7 +541,7 @@ describe('autoMatchBestLyric', () => {
 
     it('reuses a preprocessed NetEase candidate for the same song id', async () => {
         cloudSearchMock.mockResolvedValue({
-            result: {
+            code: 200, result: {
                 songs: [
                     { id: 101, name: 'Song Title', dt: 200000, ar: [{ name: 'Artist Name' }] }
                 ]
@@ -611,7 +611,7 @@ describe('autoMatchBestLyric', () => {
 
     it('tries AMLLDB for the NetEase id before falling back to QQ or Kugou', async () => {
         cloudSearchMock.mockResolvedValue({
-            result: {
+            code: 200, result: {
                 songs: [
                     { id: 101, name: 'Song Title', dt: 200000, ar: [{ name: 'Artist Name' }] }
                 ]
@@ -638,7 +638,7 @@ describe('autoMatchBestLyric', () => {
 
     it('does not probe QQ AMLLDB after the automatic NCM AMLLDB probe misses', async () => {
         cloudSearchMock.mockResolvedValue({
-            result: {
+            code: 200, result: {
                 songs: [
                     { id: 101, name: 'Song Title', dt: 200000, ar: [{ name: 'Artist Name' }] }
                 ]
@@ -673,7 +673,7 @@ describe('autoMatchBestLyric', () => {
 
     it('preserves AMLLDB TTML chorus markers instead of fetching NetEase chorus ranges', async () => {
         cloudSearchMock.mockResolvedValue({
-            result: {
+            code: 200, result: {
                 songs: [
                     { id: 101, name: 'Song Title', dt: 200000, ar: [{ name: 'Artist Name' }] }
                 ]
@@ -701,7 +701,7 @@ describe('autoMatchBestLyric', () => {
     });
 
     it('falls back to Kugou when QQ returns an empty word-by-word lyric object', async () => {
-        cloudSearchMock.mockResolvedValue({ result: { songs: [] } });
+        cloudSearchMock.mockResolvedValue({ code: 200, result: { songs: [] } });
         searchQQLyricsMock.mockResolvedValue([{
             id: 201,
             name: 'Song Title',
@@ -740,7 +740,7 @@ describe('autoMatchBestLyric', () => {
 
     it('returns null if no sources match the duration filter', async () => {
         cloudSearchMock.mockResolvedValue({
-            result: {
+            code: 200, result: {
                 songs: [
                     { id: 101, name: 'Song Title', dt: 205000, ar: [{ name: 'Artist Name' }] }
                 ]

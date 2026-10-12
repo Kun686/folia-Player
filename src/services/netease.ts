@@ -659,7 +659,7 @@ export const neteaseApi = {
   // --- Search ---
   cloudSearch: async (keywords: string, limit = 30, offset = 0) => {
     const res = await fetchWithCreds(`/cloudsearch?keywords=${encodeURIComponent(keywords)}&limit=${limit}&offset=${offset}`);
-    if (res.result) {
+    if (Array.isArray(res.result?.songs)) {
       res.result.songs = mergeSongsWithPrivileges(res.result.songs, res.result.privileges ?? res.privileges);
     }
     return res;

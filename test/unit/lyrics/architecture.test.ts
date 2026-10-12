@@ -31,7 +31,7 @@ describe('lyrics architecture', () => {
             'src/services/onlineMusic/neteaseProvider.ts',
         ];
         const delegatedProcessingCallSites = [
-            'src/components/modal/LyricMatchModal.tsx',
+            'src/hooks/useLocalLyricMatch.ts',
             'src/components/modal/NaviLyricMatchModal.tsx',
             'src/components/app/playback/restorePlaybackSource.ts',
             'src/hooks/useLibraryPlaybackController.ts',
@@ -40,6 +40,11 @@ describe('lyrics architecture', () => {
             'src/services/onlinePlayback.ts',
             'src/utils/lyrics/lyricMatchSources.ts',
         ];
+
+        // The shared mobile/desktop dialog delegates its asynchronous work to this hook.
+        const matchDialog = await readRepoFile('src/components/modal/LyricMatchModal.tsx');
+        expect(matchDialog).toMatch(/import\s*\{\s*useLocalLyricMatch\s*\}\s*from\s*['"].*hooks\/useLocalLyricMatch['"]/);
+        expect(matchDialog).toContain('useLocalLyricMatch(');
 
         for (const file of directProcessingCallSites) {
             const content = await readRepoFile(file);

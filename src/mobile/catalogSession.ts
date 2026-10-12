@@ -13,12 +13,12 @@ export interface CatalogPort {
 }
 export interface CatalogState {
   user: ProviderUser | null; collections: ProviderCollection[]; songs: UnifiedSong[];
-  collection: ProviderCollection | null;
+  collection: ProviderCollection | null; searchQuery: string | null;
   accountBusy: boolean; busy: boolean; loggingOut: boolean; collectionsMore: boolean; more: boolean;
   accountError: boolean; trackError: boolean; logoutError: boolean;
 }
 type TrackInput = { query?: string; collection?: ProviderCollection };
-const empty = (): CatalogState => ({ user: null, collections: [], songs: [], collection: null, accountBusy: false, busy: false, loggingOut: false,
+const empty = (): CatalogState => ({ user: null, collections: [], songs: [], collection: null, searchQuery: null, accountBusy: false, busy: false, loggingOut: false,
   collectionsMore: false, more: false, accountError: false, trackError: false, logoutError: false });
 export const mobileCollectionKey = (value: ProviderCollection) => collectionKey({ ...value, source: 'online' });
 
@@ -77,7 +77,8 @@ export function createCatalogSession(provider: string, port: CatalogPort) {
   const load = async (input?: TrackInput) => {
     if (!active || leaving || (!input && (state.busy || (!state.more && !state.trackError) || !tracks))) return;
     const request = ++trackEpoch;
-    if (input) { tracks = { ...input, offset: 0 }; publish({ songs: [], collection: input.collection ?? null, more: false }); }
+    if (input) { tracks = { ...input, offset: 0 }; publish({ songs: [], collection: input.collection ?? null,
+      searchQuery: input.collection ? null : input.query ?? '', more: false }); }
     const page = { ...tracks! };
     publish({ busy: true, trackError: false });
     try {

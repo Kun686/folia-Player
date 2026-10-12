@@ -1,6 +1,7 @@
 import { applyQueueAddBehavior } from '../utils/queueAddBehavior';
 import { applyQueueBatchOperation, shufflePlaybackQueue } from '../utils/queueBatchOperations';
 import { getPlaybackSongKey } from '../utils/appPlaybackGuards';
+import { isSongUnavailable } from '../services/onlineMusic/songAvailability';
 import type { QueueAddBehavior, SongResult } from '../types';
 import { native, type PlaybackSnapshot } from './bridge';
 
@@ -45,4 +46,25 @@ export async function addMobileSongs(songs: SongResult[], behavior: QueueAddBeha
     try { await commit(state, result.nextQueue); return; }
     catch (error) { if (!(error instanceof Error) || error.message !== 'queue-changed' || attempt > 0) throw error; }
   }
+}
+
+// Original search playback selects an existing identity or appends just the requested song.
+// Selection never retries a changed queue; a late action must not override a remote playback intent.
+export async function playMobileSearchSong(song: SongResult, current: () => boolean = () => true) {
+  const check = () => { if (!current()) throw new Error('queue-changed'); };
+  check();
+  if (isSongUnavailable(song)) throw new Error('song-unavailable');
+  const key = getPlaybackSongKey(song);
+  let state = await native.getState();
+  check();
+  let index = state.queue.findIndex(candidate => getPlaybackSongKey(candidate) === key);
+  if (index < 0) {
+    // The add preference helper moves existing songs and skips a detached current song;
+    // search playback instead preserves the entire queue's order, as handleQueueAddAndPlay does.
+    state = await commit(state, [...state.queue, song]);
+    check();
+    index = state.queue.findIndex(candidate => getPlaybackSongKey(candidate) === key);
+  }
+  if (index < 0) throw new Error('queue-changed');
+  await native.selectQueue({ index, queueRevision: state.queueRevision });
 }
