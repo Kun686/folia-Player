@@ -5,7 +5,11 @@ import JavaScriptCore
 actor NativeTrackProfiler {
     private let scriptURL: URL?
     private let cache: NativeProfileCache
-    init(bundle: Bundle = .main, cacheDirectory: URL? = nil) {
+    private let trace: NativeAnalysisTrace?
+    private var analysing = false
+    private var waiting: [(UUID, CheckedContinuation<Void, Error>)] = []
+    init(bundle: Bundle = .main, cacheDirectory: URL? = nil, trace: NativeAnalysisTrace? = nil) {
+        self.trace = trace
         scriptURL = bundle.url(forResource: "profiles", withExtension: "js", subdirectory: "public/native")
         cache = NativeProfileCache(directory: cacheDirectory ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("FoliaProfiles", isDirectory: true))
@@ -15,7 +19,7 @@ actor NativeTrackProfiler {
         let key = try cache.key(for: file, analysis: analysisID(beatModel))
         // Partial downloads are not stable local representations and never replace a complete record.
         if !partial, let hit = cache.read(key, gridless: beatModel == nil) { return hit.profile }
-        let result = try await analyse(NativeProfilePCM.decode(file), partial: partial, beatModel: beatModel)
+        let result = try await analyseFile(file, partial: partial, beatModel: beatModel)
         try Task.checkCancellation()
         guard try cache.key(for: file, analysis: analysisID(beatModel)) == key else { throw MobileFailure("profile-source-changed") }
         if !partial { cache.save(result, key: key) }
@@ -35,7 +39,7 @@ actor NativeTrackProfiler {
         let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(ext)
         defer { try? FileManager.default.removeItem(at: file) }
         try bytes.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-        let result = try await analyse(NativeProfilePCM.decode(file), partial: true, beatModel: beatModel)
+        let result = try await analyseFile(file, partial: true, beatModel: beatModel)
         try Task.checkCancellation()
         // A failed/empty decode is not evidence about the next URL or account. Only measured profiles persist.
         if let result { cache.save(result, key: key, provider: provider) }
@@ -45,7 +49,7 @@ actor NativeTrackProfiler {
         try Task.checkCancellation()
         let key = NativeProfileCache.digest(Data((try analysisID(beatModel) + "|complete|" + identity.key + "|" + media.generation).utf8))
         if let hit = cache.read(key, gridless: beatModel == nil) { return hit.profile }
-        let result = try await analyse(NativeProfilePCM.decode(media.url), partial: false, beatModel: beatModel)
+        let result = try await analyseFile(media.url, partial: false, beatModel: beatModel)
         try Task.checkCancellation()
         if let result { cache.save(result, key: key, provider: identity.provider) }
         return result
@@ -56,12 +60,50 @@ actor NativeTrackProfiler {
         guard model.isFileURL else { throw MobileFailure("ort-invalid-input") }
         return "v9-beat-this-vdsp-ort1.30.0|" + (try NativeORTInference.modelDigest(.beatThis))
     }
-    func analyse(_ pcm: NativeProfilePCM, partial: Bool = false, beatModel: URL? = nil) async throws -> Data? {
+    private func decode(_ file: URL, operation: UUID) throws -> NativeProfilePCM {
+        let end = trace?.begin("decode", operation: operation); defer { end?() }
+        return try NativeProfilePCM.decode(file)
+    }
+    private func analyseFile(_ file: URL, partial: Bool, beatModel: URL?) async throws -> Data? {
+        let operation = UUID()
+        try await acquire(operation); defer { release() }
+        try Task.checkCancellation()
+        return try await analysePCM(decode(file, operation: operation), partial: partial, beatModel: beatModel, operation: operation)
+    }
+    func analyse(_ pcm: NativeProfilePCM, partial: Bool = false, beatModel: URL? = nil, operation: UUID = UUID()) async throws -> Data? {
+        try await acquire(operation); defer { release() }
+        try Task.checkCancellation()
+        return try await analysePCM(pcm, partial: partial, beatModel: beatModel, operation: operation)
+    }
+    // An actor is reentrant at await: hold one logical permit through decode, model and features.
+    // Waiting cancellation removes only that caller; an active cancellation releases after real work exits.
+    private func acquire(_ operation: UUID) async throws {
+        let end = trace?.begin("profile.wait", operation: operation); defer { end?() }
+        try Task.checkCancellation()
+        if !analysing { analysing = true; return }
+        let id = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                waiting.append((id, continuation))
+            }
+        } onCancel: { Task { await self.cancelWaiting(id) } }
+    }
+    private func cancelWaiting(_ id: UUID) {
+        guard let index = waiting.firstIndex(where: { $0.0 == id }) else { return }
+        waiting.remove(at: index).1.resume(throwing: CancellationError())
+    }
+    private func release() {
+        if waiting.isEmpty { analysing = false }
+        else { waiting.removeFirst().1.resume() }
+    }
+    private func analysePCM(_ pcm: NativeProfilePCM, partial: Bool, beatModel: URL?, operation: UUID) async throws -> Data? {
+        let end = trace?.begin("profile", operation: operation); defer { end?() }
         try Task.checkCancellation()
         guard pcm.mid.length % 4 == 0, pcm.frames <= NativeProfilePCM.maxFrames,
               pcm.side == nil || pcm.side!.length == pcm.mid.length else { throw MobileFailure("invalid-profile-input") }
         var gridJSON: Data?
-        if let beatModel { gridJSON = try await NativeBeatAnalysis(scriptURL: scriptURL).grid(pcm.mid, model: beatModel) ?? Data("null".utf8) }
+        if let beatModel { gridJSON = try await NativeBeatAnalysis(scriptURL: scriptURL, trace: trace, operation: operation).grid(pcm.mid, model: beatModel) ?? Data("null".utf8) }
+        let endAnalysis = trace?.begin("profile.features", operation: operation); defer { endAnalysis?() }
         return try autoreleasepool {
             let vm = try NativeProfileRuntime(scriptURL: scriptURL), context = vm.context
             let mid = try NativeFloat32Bridge.make(pcm.mid, in: context, errorCode: "profile-memory-unavailable")

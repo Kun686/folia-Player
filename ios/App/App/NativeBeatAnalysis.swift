@@ -7,11 +7,18 @@ actor NativeBeatAnalysis {
         let frames: Int, starts: [Int], lengths: [Int], inputs: [Data]
     }
     private let scriptURL: URL?
-    private let inference = NativeORTInference()
-    init(bundle: Bundle = .main) {
+    private let inference: NativeORTInference
+    private let trace: NativeAnalysisTrace?
+    private let operation: UUID
+    init(bundle: Bundle = .main, trace: NativeAnalysisTrace? = nil, operation: UUID = UUID()) {
+        self.trace = trace; self.operation = operation
+        inference = NativeORTInference(trace: trace, operation: operation)
         scriptURL = bundle.url(forResource: "profiles", withExtension: "js", subdirectory: "public/native")
     }
-    init(scriptURL: URL?) { self.scriptURL = scriptURL }
+    init(scriptURL: URL?, trace: NativeAnalysisTrace? = nil, operation: UUID = UUID()) {
+        self.scriptURL = scriptURL; self.trace = trace; self.operation = operation
+        inference = NativeORTInference(trace: trace, operation: operation)
+    }
 
     func grid(_ mid: NSData, model: URL) async throws -> Data? {
         let prepared = try prepare(mid)
@@ -22,6 +29,7 @@ actor NativeBeatAnalysis {
     }
 
     func prepare(_ mid: NSData) throws -> Prepared {
+        let end = trace?.begin("beat.prepare", operation: operation); defer { end?() }
         guard mid.length % 4 == 0, mid.length / 4 <= NativeProfilePCM.maxFrames else {
             throw MobileFailure("invalid-profile-input")
         }
@@ -52,6 +60,7 @@ actor NativeBeatAnalysis {
     }
 
     func finish(_ prepared: Prepared, outputs: [Data]) throws -> Data {
+        let end = trace?.begin("beat.finish", operation: operation); defer { end?() }
         guard (1...41).contains(prepared.inputs.count), prepared.starts.count == prepared.inputs.count,
               prepared.lengths.count == prepared.inputs.count, outputs.count == prepared.inputs.count * 2 else {
             throw MobileFailure("invalid-beat-prediction")

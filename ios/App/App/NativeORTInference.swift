@@ -10,6 +10,11 @@ final class NativeORTInference: @unchecked Sendable {
     // Current/next-track analysis is deadline-bound user work. Utility doubled the measured
     // first-chunk compute time on XS Max; this remains serial and below the audio render priority.
     private static let worker = DispatchQueue(label: "app.folia.models", qos: .userInitiated)
+    private let trace: NativeAnalysisTrace?
+    private let operation: UUID
+    init(trace: NativeAnalysisTrace? = nil, operation: UUID = UUID()) {
+        self.trace = trace; self.operation = operation
+    }
     static var runtimeVersion: String { FoliaORTJob.runtimeVersion() }
 
     static func modelDigest(_ kind: Kind) throws -> String { try descriptor(kind).digest }
@@ -52,9 +57,17 @@ final class NativeORTInference: @unchecked Sendable {
                           run: @escaping @Sendable (FoliaORTJob, URL) throws -> [Data]) async throws -> [Data] {
         try Task.checkCancellation()
         let job = FoliaORTJob()
+        let trace = trace, operation = operation
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
+                let endWait = trace?.begin("ort.wait", operation: operation)
                 Self.worker.async {
+                    endWait?()
+                    let endWorker = trace?.begin("ort.worker", operation: operation)
+                    defer {
+                        trace?.mark("ort.metrics", operation: operation, metrics: job.diagnostics)
+                        endWorker?()
+                    }
                     let deadline = ProcessInfo.processInfo.systemUptime + 60
                     let timeout = DispatchWorkItem { job.cancel() }
                     DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 60, execute: timeout)
@@ -64,13 +77,17 @@ final class NativeORTInference: @unchecked Sendable {
                             guard !job.cancelled else { throw CancellationError() }
                             let (bytes, digest) = try Self.descriptor(kind)
                             // Reuse the complete-file snapshot: its private immutable copy lives through Session destruction.
-                            let snapshot = try NativeStemSnapshot.capture(model, deadline: deadline) { copied in
-                                guard !job.cancelled else { throw CancellationError() }
-                                guard copied <= bytes else { throw MobileFailure("ort-model-hash-mismatch") }
-                            }
+                            let snapshot: NativeStemSnapshot = try {
+                                let end = trace?.begin("ort.verify", operation: operation); defer { end?() }
+                                return try NativeStemSnapshot.capture(model, deadline: deadline) { copied in
+                                    guard !job.cancelled else { throw CancellationError() }
+                                    guard copied <= bytes else { throw MobileFailure("ort-model-hash-mismatch") }
+                                }
+                            }()
                             guard snapshot.bytes == bytes, snapshot.digest == digest else { throw MobileFailure("ort-model-hash-mismatch") }
                             return try withExtendedLifetime(snapshot) {
                                 guard !job.cancelled else { throw CancellationError() }
+                                let end = trace?.begin("ort.execute", operation: operation); defer { end?() }
                                 return try run(job, snapshot.url)
                             }
                         }
@@ -84,6 +101,9 @@ final class NativeORTInference: @unchecked Sendable {
                     }
                 }
             }
-        } onCancel: { job.cancel() }
+        } onCancel: {
+            trace?.mark("ort.cancelRequested", operation: operation)
+            job.cancel()
+        }
     }
 }

@@ -72,6 +72,9 @@ WebContent／整 App 内存、CPU、分轨完成后的真实交接、锁屏与�
 本轮未复测 QQ／网易云，不更新个人安装，不启用公开 `stems/full` 能力。
 回退本提交可撤销压力门控及 QA 用例，无个人数据迁移。
 
+后续分阶段真机记录确认两项拍点预处理重叠、尚未进入ORT；调度串行修复与验收边界见
+[ANALYSIS_SCHEDULING.md](ANALYSIS_SCHEDULING.md)。
+
 `package-resource-fixed.json` 核实123项前端资源及两个空 Capacitor 占位文件与同步目录和
 最终 QA 包一致。真机可执行文件42,124,864字节、含测试插件的 App 135,989,872字节；
 这不是个人 IPA 的净增量。测试后已卸载独立 QA；`cleanup.json` 确认个人 App 完整安装

@@ -7,6 +7,41 @@ import AVFoundation
 
 // NativeJointLoadTests.swift — opt-in original models, actual Capacitor UI and hardware audio; QA identity only.
 @MainActor extension NativeTests {
+    func testProfileSerializationCancelsWaiterAndRecovers() async throws {
+        let trace = NativeAnalysisTrace(), profiler = NativeTrackProfiler(trace: trace)
+        let activeID = UUID(), cancelledID = UUID(), nextID = UUID()
+        let pcm = profilePCM(["name": "groove", "seconds": 60.0, "stereo": false])
+        let nextPCM = profilePCM(["name": "groove", "seconds": 3.0, "stereo": false])
+        func has(_ stage: String, _ edge: String, _ id: UUID) -> Bool {
+            (trace.snapshot()["events"] as? [[String: Any]] ?? []).contains {
+                $0["stage"] as? String == stage && $0["edge"] as? String == edge && $0["operation"] as? String == id.uuidString
+            }
+        }
+        let active = Task.detached {
+            try await profiler.analyse(pcm, beatModel: URL(fileURLWithPath: "/missing.onnx"), operation: activeID)
+        }
+        defer { active.cancel() }
+        try await waitForStream { has("beat.prepare", "begin", activeID) }
+        let cancelled = Task.detached { try await profiler.analyse(nextPCM, operation: cancelledID) }
+        defer { cancelled.cancel() }
+        try await waitForStream { has("profile.wait", "begin", cancelledID) }
+        cancelled.cancel()
+        do { _ = try await cancelled.value; XCTFail("Cancelled waiter returned a profile") } catch is CancellationError {}
+        XCTAssertFalse(has("profile", "begin", cancelledID), "Cancelled waiting work must never enter analysis")
+        let next = Task.detached { try await profiler.analyse(nextPCM, operation: nextID) }
+        defer { next.cancel() }
+        try await waitForStream { has("profile.wait", "begin", nextID) }
+        XCTAssertFalse(has("profile", "begin", nextID), "The active await must not admit another analysis")
+        active.cancel()
+        do { _ = try await active.value; XCTFail("Cancelled active work returned a profile") } catch is CancellationError {}
+        let result = try await next.value
+        XCTAssertNotNil(result)
+        let events = try XCTUnwrap(trace.snapshot()["events"] as? [[String: Any]])
+        let end = try XCTUnwrap(events.first { $0["stage"] as? String == "profile" && $0["edge"] as? String == "end" && $0["operation"] as? String == activeID.uuidString }?["elapsed"] as? Double)
+        let begin = try XCTUnwrap(events.first { $0["stage"] as? String == "profile" && $0["edge"] as? String == "begin" && $0["operation"] as? String == nextID.uuidString }?["elapsed"] as? Double)
+        XCTAssertGreaterThanOrEqual(begin, end, "Replacement must wait for actual pipeline exit")
+    }
+
     func testResourcePressureCancelsProfilesAndRecoveryUsesCurrentIntent() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let file = try profileAudio(seconds: 4)
@@ -111,7 +146,9 @@ import AVFoundation
             try? FileManager.default.removeItem(at: lyricFile)
         }
         // Retain references to the same production coordinators for observations; no fake separation or profiles.
-        let profiles = NativeTrackProfiles(local: player.local, mediaCache: player.mediaCache)
+        let trace = NativeAnalysisTrace(), observation = UUID()
+        let profiler = NativeTrackProfiler(trace: trace)
+        let profiles = NativeTrackProfiles(local: player.local, profiler: profiler, mediaCache: player.mediaCache)
         let stems = NativeTrackStems(local: player.local, mediaCache: player.mediaCache,
             separator: MeasuredQueueStemSeparator(), profilesIdle: { !profiles.hasPending },
             providerBarrier: { [weak player] in player?.mediaCachePurges[$0] })
@@ -130,11 +167,17 @@ import AVFoundation
         var phases: [[String: Any]] = []
         var warnings = 0
         let observer = NotificationCenter.default.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification,
-            object: nil, queue: .main) { _ in warnings += 1 }
+            object: nil, queue: .main) { _ in
+                warnings += 1; trace.mark("memoryWarning", operation: observation)
+            }
+        let thermalObserver = NotificationCenter.default.addObserver(forName: ProcessInfo.thermalStateDidChangeNotification,
+            object: nil, queue: .main) { _ in trace.mark("thermalChanged", operation: observation) }
         defer { NotificationCenter.default.removeObserver(observer) }
+        defer { NotificationCenter.default.removeObserver(thermalObserver) }
 
         // Baseline, unchanged production scheduling under load, then recovery; bounded samples only.
         for phase in ["baseline", "models", "recovery"] {
+            trace.mark("phase." + phase, operation: observation)
             if phase == "models" { try player.crossfade?.configure(enabled: true, maximumSeconds: 5, mode: "automix", performance: true) }
             if phase == "recovery" { try player.crossfade?.configure(enabled: false, maximumSeconds: 5, mode: "automix") }
             _ = try await jointJS(web, jointFrameProbe); audio.reset()
@@ -173,7 +216,8 @@ import AVFoundation
                 "web": try JSONSerialization.jsonObject(with: frameData), "samples": samples])
             try JSONSerialization.data(withJSONObject: ["phases": phases, "memoryWarnings": warnings,
                 "memoryScope": "host-only; excludes WebContent", "music": "approved-original-133s",
-                "lyrics": "generated-LRC", "models": "original-beat_this-and-htdemucs"], options: [.prettyPrinted, .sortedKeys]).write(to: report, options: .atomic)
+                "lyrics": "generated-LRC", "models": "original-beat_this-and-htdemucs",
+                "analysisTrace": trace.snapshot()], options: [.prettyPrinted, .sortedKeys]).write(to: report, options: .atomic)
             print("FOLIA_JOINT phase=\(phase) outcome=\(outcome) audioFrames=\(pcm.frames) rms=\(pcm.rms) mainGap=\(maxPollGap) stoppedSamples=\(stopped)")
             XCTAssertGreaterThan(pcm.frames, 10000); XCTAssertGreaterThan(pcm.rms, 0.00001)
             XCTAssertEqual(stopped, 0, "Playback stopped during the measured phase")
