@@ -34,7 +34,8 @@
 .typography-controls input[type=range] { width: 100%; min-height: 44px; touch-action: none; }
 .typography-controls .check-label { flex-direction: row; align-items: center; min-height: 44px; }
 .appearance-transfer button { min-height: 44px; padding: 8px 12px; background: var(--raised); border-radius: 10px; }
-.mobile-theme-generation { min-width: 0; border: 0; padding: 0; margin-block: 16px; }
+/* Explicit pan direction lets WebKit route fieldset blank-space gestures to the sheet while native root scrolling stays off. */
+.mobile-theme-generation { min-width: 0; border: 0; padding: 0; margin-block: 16px; touch-action: pan-y; }
 .mobile-theme-generation legend { padding: 0; font-weight: 600; }
 .mobile-theme-generation button { min-height: 44px; min-width: 44px; padding: 8px 12px; background: var(--raised); border-radius: 10px; touch-action: manipulation; }
 .sheet-backdrop { position: fixed; z-index: 60; inset: 0; background: #000a; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
