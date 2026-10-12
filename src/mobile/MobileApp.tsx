@@ -12,6 +12,7 @@ import OnlineCatalogSheet from './OnlineCatalogSheet';
 import type { OnlineCatalogTarget } from './onlineCatalog';
 import OnlinePlaylistPicker from './OnlinePlaylistPicker';
 import OnlinePlaylistManager from './OnlinePlaylistManager';
+import DailyRecommendations from './DailyRecommendations';
 import { createMobilePlaylistEditor } from './mobilePlaylistEditor';
 import { removeFromCache } from '../services/db';
 import type { ProviderCollection } from '../types/onlineMusic';
@@ -85,6 +86,10 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
     <><button disabled={!available.playlistEditProviders.includes(song.sourceRef.providerId)}
       onClick={() => setPlaylistSong(song)}>{t('mobile.onlinePlaylistAdd')}</button>
       {!available.playlistEditProviders.includes(song.sourceRef.providerId) && <p className="muted">{t('mobile.onlinePlaylistUnavailable')}</p>}</>;
+  const onlineActions = (song: SongResult, close: () => void) => <>
+    {song.sourceRef?.kind === 'online' && <OnlineSongLike song={song} likes={likes} writable={available.songLikeProviders.includes(song.sourceRef.providerId)} />}
+    <OnlineCatalogActions song={song} enabled={song.sourceRef?.kind === 'online' && available.catalogProviders.includes(song.sourceRef.providerId)}
+      open={target => { close(); setOnlineTarget(target); }} />{playlistAction(song)}</>;
   const local = useLocalCatalog();
   const folders = useLocalFolders(), [folderScope, setFolderScope] = useState<FolderScope | null>(null);
   const folderView = useMemo(() => localFolderView(folders.catalog, local.songs, folderScope), [folders.catalog, local.songs, folderScope]);
@@ -99,11 +104,11 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   [queueView, playback.state.queue, browsingFolders, folderView.songs, isLocal, isCached, mediaCache.state?.songs, localBrowser.songs, query, catalog.songs]);
   const active = playback.state.currentSong;
   const queueWork = async (work: () => Promise<unknown>) => {
-    if (queueLock.current) return;
+    if (queueLock.current) return false;
     queueLock.current = true; setQueueBusy(true); setQueueError('');
-    try { await work(); }
+    try { await work(); return true; }
     catch (cause) { setQueueError(cause instanceof Error && cause.message === 'queue-changed' ? 'queueChanged'
-      : cause instanceof Error && cause.message === 'queue-full' ? 'queueFull' : 'error'); }
+      : cause instanceof Error && cause.message === 'queue-full' ? 'queueFull' : 'error'); return false; }
     finally { queueLock.current = false; setQueueBusy(false); }
   };
   const play = async (index: number) => {
@@ -140,6 +145,9 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       <div className="section-heading"><h2>{queueView ? t('mobile.queue') : t(isCached ? 'options.mediaCache' : isLocal ? 'mobile.local' : 'mobile.playlists')}</h2>
         <button aria-pressed={queueView} onClick={() => setQueueView(!queueView)}>{t('mobile.queue')} · {playback.state.queue.length}</button></div>
       {isLocal && !queueView && <LocalLibraryNav browser={localBrowser} clearQuery={() => setQuery('')} />}
+      <DailyRecommendations provider={queueView ? '' : provider} enabled={available.dailyProviders.includes(provider)} signedIn={!!catalog.user}
+        queueBusy={queueBusy} queueError={queueError} add={(song, next) => void add(song, next)} actions={onlineActions}
+        play={(tracks, index) => queueWork(async () => { await flushSessions(); await native.setQueue({ songs: tracks, index }); setExpanded(true); })} />
       {isLocal && !queueView && <FolderImportStatus folders={folders} />}
       {browsingFolders && !queueView && <LocalFolderTools folders={folders} view={folderView} query={query}
         select={scope => { setFolderScope(scope); setQuery(''); }} />}
@@ -172,11 +180,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       {isLocal && !queueView && localBrowser.browsing ? <LocalCollections collections={localBrowser.collections}
         select={id => { localBrowser.select(id); setQuery(''); }} /> : songs.length ? <SongList songs={songs} play={index => void play(index)} add={(song, next) => void add(song, next)}
         busy={queueBusy || localPlaylists.busy} edit={queueView ? edit : undefined} currentIndex={queueView ? playback.state.index : undefined}
-        libraryActions={(song, close) => <>{song.sourceRef?.kind === 'online' && <OnlineSongLike song={song} likes={likes}
-          writable={available.songLikeProviders.includes(song.sourceRef.providerId)} />}
-          <OnlineCatalogActions song={song} enabled={song.sourceRef?.kind === 'online' && available.catalogProviders.includes(song.sourceRef.providerId)}
-            open={target => { close(); setOnlineTarget(target); }} />
-          {playlistAction(song)}
+        libraryActions={(song, close) => <>{onlineActions(song, close)}
           <LocalSongPlaylistActions song={song} controller={localPlaylists}
           selected={isLocal && !queueView ? localBrowser.selected : undefined} close={close} /></>}
         remove={isLocal && !queueView ? song => { if (window.confirm(t('mobile.confirmRemove', { name: song.name }))) void local.remove(song); } : undefined} />

@@ -25,6 +25,8 @@ vi.mock('@/services/netease', () => ({
         getUserPlaylists: vi.fn(),
         getPlaylistTracks: vi.fn(),
         updatePlaylistTracks: vi.fn(),
+        getDailyRecommendedSongs: vi.fn(), getDailyRecommendationHistoryDates: vi.fn(),
+        getDailyRecommendationHistoryDetail: vi.fn(), dislikeDailyRecommendedSong: vi.fn(),
         checkQr: vi.fn(),
         getQrKey: vi.fn(),
         createQr: vi.fn(),
@@ -47,6 +49,32 @@ const song: UnifiedSong = {
 
 describe('neteaseProvider', () => {
     beforeEach(() => vi.clearAllMocks());
+
+    it('uses normalized daily/history values instead of raw nested fields', async () => {
+        vi.mocked(neteaseApi.getDailyRecommendedSongs).mockResolvedValue({ code: 200, songs: [song] } as any);
+        vi.mocked(neteaseApi.getDailyRecommendationHistoryDates).mockResolvedValue({ code: 200, dates: ['2026-10-11'], data: { dates: [{ date: '2026-10-11' }] } } as any);
+        vi.mocked(neteaseApi.getDailyRecommendationHistoryDetail).mockResolvedValue({ code: 200, songs: [song], data: { songs: [{}] } } as any);
+        expect((await neteaseProvider.recommendations!.getDailySongs!(true))[0]).toMatchObject({ sourceRef: song.sourceRef });
+        expect(await neteaseProvider.recommendations!.getHistoryDates!()).toEqual(['2026-10-11']);
+        expect(await neteaseProvider.recommendations!.getHistoryEntries!()).toEqual([{ id: '2026-10-11', label: '2026-10-11' }]);
+        expect((await neteaseProvider.recommendations!.getHistorySongs!('2026-10-11'))[0]).toMatchObject({ id: 42 });
+    });
+    it.each([301, 403, 500, 200])('rejects failed or malformed daily/history responses with code %s', async code => {
+        vi.mocked(neteaseApi.getDailyRecommendedSongs).mockResolvedValue({ code } as any);
+        vi.mocked(neteaseApi.getDailyRecommendationHistoryDates).mockResolvedValue({ code } as any);
+        vi.mocked(neteaseApi.getDailyRecommendationHistoryDetail).mockResolvedValue({ code } as any);
+        for (const read of [() => neteaseProvider.recommendations!.getDailySongs!(), () => neteaseProvider.recommendations!.getHistoryDates!(),
+            () => neteaseProvider.recommendations!.getHistorySongs!('2026-10-11')]) await expect(read()).rejects.toMatchObject({ code: [301, 403].includes(code) ? 'auth-required' : 'unavailable' });
+    });
+    it('distinguishes confirmed replacement, daily limit and rejected dislike without fabricating a song', async () => {
+        const dislike = neteaseProvider.recommendations!.dislikeSong!;
+        vi.mocked(neteaseApi.dislikeDailyRecommendedSong).mockResolvedValueOnce({ code: 200, song } as any)
+            .mockResolvedValueOnce({ code: 432 } as any).mockResolvedValueOnce({ code: 301, song } as any).mockResolvedValueOnce({ code: 200, song: {} } as any);
+        expect(await dislike(42)).toMatchObject({ replacement: { id: 42 }, limitReached: false });
+        expect(await dislike(42)).toEqual({ limitReached: true });
+        await expect(dislike(42)).rejects.toMatchObject({ code: 'auth-required' });
+        await expect(dislike(42)).rejects.toMatchObject({ code: 'unavailable' });
+    });
 
     it.each([{ body: { code: 200 }, status: 200 }, { code: 200 }])('accepts the pinned playlist API success shape %j', async response => {
         vi.mocked(neteaseApi.updatePlaylistTracks).mockResolvedValue(response as any);

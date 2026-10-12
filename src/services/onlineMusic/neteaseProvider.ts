@@ -559,7 +559,8 @@ export const neteaseProvider: OnlineMusicProvider = {
     recommendations: {
         async getDailySongs(refresh) {
             const response = await neteaseApi.getDailyRecommendedSongs(refresh);
-            return (response?.songs || []).map(normalizeNeteaseSong);
+            requireCatalogResponse(response, Array.isArray(response?.songs));
+            return response.songs.map(normalizeNeteaseSong);
         },
         async getPersonalFm(options) {
             // Falling back to the stored selection keeps callers that predate FM modes — the home
@@ -573,24 +574,29 @@ export const neteaseProvider: OnlineMusicProvider = {
         },
         async getHistoryEntries() {
             const response = await neteaseApi.getDailyRecommendationHistoryDates();
-            const dates = response?.data?.dates || response?.dates || [];
+            const dates = response?.dates;
+            requireCatalogResponse(response, Array.isArray(dates) && dates.every(date => typeof date === 'string'));
             return dates.map((date: string) => ({ id: date, label: date }));
         },
         async getHistoryDates() {
             const response = await neteaseApi.getDailyRecommendationHistoryDates();
-            return response?.data?.dates || response?.dates || [];
+            requireCatalogResponse(response, Array.isArray(response?.dates) && response.dates.every((date: unknown) => typeof date === 'string'));
+            return response.dates;
         },
         async getHistorySongs(entry) {
             const response = await neteaseApi.getDailyRecommendationHistoryDetail(
                 typeof entry === 'string' ? entry : entry.id,
             );
-            return (response?.data?.songs || response?.songs || []).map(normalizeNeteaseSong);
+            requireCatalogResponse(response, Array.isArray(response?.songs));
+            return response.songs.map(normalizeNeteaseSong);
         },
         async dislikeSong(id) {
             const response = await neteaseApi.dislikeDailyRecommendedSong(toNeteaseId(id));
+            if (Number(response?.code) === 432) return { limitReached: true };
+            requireCatalogResponse(response, Number.isSafeInteger(Number(response?.song?.id)) && Number(response.song.id) > 0);
             return {
-                replacement: response?.song ? normalizeNeteaseSong(response.song) : undefined,
-                limitReached: Number(response?.code) === 432,
+                replacement: normalizeNeteaseSong(response.song),
+                limitReached: false,
             };
         },
     },

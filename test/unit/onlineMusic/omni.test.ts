@@ -56,6 +56,18 @@ afterEach(() => {
 });
 
 describe('omni routing', () => {
+    it('routes explicit daily/history requests independently of desktop active provider', async () => {
+        const selected = provider(providerId, undefined), other = provider(otherProviderId, undefined);
+        selected.recommendations = { getDailySongs: vi.fn(async () => [song(providerId)]), getHistoryDates: async () => ['2026-10-11'],
+            getHistorySongs: vi.fn(async () => [song(providerId, 'history')]) };
+        registerOnlineMusicProvider(selected); registerOnlineMusicProvider(other);
+        useOnlineProviderAccountStore.getState().setActiveProviderId(otherProviderId);
+        expect((await omni.getProviderDailySongs(providerId, true))[0].sourceRef).toMatchObject({ kind: 'online', providerId });
+        expect(selected.recommendations.getDailySongs).toHaveBeenCalledWith(true);
+        expect(await omni.getProviderRecommendationHistoryDates(providerId)).toEqual(['2026-10-11']);
+        expect((await omni.getProviderRecommendationHistorySongs(providerId, '2026-10-11'))[0].id).toBe('history');
+        await expect(omni.getProviderDailySongs(otherProviderId)).rejects.toMatchObject({ code: 'unsupported' });
+    });
     it('falls back from a persisted provider missing in the current build', () => {
         useOnlineProviderAccountStore.getState().setActiveProviderId(missingProviderId);
 

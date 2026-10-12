@@ -2,9 +2,11 @@ import { syncEn, syncZh } from './localeSync';
 import { aiEn, aiZh } from './localeAI';
 import { foldersEn, foldersZh, foldersIn } from './localeFolders';
 import { modelsEn, modelsZh } from './localeModels';
+import { dailyEn, dailyZh, dailyIn } from './localeDaily';
 
 // src/mobile/locale.ts
 export const mobileEn = {
+  ...dailyEn,
   onlinePlaylistAdd: 'Add to online playlist', onlinePlaylistManage: 'Edit playlist tracks',
   onlinePlaylistError: 'The result could not be confirmed. Check your sign-in and reload before trying again.',
   onlinePlaylistReload: 'Reload playlist state', onlinePlaylistEmpty: 'No editable playlists found.',
@@ -95,6 +97,7 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  ...dailyZh,
   onlinePlaylistAdd: '加入在线歌单', onlinePlaylistManage: '编辑歌单歌曲',
   onlinePlaylistError: '未能确认操作结果，请检查登录并重新读取后再操作。',
   onlinePlaylistReload: '重新读取歌单状态', onlinePlaylistEmpty: '没有可编辑的歌单。',
@@ -185,6 +188,7 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  ...dailyIn,
   onlinePlaylistAdd: 'Tambah ke playlist online', onlinePlaylistManage: 'Edit lagu playlist',
   onlinePlaylistError: 'Hasil belum dapat dipastikan. Periksa akun lalu muat ulang sebelum mencoba lagi.',
   onlinePlaylistReload: 'Muat ulang status playlist', onlinePlaylistEmpty: 'Tidak ada playlist yang dapat diedit.',

@@ -3,7 +3,8 @@ export const routes = {
   netease: new Set(['/register/anonimous', '/login/qr/key', '/login/qr/create', '/login/qr/check',
     '/login/status', '/logout', '/user/account', '/user/detail', '/user/playlist', '/playlist/detail',
     '/playlist/track/all', '/song/detail', '/song/url/v1', '/cloudsearch', '/search', '/lyric', '/lyric/new', '/cloud/lyric/get', '/song/chorus', '/likelist', '/like',
-    '/album', '/artist/detail', '/artist/songs', '/artist/album', '/playlist/tracks']),
+    '/album', '/artist/detail', '/artist/songs', '/artist/album', '/playlist/tracks',
+    '/recommend/songs', '/recommend/songs/dislike', '/history/recommend/songs', '/history/recommend/songs/detail']),
   qq: new Set(['/login/qr/key', '/login/qr/create', '/login/qr/check', '/login/qr/cancel',
     '/login/status', '/login/channels', '/logout', '/user/detail', '/user/playlist', '/user/playlist-detail',
     '/user/liked-songs', '/getAlbumInfo', '/getSingerHotsong', '/getSingerAlbum']),
@@ -39,6 +40,14 @@ export function authorizeTarget(input, bases) {
   const qqRead = provider === 'qq' && /^\/(?:getMusicPlay|getSongListDetail|getSongInfo)\/[A-Za-z0-9_-]+(?:\/\d+)?$/.test(parsed.pathname);
   if (!routes[provider].has(parsed.pathname) && !qqRead) throw fault('unsupported', 404);
   const params = { ...Object.fromEntries(parsed.searchParams), ...(input.query ?? {}) };
+  if (provider === 'netease') {
+    if (parsed.pathname === '/recommend/songs' && !['true', 'false'].includes(String(params.afresh))) throw fault('invalid-request');
+    if (parsed.pathname === '/recommend/songs/dislike' && !/^[1-9][0-9]{0,19}$/.test(String(params.id))) throw fault('invalid-request');
+    if (parsed.pathname === '/history/recommend/songs/detail') {
+      const date = String(params.date ?? '');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) throw fault('invalid-request');
+    }
+  }
   if (provider === 'netease' && parsed.pathname === '/playlist/tracks') {
     const ids = String(params.tracks ?? '').split(',');
     if (!['add', 'del'].includes(params.op) || !/^[1-9][0-9]{0,19}$/.test(String(params.pid)) || ids.length > 100

@@ -831,10 +831,10 @@ export const neteaseApi = {
 
   getDailyRecommendedSongs: async (afresh = false) => {
     const res = await fetchWithCreds(`/recommend/songs?afresh=${afresh}&timestamp=${Date.now()}`);
-    const rawSongs = res.data?.dailySongs || res.data?.songs || res.recommendData?.dailySongs || res.songs || [];
+    const rawSongs = res.data?.dailySongs ?? res.data?.songs ?? res.recommendData?.dailySongs ?? res.songs;
     return {
       ...res,
-      songs: mergeSongsWithPrivileges(rawSongs, res.data?.privileges || res.privileges),
+      songs: Array.isArray(rawSongs) ? mergeSongsWithPrivileges(rawSongs, res.data?.privileges || res.privileges) : rawSongs,
     };
   },
 
@@ -848,23 +848,23 @@ export const neteaseApi = {
 
   getDailyRecommendationHistoryDates: async () => {
     const res = await fetchWithCreds(`/history/recommend/songs?timestamp=${Date.now()}`);
-    const rawDates = res.data?.dates || res.dates || res.data || [];
+    const rawDates = res.data?.dates ?? res.dates ?? res.data;
     return {
       ...res,
       dates: Array.isArray(rawDates)
         ? rawDates
           .map((item: unknown) => typeof item === 'string' ? item : (item as { date?: string })?.date)
           .filter((date: unknown): date is string => typeof date === 'string' && date.length > 0)
-        : [],
+        : rawDates,
     };
   },
 
   getDailyRecommendationHistoryDetail: async (date: string) => {
     const res = await fetchWithCreds(`/history/recommend/songs/detail?date=${encodeURIComponent(date)}&timestamp=${Date.now()}`);
-    const rawSongs = res.data?.dailySongs || res.data?.songs || res.recommendData?.dailySongs || res.songs || [];
+    const rawSongs = res.data?.dailySongs ?? res.data?.songs ?? res.recommendData?.dailySongs ?? res.songs;
     return {
       ...res,
-      songs: mergeSongsWithPrivileges(rawSongs, res.data?.privileges || res.privileges),
+      songs: Array.isArray(rawSongs) ? mergeSongsWithPrivileges(rawSongs, res.data?.privileges || res.privileges) : rawSongs,
     };
   },
 

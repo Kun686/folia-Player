@@ -465,6 +465,25 @@ export const omni = {
         return withActiveProvider(async provider => provider.recommendations?.getDailySongs?.(refresh) ?? []);
     },
 
+    // Explicit mobile/source selection must not depend on the desktop's active-provider store.
+    async getProviderDailySongs(providerId: OmniProviderId, refresh?: boolean): Promise<UnifiedSong[]> {
+        const recommendations = requireOnlineMusicProvider(providerId).recommendations;
+        if (!recommendations?.getDailySongs) return unsupported(providerId, 'daily-songs');
+        return recommendations.getDailySongs(refresh);
+    },
+
+    async getProviderRecommendationHistoryDates(providerId: OmniProviderId): Promise<string[]> {
+        const recommendations = requireOnlineMusicProvider(providerId).recommendations;
+        if (!recommendations?.getHistoryDates) return unsupported(providerId, 'recommendation-history');
+        return recommendations.getHistoryDates();
+    },
+
+    async getProviderRecommendationHistorySongs(providerId: OmniProviderId, date: string): Promise<UnifiedSong[]> {
+        const recommendations = requireOnlineMusicProvider(providerId).recommendations;
+        if (!recommendations?.getHistorySongs) return unsupported(providerId, 'recommendation-history');
+        return recommendations.getHistorySongs(date);
+    },
+
     async getRecommendationHistory(): Promise<OmniHistoryEntry[]> {
         return withActiveProvider(async provider => provider.recommendations?.getHistoryEntries?.() ?? []);
     },

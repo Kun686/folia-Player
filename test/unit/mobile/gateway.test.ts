@@ -18,6 +18,23 @@ async function fixture(fetchImpl: any = vi.fn(async () => new Response('{}')), p
   return { post, fetchImpl, health };
 }
 describe('mobile gateway', () => {
+  it.each([
+    ['/recommend/songs', { afresh: false }], ['/recommend/songs', { afresh: true }],
+    ['/recommend/songs/dislike', { id: 42 }], ['/history/recommend/songs', {}],
+    ['/history/recommend/songs/detail', { date: '2026-10-11' }],
+  ])('routes authenticated daily recommendation requests %s only to NetEase', async (path, query) => {
+    const { post, fetchImpl } = await fixture();
+    const body = { provider: 'netease', path, query, headers: { Authorization: 'Bearer do-not-forward' } };
+    expect((await post('/mobile/request', body, 'bad')).status).toBe(401);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect((await post('/mobile/request', body)).status).toBe(200);
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url.origin).toBe(bases.netease); expect(url.pathname).toBe(path);
+    for (const [key, value] of Object.entries(query)) expect(url.searchParams.get(key)).toBe(String(value));
+    expect(init.headers.authorization).toBeUndefined();
+    expect((await post('/mobile/request', { ...body, provider: 'qq' })).status).toBe(404);
+    expect((await post('/mobile/request', { ...body, method: 'POST', body: '{}' })).status).toBe(403);
+  });
   it.each(['add', 'del'])('permits explicit authenticated playlist %s only on NetEase', async op => {
     const { post, fetchImpl } = await fixture();
     const body = { provider: 'netease', path: '/playlist/tracks', query: { op, pid: 8, tracks: '42,43' }, headers: { Authorization: 'Bearer do-not-forward' } };
@@ -51,7 +68,7 @@ describe('mobile gateway', () => {
   });
   it('advertises no like writes for a QQ-only gateway', async () => {
     const { health } = await fixture(undefined, ['qq']);
-    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['qq'], songLikeProviders: [], catalogProviders: ['qq'], playlistEditProviders: [] });
+    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['qq'], songLikeProviders: [], catalogProviders: ['qq'], playlistEditProviders: [], dailyProviders: [] });
   });
   it.each([true, false])('forwards only the authorized NetEase like route with explicit like=%s', async liked => {
     const { post, fetchImpl } = await fixture(vi.fn(async () => new Response('{"code":200}')));
@@ -78,7 +95,7 @@ describe('mobile gateway', () => {
   });
   it('advertises only enabled services and rejects disabled API, lyrics and playback', async () => {
     const { post, fetchImpl, health } = await fixture(undefined, ['netease', 'qq']);
-    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['netease', 'qq'], songLikeProviders: ['netease'], catalogProviders: ['netease', 'qq'], playlistEditProviders: ['netease'] });
+    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['netease', 'qq'], songLikeProviders: ['netease'], catalogProviders: ['netease', 'qq'], playlistEditProviders: ['netease'], dailyProviders: ['netease'] });
     for (const body of [{ provider: 'kugou', path: '/login/qr/key' },
       { provider: 'lyrics', path: 'https://lyrics.kugou.com/v1/search' }]) {
       expect((await post('/mobile/request', body)).status).toBe(404);
@@ -92,6 +109,11 @@ describe('mobile gateway', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
   it.each([
+    { provider: 'netease', path: '/recommend/songs' },
+    { provider: 'netease', path: '/recommend/songs?afresh=1' },
+    { provider: 'netease', path: '/recommend/songs/dislike?id=-1' },
+    { provider: 'netease', path: '/history/recommend/songs/detail?date=2026-02-30' },
+    { provider: 'netease', path: '/history/recommend/songs/detail?date=2026-10-11&proxy=http://localhost' },
     { provider: 'netease', path: '//169.254.169.254/latest' },
     { provider: 'netease', path: '/song/url/v1?proxy=http://127.0.0.1' },
     { provider: 'netease', path: '/song/url/v1', method: 'POST', body: '{"proxy":"http://localhost"}' },
