@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import type { SongResult } from '../types';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
-import { getPlaybackSongKey, getPlaybackSourceRef } from '../utils/appPlaybackGuards';
+import { getPlaybackSongKey } from '../utils/appPlaybackGuards';
+import { resolveNeteaseListeningIdentity } from '../utils/playbackListeningIdentity';
 import { getProviderSongMetadata } from '../services/onlineMusic/songMetadata';
 import { isNeteaseScrobbleReady, sendPlaybackReport } from '../services/onlineMusic/playbackReportGate';
 import { omni } from '../services/onlineMusic/omni';
@@ -38,16 +39,12 @@ type ScrobbleCandidate = {
 const resolveScrobbleCandidate = (song: SongResult | null): ScrobbleCandidate | null => {
     if (!song) return null;
 
-    const source = getPlaybackSourceRef(song);
-    if (source.kind !== 'online' || source.providerId !== 'netease' || source.variant === 'cloud') {
-        return null;
-    }
-    if (!/^\d+$/.test(source.mediaId) || Number(source.mediaId) <= 0) return null;
+    const identity = resolveNeteaseListeningIdentity(song);
+    if (!identity) return null;
     if (!omni.canReportPlayback(song)) return null;
 
     return {
-        songKey: getPlaybackSongKey(song),
-        mediaId: source.mediaId,
+        ...identity,
         totalSeconds: getProviderSongMetadata(song).durationMs / 1000,
     };
 };

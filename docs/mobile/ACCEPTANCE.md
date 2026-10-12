@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+听歌打卡的独立计量模块与共享协议通过 199 项逻辑及 5 项原生测试；真实解码测试采用生成静音 WAV。
+尚未接入生产队列／上报和开关；没有真实账号写入，系统挂起／真机验收 NOT_RUN。
+个人 App 与服务器未更新，见 [LISTENING_SESSION.md](LISTENING_SESSION.md)。
+
 原版「每首歌随机歌词动画」的移动接入与配置往返修正已通过 215 项逻辑及 75 项 WebKit 检查。
 网络与原生快照为受控数据；本批真实平台／原生容器／真机均 NOT_RUN，个人 App 与服务器未更新。
 行为边界与证据见 [RANDOM_VISUALIZER.md](RANDOM_VISUALIZER.md)。

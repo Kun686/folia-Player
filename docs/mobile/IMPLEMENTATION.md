@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+听歌打卡的原生计量与 provider 协议复用已完成独立验证：199 项逻辑、5 项原生测试通过，
+含约 33 秒实际解码与暂停计量。生产队列／发送／会话取消／开关尚未接入，功能尚未交付，
+个人 App 与服务器未更新，见 [LISTENING_SESSION.md](LISTENING_SESSION.md)。
+
 开发源码补齐原版「每首歌随机歌词动画」的移动触摸入口与换歌行为，并修复配置导入／同步丢失此开关。
 复用原 hook、store 和短码协议；215 项逻辑及 75 项 WebKit 通过，无新依赖或播放器外观调整。
 本批原生／真机验收尚未执行，个人 App 与服务器未更新，见 [RANDOM_VISUALIZER.md](RANDOM_VISUALIZER.md)。

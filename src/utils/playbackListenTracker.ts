@@ -76,6 +76,11 @@ export class PlaybackListenTracker {
         return this.session?.listenedSeconds ?? 0;
     }
 
+    /** Keep earned audio, but do not credit the next position after a seek, pause or output change. */
+    discontinuity(): void {
+        if (this.session) this.session.lastMediaTime = Number.NaN;
+    }
+
     /**
      * Folds one `timeupdate` into the accumulator.
      *
