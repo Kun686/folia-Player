@@ -35,7 +35,9 @@
 本轮按用户要求仅做不依赖真机的工作，个人 mobile.28 与线上服务器均未更新。
 实现范围、自动测试与未执行项见 [ONLINE_CATALOG.md](ONLINE_CATALOG.md)。
 
-Automix 内存诊断已检查前轮对象释放，并在包含原拍点模型的独立路径复现增长；内存验收仍未通过。
+Automix 已复现并修正模型工作分配随调用线程保留的问题；13 项最终原生回归通过，含三轮原模型联合交接。
+完整内存验收仍需真机／长期／WebContent 合计证据，见 [AUTOMIX_THREAD_MEMORY.md](AUTOMIX_THREAD_MEMORY.md)。
+此前内存诊断已检查前轮对象释放，并在包含原拍点模型的独立路径复现增长。
 固定 ORT 在 Session 创建前关闭默认遥测，原遥测线程退出崩溃与模型数值结果分开记录。
 本轮生产改动不涉及音乐算法、模型或界面，见 [AUTOMIX_MEMORY.md](AUTOMIX_MEMORY.md)。
 

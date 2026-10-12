@@ -74,4 +74,47 @@ import XCTest
         XCTAssertEqual(output.count, 2)
         print("FOLIA_ORT liveCancel=PASS recovery=PASS")
     }
+
+    // Serial queues may move between live caller threads. Finished jobs must not leave model-sized working caches there.
+    func testORTCallerThreadsDoNotRetainSessionWorkingMemory() async throws {
+        let dir = try ortFixtures(), model = dir.appendingPathComponent("beat_this.onnx")
+        XCTAssertEqual(NativeProfileCache.digest(try Data(contentsOf: model)), try NativeORTInference.modelDigest(.beatThis))
+        let input = try Data(contentsOf: dir.appendingPathComponent("beat-input.f32"))
+        let reference = try ["beat.0.f32", "beat.1.f32"].map { try Data(contentsOf: dir.appendingPathComponent($0)) }
+        let gates = (0..<3).map { _ in DispatchSemaphore(value: 0) }
+        var workers = [Thread](), rows = [nativeMemorySnapshot("caller-baseline")]
+        defer { gates.forEach { $0.signal() } }
+        for index in 0..<3 {
+            let gate = gates[index]
+            let output: [Data] = try await withCheckedThrowingContinuation { continuation in
+                let worker = Thread {
+                    let result = Result { try autoreleasepool {
+                        try FoliaORTJob().run(model: model, kind: "beat_this", input: input, frames: 1500)
+                    } }
+                    continuation.resume(with: result)
+                    _ = gate.wait(timeout: .now() + 30)
+                }
+                worker.qualityOfService = .userInitiated
+                workers.append(worker); worker.start()
+            }
+            XCTAssertEqual(output, reference)
+            let row = nativeMemorySnapshot("caller-\(index)"); rows.append(row)
+            print("FOLIA_CALLER_MEMORY round=\(index) mallocInUse=\(row["mallocInUseBytes"]!)")
+        }
+        let before = try XCTUnwrap(rows.first?["mallocInUseBytes"] as? NSNumber).int64Value
+        let after = try XCTUnwrap(rows.last?["mallocInUseBytes"] as? NSNumber).int64Value
+        XCTAssertTrue(workers.allSatisfy { !$0.isFinished }, "The comparison requires all three caller threads to remain alive")
+        // A 64 MiB noise allowance still catches the observed roughly 295 MB retained per caller.
+        XCTAssertLessThan(after - before, 64 * 1024 * 1024, "Completed sessions retained model-sized allocations on live caller threads")
+        gates.forEach { $0.signal() }
+        let deadline = ProcessInfo.processInfo.systemUptime + 5
+        while workers.contains(where: { !$0.isFinished }) && ProcessInfo.processInfo.systemUptime < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertTrue(workers.allSatisfy(\.isFinished))
+        rows.append(nativeMemorySnapshot("callers-finished"))
+        let data = try JSONSerialization.data(withJSONObject: ["samples": rows], options: [.prettyPrinted, .sortedKeys])
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = "caller-thread-memory"; attachment.lifetime = .keepAlways; add(attachment)
+    }
 }

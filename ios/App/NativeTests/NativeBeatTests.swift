@@ -197,6 +197,14 @@ import AVFoundation
             let row = nativeMemorySnapshot("preparation-\(index)"); rows.append(row)
             print("FOLIA_PREPARATION_MEMORY kind=\(name) round=\(index) footprint=\(row["footprintBytes"]!) mallocInUse=\(row["mallocInUseBytes"]!)")
         }
+        // Optional finite idle observation covers the production worker's 60-second cancellation deadline.
+        if ProcessInfo.processInfo.environment["FOLIA_MEMORY_SETTLE"] == "1" {
+            for seconds in stride(from: 10, through: 70, by: 10) {
+                try await Task.sleep(for: .seconds(10))
+                let row = nativeMemorySnapshot("idle-\(seconds)"); rows.append(row)
+                print("FOLIA_PREPARATION_MEMORY idle=\(seconds) footprint=\(row["footprintBytes"]!) mallocInUse=\(row["mallocInUseBytes"]!)")
+            }
+        }
         let data = try JSONSerialization.data(withJSONObject: ["samples": rows,
             "includesBeatModel": includingModel,
             "scope": "host-only original full-song mel and gridless features; no playback"], options: [.prettyPrinted, .sortedKeys])

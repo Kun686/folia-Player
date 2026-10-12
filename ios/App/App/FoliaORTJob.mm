@@ -7,6 +7,7 @@
 #include <mach/mach.h>
 #include <mutex>
 #include <pthread/qos.h>
+#include <thread>
 #include <vector>
 
 // FoliaORTJob.mm — thin official ORT boundary, with no alternative preprocessing or model algorithms.
@@ -62,6 +63,38 @@
 // A full window shares this single session and RunOptions across all original overlap-add chunks.
 - (NSArray<NSData *> *)runModel:(NSURL *)model kind:(NSString *)kind inputs:(NSArray<NSData *> *)inputs
                    frameCounts:(NSArray<NSNumber *> *)frameCounts window:(BOOL)window error:(NSError **)error {
+    if (NSThread.isMainThread) {
+        if (error) *error = [NSError errorWithDomain:@"FoliaORT" code:1
+                                          userInfo:@{NSLocalizedDescriptionKey: @"ort-main-thread-forbidden"}];
+        return nil;
+    }
+    NSArray<NSData *> *output = nil;
+    NSError *failure = nil;
+    const qos_class_t callerQoS = qos_class_self();
+    try {
+        // ORT's caller-thread working allocations outlive Session destruction. A joined worker
+        // bounds that lifetime without retaining a model or changing the serial Swift queue.
+        std::thread worker([&] {
+            @autoreleasepool {
+                pthread_set_qos_class_self_np(callerQoS == QOS_CLASS_UNSPECIFIED ? QOS_CLASS_USER_INITIATED : callerQoS, 0);
+                try {
+                    output = [self performModel:model kind:kind inputs:inputs frameCounts:frameCounts window:window error:&failure];
+                } catch (...) {
+                    failure = [NSError errorWithDomain:@"FoliaORT" code:1
+                                              userInfo:@{NSLocalizedDescriptionKey: @"ort-inference-failed"}];
+                }
+            }
+        });
+        worker.join(); // Includes thread-local destructors; the caller keeps cancellation and the model snapshot alive.
+    } catch (...) {
+        failure = [NSError errorWithDomain:@"FoliaORT" code:1
+                                  userInfo:@{NSLocalizedDescriptionKey: @"ort-worker-failed"}];
+    }
+    if (error) *error = failure;
+    return output;
+}
+- (NSArray<NSData *> *)performModel:(NSURL *)model kind:(NSString *)kind inputs:(NSArray<NSData *> *)inputs
+                       frameCounts:(NSArray<NSNumber *> *)frameCounts window:(BOOL)window error:(NSError **)error {
     auto fail = [&](NSString *code) -> NSArray<NSData *> * {
         if (error) *error = [NSError errorWithDomain:@"FoliaORT" code:1 userInfo:@{NSLocalizedDescriptionKey: code}];
         return nil;
