@@ -5,6 +5,8 @@ import { createAutomixSession } from '@/services/automix/automixSession';
 import { planForMode } from '@/services/automix/transitionStrategy';
 import { subscribeToTransitionCue, type TransitionCue } from '@/services/automix/transitionCue';
 import { makeProfile } from '../automix/trackProfileFixture';
+import { handoverStretch } from '@/services/automix/masterHandover';
+import { tempoBendRate } from '@/services/automix/tempoBend';
 import { asElement, createFakeChain, createFakeContext, createFakeElement, lastCurve } from '../automix/fakeAudioGraph';
 
 // Compare native schedules to the commands emitted by the existing Web Audio session.
@@ -14,6 +16,36 @@ const fixtureURL = new URL('../../../ios/App/NativeTests/MasterHandoverReference
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe('native master handover', () => {
+  it('keeps both stream clocks unbent only when the original session can attempt a stem gesture', () => {
+    const from = { duration: 200, lines: null, profile: makeProfile() };
+    const to = { duration: 200, lines: null, profile: makeProfile({ bpm: 132, outroBpm: 132 }) };
+    const original = planForMode({ mode: 'automix', crossfadeMaxSec: 5, performance: false }, from, to, 120, 0);
+    expect(original.stretch).toBeGreaterThan(1);
+    for (const style of ['bassSwap', 'tailRide', 'plainBlend', 'beatCut'] as const) {
+      for (const overlap of [0.4, 0.8, 4]) for (const pair of [0, 1, 2, 3]) {
+        const plan = { ...original, style, outStart: 190, overlap, minOverlap: 0.8 };
+        const input = { version: 1, plan,
+          from: { ...from, separated: pair & 1 ? { from: 170, to: 200 } : null },
+          to: { ...to, separated: pair & 2 ? { from: 0, to: 30 } : null },
+          timing: { position: 190, tailRate: 1, appliedRate: null, outgoingDb: null, periodSec: null, nextBeatIn: null } };
+        const allowed = pair === 3 && style !== 'beatCut' && overlap >= 0.8;
+        const expected = tempoBendRate(handoverStretch(plan, overlap, allowed));
+        const result = JSON.parse(masterJSON(json(input)));
+        expect(result.requestedRate).toBe(expected);
+        if (allowed) expect(result.requestedRate).toBe(1);
+        expect(result.envelope).toBeNull();
+        const adopted = JSON.parse(masterJSON(json({ ...input, timing: { ...input.timing, appliedRate: expected } })));
+        if (overlap < plan.minOverlap) {
+          expect(adopted.mediaOverlap).toBe(0);
+          expect(adopted.envelope).toBeNull();
+          expect(adopted.cue).toBeNull();
+          continue;
+        }
+        expect(adopted.envelope).not.toBeNull();
+        expect(adopted.envelope.overlap * expected).toBeCloseTo(adopted.mediaOverlap, 12);
+      }
+    }
+  });
   it('matches the desktop session gain curves, wall duration, beat cue and style across real planner branches', () => {
     vi.useFakeTimers();
     vi.spyOn(console, 'log').mockImplementation(() => {});

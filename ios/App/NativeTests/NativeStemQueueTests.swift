@@ -52,8 +52,15 @@ actor MeasuredQueueStemSeparator: NativeStemSeparating {
         let before = await separator.calls; XCTAssertEqual(before, 0)
         // Profile work has its own budget; the five-second assertion below measures stem scheduling.
         try await waitForStream({ profiles.value(a) != nil && profiles.value(b) != nil }, seconds: 25)
+        let started = ProcessInfo.processInfo.systemUptime
+        func diagnostic(_ stage: String) {
+            print("FOLIA_STEM_PREPARATION stage=\(stage) elapsed=\(ProcessInfo.processInfo.systemUptime - started) thermal=\(ProcessInfo.processInfo.thermalState.rawValue) tail=\(stems.phase(a, role: .tail)) head=\(stems.phase(b, role: .head)) profilesPending=\(profiles.hasPending) playing=\(player.outputIsPlaying) index=\(player.index)")
+        }
         try player.crossfade?.configure(enabled: true, maximumSeconds: 5, mode: "automix")
-        try await waitForStream { stems.value(a, role: .tail) != nil && stems.value(b, role: .head) != nil }
+        diagnostic("enabled")
+        do { try await waitForStream { stems.value(a, role: .tail) != nil && stems.value(b, role: .head) != nil } }
+        catch { diagnostic("failed"); throw error }
+        diagnostic("ready")
         XCTAssertTrue(player.outputIsPlaying); XCTAssertEqual(player.index, 0)
         NotificationCenter.default.post(name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
         try await Task.sleep(for: .milliseconds(100))

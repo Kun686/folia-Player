@@ -114,9 +114,13 @@ final class NativeCrossfade {
         if active { profiles.cancel(); stems.cancel(); stems.clearOnline(); if !isFading { invalidatePlan() } }
         else { tick() }
     }
-    func localMediaRemoved(_ id: String) { stems.remove(localID: id) }
-    func localMediaChanged() { stems.localMediaChanged() }
-    func resourcePressure(_ active: Bool) { stems.resourcePressure(active) }
+    func localMediaRemoved(_ id: String) { stems.remove(localID: id); if !isFading { invalidatePlan() } }
+    func localMediaChanged() { stems.localMediaChanged(); if !isFading { invalidatePlan() } }
+    func resourcePressure(_ active: Bool) {
+        stems.resourcePressure(active)
+        // A cleared window also revokes its vocal-end evidence, including within the arm lead.
+        if active, !isFading { invalidatePlan() }
+    }
     func cacheSettingsChanged() { profiles.resetOnline(); if !isFading { invalidatePlan(); tick() } }
     func localLyricsChanged(_ id: String) {
         lyrics.invalidate(id)
@@ -225,6 +229,7 @@ final class NativeCrossfade {
               owner.generation == expected.epoch, owner.queueRevision == expected.queueRevision,
               (armed || profiles.revision == expected.profileRevision),
               (armed || lyrics.revision == expected.lyricRevision),
+              (armed || stems.revision == expected.stemRevision),
               let current = owner.stream, let next = owner.preparedStream,
               ObjectIdentifier(current) == expected.outgoing, ObjectIdentifier(next.entry) == expected.incoming,
               owner.nextIndex(automatic: true) == next.index else { return false }

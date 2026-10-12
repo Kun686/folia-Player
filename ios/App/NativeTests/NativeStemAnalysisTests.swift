@@ -76,12 +76,12 @@ struct StemAnalysisReference: Decodable {
         let (rows, _) = try StemAnalysisReference.load(), analysis = NativeStemAnalysis(), planner = NativeTransitionPlanner()
         let outgoing = try await StemAnalysisReference.window(analysis, head: false, mode: "normal")
         let incoming = try await StemAnalysisReference.window(analysis, head: true, mode: "normal"), options = rows[0].options
-        let request = try await analysis.request(out: outgoing, incoming: incoming, options: options, planner: planner)
-        let gesture = try await planner.stems(XCTUnwrap(request)), bus = try await planner.stemBus()
-        let pair = try await NativeStemWindowPair.prepare(out: outgoing, incoming: incoming, outAt: options.outAt,
-            inAt: options.inAt, seconds: options.windowSec, lateBy: 0.49 / 44100, planner: planner)
-        let windows = try XCTUnwrap(pair), expansion = try await NativeExpansionRenderer().render(windows, plan: XCTUnwrap(gesture.expansion))
-        let mixer = try NativeStemMixer(outgoing: windows.outgoing, incoming: windows.incoming, gesture: gesture, bus: bus, expansion: expansion)
+        let prepared = try await NativeStemHandover().prepare(outgoing: outgoing, incoming: incoming,
+            options: options, lateBy: 0.49 / 44100, planner: planner)
+        let program = try XCTUnwrap(prepared), windows = program.windows
+        XCTAssertNotNil(program.expansion)
+        let mixer = try NativeStemMixer(outgoing: windows.outgoing, incoming: windows.incoming,
+            gesture: program.gesture, bus: program.bus, expansion: program.expansion)
         let buffer = StemClockFixture.buffer(512)
         var peak: Float = 0
         while mixer.position < mixer.frames {
@@ -120,5 +120,58 @@ struct StemAnalysisReference: Decodable {
         let recovered = try await analysis.request(out: out!, incoming: incoming, options: options, planner: planner)
         XCTAssertNotNil(recovered)
         out = nil; XCTAssertNil(observed)
+    }
+
+    func testStemHandoverDeclinesUncoveredPairRejectsInvalidIntentAndRecovers() async throws {
+        let out = try StemStorageReference.window(frames: 52920, from: 4410000)
+        let incoming = try StemStorageReference.window(frames: 39690, role: .head)
+        let preparation = NativeStemHandover(), planner = NativeTransitionPlanner()
+        let uncovered = try await preparation.prepare(outgoing: out, incoming: incoming,
+            options: .init(windowSec: 0.8, outAt: 100.1, inAt: 0.2), lateBy: 0, planner: planner)
+        XCTAssertNil(uncovered, "An incomplete pair must leave the master path available")
+        let options = NativeStemAnalysisContext(windowSec: 0.8, outAt: 100.1, inAt: 0.05)
+        for late in [-1.0, .nan, .infinity] {
+            do {
+                _ = try await preparation.prepare(outgoing: out, incoming: incoming,
+                    options: options, lateBy: late, planner: planner)
+                XCTFail("Invalid alignment must not publish a program")
+            } catch { XCTAssertEqual((error as? MobileFailure)?.code, "invalid-stem-alignment") }
+        }
+        do {
+            _ = try await preparation.prepare(outgoing: incoming, incoming: out,
+                options: options, lateBy: 0, planner: planner)
+            XCTFail("Reversed roles must not publish a program")
+        } catch { XCTAssertEqual((error as? MobileFailure)?.code, "invalid-stem-window") }
+        let cancelled = Task {
+            try await preparation.prepare(outgoing: out, incoming: incoming, options: options, lateBy: 0, planner: planner)
+        }
+        cancelled.cancel()
+        do { _ = try await cancelled.value; XCTFail("Cancelled work must not publish a program") }
+        catch { XCTAssertTrue(error is CancellationError) }
+        let recovered = try await preparation.prepare(outgoing: out, incoming: incoming,
+            options: options, lateBy: 1, planner: planner)
+        let program = try XCTUnwrap(recovered)
+        XCTAssertNil(program.expansion); XCTAssertEqual(program.windows.late, 0.05)
+        XCTAssertEqual(program.windows.outgoing.stems[.drums],
+            try out.decoded(offset: (100.1 + 0.05 - 100) * 44100, count: 35280).stems[.drums])
+        XCTAssertEqual(program.windows.incoming.stems[.drums],
+            try incoming.decoded(offset: (0.05 + 0.05) * 44100, count: 35280).stems[.drums])
+    }
+
+    func testStemHandoverKeepsOriginalObservationsBeforeLateCompensationAndReleasesWindows() async throws {
+        let (rows, _) = try StemAnalysisReference.load(), analysis = NativeStemAnalysis()
+        let planner = NativeTransitionPlanner(), preparation = NativeStemHandover()
+        var out: NativeStemWindow? = try await StemAnalysisReference.window(analysis, head: false, mode: "normal")
+        var incoming: NativeStemWindow? = try await StemAnalysisReference.window(analysis, head: true, mode: "normal")
+        weak var releasedOut = out, releasedIncoming = incoming
+        var onTime = try await preparation.prepare(outgoing: out!, incoming: incoming!, options: rows[0].options, lateBy: 0, planner: planner)
+        var late = try await preparation.prepare(outgoing: out!, incoming: incoming!, options: rows[0].options, lateBy: 0.05, planner: planner)
+        XCTAssertNotNil(onTime); XCTAssertNotNil(late)
+        XCTAssertEqual(onTime?.gesture.outgoing, late?.gesture.outgoing)
+        XCTAssertEqual(onTime?.gesture.incoming, late?.gesture.incoming)
+        XCTAssertNotEqual(onTime?.windows.outgoing.stems[.drums], late?.windows.outgoing.stems[.drums])
+        XCTAssertEqual(onTime?.expansion?.plan, late?.expansion?.plan)
+        out = nil; incoming = nil; onTime = nil; late = nil
+        XCTAssertNil(releasedOut); XCTAssertNil(releasedIncoming, "The preparation actor must not retain obsolete windows")
     }
 }

@@ -110,7 +110,11 @@ export function masterJSON(text: string): string {
     if (timing.nextBeatIn !== null && (timing.nextBeatIn as number) < 0) fail();
     const from = track(request.from), to = track(request.to), plan = raw as unknown as TransitionPlan;
     const { startMedia, remaining, overlap } = handoverWindow(plan, from.duration, timing.position as number);
-    const requestedRate = overlap > 0 ? tempoBendRate(handoverStretch(plan, overlap, false)) : 1;
+    // The session asks for both pinned windows before deciding whether the stream may bend.
+    // Coverage is checked when wiring the gesture; a missing half is still a master transition.
+    const useStems = Boolean(from.separated && to.separated)
+        && plan.style !== 'beatCut' && overlap >= AUTOMIX_MIN_OVERLAP_SEC;
+    const requestedRate = overlap > 0 ? tempoBendRate(handoverStretch(plan, overlap, useStems)) : 1;
     if (overlap <= 0 || timing.appliedRate === null) return JSON.stringify({ requestedRate, mediaOverlap: overlap, envelope: null, cue: null });
     const applied = timing.appliedRate as number, tailRate = timing.tailRate as number;
     const periodSec = handoverPeriod(from.profile, timing.periodSec as number | null);

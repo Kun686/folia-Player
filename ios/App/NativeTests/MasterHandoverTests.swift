@@ -87,4 +87,43 @@ import AVFoundation
         XCTAssertThrowsError(try TransitionGainCurve(outgoing: UUID(), incoming: UUID(), out: [1, 0],
                                                     input: [0, 1], rate: 44100, seconds: 30))
     }
+
+    func testPairedStemEvidenceRestoresUnityRateBeforePreparingNativeHandover() async throws {
+        let file = try sharedConstantFile(seconds: 30, stereo: true)
+        defer { try? FileManager.default.removeItem(at: file) }
+        let output = try await StreamMixOutput.make()
+        defer { output.close() }
+        let outgoing = try await StreamOccurrence.prepare(url: file, output: output, allowsTempo: true)
+        defer { outgoing.dispose() }
+        try outgoing.play()
+        try await waitForStream { outgoing.position > 0.1 }
+        let planner = NativeTransitionPlanner()
+        let plan = NativeTransitionPlan(kind: "fade", style: "bassSwap", relation: "neutral", tempo: "close",
+            stretch: 1.1, tiltDb: [0, 0], echoThrow: false, outStart: 0, inStart: 0,
+            overlap: 20, minOverlap: 0.8, reason: "Generated native handover fixture", expansion: nil)
+        let master = try await NativeMasterTransition.prepare(planner: planner, plan: plan, output: output,
+            outgoing: outgoing, duration: 30, fromProfile: nil, toProfile: nil, current: { true })
+        XCTAssertEqual(master.requestedRate, 1.1, accuracy: 0.000001)
+        XCTAssertEqual(outgoing.rate, 1.1, accuracy: 0.000001)
+        // The bridge chooses rate from the pinned pair; actual coverage is decided by the gesture preparer.
+        let tail = try StemStorageReference.window(frames: 44100), head = try StemStorageReference.window(frames: 44100, role: .head)
+        let paired = try await NativeMasterTransition.prepare(planner: planner, plan: plan, output: output,
+            outgoing: outgoing, duration: 30, fromProfile: nil, toProfile: nil,
+            stems: (tail, head), current: { true })
+        XCTAssertEqual(paired.requestedRate, 1); XCTAssertEqual(outgoing.rate, 1, accuracy: 0.000001)
+        XCTAssertEqual(try XCTUnwrap(paired.envelope).overlap, paired.mediaOverlap)
+        do {
+            _ = try await NativeMasterTransition.prepare(planner: planner, plan: plan, output: output,
+                outgoing: outgoing, duration: 30, fromProfile: nil, toProfile: nil,
+                stems: (head, tail), current: { true })
+            XCTFail("Reversed roles cannot reach rate adoption")
+        } catch { XCTAssertEqual((error as? MobileFailure)?.code, "invalid-stem-window") }
+        do {
+            _ = try await NativeMasterTransition.prepare(planner: planner, plan: plan, output: output,
+                outgoing: outgoing, duration: 30, fromProfile: nil, toProfile: nil,
+                stems: (tail, head), current: { false })
+            XCTFail("Stale queue intent cannot prepare a handover")
+        } catch { XCTAssertEqual((error as? MobileFailure)?.code, "transition-cancelled") }
+        XCTAssertTrue(outgoing.playing); XCTAssertEqual(output.attachedCount, 1)
+    }
 }

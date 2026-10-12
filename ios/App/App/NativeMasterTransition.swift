@@ -6,7 +6,11 @@ enum NativeMasterTransition {
     @MainActor static func prepare(planner: NativeTransitionPlanner, plan: NativeTransitionPlan,
                                    output: StreamMixOutput, outgoing: StreamOccurrence, duration: Double,
                                    fromProfile: [String: Any]?, toProfile: [String: Any]?,
+                                   stems: (outgoing: NativeStemWindow, incoming: NativeStemWindow)? = nil,
                                    current: @escaping () -> Bool) async throws -> NativeMasterHandover {
+        if let stems, stems.outgoing.role != .tail || stems.incoming.role != .head {
+            throw MobileFailure("invalid-stem-window")
+        }
         let fields = try JSONSerialization.jsonObject(with: JSONEncoder().encode(plan))
         // Capture before bending, as the original deck clock does. Dividing twice would shorten the fade.
         let tailRate = outgoing.rate
@@ -21,9 +25,12 @@ enum NativeMasterTransition {
             let measured = await output.deckState(outgoing.audio)
             try check()
             let live = measured.flatMap { state in state.time.flatMap { CACurrentMediaTime() - $0 < 0.25 ? state : nil } }
+            func extent(_ window: NativeStemWindow?) -> Any {
+                window.map { ["from": $0.from, "to": $0.from + $0.duration] } as Any? ?? NSNull()
+            }
             let request: [String: Any] = ["version": 1, "plan": fields,
-                "from": ["duration": duration, "lines": NSNull(), "profile": fromProfile as Any? ?? NSNull()],
-                "to": ["duration": 0, "lines": NSNull(), "profile": toProfile as Any? ?? NSNull()],
+                "from": ["duration": duration, "lines": NSNull(), "profile": fromProfile as Any? ?? NSNull(), "separated": extent(stems?.outgoing)],
+                "to": ["duration": 0, "lines": NSNull(), "profile": toProfile as Any? ?? NSNull(), "separated": extent(stems?.incoming)],
                 "timing": ["position": outgoing.position, "tailRate": tailRate, "appliedRate": applied as Any? ?? NSNull(),
                     "outgoingDb": live?.loudnessDb as Any? ?? NSNull(), "periodSec": live?.tempo?.periodSec as Any? ?? NSNull(),
                     "nextBeatIn": live?.nextBeatIn as Any? ?? NSNull()]]
