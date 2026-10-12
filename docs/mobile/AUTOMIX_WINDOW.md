@@ -94,3 +94,5 @@ iPhone 在上述隔离宿主使用 `--model htdemucs --window`，内置 50 秒 w
 
 **NOT_RUN**：真实音乐质量、实际分轨播放／手势、播放与动画争用、后台任务调度、长时间温升／内存、物理 iPad。
 完整移植仍为 IN_PROGRESS。后续用户已批准独立QA工程接入，范围见 [接入评估](AUTOMIX_INTEGRATION_DECISION.md)。
+2026-10-12：原拼接已提取为生产／探针共享 helper，并在实际 Folia QA 中验证完整文件至分轨存储，
+见 [ORT_WINDOW_INTEGRATION.md](ORT_WINDOW_INTEGRATION.md)。本页先前实测及失败边界保持不变。

@@ -15,7 +15,16 @@ final class NativeORTInference: @unchecked Sendable {
     static var runtimeVersion: String { FoliaORTJob.runtimeVersion() }
 
     func infer(_ kind: Kind, model: URL, input: Data, frames: Int) async throws -> [Data] {
-        guard (kind == .beatThis ? (1...1500).contains(frames) : frames == 172032),
+        try await execute(kind, model: model, input: input, frames: frames, window: false)
+    }
+
+    // Planar drums, bass and vocals for an entire original head/tail window; one session for all chunks.
+    func separateWindow(model: URL, input: Data, frames: Int) async throws -> [Data] {
+        try await execute(.htdemucs, model: model, input: input, frames: frames, window: true)
+    }
+
+    private func execute(_ kind: Kind, model: URL, input: Data, frames: Int, window: Bool) async throws -> [Data] {
+        guard (kind == .beatThis ? (1...1500).contains(frames) : window ? (1...1_323_000).contains(frames) : frames == 172032),
               input.count == frames * (kind == .beatThis ? 128 : 2) * MemoryLayout<Float>.size else {
             throw MobileFailure("ort-invalid-input")
         }
@@ -45,6 +54,7 @@ final class NativeORTInference: @unchecked Sendable {
                             guard snapshot.bytes == bytes, snapshot.digest == digest else { throw MobileFailure("ort-model-hash-mismatch") }
                             return try withExtendedLifetime(snapshot) {
                                 guard !job.cancelled else { throw CancellationError() }
+                                if window { return try job.separateWindow(model: snapshot.url, input: input, frames: frames) }
                                 return try job.run(model: snapshot.url, kind: kind.rawValue, input: input, frames: frames)
                             }
                         }
