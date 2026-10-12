@@ -151,7 +151,7 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | 单曲／全局歌词时间校准 | PASS（WebKit 及 iPad 模拟器设置恢复）；真机校准 NOT_RUN | 原控件、预览／应用／取消、来源隔离、歌词点击反向映射、迟到加载；已随 mobile.12 安装，见 LYRIC_TIMING.md |
 | 原歌词过滤、制作人员策略与时间线 | PASS（开发源码自动测试及 iPad 模拟器短测）；真机及真实平台 NOT_RUN | 186 项逻辑、39 项移动 WebKit、9 项桌面组件；实际容器预览／保存／重启恢复与原生 10 秒跳转，原始正文及音频不变。已随 mobile.13 安装，见 LYRIC_DISPLAY.md |
 | 原精细分词编辑与布局接线 | PASS（开发源码回归及编译）；原生交互 NOT_RUN | 复用原编辑器／存储／分词，补移动输入、复制、失败重试和迟到隔离；Partita 保留逐字 timing。已随 mobile.13 安装，见 LYRIC_SEGMENTATION.md |
-| App 内 AI 精细分词 | PASS（逻辑／WebKit／桌面组件）；真实 AI／真机 NOT_RUN | 原提示词与批处理、原生凭据、取消及存储回滚；136 项逻辑、73 项移动及6 项桌面回归。独立原生页面观察另记，见 AI_SEGMENTATION.md |
+| App 内 AI 精细分词 | PASS（逻辑／WebKit／桌面组件／签名 QA 构建）；真实 AI／真机 NOT_RUN | 原提示词与批处理、原生凭据、取消及存储回滚；136 项逻辑、73 项移动及6 项桌面回归。iPad 模拟器实测入口、设置导航、缺少密钥及竖／横屏可见性；源码 CI 与125 个资源一致性已核验，个人 App 未更新，见 AI_SEGMENTATION.md |
 | 原单曲 `.fia`／LRC 导出 | PASS（用户真机反馈及自动验证）；回导 PASS_USER_CONFIRMED（mobile.14） | mobile.13 导出反馈与 mobile.14 选择器／回导反馈分开记录；未逐文件校验，见 LYRIC_EXPORT.md |
 | 原版批量歌词 ZIP 导出 | PASS_USER_CONFIRMED（mobile.15）；43 项逻辑、12 项 WebKit、10 项 iPhone 原生 PASS | 清单18首导出、2首跳过、9首旧缓存身份缺失警示；用户确认回导显示正常，未独立检查 ZIP 字节及每首内容，见 BATCH_LYRIC_EXPORT.md |
 | 本地 GBK／加密 KRC 文件导入 | PASS（自动测试、iPad 模拟器实际选择器／重启及 iPhone 原生专项）；iPhone 选择器手工验收 NOT_RUN | 原解码、失败保留、编辑令牌与原子保存；历史 UI／原生及本轮 17 项中的对应测试见 VALIDATION.md。Partita 裁切已在 WebKit 修正，原生视觉待验；见 LOCAL_LYRIC_IMPORT.md |

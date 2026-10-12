@@ -29,10 +29,21 @@
 - 类型检查：`typecheck-complete.log` PASS。
 - WebKit：73 项 PASS、2 项按项目设计跳过，`ui-final.log`；27 项新 AI 分词、27 项原主题生成、19 项原手工分词，覆盖手机、宽／窄 iPad；短屏专项只在手机项目执行。
 - 原桌面组件：6 项 PASS，`desktop-chrome.log`；默认 Playwright 浏览器未安装，改用本机已有 Chrome 后通过，无新安装。
-- Swift 网络无变更，历史 Keychain／URLSession fixture 证据见 [AI_THEMES.md](AI_THEMES.md) 和 [SYNC.md](SYNC.md)，不算本次重跑。构建及原生页面结果完成后追加。
+- Swift 网络无变更，历史 Keychain／URLSession fixture 证据见 [AI_THEMES.md](AI_THEMES.md) 和 [SYNC.md](SYNC.md)，不算本次重跑。
 - 真实 Gemini／OpenAI／兼容服务、个人 iPhone 与物理 iPad：NOT_RUN。
 
 首轮界面定位误用“运行 AI”，改为原按钮“AI 分词”。第二次样本漏回原 LRC 解析器生成的间奏行，校验正确拒绝；改为按实际请求生成完整响应。失败日志保留，没有修改生产校验迁就样本。
+
+### 独立原生 QA 与包核验
+
+- 准确源码：`fbb62fc3bb65e36954916d32c90fa965aef38056`；对应 [CI 38192061789](https://github.com/Kun686/folia-Player/actions/runs/38192061789) 为 `completed / success`。
+- `npm run ios:sync` 与签名 Release 模拟器构建 PASS，日志为 `build.log`、`native-build.log`。包内 `build-identity.json` 指向上述源码；包内与同步目录的 125 个资源逐文件 SHA256 一致，`codesign --verify --deep --strict` PASS。证据为 `package.json`。
+- 独立 Bundle ID 为 `app.folia.validation.App`，最低系统 17.0；测试目标为 iPad Pro 11-inch (M5)／iPadOS 26.5 模拟器。版本字符串沿用 `0.7.16-mobile.28`，不能据此视为个人已安装包。
+- 使用已有生成样本 `First`、真实原生桥进入分词编辑器，再打开 AI 服务设置。页面显示未配置密钥；未输入密钥或保存配置，未发出真实推理请求。返回后点击「AI 分词」，显示固定的缺少密钥提示，原歌词预览仍保留。
+- 观察了竖屏页面与旋转后的横屏页面，编辑器、AI 设置／执行入口、错误提示及歌词预览可见。本次没有完成全部方向往返、原生 AI 成功保存或取消场景验收。
+- 截图：`native-settings-no-key.png`、`native-no-key-error.png`、`native-landscape.png`。成功推理及取消／持久化结论仍来自自动化 fixture，不来自这次原生短测。
+- 个人 `BUILD_RECORD.json` SHA256 仍为 `ec176ad6a9b5d72435ada9d0fa3a8e399e7c7ed0047045b7991423d1adb2de73`；本轮没有更新或卸载个人 App，也没有修改服务器或发起真实同步。
+- 结束后停止独立 QA App、关闭该模拟器；清理命令与进程／监听端口复核分别记录在 `cleanup.json`、`cleanup-check.json`。
 
 ## 回退与交付边界
 
