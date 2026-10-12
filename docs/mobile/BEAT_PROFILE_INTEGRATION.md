@@ -33,6 +33,9 @@
   1501帧梅尔谱按原规则拆为2段，参考得到37个拍点、10个小节起点。模型、源码与所有数据保存SHA256。
 - `unit.log`：4文件、28项逻辑测试通过，含FFT注入默认兼容、原边界分段与峰值、partial和模型状态语义。
   `typecheck.log`、`sync.log`：TypeScript与移动资源构建／Capacitor同步通过。
+- 首轮远端CI为377通过／1超时，定位在31秒梅尔对照的测试断言。改为收集FFT尺寸后统一断言、
+  用原生`Buffer.compare`逐字节比较大缓冲，避免深比较逐元素记账；31秒输入、逐字节标准、默认5秒限时
+  及产品代码均不变。`mobile-suite.log`复跑完整移动逻辑：54文件、378项通过，原CI失败日志保留。
 - `native-final.xcresult`／`native-final-summary.json`：实际Release Folia QA，
   `app.folia.validation.App`，iPad Pro11-inch(M5)／iOS26.5模拟器，**19通过、0失败、0跳过**。
   准备梅尔与模型logits的最大绝对差均为0，最终37／10个时间点精确一致；
@@ -66,6 +69,7 @@
 
 `source.json`记录19项回归时的16个源码／工程输入；最终释放检查对应`source-ownership.json`及
 `package-ownership.json`，核对6份native JS在dist-mobile、复制目录和构建包中一致。
+随后只优化单测断言，最终摘要另存`source-final.json`，原生及产品源码与释放检查时一致。
 最终包内0个模型，模拟器可执行文件41,576,752字节，含测试插件的App137,067,157字节；不是手机IPA增量。
 个人构建记录SHA256仍为`ec176ad6a9b5d72435ada9d0fa3a8e399e7c7ed0047045b7991423d1adb2de73`。
 独立QA已卸载，模拟器已关闭，任务启动的构建／测试进程已结束。

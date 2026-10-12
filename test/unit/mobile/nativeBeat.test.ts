@@ -16,11 +16,15 @@ describe('native Beat This boundary', () => {
   it('reuses the exact centred mel and chunk padding with an injected equivalent FFT', async () => {
     const mono = Float32Array.from({ length: 22050 * 31 }, (_, i) => Math.sin(i * 0.13) * 0.2);
     let calls = 0;
-    const result = await prepare(mono, (real, imag) => { expect(real.length).toBe(1024); calls++; fft(real, imag); });
+    const sizes = new Set<number>();
+    const result = await prepare(mono, (real, imag) => { sizes.add(real.length); calls++; fft(real, imag); });
     const mel = await melSpectrogram(mono), expected = splitForModel(mel);
-    expect(calls).toBe(mel.frames); expect(result.frames).toBe(mel.frames);
+    expect([...sizes]).toEqual([1024]); expect(calls).toBe(mel.frames); expect(result.frames).toBe(mel.frames);
     expect(result.chunks.map(c => [c.start, c.frames])).toEqual(expected.map(c => [c.start, c.frames]));
-    for (let i = 0; i < expected.length; i++) expect(Buffer.from(result.chunks[i].data.buffer)).toEqual(Buffer.from(expected[i].data.buffer));
+    // Native byte comparison preserves exactness without expanding megabytes into per-element assertion bookkeeping.
+    for (let i = 0; i < expected.length; i++) {
+      expect(Buffer.compare(Buffer.from(result.chunks[i].data.buffer), Buffer.from(expected[i].data.buffer))).toBe(0);
+    }
   });
   it('uses original keep-first aggregation, peak picking and downbeat snapping', () => {
     const chunks = splitForModel({ frames: 3051, data: new Float32Array(3051 * 128) });
