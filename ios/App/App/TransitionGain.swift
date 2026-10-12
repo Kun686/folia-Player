@@ -42,7 +42,10 @@ struct TransitionGainCurve {
 }
 
 final class TransitionGain {
-    struct Clock { let renderedEnd: Double?; let curveStart: Double?; let generation: UInt64?; let stemFailed: Bool; let stemActive: Bool }
+    struct Clock {
+        let renderedEnd: Double?; let curveStart: Double?; let generation: UInt64?
+        let stemFailed: Bool; let stemActive: Bool; let stemClockInvalid: Bool
+    }
     private final class Command {
         let curve: TransitionGainCurve?
         let stems: NativeStemTransition?
@@ -63,12 +66,13 @@ final class TransitionGain {
     private var appliedGeneration: UInt64?
     private var stemFailed = false
     private var stemScheduled = false
+    private var stemClockInvalid = false
     var clock: Clock {
         lock.lock(); defer { lock.unlock() }
         // Retired PCM is no longer render-owned. Reclaim it on this control-side status read.
         retired = nil
         return Clock(renderedEnd: renderedEnd, curveStart: curveStart, generation: appliedGeneration,
-                     stemFailed: stemFailed, stemActive: stemScheduled && !stemFailed)
+                     stemFailed: stemFailed, stemActive: stemScheduled && !stemFailed, stemClockInvalid: stemClockInvalid)
     }
     // AVAudioEngine pulls this graph serially. Render owns these fields, including both decks' quantum.
     private var active: Command?
@@ -146,6 +150,7 @@ final class TransitionGain {
         lock.lock(); defer { lock.unlock() }
         generation &+= 1; ready = nil; retired = nil; active = nil; pendingTrim = nil
         renderedEnd = nil; curveStart = nil; appliedGeneration = nil; stemFailed = false; stemScheduled = false
+        stemClockInvalid = false
         quantum = nil; outID = nil; inID = nil; restoreFrames = 0
         trimFrom = 1; trimTo = 1; trimFrames = 0
     }
@@ -165,20 +170,26 @@ final class TransitionGain {
     }
 
     private func value(incoming: Bool, at frame: Double) -> Float {
-        if let stems = active?.stems, !stems.failed || active?.curve == nil { return stems.gain(incoming: incoming, elapsed: frame - start) }
+        if let stems = active?.stems, !stems.failed || activeCurve == nil { return stems.gain(incoming: incoming, elapsed: frame - start) }
         if let curve = activeCurve { return curve.value(incoming: incoming, elapsed: frame - start) }
         guard restoreFrames > 0, frame < start + restoreFrames else { return 1 }
         let from = incoming ? inFrom : outFrom
         return Float(Double(from) + (1 - Double(from)) * max(0, frame - start) / restoreFrames)
     }
-    private var activeCurve: TransitionGainCurve? { active?.stems?.failed == false ? nil : active?.curve }
+    private var activeCurve: TransitionGainCurve? {
+        // A source underrun can use the master curve on the same clock. A broken host timeline
+        // cannot: return the current deck immediately and let control retire the obsolete fade.
+        if let stems = active?.stems, !stems.failed || stems.clockInvalid { return nil }
+        return active?.curve
+    }
 
     // Adopt at most once per shared timestamp, so a command between deck pulls cannot split a pair.
     // try() never waits; replaced curve storage is retained until a later CONTROL call, never freed here.
     private func beginQuantum(_ frame: Double, frames: Int, rate: Double) {
         guard quantum != frame else { return }
         quantum = frame
-        if lock.try() {
+        let publishing = lock.try()
+        if publishing {
             if let next = ready, retired == nil {
                 let heldAt = next.cancelledAt ?? frame
                 outFrom = value(incoming: false, at: heldAt); inFrom = value(incoming: true, at: heldAt)
@@ -206,11 +217,16 @@ final class TransitionGain {
                 trimFrom = trimValue(at: trim.heldAt ?? frame); trimTo = trim.gain
                 trimStart = frame; trimFrames = trim.seconds * rate; pendingTrim = nil
             }
-            renderedEnd = frame + Double(frames)
-            lock.unlock()
         }
         active?.stems?.beginQuantum(at: frame, frames: frames)
-        if lock.try() { stemFailed = active?.stems?.failed ?? false; lock.unlock() }
+        // Publish one coherent generation/clock/failure snapshot. A control read between two
+        // separate locks could otherwise associate the old failure with a newly adopted command.
+        if publishing {
+            renderedEnd = frame + Double(frames)
+            stemFailed = active?.stems?.failed ?? false
+            stemClockInvalid = active?.stems?.clockInvalid ?? false
+            lock.unlock()
+        }
     }
 
     // A third source shares command adoption with both decoder inserts, regardless of pull order.
@@ -240,7 +256,10 @@ final class TransitionGain {
         let curve = activeCurve
         // A stem failure changes the effective program without a new control command. Let deck DSP
         // adopt the fallback once as well, rather than leaving the echo send in its previous bypass.
-        let effectsGeneration = appliedGeneration.map { $0 &* 2 &+ ((active?.stems?.failed ?? false) ? 1 : 0) }
+        let clockInvalid = active?.stems?.clockInvalid == true
+        let effectsGeneration = appliedGeneration.map {
+            $0 &* 4 &+ ((active?.stems?.failed ?? false) ? 1 : 0) &+ (clockInvalid ? 2 : 0)
+        }
         guard curve == nil || curve?.rate == rate else { return false }
         let incoming = source == inID
         // Trim precedes tone and fade, while the per-deck measurement tap remains ahead of all three.
@@ -253,10 +272,10 @@ final class TransitionGain {
         tone?.process(data, frames: frames, sampleTime: sampleTime, rate: rate,
                       curve: participating ? curve?.bands : nil, incoming: incoming, start: start,
                       duration: (curve?.seconds ?? 0) * rate,
-                      generation: effectsGeneration, immediate: active?.restoreSeconds == 0)
+                      generation: effectsGeneration, immediate: clockInvalid || active?.restoreSeconds == 0)
         echo?.adopt(participating && !incoming ? curve?.echo : nil, generation: effectsGeneration,
                     anchor: start - (curve?.hold ?? 0) * rate, sampleTime: sampleTime,
-                    immediate: active?.restoreSeconds == 0)
+                    immediate: clockInvalid || active?.restoreSeconds == 0)
         for index in 0..<frames {
             let gain = participating ? value(incoming: incoming, at: sampleTime + Double(index)) : 1
             let wet = echo?.next(left: data[index * 2], right: data[index * 2 + 1],

@@ -39,6 +39,40 @@ private struct StemClockCase: Decodable {
 }
 
 @MainActor extension NativeTests {
+    func testStemFallbackCannotKeepOldTimelineAfterHostClockDiscontinuity() async throws {
+        let fixture = try await StemClockFixture()
+        for hold in [0.0, 0.4] { for jump in [0.0, 1_000_640.0, 2_000_000.0] { for order in [[0, 1, 2], [2, 1, 0]] {
+            let gain = TransitionGain(), out = UUID(), incoming = UUID(), buffer = StemClockFixture.buffer(128)
+            let fallback = try TransitionGainCurve(outgoing: out, incoming: incoming, out: [1, 0], input: [0, 1],
+                rate: 44100, seconds: 0.8, hold: hold)
+            let generation = try XCTUnwrap(gain.replace(try fixture.schedule(out: out, incoming: incoming, hold: hold),
+                fallback: fallback, generation: gain.cancel()))
+            for block in 0..<4 {
+                XCTAssertTrue(gain.processStems(buffer.mutableAudioBufferList, frames: 128, sampleTime: 1_000_000 + Double(block * 128)))
+            }
+            XCTAssertTrue(gain.clock.stemActive)
+            var maximum: Float = 0
+            for lane in order {
+                let data = buffer.floatChannelData![0]
+                data.update(repeating: 1, count: 256)
+                if lane == 2 { XCTAssertTrue(gain.processStems(buffer.mutableAudioBufferList, frames: 128, sampleTime: jump)) }
+                else { XCTAssertTrue(gain.process(buffer.mutableAudioBufferList, frames: 128, sampleTime: jump,
+                    rate: 44100, source: lane == 0 ? out : incoming)) }
+                let expected: Float = lane == 1 ? 1 : 0
+                for i in 0..<256 { maximum = max(maximum, abs(data[i] - expected)) }
+            }
+            XCTAssertEqual(maximum, 0, "A broken clock must return the current deck, not keep a stale hold or fade")
+            XCTAssertTrue(gain.clock.stemFailed); XCTAssertFalse(gain.clock.stemActive)
+            XCTAssertTrue(gain.clock.stemClockInvalid, "Control must retire the fade without waiting for the obsolete absolute end")
+            XCTAssertEqual(gain.clock.generation, generation)
+            let next = try XCTUnwrap(gain.replace(fallback, generation: generation))
+            XCTAssertFalse(gain.cancel(ifCurrent: generation), "Old clock-failure cleanup cannot cancel a newer intent")
+            buffer.floatChannelData![0].update(repeating: 1, count: 256)
+            XCTAssertTrue(gain.process(buffer.mutableAudioBufferList, frames: 128, sampleTime: jump + 128, rate: 44100, source: incoming))
+            XCTAssertEqual(gain.clock.generation, next); XCTAssertFalse(gain.clock.stemClockInvalid)
+            print("FOLIA_STEM_CLOCK_RESET hold=\(hold) jump=\(jump) firstLane=\(order[0]) maxPCM=\(maximum)")
+        } } }
+    }
     func testStemElementSplicesAndCancellationMatchOriginalWebKit() async throws {
         let fixture = try await StemClockFixture()
         let url = try XCTUnwrap(Bundle(for: NativeTests.self).url(forResource: "StemClockReference", withExtension: "json"))

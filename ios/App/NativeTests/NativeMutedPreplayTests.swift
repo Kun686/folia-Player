@@ -33,6 +33,52 @@ import AVFoundation
 }
 
 @MainActor extension NativeTests {
+    func testLiveStemFallbackRestoresCurrentDecoderWhenEngineClockResetsBeforeOrAfterAdoption() async throws {
+        let planner = NativeTransitionPlanner()
+        let out = try StemStorageReference.window(frames: 176400), input = try StemStorageReference.window(frames: 176400, role: .head)
+        let fallback = try await planner.envelope(JSONSerialization.data(withJSONObject: ["version": 1,
+            "plan": ["style": "plainBlend", "minOverlap": 0, "tiltDb": [0, 0], "echoThrow": false],
+            "timing": ["overlap": 0.8, "remaining": 0.8, "outgoingDb": NSNull(),
+                       "nextBeatIn": NSNull(), "periodSec": NSNull(), "incomingLeadIn": NSNull()]]))
+        for adopted in [false, true] {
+            try await withMutedPreplay { graph in
+                let session = try NativeMutedPreplay(output: graph.output, outgoing: graph.outgoing, incoming: graph.incoming)
+                defer { session.cancel() }
+                try await graph.begin(session)
+                for _ in 0..<4 { graph.render() }
+                let clocks = try XCTUnwrap(graph.output.stemClocks(outgoing: graph.outgoing.audio, incoming: graph.incoming.audio))
+                let at = clocks.outgoing.sampleEnd
+                let options = NativeStemAnalysisContext(windowSec: 0.8,
+                    outAt: try XCTUnwrap(clocks.outgoing.position(at: at)), inAt: try XCTUnwrap(clocks.incoming.position(at: at)))
+                let result = try await NativeStemHandover().prepareLive(outgoing: out, incoming: input,
+                    options: options, clocks: clocks, plannedStart: at, planner: planner)
+                let prepared = try XCTUnwrap(result)
+                let generation = try session.commit(prepared, fallback: fallback, current: { true })
+                if adopted {
+                    for _ in 0..<4 { graph.render() }
+                    XCTAssertTrue(graph.output.transitionGain.clock.stemActive)
+                }
+                // AVAudioEngine.reset documents a zeroed manual-render timeline. Keep the actual
+                // decoders and command alive: this must not rely on a configuration notification.
+                XCTAssertGreaterThan(graph.output.engine.manualRenderingSampleTime, 0)
+                graph.output.engine.reset()
+                XCTAssertEqual(graph.output.engine.manualRenderingSampleTime, 0)
+                graph.render()
+                let clock = graph.output.transitionGain.clock
+                XCTAssertEqual(clock.generation, generation); XCTAssertTrue(clock.stemClockInvalid)
+                XCTAssertFalse(clock.stemActive)
+                var maximum: Float = 0
+                for _ in 0..<4 {
+                    graph.render()
+                    for channel in 0..<2 { for frame in 0..<512 {
+                        maximum = max(maximum, abs(graph.buffer.floatChannelData![channel][frame] - (channel == 0 ? 0.125 : -0.0625)))
+                    } }
+                }
+                XCTAssertLessThan(maximum, 0.000005)
+                print("FOLIA_LIVE_STEM_RESET adopted=\(adopted) currentDecoder=PASS maxPCM=\(maximum)")
+            }
+        }
+    }
     func testLiveStemHandoverBindsLatePCMOnRealSharedDecoderClockAndFallsBackOnPause() async throws {
         let planner = NativeTransitionPlanner(), fixture = try await StemClockFixture()
         let out = try StemStorageReference.window(frames: 176400), input = try StemStorageReference.window(frames: 176400, role: .head)

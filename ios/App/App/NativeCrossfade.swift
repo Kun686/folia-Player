@@ -149,6 +149,11 @@ final class NativeCrossfade {
             if owner.streamOutput?.transitionGain.isCurrent(fade.gainGeneration) != true {
                 cancel(gainGeneration: fade.gainGeneration); owner.prefetch(); owner.publish(); return
             }
+            // The audio callback already returned the current deck. Never wait for an absolute
+            // curve end from the old host timeline, or start balance correction for that curve.
+            if clock?.generation == fade.gainGeneration, clock?.stemClockInvalid == true {
+                cancel(gainGeneration: fade.gainGeneration); owner.prefetch(); owner.publish(); return
+            }
             if !fade.masterBalance, clock?.generation == fade.gainGeneration, clock?.stemFailed == true,
                let output = owner.streamOutput, let outgoing = fade.tail, let incoming = owner.stream {
                 self.fade?.masterBalance = true
@@ -402,7 +407,8 @@ final class NativeCrossfade {
     }
     var cueSnapshot: [String: Any]? {
         guard let fade, let clock = owner?.streamOutput?.transitionGain.clock,
-              clock.generation == fade.gainGeneration, let start = clock.curveStart, let end = clock.renderedEnd else { return nil }
+              clock.generation == fade.gainGeneration, !clock.stemClockInvalid,
+              let start = clock.curveStart, let end = clock.renderedEnd else { return nil }
         let elapsed = max(0, (end - start) / 44100 + fade.hold)
         guard elapsed < fade.cue.seconds else { return nil }
         return ["id": fade.epoch, "style": fade.style, "seconds": fade.cue.seconds, "crossover": fade.cue.crossover,

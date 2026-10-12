@@ -1,5 +1,6 @@
 import XCTest
 import UIKit
+import AVFoundation
 @testable import App
 
 // NativeStemQueueTests.swift — real media/queues with explicit fake separation; one separate case uses approved original weights.
@@ -37,7 +38,7 @@ actor MeasuredQueueStemSeparator: NativeStemSeparating {
 
 @MainActor extension NativeTests {
     func testActualAutomixQueueRunsFourStemProgramAndCancelsItOnUserSeek() async throws {
-        for finish in [false, true] {
+        for action in ["seek", "finish", "clockReset"] {
             let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
             let file = try profileAudio(seconds: 12)
             defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: file) }
@@ -82,16 +83,46 @@ actor MeasuredQueueStemSeparator: NativeStemSeparating {
             try await Task.sleep(for: .milliseconds(200))
             XCTAssertTrue(player.crossfade!.isStemFading); XCTAssertTrue(player.outputIsPlaying)
             let current = player.stream
-            if finish {
+            if action == "finish" {
                 try await waitForStream { player.crossfade?.isFading == false && player.outputIsPlaying }
                 XCTAssertGreaterThan(player.playbackPosition, 2)
-            } else {
+            } else if action == "seek" {
                 try player.command("seek", position: 1)
                 try await waitForStream { player.outputIsPlaying && player.stream?.seeking == false }
+            } else {
+                let output = try XCTUnwrap(player.streamOutput), clock = output.transitionGain.clock
+                // Replace hardware rendering with manual pulls only after stopping it, so resetting
+                // time and observing control cleanup cannot race the audio thread or notification queue.
+                output.engine.stop()
+                try output.engine.enableManualRenderingMode(.realtime,
+                    format: AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2)!, maximumFrameCount: 512)
+                try output.engine.start()
+                let pcm = AVAudioPCMBuffer(pcmFormat: output.engine.manualRenderingFormat, frameCapacity: 512)!
+                pcm.frameLength = 512
+                var error: OSStatus = noErr
+                XCTAssertEqual(output.engine.manualRenderingSampleTime, 0)
+                for _ in 0..<8 {
+                    XCTAssertEqual(output.engine.manualRenderingBlock(512, pcm.mutableAudioBufferList, &error), .success)
+                    XCTAssertEqual(error, noErr)
+                    if output.transitionGain.clock.stemClockInvalid { break }
+                }
+                print("FOLIA_STEM_QUEUE_RESET manualEnd=\(output.engine.manualRenderingSampleTime) observedEnd=\(output.transitionGain.clock.renderedEnd ?? -1) previousEnd=\(clock.renderedEnd ?? -1) invalid=\(output.transitionGain.clock.stemClockInvalid)")
+                XCTAssertEqual(output.transitionGain.clock.generation, clock.generation, "No notification may cancel the tested command first")
+                XCTAssertTrue(output.transitionGain.clock.stemClockInvalid)
+                XCTAssertNil(player.crossfade?.cueSnapshot)
+                player.crossfade?.tick()
+                XCTAssertFalse(player.crossfade!.isFading, "Cleanup must not wait for the obsolete host-clock endpoint")
+                XCTAssertTrue(player.outputIsPlaying)
+                for _ in 0..<4 {
+                    XCTAssertEqual(output.engine.manualRenderingBlock(512, pcm.mutableAudioBufferList, &error), .success)
+                    XCTAssertEqual(error, noErr)
+                }
+                let samples = UnsafeBufferPointer(start: pcm.floatChannelData![0], count: 512)
+                XCTAssertTrue(samples.allSatisfy(\.isFinite)); XCTAssertGreaterThan(samples.map(abs).max()!, 0)
             }
             XCTAssertTrue(player.stream === current); XCTAssertFalse(player.crossfade!.isStemFading)
             XCTAssertEqual(player.streamOutput?.attachedCount, 1)
-            print("FOLIA_STEM_QUEUE_HANDOVER actualQueue=PASS renderedStems=PASS unityRate=PASS naturalCompletion=\(finish) currentDeckContinues=PASS separation=GENERATED_FIXTURE")
+            print("FOLIA_STEM_QUEUE_HANDOVER action=\(action) fading=\(player.crossfade!.isFading) decks=\(player.streamOutput?.attachedCount ?? -1) currentDeckSame=\(player.stream === current) separation=GENERATED_FIXTURE")
         }
     }
     func testStemPreparationFollowsActualPlayerModeQueueAndMemoryPressure() async throws {

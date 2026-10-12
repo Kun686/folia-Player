@@ -11,6 +11,7 @@ final class NativeStemTransition {
     private var previousEnd: Double?
     private var outgoingLevel: Float = 1
     private(set) var failed = false
+    private(set) var clockInvalid = false
 
     init(outgoing: UUID, incoming: UUID, mixer: NativeStemMixer, seconds: Double, hold: Double, splice: Double,
          alignment: NativeStemAlignment? = nil) throws {
@@ -34,6 +35,8 @@ final class NativeStemTransition {
     func activate(at frame: Double, frames: Int) -> Double {
         guard let alignment else { return ceil(frame + hold * NativeStemPCM.rate) }
         let start = max(frame, alignment.plannedStart)
+        // A reset before adoption invalidates the fallback's absolute timing as well as the PCM.
+        if frame < alignment.clocks.outgoing.sampleEnd { clockInvalid = true; failed = true }
         if !alignment.valid(at: frame, frames: frames) { failed = true }
         if let offsets = alignment.offsets(at: start) {
             if !mixer.bind(outgoingOffset: offsets.outgoing, incomingOffset: offsets.incoming) { failed = true }
@@ -41,7 +44,7 @@ final class NativeStemTransition {
         return start
     }
     func beginQuantum(at frame: Double, frames: Int) {
-        if let previousEnd, previousEnd != frame { failed = true }
+        if let previousEnd, previousEnd != frame { clockInvalid = true; failed = true }
         if let alignment, !alignment.valid(at: frame, frames: frames) { failed = true }
         previousEnd = frame + Double(frames)
     }
