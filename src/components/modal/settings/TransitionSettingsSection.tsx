@@ -42,6 +42,8 @@ type TransitionSettingsSectionProps = {
     theme?: Theme;
     analysisAvailable?: boolean;
     analysisUnavailableMessage?: string;
+    capabilityOverride?: ReturnType<typeof transitionCapabilities>;
+    availabilityText?: { engine: string; performance: string; cache: string };
 };
 
 const TransitionSettingsSection: React.FC<TransitionSettingsSectionProps> = ({
@@ -50,6 +52,8 @@ const TransitionSettingsSection: React.FC<TransitionSettingsSectionProps> = ({
     theme,
     analysisAvailable,
     analysisUnavailableMessage,
+    capabilityOverride,
+    availabilityText,
 }) => {
     const { t } = useTranslation();
     const {
@@ -117,7 +121,7 @@ const TransitionSettingsSection: React.FC<TransitionSettingsSectionProps> = ({
     // saying "compatible" after the model it was waiting for arrived.
     React.useSyncExternalStore(subscribeModelAvailability, modelsPresent);
     // Which of the two builds is running. Same reason it is not cached: the answer is the point.
-    const capabilities = transitionCapabilities();
+    const capabilities = capabilityOverride ?? transitionCapabilities();
     // A desktop build that simply has not downloaded a model yet. Separated from the browser case
     // because one is a limit and the other is an errand.
     const awaitingModels = capabilities.desktop && !capabilities.full;
@@ -172,7 +176,7 @@ const TransitionSettingsSection: React.FC<TransitionSettingsSectionProps> = ({
     const notice: { text: string; fix: (() => void) | null } | null = !analysable
         ? { text: analysisUnavailableMessage ?? t('options.transitionAutomixUnavailable'), fix: null }
         : !enableMediaCache
-            ? { text: t('options.transitionAutomixNeedsCache'), fix: () => onToggleMediaCache(true) }
+            ? { text: availabilityText?.cache ?? t('options.transitionAutomixNeedsCache'), fix: () => onToggleMediaCache(true) }
             : null;
 
     return (
@@ -310,7 +314,7 @@ const TransitionSettingsSection: React.FC<TransitionSettingsSectionProps> = ({
                                     {t(capabilities.full ? 'options.transitionEngineFull' : 'options.transitionEngineLite')}
                                 </span>
                                 <span className="opacity-60">
-                                    {t(capabilities.full
+                                    {(!capabilities.full && availabilityText?.engine) || t(capabilities.full
                                         ? 'options.transitionEngineFullDesc'
                                         : awaitingModels
                                             ? 'options.transitionEngineNeedsModels'
@@ -337,7 +341,7 @@ const TransitionSettingsSection: React.FC<TransitionSettingsSectionProps> = ({
                                     <div className="mt-1 text-[11px] leading-relaxed opacity-60 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
                                         {capabilities.stems
                                             ? t('options.transitionPerformanceDesc')
-                                            : t(capabilities.desktop
+                                            : availabilityText?.performance ?? t(capabilities.desktop
                                                 ? 'options.transitionPerformanceNeedsModel'
                                                 : 'options.transitionPerformanceNeedsStems')}
                                     </div>

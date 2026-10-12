@@ -85,8 +85,8 @@ test('original transition settings reach native state and recover from failed ed
   await expect(toggle).toHaveAttribute('aria-pressed', 'false');
   await toggle.click();
   await expect.poll(() => page.evaluate(() => (window as any).fixtureTransition.enabled)).toBe(true);
-  await expect(dialog.getByText('此版本暂不支持 Automix，换歌使用交叉淡化。')).toBeVisible();
-  await expect(dialog.getByRole('button', { name: /Folia Automix/ })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: /Folia Automix/ })).toBeEnabled();
+  await expect(dialog.getByRole('region', { name: '分析模型' })).toBeVisible();
   await dialog.getByRole('button', { name: /Folia Crossfade/ }).click();
   const duration = dialog.getByRole('slider', { name: '过渡最长时长' });
   await duration.fill('12');

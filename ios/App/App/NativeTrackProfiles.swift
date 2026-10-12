@@ -13,6 +13,7 @@ final class NativeTrackProfiles {
     private var tasks: [String: (UUID, Task<Void, Never>)] = [:]
     private var values: [String: Value] = [:]
     private var order: [String] = []
+    private var beatModel: URL?
     private(set) var revision = 0
     var changed: (() -> Void)?
     init(local: LocalMediaLibrary, profiler: NativeTrackProfiler = NativeTrackProfiler(), configuration: URLSessionConfiguration = .ephemeral, mediaCache: NativeMediaCache? = nil) {
@@ -21,6 +22,12 @@ final class NativeTrackProfiles {
     deinit { tasks.values.forEach { $0.1.cancel() } }
     func value(_ song: [String: Any]) -> [String: Any]? { NativeProfileIdentity(song).flatMap { values[$0.key]?.fields } }
     func cancel() { wanted.removeAll(); tasks.values.forEach { $0.1.cancel() }; tasks.removeAll() }
+    // A model change is a different analysis capability, even for the same song and signed media URL.
+    @discardableResult func useBeatModel(_ model: URL?) -> Bool {
+        guard beatModel != model else { return false }
+        cancel(); beatModel = model; values.removeAll(); order.removeAll(); upgrades.removeAll(); revision += 1
+        return true
+    }
     func invalidateProvider(_ provider: String) {
         let prefix = "online:" + provider + ":"
         for key in Array(tasks.keys) where key.hasPrefix(prefix) { tasks.removeValue(forKey: key)?.1.cancel() }
@@ -54,7 +61,7 @@ final class NativeTrackProfiles {
         wanted = next
         for identity in ordered where tasks[identity.key] == nil && values[identity.key] == nil {
             upgrades.remove(identity.key)
-            let key = identity.key, source = sources[identity.key], purge = identity.provider.flatMap { purges[$0] }
+            let key = identity.key, source = sources[identity.key], purge = identity.provider.flatMap { purges[$0] }, model = beatModel
             guard let song = songs.first(where: { NativeProfileIdentity($0)?.key == key }) else { continue }
             let stamp = UUID()
             let task = Task(priority: .utility) { @MainActor [weak self, profiler, local, configuration, mediaCache] in
@@ -62,15 +69,15 @@ final class NativeTrackProfiles {
                     await purge?.value
                     try Task.checkCancellation()
                     let data: Data?
-                    if let id = identity.localID { data = try await profiler.profile(file: local.resolve(id)) }
+                    if let id = identity.localID { data = try await profiler.profile(file: local.resolve(id), beatModel: model) }
                     else {
                         var complete = try await mediaCache?.cached(identity)
                         if complete == nil, let source, !source.isFileURL {
                             complete = try await mediaCache?.store(identity, song: song, source: source)
                         }
                         try Task.checkCancellation()
-                        if let complete { data = try await profiler.profile(cached: complete, identity: identity) }
-                        else if let source, !source.isFileURL { data = try await profiler.profile(remote: source, identity: identity, configuration: configuration) }
+                        if let complete { data = try await profiler.profile(cached: complete, identity: identity, beatModel: model) }
+                        else if let source, !source.isFileURL { data = try await profiler.profile(remote: source, identity: identity, configuration: configuration, beatModel: model) }
                         else { return }
                     }
                     guard let self, !Task.isCancelled, self.wanted[key] != nil, self.tasks[key]?.0 == stamp else { return }

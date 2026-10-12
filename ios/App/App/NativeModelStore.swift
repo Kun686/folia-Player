@@ -8,6 +8,7 @@ actor NativeModelStore {
         var installed = false, phase = "absent", received: Int64 = 0, host = ""
         var failures: [String] = []
     }
+    struct Snapshot: Sendable { let revision: Int, models: [Status], paths: [Name: URL] }
     private enum Operation: Sendable, Equatable { case restore, download, install(URL) }
     private struct Job { let stamp: UUID, operation: Operation, task: Task<Void, Error> }
     private let manifest: NativeModelManifest, files: NativeModelFiles, configuration: URLSessionConfiguration
@@ -25,6 +26,10 @@ actor NativeModelStore {
     deinit { jobs.values.forEach { $0.task.cancel() } }
     func onChange(_ callback: @escaping @MainActor @Sendable () -> Void) { changed = callback }
     func status() -> [Status] { Name.allCases.compactMap { states[$0] } }
+    func snapshot() -> Snapshot {
+        Snapshot(revision: revision, models: status(), paths: Dictionary(uniqueKeysWithValues:
+            Name.allCases.compactMap { name in model(name).map { (name, $0) } }))
+    }
     // Installed means verified bytes on disk, not that full Automix is enabled or device-qualified.
     func model(_ name: Name) -> URL? { states[name]?.installed == true ? files.url(manifest.entry(name)) : nil }
     func restore() async {

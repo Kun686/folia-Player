@@ -10,6 +10,8 @@ import type { LocalLyricSnapshot } from '../utils/lyrics/localLyricSnapshot';
 import type { AudioQualityPreference } from '../types/onlineMusic';
 import type { NativeAISettings, NativeAISettingsEdit, NativeAIResponse } from './nativeAI';
 import type { NativeSyncSettings, NativeSyncSettingsEdit, NativeSyncOperation, NativeSyncResponse } from './nativeSync';
+import type { NativeModelsState } from './nativeModels';
+import type { AutomixModelName } from '../services/automix/modelAvailability';
 
 // src/mobile/bridge.ts — native owns transport secrets, playback and queue state.
 export interface PlaybackSnapshot {
@@ -31,6 +33,12 @@ export interface NativeSleepTimerState { hours: number; minutes: number; enabled
 export type NativeSleepTimerEdit = Partial<Pick<NativeSleepTimerState, 'hours' | 'minutes' | 'enabled'>>;
 export type PlaybackEvent = Omit<PlaybackSnapshot, 'queue' | 'currentSong'> & Partial<Pick<PlaybackSnapshot, 'queue' | 'currentSong'>>;
 export interface FoliaNativePlugin {
+  getModels(): Promise<NativeModelsState>;
+  downloadModel(options: { name: AutomixModelName }): Promise<NativeModelsState>;
+  cancelModel(options: { name: AutomixModelName }): Promise<NativeModelsState>;
+  removeModels(): Promise<NativeModelsState>;
+  importModel(): Promise<{ cancelled: boolean }>;
+  addListener(name: 'models', listener: () => void): Promise<PluginListenerHandle>;
   getSyncSettings(): Promise<NativeSyncSettings>;
   setSyncSettings(options: { revision: number; settings: NativeSyncSettingsEdit }): Promise<NativeSyncSettings>;
   syncRequest(options: { id: string; revision: number; operation: NativeSyncOperation; body?: string }): Promise<NativeSyncResponse>;

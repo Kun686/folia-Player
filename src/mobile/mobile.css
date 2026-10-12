@@ -21,6 +21,7 @@
 .visual-settings { text-align: left; }
 .visual-settings-content { min-width: 0; padding: 0; border: 0; }
 .transition-settings button { touch-action: manipulation; }
+.mobile-model-controls button { min-height: 44px; min-width: 44px; touch-action: manipulation; }
 .transition-settings button.h-6 { position: relative; }
 .transition-settings button.h-6::before { content: ''; position: absolute; inset: -10px 0; }
 .visual-settings input[type=range] { touch-action: pan-y; }

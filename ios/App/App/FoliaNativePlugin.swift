@@ -15,13 +15,15 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         "listExportLyrics", "readExportLyrics", "shareLyricArchive", "getSleepTimer", "setSleepTimer",
         "readLocalFolders", "beginFolderImport", "readFolderImport", "prepareFolderImport", "finishFolderImport", "cancelFolderImport", "removeLocalFolder",
         "getAISettings", "setAISettings", "aiRequest", "cancelAIRequest",
-        "getSyncSettings", "setSyncSettings", "syncRequest", "cancelSyncRequest"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
+        "getSyncSettings", "setSyncSettings", "syncRequest", "cancelSyncRequest",
+        "getModels", "downloadModel", "cancelModel", "removeModels", "importModel"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
     let picker = LocalImportPicker()
     let lyricFileShare = LyricFileShare()
     var importing = false
     var folders: FolderImportBridge!
     var ai: NativeAIClient!
     var sync: NativeSyncClient!
+    var models: PlaybackModels?
     private let gateway = GatewayClient()
     var engine: PlaybackEngine!
     private var requests: [String: Task<Void, Never>] = [:]
@@ -30,6 +32,9 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
             self.ai = NativeAIClient()
             self.sync = NativeSyncClient()
             self.engine = PlaybackEngine(gateway: self.gateway, usesStereoOutput: true)
+            self.models = try? PlaybackModels(engine: self.engine)
+            self.models?.changed = { [weak self] in self?.notifyListeners("models", data: [:]) }
+            self.models?.start()
             self.folders = FolderImportBridge(plugin: self)
             self.engine.mediaCacheChanged = { [weak self] in self?.notifyListeners("mediaCache", data: [:]) }
             self.engine.emit = { [weak self] state in self?.notifyListeners("playback", data: state) }

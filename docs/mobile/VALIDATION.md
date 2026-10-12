@@ -1,5 +1,14 @@
 # 移动候选验证记录
 
+## 模型设置与分析队列：独立 QA 阶段
+
+2026-10-12。复用原模型列表与固定模型，接通原生下载／取消／导入／删除、状态桥接及拍点分析队列。
+启用 Automix 才运行拍点模型，普通 Crossfade 不增加推理；关闭、删除和模式切换取消旧工作。
+TypeScript、380 项移动逻辑、6 项 WebKit 通过；最终 iPad 模拟器和独立 iPhone QA 各 22 项 XCTest
+通过，0 失败、0 跳过。包含原始模型推理、实际 WKWebView 桥接和既有队列转场回归。
+详情、首次失败、包体及证据边界见 [MODEL_QUEUE_INTEGRATION.md](MODEL_QUEUE_INTEGRATION.md)。
+个人 App 保持 mobile.28；完整分轨转场、播放／动画资源争用和温升验证仍 IN_PROGRESS／NOT_RUN。
+
 ## mobile.28：系统文件夹导入与管理（当前已安装开发候选）
 
 2026-10-12，准确源码 `25e69b409b30ac9bebcadb8ed179c8d281c226e8`。

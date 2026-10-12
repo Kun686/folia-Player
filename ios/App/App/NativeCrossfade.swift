@@ -23,6 +23,7 @@ final class NativeCrossfade {
     private let planner = NativeTransitionPlanner()
     private let balance = NativeBalanceCorrection()
     private let profiles: NativeTrackProfiles
+    private var beatModel: URL?
     private let lyrics: NativeLyrics
     private var work: Task<Void, Never>?
     private var release: DispatchWorkItem?
@@ -38,11 +39,11 @@ final class NativeCrossfade {
     private(set) var maximumSeconds = 5.0
     var isFading: Bool { fade != nil }
 
-    init(owner: PlaybackEngine, profiler: NativeTrackProfiler = NativeTrackProfiler(), lyrics: NativeLyrics? = nil) {
+    init(owner: PlaybackEngine, profiler: NativeTrackProfiler = NativeTrackProfiler(), lyrics: NativeLyrics? = nil, profiles: NativeTrackProfiles? = nil) {
         self.owner = owner
-        profiles = NativeTrackProfiles(local: owner.local, profiler: profiler, configuration: owner.mediaNetworkConfiguration ?? .ephemeral, mediaCache: owner.mediaCache)
+        self.profiles = profiles ?? NativeTrackProfiles(local: owner.local, profiler: profiler, configuration: owner.mediaNetworkConfiguration ?? .ephemeral, mediaCache: owner.mediaCache)
         self.lyrics = lyrics ?? NativeLyrics(local: owner.local, gateway: owner.gateway, cache: owner.lyricCache)
-        profiles.changed = { [weak self] in self?.tick() }
+        self.profiles.changed = { [weak self] in self?.tick() }
         self.lyrics.changed = { [weak self] in self?.tick() }
     }
     deinit { work?.cancel(); release?.cancel(); balance.cancel(); fade?.tail?.dispose() }
@@ -54,6 +55,7 @@ final class NativeCrossfade {
         }
         guard self.enabled != enabled || self.maximumSeconds != maximumSeconds || self.mode != mode else { return }
         self.enabled = enabled; self.maximumSeconds = maximumSeconds; self.mode = mode
+        profiles.useBeatModel(enabled && mode == "automix" ? beatModel : nil)
         owner?.streamOutput?.setAnalysisEnabled(enabled)
         if !enabled { cancel(); owner?.prefetch() } else { invalidatePlan() }
         tick()
@@ -86,6 +88,13 @@ final class NativeCrossfade {
     }
     func cancelLyricRequests() { lyrics.cancel() }
     func cancelAnalysis() { profiles.cancel() }
+    func modelsChanged(beat: URL?) {
+        beatModel = beat
+        // Crossfade needs measured silence edges, never model inference just because weights exist.
+        guard profiles.useBeatModel(enabled && mode == "automix" ? beat : nil) else { return }
+        // An audible transition keeps its schedule; subsequent plans use the new measured capability.
+        if !isFading { invalidatePlan(); tick() }
+    }
     func mediaAvailable(_ identity: String) { profiles.mediaAvailable(identity); tick() }
     func cacheSettingsChanged() { profiles.resetOnline(); if !isFading { invalidatePlan(); tick() } }
     func localLyricsChanged(_ id: String) {

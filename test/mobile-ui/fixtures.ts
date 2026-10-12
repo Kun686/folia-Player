@@ -20,6 +20,13 @@ export const test = base.extend<{ nativeBridge: void }>({
       sessionStorage.setItem('fixture-sleep', JSON.stringify(sleepTimer)); sleepSubscriber?.({ ...sleepTimer });
     };
     let cacheSubscriber: () => void;
+    const modelSubscribers = new Map<string, () => void>();
+    let modelCallback = 0;
+    win.fixtureModels = { ready: true, revision: 1, analysisAvailable: true,
+      capabilities: { beatGrid: false, stems: false, full: false, desktop: false },
+      models: ['beat_this', 'htdemucs'].map((name, i) => ({ name, bytes: i ? 108644650 : 83077778,
+        enables: i ? 'stems' : 'beatGrid', installed: false, phase: 'absent', received: 0, host: '', failures: [] })) };
+    win.fixtureEmitModels = () => { win.fixtureModels.revision++; modelSubscribers.forEach(callback => callback()); };
     const catalogSubscribers = new Map<string, () => void>();
     let catalogCallback = 0;
     const catalogSubscriber = () => catalogSubscribers.forEach(callback => callback());
@@ -47,13 +54,17 @@ export const test = base.extend<{ nativeBridge: void }>({
     win.fixtureCommands = [];
     const emit = () => { state.revision++; subscriber?.({ ...state }); };
     win.fixtureEmitPlayback = (patch: Record<string, unknown>) => { Object.assign(state, patch); emit(); };
-    const methods = ['bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile', 'sharePlaylistFile',
+    const methods = ['getModels', 'downloadModel', 'cancelModel', 'removeModels', 'importModel', 'bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile', 'sharePlaylistFile',
       'readLocalFolders', 'beginFolderImport', 'readFolderImport', 'prepareFolderImport', 'finishFolderImport', 'cancelFolderImport', 'removeLocalFolder',
       'readLocalLibrary', 'editLocalLibrary', 'localCatalog', 'importAudio', 'localDetails', 'readLocalLyrics', 'readLocalMatch', 'writeLocalMatch', 'selectLocalLyrics', 'importLyrics', 'pickLyricFile', 'saveLocalLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
       'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache', 'listExportLyrics', 'readExportLyrics', 'shareLyricArchive', 'getSleepTimer', 'setSleepTimer', 'getAISettings', 'setAISettings', 'aiRequest', 'cancelAIRequest', 'getSyncSettings', 'setSyncSettings', 'syncRequest', 'cancelSyncRequest'];
     win.Capacitor = {
       PluginHeaders: [{ name: 'FoliaNative', methods: [...methods.map(name => ({ name, rtype: 'promise' })), { name: 'addListener' }, { name: 'removeListener' }] }],
       nativeCallback: (_plugin: string, method: string, options: any, cb: (state: unknown) => void) => {
+        if (method === 'addListener' && options.eventName === 'models') {
+          const id = 'models-' + ++modelCallback; modelSubscribers.set(id, cb as () => void); return id;
+        }
+        if (method === 'removeListener' && options.eventName === 'models') modelSubscribers.delete(options.callbackId);
         if (method === 'addListener' && options.eventName === 'localCatalog') {
           const id = 'catalog-' + ++catalogCallback; catalogSubscribers.set(id, cb as () => void); return id;
         }
@@ -61,6 +72,11 @@ export const test = base.extend<{ nativeBridge: void }>({
         if (method === 'addListener') { if (options.eventName === 'sleepTimer') sleepSubscriber = cb; else if (options.eventName === 'mediaCache') cacheSubscriber = cb as () => void; else if (options.eventName === 'playback') subscriber = cb; } return 'callback-1';
       },
       nativePromise: async (_plugin: string, method: string, options: any) => {
+        if (['getModels', 'downloadModel', 'cancelModel', 'removeModels', 'importModel'].includes(method)) {
+          if (win.fixtureModelBridge) return win.fixtureModelBridge(method, options);
+          if (method === 'getModels') return structuredClone(win.fixtureModels);
+          throw new Error('model-fixture-not-configured');
+        }
         if (['getSyncSettings', 'setSyncSettings', 'syncRequest', 'cancelSyncRequest'].includes(method)) {
           if (win.fixtureSyncBridge) return win.fixtureSyncBridge(method, options);
           if (method === 'getSyncSettings') return { enabled: false, baseURL: '', hasToken: false, scope: 'fixture-disabled', revision: 0 };
