@@ -78,7 +78,7 @@ final class StreamMixOutput {
         }
         let source = try StreamRenderSource(player: player, allowsTempo: allowsTempo, replayGain: replayGain, mode: replayGainMode)
         let deck = decks[Int(bus)]
-        deck.processor.source(source.identity)
+        deck.processor.source(source.identity, mediaClockOwner: source.tempo)
         engine.attach(source.node)
         engine.connect(source.node, to: deck.input, fromBus: 0, toBus: 0, format: source.format)
         sources[identity] = (bus, source)
@@ -205,6 +205,7 @@ final class StreamMixOutput {
         analysis.remove(entry.source.capture)
         engine.disconnectNodeOutput(entry.source.node)
         engine.detach(entry.source.node)
+        decks[Int(entry.bus)].processor.clearMediaClockOwner()
         entry.source.close()
         if sources.isEmpty { engine.pause(); analysis.configure(running: false); unit.requestDiscontinuity() }
     }
@@ -221,6 +222,7 @@ final class StreamMixOutput {
         closed = true; configurationChanged = nil
         if let observer { NotificationCenter.default.removeObserver(observer) }; observer = nil
         engine.stop(); analysis.close()
+        for deck in decks { deck.processor.clearMediaClockOwner() }
         transitionGain.closeWhileStopped()
         for entry in sources.values { engine.detach(entry.source.node); entry.source.close() }
         sources.removeAll()

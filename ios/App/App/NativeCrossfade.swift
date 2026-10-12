@@ -26,6 +26,7 @@ final class NativeCrossfade {
     private let stemHandover = NativeStemHandover()
     private let profiles: NativeTrackProfiles
     private let stems: NativeTrackStems
+    private let trace: NativeAnalysisTrace?
     private var beatModel: URL?
     private var stemModel: URL?
     private var clearingCache = false
@@ -58,8 +59,8 @@ final class NativeCrossfade {
     }
 
     init(owner: PlaybackEngine, profiler: NativeTrackProfiler = NativeTrackProfiler(), lyrics: NativeLyrics? = nil,
-         profiles: NativeTrackProfiles? = nil, stems: NativeTrackStems? = nil) {
-        self.owner = owner
+         profiles: NativeTrackProfiles? = nil, stems: NativeTrackStems? = nil, trace: NativeAnalysisTrace? = nil) {
+        self.owner = owner; self.trace = trace
         let profiles = profiles ?? NativeTrackProfiles(local: owner.local, profiler: profiler, configuration: owner.mediaNetworkConfiguration ?? .ephemeral, mediaCache: owner.mediaCache)
         self.profiles = profiles
         self.stems = stems ?? NativeTrackStems(local: owner.local, mediaCache: owner.mediaCache,
@@ -301,9 +302,19 @@ final class NativeCrossfade {
         session: NativeMutedPreplay, handover: NativeMasterHandover, plan: NativeTransitionPlan, expected: Key) async throws -> NativeLiveStemHandover? {
         guard let pair, let envelope = handover.envelope, envelope.overlap >= 0.8 else { return nil }
         guard let original = handover.sourceClock else {
+            if let trace, let owner, let output = owner.streamOutput, let outgoing = owner.stream {
+                let state = outgoing.tempoState
+                trace.mark("preplay.source", operation: UUID(), metrics: [
+                    "raw": NSNumber(value: state?.phase == .raw), "rate": NSNumber(value: state?.rate ?? -1),
+                    "frame": NSNumber(value: state?.mediaClock?.sampleEnd ?? -1),
+                    "renderedEnd": NSNumber(value: output.transitionGain.clock.renderedEnd ?? -1),
+                    "bufferedSeconds": NSNumber(value: outgoing.audio.bufferedDuration),
+                    "playing": NSNumber(value: outgoing.playing), "seeking": NSNumber(value: outgoing.seeking),
+                    "ended": NSNumber(value: outgoing.hasEnded)])
+            }
             stemPreparationStatus = "clock-unavailable:source"; return nil
         }
-        guard let clocks = try await session.clocks(current: { [weak self] in self?.matches(expected) == true }) else {
+        guard let clocks = try await session.clocks(current: { [weak self] in self?.matches(expected) == true }, trace: trace) else {
             stemPreparationStatus = "clock-unavailable:pair"; return nil
         }
         guard clocks.outgoing.source == original.source, clocks.outgoing.epoch == original.epoch else {

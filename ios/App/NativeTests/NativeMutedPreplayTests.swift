@@ -33,6 +33,132 @@ import AVFoundation
 }
 
 @MainActor extension NativeTests {
+    func testPreplayClocksAfterLongResampledTimeline() async throws {
+        let file = try sharedConstantFile(seconds: 8, stereo: true)
+        defer { try? FileManager.default.removeItem(at: file) }
+        let output = try await StreamMixOutput.make()
+        defer { output.close() }
+        let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2)!
+        try output.engine.enableManualRenderingMode(.realtime, format: format, maximumFrameCount: 512)
+        let pcm = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 512)!
+        func render() throws {
+            pcm.frameLength = 512
+            var error: OSStatus = noErr
+            let result = output.engine.manualRenderingBlock(512, pcm.mutableAudioBufferList, &error)
+            guard result == .success, error == noErr else { throw MobileFailure("audio-failed") }
+        }
+        let outgoing = try await StreamOccurrence.prepare(url: file, output: output, allowsTempo: true)
+        defer { outgoing.dispose() }
+        try outgoing.attachOutput(); try output.start()
+        // Advance the actual 44.1k -> 48k graph beyond the failing host frame without waiting in wall time.
+        // The prepared decoder stays unstarted; these silent host pulls do not consume the fixture.
+        for _ in 0..<10000 { try render() }
+        try outgoing.play()
+        for _ in 0..<16 { try render() }
+        try outgoing.seek(to: 2)
+        try await waitForStream { !outgoing.seeking && output.running }
+        for _ in 0..<16 { try render() }
+        let incoming = try await StreamOccurrence.prepare(url: file, position: 0.22, output: output, allowsTempo: true)
+        defer { incoming.dispose() }
+        let session = try NativeMutedPreplay(output: output, outgoing: outgoing, incoming: incoming)
+        defer { session.cancel() }
+        let start = Task { try await session.start(current: { true }) }
+        defer { start.cancel() }
+        try await Task.sleep(for: .milliseconds(20)); try render(); try await start.value
+        for _ in 0..<16 { try render() }
+        let clocks = output.stemClocks(outgoing: outgoing.audio, incoming: incoming.audio)
+        print("FOLIA_LONG_CLOCK out=\(outgoing.tempoState?.mediaClock?.sampleEnd ?? -1) in=\(incoming.tempoState?.mediaClock?.sampleEnd ?? -1) shared=\(output.transitionGain.clock.renderedEnd ?? -1)")
+        XCTAssertNotNil(clocks, "Late attachment must preserve both exact clocks on the resampled host timeline")
+    }
+
+    func testLivePreplayRetainsExactClocksAcrossRepeatedPreparationAndSeek() async throws {
+        let file = try sharedConstantFile(seconds: 8, stereo: true)
+        defer { try? FileManager.default.removeItem(at: file) }
+        try await exerciseLivePreplayClocks(file: file, duration: 8, seek: 2, analysis: false)
+    }
+    func testLivePreplayRetainsExactClocksWithNativeAnalysis() async throws {
+        let file = try sharedConstantFile(seconds: 8, stereo: true)
+        defer { try? FileManager.default.removeItem(at: file) }
+        try await exerciseLivePreplayClocks(file: file, duration: 8, seek: 2, analysis: true)
+    }
+    func testLivePreplayRetainsExactClocksWithOriginalMusicAndNativeAnalysis() async throws {
+        try await originalMusicPreplayClocks(measured: false)
+    }
+    func testLivePreplayRetainsExactClocksWithOutputMeasurement() async throws {
+        try await originalMusicPreplayClocks(measured: true)
+    }
+    private func originalMusicPreplayClocks(measured: Bool) async throws {
+        guard Bundle.main.bundleIdentifier == "app.folia.validation.App" else { throw XCTSkip("Independent QA only") }
+        let file = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ORTQA/music.wav")
+        guard FileManager.default.fileExists(atPath: file.path) else { throw XCTSkip("Stage the approved original music") }
+        let snapshot = try NativeStemSnapshot.capture(file, deadline: ProcessInfo.processInfo.systemUptime + 10)
+        XCTAssertEqual(snapshot.digest, "d7db2870d3ab5c1b56f793288c045a34043c1e1cfda468010a3e200f4e8c38a2")
+        // Actual failed joint-test seek position; this probes clocks only, not model inference or stem PCM.
+        try await exerciseLivePreplayClocks(file: snapshot.url, duration: 132.9879365079365,
+            seek: 108.88, analysis: true, measured: measured)
+    }
+    private func exerciseLivePreplayClocks(file: URL, duration: Double, seek: Double, analysis: Bool, measured: Bool = false) async throws {
+        let planner = NativeTransitionPlanner()
+        let tail = try StemStorageReference.window(frames: 352800, from: Int(max(0, duration - 8) * 44100))
+        let head = try StemStorageReference.window(frames: 352800, role: .head)
+        let plan = NativeTransitionPlan(kind: "fade", style: "bassSwap", relation: "neutral", tempo: "locked",
+            stretch: 1, tiltDb: [0, 0], echoThrow: false, outStart: seek + 1.5, inStart: 0.22,
+            overlap: 2, minOverlap: 0.8, reason: "Generated live-clock fixture", expansion: nil)
+        var reports: [[String: Any]] = []
+        defer {
+            if let data = try? JSONSerialization.data(withJSONObject: reports, options: [.sortedKeys]) {
+                let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+                attachment.name = "live-preplay-clocks.json"; attachment.lifetime = .keepAlways; add(attachment)
+            }
+        }
+        // Reuse the real handover boundary without model cost; alternate normal playback and a fresh seek source.
+        for index in 0..<16 {
+            let output = try await StreamMixOutput.make()
+            defer { output.close() }
+            output.setAnalysisEnabled(analysis)
+            let outgoing = try await StreamOccurrence.prepare(url: file, output: output, allowsTempo: true)
+            defer { outgoing.dispose() }
+            let incoming = try await StreamOccurrence.prepare(url: file, position: 0.22, output: output, allowsTempo: true)
+            defer { incoming.dispose() }
+            try outgoing.play()
+            try await waitForStream { outgoing.position > 0.1 }
+            let measurement = OutputMeasurement()
+            if measured {
+                output.engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, _ in measurement.consume(buffer) }
+            }
+            defer { if measured { output.engine.mainMixerNode.removeTap(onBus: 0) } }
+            if index % 2 == 1 {
+                try outgoing.seek(to: seek)
+                try await waitForStream { !outgoing.seeking && outgoing.position > seek + 0.05 }
+            }
+            let session = try NativeMutedPreplay(output: output, outgoing: outgoing, incoming: incoming)
+            defer { session.cancel() }
+            try await session.start(current: { true })
+            let handover = try await NativeMasterTransition.prepare(planner: planner, plan: plan, output: output,
+                outgoing: outgoing, duration: duration, fromProfile: nil, toProfile: nil,
+                stems: (tail, head), current: { true })
+            let clocks = try await session.clocks(current: { true })
+            let sameSource = clocks?.outgoing.source == handover.sourceClock?.source
+            let sameEpoch = clocks?.outgoing.epoch == handover.sourceClock?.epoch
+            let report: [String: Any] = ["iteration": index, "seek": index % 2 == 1, "analysis": analysis,
+                "sourceAvailable": handover.sourceClock != nil, "pairAvailable": clocks != nil,
+                "sameSource": sameSource, "sameEpoch": sameEpoch,
+                "outgoingRate": outgoing.rate, "incomingRate": incoming.rate,
+                "outgoingClock": outgoing.tempoState?.mediaClock != nil,
+                "incomingClock": incoming.tempoState?.mediaClock != nil,
+                "outFrame": outgoing.tempoState?.mediaClock?.sampleEnd ?? -1,
+                "inFrame": incoming.tempoState?.mediaClock?.sampleEnd ?? -1,
+                "renderedEnd": output.transitionGain.clock.renderedEnd ?? -1,
+                "measured": measured]
+            reports.append(report)
+            print("FOLIA_PREPLAY_CLOCK " + String(decoding: try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]), as: UTF8.self))
+            XCTAssertNotNil(handover.sourceClock, "Exact outgoing anchor missing at iteration \(index)")
+            XCTAssertNotNil(clocks, "Coherent pair missing at iteration \(index)")
+            XCTAssertTrue(sameSource && sameEpoch, "Continuous media must retain its source and epoch at iteration \(index)")
+        }
+    }
+
     func testLiveStemFallbackRestoresCurrentDecoderWhenEngineClockResetsBeforeOrAfterAdoption() async throws {
         let planner = NativeTransitionPlanner()
         let out = try StemStorageReference.window(frames: 176400), input = try StemStorageReference.window(frames: 176400, role: .head)

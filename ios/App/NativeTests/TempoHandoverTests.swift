@@ -74,6 +74,58 @@ private final class LimitedTempoFeed: NativeTempoFeed {
 }
 
 @MainActor extension NativeTests {
+    func testHostMediaClockMapsOnlyOneCompleteConsumedPull() throws {
+        let input = LimitedTempoFeed(), source = try NativeTempoHandover(source: input, usesHostClock: true)
+        defer { source.close() }
+        let pcm = AVAudioPCMBuffer(pcmFormat: input.format, frameCapacity: 512)!
+        let planar = AVAudioPCMBuffer(pcmFormat: AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2)!, frameCapacity: 512)!
+        for channel in 0..<2 { planar.floatChannelData![channel].update(repeating: 0, count: 512) }
+        let deck = TransitionDeckProcessor(gain: TransitionGain())
+        try deck.prepare(rate: 44100, capacity: 512)
+        deck.source(UUID(), mediaClockOwner: source)
+        defer { deck.clearMediaClockOwner() }
+        func pull(_ local: Double, frames: Int = 128) throws {
+            pcm.frameLength = AVAudioFrameCount(frames); planar.frameLength = AVAudioFrameCount(frames)
+            XCTAssertEqual(source.render(pcm.mutableAudioBufferList, frames: AVAudioFrameCount(frames), sampleTime: local), noErr)
+            for frame in 0..<frames { for channel in 0..<2 {
+                planar.floatChannelData![channel][frame] = pcm.floatChannelData![0][frame * 2 + channel]
+            } }
+        }
+        func consume(_ host: Double, frames: Int = 128) {
+            planar.frameLength = AVAudioFrameCount(frames)
+            XCTAssertTrue(deck.process(planar.mutableAudioBufferList, frames: frames, sampleTime: host))
+        }
+        try pull(9999)
+        XCTAssertNil(source.snapshot().mediaClock, "A source-local timestamp cannot be exposed as a shared anchor")
+        consume(10000)
+        let first = try XCTUnwrap(source.snapshot().mediaClock)
+        XCTAssertEqual(first.sampleEnd, 10128); XCTAssertEqual(first.mediaEnd, 128 / 44100.0, accuracy: 1e-12)
+        XCTAssertFalse(first.isCurrent(at: 10127), "Mapping does not permit stale or one-frame tolerance")
+        try pull(10127); consume(10128)
+        let second = try XCTUnwrap(source.snapshot().mediaClock)
+        XCTAssertEqual(first.source, second.source); XCTAssertEqual(first.epoch, second.epoch)
+        XCTAssertEqual(try XCTUnwrap(first.position(at: second.sampleEnd)), second.mediaEnd, accuracy: 1e-12)
+        consume(10256)
+        XCTAssertNil(source.snapshot().mediaClock, "A cached buffer without a new decoder pull cannot advance the clock")
+        try pull(10500); try pull(10628); consume(10384)
+        XCTAssertNil(source.snapshot().mediaClock, "Multiple pulls cannot silently discard a conversion/read-ahead boundary")
+        try pull(10756); consume(10512, frames: 256)
+        XCTAssertNil(source.snapshot().mediaClock, "Different frame counts cannot be treated as one-to-one PCM")
+        try pull(11000); consume(10768)
+        let recovered = try XCTUnwrap(source.snapshot().mediaClock)
+        XCTAssertNotEqual(recovered.epoch, second.epoch)
+        try pull(11128); consume(0)
+        let restarted = try XCTUnwrap(source.snapshot().mediaClock)
+        XCTAssertNotEqual(restarted.epoch, recovered.epoch, "Host reset revokes the old projection even if local time continues")
+        input.available = input.cursor + 64
+        try pull(11256); consume(128)
+        XCTAssertNil(source.snapshot().mediaClock, "A partial read does not map padding to music")
+        input.available = input.length
+        try pull(11384)
+        source.close(); consume(256)
+        XCTAssertNil(source.snapshot().mediaClock, "Close revokes an unconsumed pull")
+    }
+
     func testStemStartUsesNearestHostSampleWithoutRejectingTailEndingCoverage() async throws {
         let planner = NativeTransitionPlanner()
         for fractional in [0.0, 0.015625, 0.25, 0.5, 0.75, 0.984375] {

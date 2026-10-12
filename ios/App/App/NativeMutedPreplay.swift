@@ -51,12 +51,38 @@ final class NativeMutedPreplay {
         state = .transferred
         return next
     }
-    @MainActor func clocks(current: () -> Bool) async throws -> NativeStemClocks? {
+    @MainActor func clocks(current: () -> Bool, trace: NativeAnalysisTrace? = nil) async throws -> NativeStemClocks? {
+        let operation = trace == nil ? nil : UUID()
+        var polls = 0, missingOutgoing = 0, missingIncoming = 0, mismatched = 0
+        // Opt-in control-side evidence only; never log media identity or add work to the render callback.
+        defer {
+            if let trace, let operation {
+                let out = output.tempoState(outgoing.audio), input = output.tempoState(incoming.audio)
+                trace.mark("preplay.clocks", operation: operation, metrics: [
+                    "polls": NSNumber(value: polls), "missingOutgoing": NSNumber(value: missingOutgoing),
+                    "missingIncoming": NSNumber(value: missingIncoming), "mismatched": NSNumber(value: mismatched),
+                    "outRaw": NSNumber(value: out?.phase == .raw), "inRaw": NSNumber(value: input?.phase == .raw),
+                    "outRate": NSNumber(value: out?.rate ?? -1), "inRate": NSNumber(value: input?.rate ?? -1),
+                    "outFrame": NSNumber(value: out?.mediaClock?.sampleEnd ?? -1),
+                    "inFrame": NSNumber(value: input?.mediaClock?.sampleEnd ?? -1),
+                    "outQuantum": NSNumber(value: out?.mediaClock?.quantumFrames ?? -1),
+                    "inQuantum": NSNumber(value: input?.mediaClock?.quantumFrames ?? -1),
+                    "renderedEnd": NSNumber(value: output.transitionGain.clock.renderedEnd ?? -1),
+                    "inBufferedSeconds": NSNumber(value: incoming.audio.bufferedDuration),
+                    "inPlaying": NSNumber(value: incoming.playing), "inSeeking": NSNumber(value: incoming.seeking),
+                    "inEnded": NSNumber(value: incoming.hasEnded)])
+            }
+        }
         let deadline = CACurrentMediaTime() + 0.25
         while CACurrentMediaTime() < deadline {
             try check(current)
             guard state == .playing else { throw MobileFailure("transition-cancelled") }
-            if let clocks = output.stemClocks(outgoing: outgoing.audio, incoming: incoming.audio) { return clocks }
+            let out = output.mediaClock(outgoing.audio), input = output.mediaClock(incoming.audio)
+            polls += 1
+            if out == nil { missingOutgoing += 1 }
+            if input == nil { missingIncoming += 1 }
+            if let clocks = NativeStemClocks(outgoing: out, incoming: input) { return clocks }
+            if out != nil && input != nil { mismatched += 1 }
             try await Task.sleep(nanoseconds: 5_000_000)
         }
         return nil

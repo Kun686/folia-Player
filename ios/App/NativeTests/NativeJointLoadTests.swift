@@ -160,14 +160,23 @@ import AVFoundation
         try await originalJointLoad(includingHandover: true, distinctSongs: true)
     }
 
+    func testConsecutiveOriginalModelHandoversWithCadenza() async throws {
+        // Bounded continuation of the original joint workload; keep every round's evidence and stop on failure.
+        for index in 0..<3 {
+            try await originalJointLoad(includingHandover: true, distinctSongs: index == 0,
+                reportPrefix: "joint-consecutive-\(index)")
+            if (testRun?.failureCount ?? 0) > 0 { return }
+        }
+    }
+
     // Reuse the same original-model preparation; the optional leg observes the actual queue adoption.
-    private func originalJointLoad(includingHandover: Bool, distinctSongs: Bool = false) async throws {
+    private func originalJointLoad(includingHandover: Bool, distinctSongs: Bool = false, reportPrefix: String? = nil) async throws {
         guard Bundle.main.bundleIdentifier == "app.folia.validation.App" else {
             throw XCTSkip("Joint load is restricted to the independent QA identity")
         }
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let assets = documents.appendingPathComponent("ORTQA")
-        let prefix = distinctSongs ? "joint-distinct" : "joint"
+        let prefix = reportPrefix ?? (distinctSongs ? "joint-distinct" : "joint")
         let report = documents.appendingPathComponent(prefix + "-load.json")
         let firstFile = assets.appendingPathComponent("music.wav")
         let secondFile = assets.appendingPathComponent(distinctSongs ? "distinct.wav" : "music.wav")
@@ -224,7 +233,7 @@ import AVFoundation
             separator: MeasuredQueueStemSeparator(), profilesIdle: { !profiles.hasPending },
             providerBarrier: { [weak player] in player?.mediaCachePurges[$0] })
         player.crossfade?.cancel()
-        player.crossfade = NativeCrossfade(owner: player, profiles: profiles, stems: stems)
+        player.crossfade = NativeCrossfade(owner: player, profiles: profiles, stems: stems, trace: trace)
         defer { stems.cancel(); profiles.cancel() }
         try await models.install(assets.appendingPathComponent("beat_this.onnx"))
         try await models.install(assets.appendingPathComponent("htdemucs.onnx"))

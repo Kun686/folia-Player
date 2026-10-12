@@ -1,6 +1,7 @@
 # 不同歌曲的原模型交接与取消回归
 
 2026-10-13。**PASS_DISTINCT_SONG_SIMULATOR / INTERMITTENT_CLOCK_FALLBACK_UNRESOLVED**。
+此为当时状态；后续已复现1帧时钟域差异并完成三轮联合回归修复，见 [PREPLAY_CLOCK.md](PREPLAY_CLOCK.md)。
 按用户要求继续不依赖真机的工作，只使用 `app.folia.validation.App` 的 iPad 模拟器。
 个人 mobile.28、服务器、界面、原模型与音乐算法未更新。完整 Automix 尚未通过稳定性验收。
 

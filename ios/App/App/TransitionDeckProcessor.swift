@@ -6,6 +6,7 @@ final class TransitionDeckProcessor {
     private let gain: TransitionGain
     private let lock = NSLock()
     private var requestedIdentity: UUID?
+    private var mediaClockOwner: NativeTempoHandover?
     private var identity = UUID()
     private var scratch: AVAudioPCMBuffer?
     private var rate = 0.0
@@ -13,7 +14,12 @@ final class TransitionDeckProcessor {
     private var echo: TransitionEcho?
 
     init(gain: TransitionGain) { self.gain = gain }
-    func source(_ identity: UUID) { lock.lock(); requestedIdentity = identity; lock.unlock() }
+    func source(_ identity: UUID, mediaClockOwner: NativeTempoHandover? = nil) {
+        lock.lock(); defer { lock.unlock() }
+        requestedIdentity = identity; self.mediaClockOwner = mediaClockOwner
+    }
+    // Control retains/releases this reference under the lock; render never takes ownership of it.
+    func clearMediaClockOwner() { lock.lock(); defer { lock.unlock() }; mediaClockOwner = nil }
 
     // Graph edits can reallocate AU buffers. Preserve the original deck's histories at the same rate.
     func prepare(rate: Double, capacity: AVAudioFrameCount) throws {
@@ -38,6 +44,7 @@ final class TransitionDeckProcessor {
             && Int($0.mDataByteSize) >= frames * MemoryLayout<Float>.size }),
               let pcm = scratch.floatChannelData?[0] else { return false }
         if lock.try() {
+            mediaClockOwner?.bindMediaClock(sampleTime: sampleTime, frames: frames)
             if let requestedIdentity {
                 identity = requestedIdentity; self.requestedIdentity = nil
                 // A replacement song cannot feed a previous song's scheduled throw. Its return survives.

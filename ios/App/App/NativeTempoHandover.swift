@@ -22,6 +22,9 @@ final class NativeTempoHandover {
     private var pendingClockReset = false
     private var published: State
     private var mediaClock = NativeMediaClockTracker()
+    private let usesHostClock: Bool
+    private var pendingClockPulls = 0, pendingClockFrames = 0
+    private var pendingClockPosition = Double.nan, pendingClockComplete = false
     // Only the serial shared render graph reads/writes this value. Control uses snapshot() instead.
     private(set) var renderMediaClock: NativeMediaClock?
     // Main-control callbacks use pre-created coalescing sources, as AudioEffectController does.
@@ -30,8 +33,11 @@ final class NativeTempoHandover {
     private var wake: DispatchSourceUserDataAdd?, fault: DispatchSourceUserDataAdd?
     private var noticeGeneration: UInt64 = 0
 
-    convenience init(player: AudioPlayer) throws { try self.init(source: DecoderTempoFeed(player: player)) }
-    init(source: NativeTempoFeed) throws {
+    convenience init(player: AudioPlayer, usesHostClock: Bool = false) throws {
+        try self.init(source: DecoderTempoFeed(player: player), usesHostClock: usesHostClock)
+    }
+    init(source: NativeTempoFeed, usesHostClock: Bool = false) throws {
+        self.usesHostClock = usesHostClock
         let window = try NativeTempoPCM(source: source), feed = CachedTempoFeed(window: window)
         self.window = window; self.feed = feed
         stream = try NativeTempoStream(feed: feed)
@@ -64,6 +70,11 @@ final class NativeTempoHandover {
     // network request creation, or control-side blocking lock happens at the point of handover.
     func render(_ output: UnsafeMutablePointer<AudioBufferList>, frames: AVAudioFrameCount,
                 sampleTime: Double? = nil) -> OSStatus {
+        if usesHostClock {
+            pendingClockPulls = min(2, pendingClockPulls + 1)
+            pendingClockFrames = Int(frames); pendingClockComplete = false
+            renderMediaClock = nil
+        }
         let list = UnsafeMutableAudioBufferListPointer(output)
         guard !closed, frames > 0, frames <= 8192, list.count == 1, list[0].mNumberChannels == 2,
               list[0].mDataByteSize >= frames * 8, let destination = list[0].mData else {
@@ -123,8 +134,10 @@ final class NativeTempoHandover {
         }
         let state = stream.renderState
         let position = phase == .active ? state.position : window.position(cursor)
-        let clock = mediaClock.record(sampleTime: sampleTime, frames: Int(frames), sampleRate: window.format.sampleRate,
-            mediaEnd: position, complete: phase == .raw && desiredRate == 1 && completeRawRead)
+        let complete = phase == .raw && desiredRate == 1 && completeRawRead
+        if usesHostClock { pendingClockPosition = position; pendingClockComplete = complete }
+        let clock = usesHostClock ? nil : mediaClock.record(sampleTime: sampleTime, frames: Int(frames), sampleRate: window.format.sampleRate,
+            mediaEnd: position, complete: complete)
         renderMediaClock = clock
         if lock.try() {
             let next = State(phase: phase, position: position,
@@ -139,8 +152,24 @@ final class NativeTempoHandover {
         }
         return noErr
     }
+    // The downstream insert calls this immediately after pulling the PCM, on the same render thread.
+    // AVAudioSourceNode owns a local timestamp origin. Only one complete, same-sized pull can map to
+    // this host quantum; cached, split, missing or incomplete pulls cannot project a media position.
+    func bindMediaClock(sampleTime: Double, frames: Int) {
+        guard usesHostClock else { return }
+        let clock = mediaClock.record(sampleTime: sampleTime, frames: frames, sampleRate: window.format.sampleRate,
+            mediaEnd: pendingClockPosition,
+            complete: !closed && pendingClockPulls == 1 && pendingClockFrames == frames && pendingClockComplete)
+        pendingClockPulls = 0; pendingClockComplete = false
+        renderMediaClock = clock
+        if lock.try() {
+            published.mediaClock = !pendingClockReset && (pendingRate == nil || pendingRate == 1) ? clock : nil
+            lock.unlock()
+        }
+    }
     private func invalidateRenderedMediaClock() {
         mediaClock.invalidate(); renderMediaClock = nil
+        pendingClockPulls = 0; pendingClockComplete = false
         if lock.try() { published.mediaClock = nil; lock.unlock() }
     }
     // After entering TimePitch, rate 1 stays on the same aligned stream until this occurrence ends.
@@ -151,6 +180,7 @@ final class NativeTempoHandover {
         guard !window.source.isSeeking else { throw MobileFailure("invalid-position") }
         prepareNotices()
         mediaClock.invalidate(); renderMediaClock = nil
+        pendingClockPulls = 0; pendingClockComplete = false
         window.reset(); cursor = 0; feed.cursor = 0; feed.underflow = false
         pendingRate = nil; pendingClockReset = false; desiredRate = 1; rawEnded = false; phase = .raw
         do { try stream.reset() }
@@ -165,6 +195,7 @@ final class NativeTempoHandover {
         lock.lock(); defer { lock.unlock() }
         guard !closed else { return }; closed = true; pendingRate = nil
         mediaClock.invalidate(); renderMediaClock = nil; published.mediaClock = nil
+        pendingClockPulls = 0; pendingClockComplete = false
         noticeGeneration &+= 1; wake?.cancel(); fault?.cancel(); changed = nil
         stream.close(); window.close()
     }
