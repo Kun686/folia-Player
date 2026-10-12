@@ -5,6 +5,13 @@ import { loadMobileSyncSettings, mobileSyncConnection } from './syncRuntime';
 
 // src/mobile/runtime.ts — memory mirror is hydrated before provider imports; no credential localStorage.
 let sessions: Record<string, Record<string, string>> = {};
+let scope: string | undefined;
+let configuring = false;
+const clearing = new Set<string>();
+const scoped = () => {
+  if (!scope) throw new Error('invalid-gateway-settings');
+  return { scope };
+};
 let persistence: Promise<void> = Promise.resolve();
 const persistenceErrors = new Map<string, unknown>();
 const generations = new Map<string, number>();
@@ -18,8 +25,8 @@ export function captureProviderSession(provider: string): () => boolean {
 let coverGeneration = 0;
 let lyricGeneration = 0;
 const enqueueSave = (provider: string) => {
-  const values = { ...sessions[provider] };
-  persistence = persistence.then(() => native.saveSession({ provider, values })).then(() => { persistenceErrors.delete(provider); }).catch(error => { persistenceErrors.set(provider, error); });
+  const values = { ...sessions[provider] }, context = scoped();
+  persistence = persistence.then(() => native.saveSession({ provider, values, ...context })).then(() => { persistenceErrors.delete(provider); }).catch(error => { persistenceErrors.set(provider, error); });
 };
 export async function flushSessions() {
   await persistence;
@@ -31,18 +38,48 @@ export async function cancelProvider(provider: string) {
   if (ids.length) await native.cancelRequests({ ids });
 }
 export async function clearProvider(provider: string) {
-  await cancelProvider(provider);
-  sessions[provider] = {};
-  await persistence;
-  await native.clearSession({ provider });
-  persistenceErrors.delete(provider);
+  if (configuring || clearing.has(provider)) throw new Error('gateway-settings-changed');
+  const context = scoped();
+  clearing.add(provider);
+  try {
+    await cancelProvider(provider);
+    await persistence;
+    await native.clearSession({ provider, ...context });
+    sessions[provider] = {};
+    persistenceErrors.delete(provider);
+  } catch (error) {
+    // Native can commit logout before a cache purge fails. Restore the durable account state,
+    // while keeping the cleanup error visible instead of claiming the old account still exists.
+    const current = await native.bootstrap().catch(() => null);
+    if (current?.scope === context.scope) {
+      sessions[provider] = current.sessions[provider] ?? {};
+      if (!Object.keys(sessions[provider]).length) persistenceErrors.delete(provider);
+    }
+    throw error;
+  } finally { clearing.delete(provider); }
+}
+// Freeze outgoing session writes and retire old replies while native commits all credentials atomically.
+export async function configureGateway(server: string, token: string) {
+  if (configuring || clearing.size) throw new Error('gateway-settings-changed');
+  configuring = true;
+  try {
+    for (const provider of ['netease', 'qq', 'kugou']) await cancelProvider(provider);
+    await persistence;
+    const next = await native.configure({ server, token, ...scoped() });
+    if (!next.scope || !next.sessions || next.server !== server) throw new Error('invalid-gateway-settings');
+    scope = next.scope; sessions = next.sessions; persistenceErrors.clear();
+    return next.server;
+  } finally { configuring = false; }
 }
 async function request(input: string, init: RequestInit = {}) {
+  if (configuring) throw new DOMException('Canceled', 'AbortError');
+  const context = scoped();
   const url = new URL(input, 'https://mobile.invalid');
   const provider = url.pathname === '/api/lyric-proxy'
     ? (new URL(url.searchParams.get('url')!).hostname.includes('qq.com') ? 'qq' : 'kugou')
     : url.pathname.split('/')[2];
   if (!['netease', 'qq', 'kugou'].includes(provider)) throw new Error('unsupported-mobile-route');
+  if (clearing.has(provider)) throw new DOMException('Canceled', 'AbortError');
   const proxy = url.pathname === '/api/lyric-proxy';
   const epoch = generation(provider), id = crypto.randomUUID();
   const abort = () => { void native.cancelRequests({ ids: [id] }).catch(() => undefined); };
@@ -50,7 +87,7 @@ async function request(input: string, init: RequestInit = {}) {
   pending.set(id, provider);
   init.signal?.addEventListener('abort', abort, { once: true });
   try {
-    const result = await native.request({ id, payload: { provider: proxy ? 'lyrics' : provider,
+    const result = await native.request({ id, ...context, payload: { provider: proxy ? 'lyrics' : provider,
       path: proxy ? url.searchParams.get('url') : url.pathname.replace('/mobile/' + provider, '') + url.search,
       method: init.method ?? 'GET', headers: Object.fromEntries(new Headers(init.headers)),
       ...(init.body ? { body: String(init.body) } : {}) } });
@@ -60,7 +97,7 @@ async function request(input: string, init: RequestInit = {}) {
 }
 export async function initializeRuntime() {
   const state = await native.bootstrap();
-  sessions = state.sessions;
+  sessions = state.sessions; scope = state.scope;
   // Optional sync failure must not block playback startup or fall back to browser-stored credentials.
   await loadMobileSyncSettings().catch(() => undefined);
   installMobileRuntime({ fetch: request, sync: mobileSyncConnection,
@@ -87,6 +124,7 @@ export async function initializeRuntime() {
     },
     read: (provider, key) => sessions[provider]?.[key] ?? null,
     write: (provider, key, value) => {
+      if (configuring || clearing.has(provider)) throw new DOMException('Canceled', 'AbortError');
       if ((sessions[provider]?.[key] ?? null) !== value) sessionRevisions.set(provider, (sessionRevisions.get(provider) ?? 0) + 1);
       sessions[provider] ??= {};
       if (value === null) delete sessions[provider][key]; else sessions[provider][key] = value;

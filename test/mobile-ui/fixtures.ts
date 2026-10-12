@@ -176,7 +176,7 @@ export const test = base.extend<{ nativeBridge: void }>({
           emit(); return structuredClone(win.fixtureAudio);
         }
         if (method === 'health') return win.fixtureHealth ?? { protocol: 1, providers: ['netease', 'qq'] };
-        if (method === 'bootstrap') return { server: win.fixtureNoServer ? '' : 'https://fixture.invalid', sessions: win.fixtureSessions ?? {} };
+        if (method === 'bootstrap') return { scope: 'fixture-scope', server: win.fixtureNoServer ? '' : 'https://fixture.invalid', sessions: win.fixtureSessions ?? {} };
         if (method === 'readLocalLibrary' || method === 'editLocalLibrary') {
           const path = '/src/mobile/nativeLibraryRuntime.ts';
           // Init scripts execute in the browser; prevent the test runner's CommonJS transform from rewriting import().

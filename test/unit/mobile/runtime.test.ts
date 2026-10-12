@@ -2,14 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // test/unit/mobile/runtime.test.ts — verify late network replies cannot recreate cleared credentials.
 const native = vi.hoisted(() => ({
-  bootstrap: vi.fn(), saveSession: vi.fn(), clearSession: vi.fn(), request: vi.fn(), cancelRequests: vi.fn(),
+  bootstrap: vi.fn(), configure: vi.fn(), saveSession: vi.fn(), clearSession: vi.fn(), request: vi.fn(), cancelRequests: vi.fn(),
   songCover: vi.fn(), coverCacheState: vi.fn(), clearCoverCache: vi.fn(),
   readLyricCache: vi.fn(), writeLyricCache: vi.fn(), lyricCacheState: vi.fn(), clearLyricCache: vi.fn(),
 }));
 vi.mock('../../../src/mobile/bridge', () => ({ native }));
 describe('mobile secure runtime', () => {
   beforeEach(() => { vi.resetModules(); vi.clearAllMocks();
-    native.bootstrap.mockResolvedValue({ server: 'https://music.example.com', sessions: { qq: { cookie: 'fixture' } } });
+    native.configure.mockReset();
+    native.bootstrap.mockResolvedValue({ server: 'https://music.example.com', scope: 'original', sessions: { qq: { cookie: 'fixture' } } });
     native.saveSession.mockResolvedValue(undefined); native.clearSession.mockResolvedValue(undefined);
     native.cancelRequests.mockResolvedValue(undefined);
   });
@@ -24,7 +25,7 @@ describe('mobile secure runtime', () => {
     expect(native.saveSession.mock.calls.map(([arg]) => arg.values)).toEqual([{ cookie: 'new' }, {}]);
     await runtime.clearProvider('qq');
     expect(port.read('qq', 'cookie')).toBeNull();
-    expect(native.clearSession).toHaveBeenCalledWith({ provider: 'qq' });
+    expect(native.clearSession).toHaveBeenCalledWith({ provider: 'qq', scope: 'original' });
   });
   it('captures provider-scoped intent and revokes it on credential replacement, cancellation or logout', async () => {
     const runtime = await import('../../../src/mobile/runtime');
@@ -57,7 +58,7 @@ describe('mobile secure runtime', () => {
     await runtime.initializeRuntime();
     getMobileRuntime()!.write('qq', 'cookie', 'new');
     await runtime.clearProvider('qq');
-    expect(native.clearSession).toHaveBeenCalledWith({ provider: 'qq' });
+    expect(native.clearSession).toHaveBeenCalledWith({ provider: 'qq', scope: 'original' });
     await expect(runtime.flushSessions()).resolves.toBeUndefined();
   });
   it('surfaces Keychain persistence failure rather than reporting successful login', async () => {
@@ -67,6 +68,95 @@ describe('mobile secure runtime', () => {
     await runtime.initializeRuntime();
     getMobileRuntime()!.write('qq', 'cookie', 'new');
     await expect(runtime.flushSessions()).rejects.toThrow('secure-storage');
+  });
+  it('a failed gateway commit preserves memory, revokes old replies and allows retry', async () => {
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    await runtime.initializeRuntime(); const port = getMobileRuntime()!;
+    const current = runtime.captureProviderSession('qq');
+    native.configure.mockRejectedValueOnce(new Error('secure-storage'));
+    await expect(runtime.configureGateway('https://new.example', 'new-token')).rejects.toThrow('secure-storage');
+    expect(port.read('qq', 'cookie')).toBe('fixture');
+    expect(current()).toBe(false);
+    expect(native.clearSession).not.toHaveBeenCalled();
+    native.configure.mockResolvedValue({ server: 'https://new.example', scope: 'next', sessions: {} });
+    await runtime.configureGateway('https://new.example', 'new-token');
+    expect(native.configure).toHaveBeenLastCalledWith({ server: 'https://new.example', token: 'new-token', scope: 'original' });
+    expect(port.read('qq', 'cookie')).toBeNull();
+    port.write('qq', 'cookie', 'new-account'); await runtime.flushSessions();
+    expect(native.saveSession).toHaveBeenLastCalledWith({ provider: 'qq', scope: 'next', values: { cookie: 'new-account' } });
+  });
+  it('uses authoritative sessions after a token-only change, and waits for pending saves', async () => {
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    await runtime.initializeRuntime(); const port = getMobileRuntime()!;
+    let finish!: () => void;
+    native.saveSession.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+    port.write('qq', 'cookie', 'latest');
+    const save = runtime.configureGateway('https://music.example.com', 'new-token');
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+    expect(native.configure).not.toHaveBeenCalled();
+    expect(() => port.write('qq', 'cookie', 'late')).toThrow('Canceled');
+    await expect(port.fetch('/mobile/qq/search')).rejects.toMatchObject({ name: 'AbortError' });
+    await expect(runtime.clearProvider('qq')).rejects.toThrow('gateway-settings-changed');
+    await expect(runtime.configureGateway('https://other.example', 'token')).rejects.toThrow('gateway-settings-changed');
+    native.configure.mockResolvedValue({ server: 'https://music.example.com', scope: 'next', sessions: { qq: { cookie: 'latest' } } });
+    finish(); await save;
+    expect(native.saveSession).toHaveBeenCalledWith({ provider: 'qq', values: { cookie: 'latest' }, scope: 'original' });
+    expect(port.read('qq', 'cookie')).toBe('latest');
+    native.request.mockResolvedValue({ status: 200, body: '{}', headers: {} });
+    await port.fetch('/mobile/qq/search');
+    expect(native.request.mock.calls.at(-1)?.[0].scope).toBe('next');
+  });
+  it('failed logout preserves memory and blocks writes or configuration until it settles', async () => {
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    await runtime.initializeRuntime(); const port = getMobileRuntime()!;
+    let fail!: (reason: Error) => void;
+    native.clearSession.mockImplementationOnce(() => new Promise((_, reject) => { fail = reject; }));
+    const logout = runtime.clearProvider('qq'), assertion = expect(logout).rejects.toThrow('secure-storage');
+    await vi.waitFor(() => expect(fail).toBeTypeOf('function'));
+    expect(port.read('qq', 'cookie')).toBe('fixture');
+    expect(() => port.write('qq', 'cookie', 'late')).toThrow('Canceled');
+    await expect(port.fetch('/mobile/qq/search')).rejects.toMatchObject({ name: 'AbortError' });
+    await expect(runtime.configureGateway('https://new.example', 'token')).rejects.toThrow('gateway-settings-changed');
+    fail(new Error('secure-storage')); await assertion;
+    expect(port.read('qq', 'cookie')).toBe('fixture');
+    await runtime.clearProvider('qq');
+    expect(port.read('qq', 'cookie')).toBeNull();
+    expect(native.clearSession).toHaveBeenLastCalledWith({ provider: 'qq', scope: 'original' });
+  });
+  it('does not surface a pre-configuration reply if native cancellation races', async () => {
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    await runtime.initializeRuntime();
+    let finish!: (value: unknown) => void;
+    native.request.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const reply = getMobileRuntime()!.fetch('/mobile/qq/login/qr/check?key=old');
+    const assertion = expect(reply).rejects.toMatchObject({ name: 'AbortError' });
+    native.configure.mockResolvedValue({ server: 'https://new.example', scope: 'next', sessions: {} });
+    await runtime.configureGateway('https://new.example', 'token');
+    finish({ status: 200, body: '{"cookie":"old"}', headers: {} }); await assertion;
+  });
+  it('restores committed logout when only native cache cleanup fails', async () => {
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    await runtime.initializeRuntime();
+    native.clearSession.mockRejectedValueOnce(new Error('cache-write'));
+    native.bootstrap.mockResolvedValue({ server: 'https://music.example.com', scope: 'original', sessions: {} });
+    await expect(runtime.clearProvider('qq')).rejects.toThrow('cache-write');
+    expect(getMobileRuntime()!.read('qq', 'cookie')).toBeNull();
+  });
+  it('failed pending persistence cannot leak memory-only cookies into a committed configuration', async () => {
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    await runtime.initializeRuntime(); const port = getMobileRuntime()!;
+    native.saveSession.mockRejectedValueOnce(new Error('secure-storage'));
+    port.write('qq', 'cookie', 'uncommitted');
+    native.configure.mockResolvedValue({ server: 'https://music.example.com', scope: 'next', sessions: { qq: { cookie: 'fixture' } } });
+    await runtime.configureGateway('https://music.example.com', 'token');
+    expect(port.read('qq', 'cookie')).toBe('fixture');
+    await expect(runtime.flushSessions()).resolves.toBeUndefined();
   });
   it.each(['logout', 'clear'])('rejects a cover response delivered after %s', async action => {
     const runtime = await import('../../../src/mobile/runtime');

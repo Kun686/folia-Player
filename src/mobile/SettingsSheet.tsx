@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { native, isNative } from './bridge';
+import { isNative } from './bridge';
 import MediaCacheControls from './MediaCacheControls';
 import ResourceCacheControls from './ResourceCacheControls';
 import type { useMediaCache } from './useMediaCache';
-import { cancelProvider, clearProvider } from './runtime';
+import { configureGateway } from './runtime';
 import type { MobileTheme } from './useMobileTheme';
 import BatchLyricExportDialog from './BatchLyricExportDialog';
 import SleepTimerSheet from './SleepTimerSheet';
@@ -32,10 +32,7 @@ export default function SettingsSheet({ appearance, mediaCache, timer, server, l
     try {
       const url = new URL(address);
       if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash || !['', '/'].includes(url.pathname)) throw Error();
-      for (const provider of ['netease', 'qq', 'kugou']) await cancelProvider(provider);
-      // Sessions belong to the configured backend, especially QQ sealed tokens.
-      if (url.origin !== server) for (const provider of ['netease', 'qq', 'kugou']) await clearProvider(provider);
-      await native.configure({ server: url.origin, token });
+      await configureGateway(url.origin, token);
       setToken(''); saved(url.origin); close();
     } catch { setError(true); }
     finally { setBusy(false); }
@@ -49,7 +46,7 @@ export default function SettingsSheet({ appearance, mediaCache, timer, server, l
     <p>{t('mobile.optionalServer')}</p>
     <form onSubmit={e => { e.preventDefault(); void save(); }}>
       <label>{t('mobile.server')}<input type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" required value={address} onChange={e => setAddress(e.target.value)} placeholder="https://music.example.com" /></label>
-      <label>{t('mobile.token')}<input type="password" autoComplete="off" required minLength={32} value={token} onChange={e => setToken(e.target.value)} /></label>
+      <label>{t('mobile.token')}<input type="password" autoComplete="off" required minLength={32} maxLength={4096} value={token} onChange={e => setToken(e.target.value)} /></label>
       <button className="solid" disabled={busy || !isNative}>{busy ? t('mobile.loading') : t('mobile.save')}</button>
     </form>
     {!isNative && <p>{t('mobile.nativeOnly')}</p>}

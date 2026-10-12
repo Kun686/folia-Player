@@ -30,6 +30,7 @@ export interface NativeMediaCacheState {
   settings: NativeMediaCacheSettings; count: number; bytes: number; pending: number;
   revision: number; error: string | null; songs: SongResult[];
 }
+export interface GatewayBootstrap { server: string; scope: string; sessions: Record<string, Record<string, string>> }
 export interface NativeAudioSettings { playbackFadeEnabled?: boolean; neteaseScrobbleEnabled?: boolean; volume: number; isMuted: boolean; equalizer: AudioEqualizerSettings; replayGainMode: ReplayGainMode; audioQuality: AudioQualityPreference }
 export interface NativeTransitionSettings { enabled: boolean; mode: 'crossfade' | 'automix'; crossfadeMaxSec: number }
 export interface NativeSleepTimerState { hours: number; minutes: number; enabled: boolean; deadlineMs: number | null; revision: number }
@@ -94,12 +95,12 @@ export interface FoliaNativePlugin {
   setAudioSettings(options: { settings: NativeAudioSettings }): Promise<NativeAudioSettings>;
   getTransitionSettings(): Promise<NativeTransitionSettings>;
   setTransitionSettings(options: { settings: NativeTransitionSettings }): Promise<NativeTransitionSettings>;
-  bootstrap(): Promise<{ server: string; sessions: Record<string, Record<string, string>> }>;
-  configure(options: { server: string; token: string }): Promise<void>;
+  bootstrap(): Promise<GatewayBootstrap>;
+  configure(options: { server: string; token: string; scope: string }): Promise<GatewayBootstrap>;
   health(): Promise<{ protocol: number; providers: string[]; playbackReportProviders?: string[]; songLikeProviders?: string[]; catalogProviders?: string[]; playlistEditProviders?: string[]; subscriptionProviders?: string[]; dailyProviders?: string[]; personalFmProviders?: string[]; recommendedCollectionProviders?: string[]; userAlbumProviders?: string[]; cloudProviders?: string[] }>;
-  saveSession(options: { provider: string; values: Record<string, string> }): Promise<void>;
-  clearSession(options: { provider: string }): Promise<void>;
-  request(options: { id: string; payload: Record<string, unknown> }): Promise<{ status: number; body: string; headers: Record<string, string> }>;
+  saveSession(options: { provider: string; values: Record<string, string>; scope: string }): Promise<void>;
+  clearSession(options: { provider: string; scope: string }): Promise<void>;
+  request(options: { id: string; scope: string; payload: Record<string, unknown> }): Promise<{ status: number; body: string; headers: Record<string, string> }>;
   cancelRequests(options: { ids: string[] }): Promise<void>;
   setQueue(options: { songs: SongResult[]; index: number }): Promise<void>;
   startPersonalFM(options: { selection: PersonalFmSelection }): Promise<PlaybackSnapshot>;

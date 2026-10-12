@@ -242,7 +242,10 @@ private final class JointMemoryOwner {
         let plugin = try XCTUnwrap(controller.bridge?.plugin(withName: "FoliaNative") as? FoliaNativePlugin)
         let player = try XCTUnwrap(plugin.engine), models = try XCTUnwrap(plugin.models)
         // Never connect this offline diagnostic to a retained QA gateway or platform account.
-        guard try SecureStore.read("gateway").isEmpty else { throw MobileFailure("joint-qa-gateway-not-empty") }
+        let gateway = try NativeGatewayStore.shared.snapshot()
+        guard gateway.server.isEmpty, gateway.sessions.values.allSatisfy({ $0.isEmpty }) else {
+            throw MobileFailure("joint-qa-gateway-not-empty")
+        }
         try await waitForStream({ models.ready }, seconds: 10)
         try player.crossfade?.configure(enabled: false, maximumSeconds: 5, mode: "automix")
         _ = try await jointJS(web, "localStorage.setItem('visualizer_mode','cadenza'); true")

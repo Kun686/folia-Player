@@ -53,7 +53,7 @@ import OnlineAccountLibrary from './OnlineAccountLibrary';
 // src/mobile/MobileApp.tsx — library and full-window player share the original native playback state.
 export default function MobileApp({ initialServer }: { initialServer: string }) {
   const { t } = useTranslation();
-  const [server, setServer] = useState(initialServer);
+  const server = initialServer;
   const [provider, setProvider] = useState(initialServer ? 'netease' : 'local');
   const [query, setQuery] = useState('');
   const [settings, setSettings] = useState(false);
@@ -221,7 +221,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         {playback.state.playing ? <Pause /> : <Play />}</button>
     </footer>
     {settings && <SettingsSheet appearance={appearance} mediaCache={mediaCache} timer={sleepTimer} server={server} light={light} setLight={setLight}
-      saved={value => { if (value === server) location.reload(); else setServer(value); }} close={() => setSettings(false)} />}
+      saved={() => location.reload()} close={() => setSettings(false)} />}
     {login && <LoginSheet provider={provider} refresh={catalog.refresh} close={() => setLogin(false)} />}
     {onlineTarget && <OnlineCatalogSheet target={onlineTarget} busy={queueBusy} error={queueError} close={() => setOnlineTarget(null)}
       editor={playlistEditor} subscriptionProviders={available.subscriptionProviders}

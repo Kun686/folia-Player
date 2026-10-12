@@ -93,14 +93,14 @@ final class NativeLyrics {
     private let parser: NativeLyricParser
     private let gateway: GatewayClient
     private let cache: NativeLyricCache?
-    private let session: (String) throws -> [String: Any]
+    private let session: ((String) throws -> [String: Any])?
     private var wanted: Set<String> = []
     private var tasks: [String: (UUID, Task<Void, Never>)] = [:]
     private var values: [String: Value] = [:]
     private(set) var revision = 0
     var changed: (() -> Void)?
     init(local: LocalMediaLibrary, parser: NativeLyricParser = NativeLyricParser(), gateway: GatewayClient = GatewayClient(), cache: NativeLyricCache? = nil,
-         session: @escaping (String) throws -> [String: Any] = { try SecureStore.read("session." + $0) }) {
+         session: ((String) throws -> [String: Any])? = nil) {
         self.local = local; self.parser = parser; self.gateway = gateway; self.session = session; self.cache = cache
     }
     deinit { tasks.values.forEach { $0.1.cancel() } }
@@ -141,8 +141,12 @@ final class NativeLyrics {
                             lines = try JSONSerialization.jsonObject(with: data) as? [[String: Any]]
                         } else { lines = nil }
                     } else {
-                        if let cache { lines = try await cache.lines(song, session: session(identity.provider!), gateway: gateway) }
-                        else { lines = try await NativeOnlineLyrics.load(song, session: session(identity.provider!), gateway: gateway, parser: parser) }
+                        let load: ([String: Any]) async throws -> [[String: Any]]? = { values in
+                            if let cache { return try await cache.lines(song, session: values, gateway: gateway) }
+                            return try await NativeOnlineLyrics.load(song, session: values, gateway: gateway, parser: parser)
+                        }
+                        if let session { lines = try await load(session(identity.provider!)) }
+                        else { lines = try await gateway.withSession(identity.provider!, work: load) }
                     }
                 } catch { lines = nil }
                 guard let self, !Task.isCancelled, self.wanted.contains(id), self.tasks[id]?.0 == stamp else { return }

@@ -53,22 +53,27 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
     @objc func bootstrap(_ call: CAPPluginCall) { run(call) {
-        var sessions: [String: Any] = [:]
-        for provider in ["netease", "qq", "kugou"] { sessions[provider] = try SecureStore.read("session." + provider) }
-        call.resolve(["server": try SecureStore.read("gateway")["server"] as? String ?? "", "sessions": sessions])
+        call.resolve(try self.gateway.credentials.snapshot().publicValues)
     } }
     @objc func configure(_ call: CAPPluginCall) { run(call) {
-        let server = try GatewayClient.validatedServer(call.getString("server") ?? "")
-        guard let token = call.getString("token"), token.count >= 32, token.count <= 4096 else { throw MobileFailure("invalid-token") }
-        self.engine.listening.invalidate()
-        if !self.engine.currentIsLocal { self.engine.stop() }
-        self.engine.discardPrepared()
-        self.requests.values.forEach { $0.cancel() }; self.requests.removeAll()
-        try SecureStore.write("gateway", ["server": server, "token": token])
-        self.engine.listening.refresh()
-        self.engine.personalFM.cancelPending()
-        self.engine.prefetch()
-        call.resolve()
+        guard let token = call.getString("token"), let scope = call.getString("scope") else {
+            throw MobileFailure("invalid-token")
+        }
+        let previous = try self.gateway.credentials.snapshot()
+        let current = try self.gateway.credentials.configure(server: call.getString("server") ?? "", token: token, expected: scope)
+        // The single Keychain write above is the commit point. Failures preserve accounts and playback.
+        if current.scope != previous.scope {
+            self.engine.listening.invalidate()
+            if !self.engine.currentIsLocal { self.engine.stop() }
+            self.engine.discardPrepared()
+            self.requests.values.forEach { $0.cancel() }; self.requests.removeAll()
+            if current.server != previous.server {
+                for provider in NativeGatewayStore.providers { self.engine.invalidateProvider(provider) }
+            }
+            self.engine.personalFM.cancelPending()
+            self.engine.listening.refresh(); self.engine.prefetch()
+        }
+        call.resolve(current.publicValues)
     } }
     @objc func health(_ call: CAPPluginCall) { run(call) {
         Task { @MainActor in
@@ -84,10 +89,11 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         let provider = try self.provider(call)
         guard let values = call.getObject("values") as? [String: String],
               values.count <= 16, values.values.allSatisfy({ $0.count <= 24000 }) else { throw MobileFailure("invalid-session") }
-        let previous = try SecureStore.read("session." + provider)
-        let changed = ["cookie", "token", "userid"].contains { (previous[$0] as? String) != values[$0] }
+        guard let scope = call.getString("scope") else { throw MobileFailure("gateway-settings-changed") }
+        let previous = try self.gateway.credentials.snapshot().sessions[provider] ?? [:]
+        let changed = ["cookie", "token", "userid"].contains { previous[$0] != values[$0] }
+        _ = try self.gateway.credentials.saveSession(provider, values: values, expected: scope)
         if changed && provider == "netease" { self.engine.listening.invalidate() }
-        try SecureStore.write("session." + provider, values)
         if changed && provider == "netease" { self.engine.listening.refresh() }
         if changed && provider == "netease" { self.engine.personalFM.leave(); self.engine.persist(); self.engine.publish() }
         if changed { self.engine.crossfade?.cancelLyricRequests() }
@@ -103,8 +109,9 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     } }
     @objc func clearSession(_ call: CAPPluginCall) { run(call) {
         let provider = try self.provider(call)
+        guard let scope = call.getString("scope") else { throw MobileFailure("gateway-settings-changed") }
+        try self.gateway.credentials.clearSession(provider, expected: scope)
         self.engine.invalidateProvider(provider)
-        try SecureStore.remove("session." + provider)
         if provider == "netease" { self.engine.listening.refresh() }
         Task { @MainActor in
             do { try await self.engine.mediaCachePurges[provider]?.value; call.resolve() }
@@ -112,10 +119,10 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         }
     } }
     @objc func request(_ call: CAPPluginCall) { run(call) {
-        guard let id = call.getString("id"), let payload = call.getObject("payload"), self.requests.count < 24 else { throw MobileFailure("invalid-request") }
+        guard let id = call.getString("id"), let payload = call.getObject("payload"), let scope = call.getString("scope"), self.requests.count < 24 else { throw MobileFailure("invalid-request") }
         self.requests[id] = Task { @MainActor in
             defer { self.requests[id] = nil }
-            do { call.resolve(try await self.gateway.send("/mobile/request", body: payload)) }
+            do { call.resolve(try await self.gateway.send("/mobile/request", body: payload, scope: scope)) }
             catch { call.reject((error as? MobileFailure)?.code ?? "network") }
         }
     } }
