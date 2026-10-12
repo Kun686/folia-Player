@@ -7,6 +7,9 @@ import { captureProviderSession, flushSessions } from './runtime';
 import { omni } from '../services/onlineMusic/omni';
 import { createMobileSongLikes } from './mobileSongLikes';
 import OnlineSongLike from './OnlineSongLike';
+import OnlineCatalogActions from './OnlineCatalogActions';
+import OnlineCatalogSheet from './OnlineCatalogSheet';
+import type { OnlineCatalogTarget } from './onlineCatalog';
 import { usePlayback } from './usePlayback';
 import { useMobileTheme } from './useMobileTheme';
 import { useCatalog } from './useCatalog';
@@ -46,6 +49,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const [query, setQuery] = useState('');
   const [settings, setSettings] = useState(false);
   const [entityId, setEntityId] = useState<string>();
+  const [onlineTarget, setOnlineTarget] = useState<OnlineCatalogTarget | null>(null);
   const [login, setLogin] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [queueView, setQueueView] = useState(false);
@@ -154,6 +158,8 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         busy={queueBusy || localPlaylists.busy} edit={queueView ? edit : undefined} currentIndex={queueView ? playback.state.index : undefined}
         libraryActions={(song, close) => <>{song.sourceRef?.kind === 'online' && <OnlineSongLike song={song} likes={likes}
           writable={available.songLikeProviders.includes(song.sourceRef.providerId)} />}
+          <OnlineCatalogActions song={song} enabled={song.sourceRef?.kind === 'online' && available.catalogProviders.includes(song.sourceRef.providerId)}
+            open={target => { close(); setOnlineTarget(target); }} />
           <LocalSongPlaylistActions song={song} controller={localPlaylists}
           selected={isLocal && !queueView ? localBrowser.selected : undefined} close={close} /></>}
         remove={isLocal && !queueView ? song => { if (window.confirm(t('mobile.confirmRemove', { name: song.name }))) void local.remove(song); } : undefined} />
@@ -174,6 +180,12 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
     {settings && <SettingsSheet appearance={appearance} mediaCache={mediaCache} timer={sleepTimer} server={server} light={light} setLight={setLight}
       saved={value => { if (value === server) location.reload(); else setServer(value); }} close={() => setSettings(false)} />}
     {login && <LoginSheet provider={provider} refresh={catalog.refresh} close={() => setLogin(false)} />}
+    {onlineTarget && <OnlineCatalogSheet target={onlineTarget} busy={queueBusy} error={queueError} close={() => setOnlineTarget(null)}
+      play={(tracks, index) => void queueWork(async () => {
+        await flushSessions(); await native.setQueue({ songs: tracks, index }); setOnlineTarget(null); setExpanded(true);
+      })} add={(song, next) => void add(song, next)}
+      songActions={song => song.sourceRef?.kind === 'online' && <OnlineSongLike song={song} likes={likes}
+        writable={available.songLikeProviders.includes(song.sourceRef.providerId)} />} />}
     {entityId && local.snapshot && <LocalEntityDialog snapshot={local.snapshot} id={entityId} light={light}
       close={() => setEntityId(undefined)} selected={id => { localBrowser.select(id); void local.refresh(); }} />}
     {localPlaylists.request && <LocalPlaylistDialog controller={localPlaylists} request={localPlaylists.request} />}

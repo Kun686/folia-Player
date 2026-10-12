@@ -61,7 +61,8 @@ const fetchPageWithRetry = async <T>(
         } catch (error) {
             if (options.isCancelled()) throw new SyncCancelled();
             if (attempt >= retryDelays.length) throw error;
-            console.warn(`Collection sync page at offset ${offset} failed, retrying (${attempt + 1}/${retryDelays.length})`, error);
+            // Upstream errors may retain session-bearing response bodies.
+            console.warn(`Collection sync page at offset ${offset} failed, retrying (${attempt + 1}/${retryDelays.length})`);
             await wait(retryDelays[attempt]);
             if (options.isCancelled()) throw new SyncCancelled();
         }

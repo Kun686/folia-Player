@@ -582,6 +582,7 @@ const getAlbumTracks = async (
 ): Promise<ProviderPage<ReturnType<typeof normalizeQqSong>>> => {
     // 上游一次返回整张专辑且不接受分页参数，所以页窗在本地切片，与歌单曲目的处理方式一致。
     const { album, tracks } = await loadRawAlbum(id);
+    if (!Array.isArray(album?.list)) throw new OnlineProviderError('invalid-response', 'QQ album track list is unavailable', 'qq');
     // 专辑曲目条目只带 albumname 顶层字段，正规化后专辑名为空，用专辑本身的名字补齐。
     const albumName = String(collection?.name || album?.name || '');
     const items = tracks
@@ -610,6 +611,9 @@ const getArtistDetail = async (id: MediaId): Promise<ProviderCollection | null> 
     const response = await requestQq<any>('artist_songs', { singermid, limit: 1, page: 1 });
     const data = response?.response?.singer?.data;
     // 头像上游不给，由 mid 按 photo_new 规则补齐。
+    if (!data?.singer_info || typeof data.singer_info !== 'object') {
+        throw new OnlineProviderError('invalid-response', 'QQ artist detail is unavailable', 'qq');
+    }
     return normalizeQqCollection({
         singermid,
         ...(data && typeof data === 'object' ? data.singer_info : undefined),
@@ -632,7 +636,8 @@ const getArtistSongs = async (
         page: Math.floor(Math.max(0, offset) / pageSize) + 1,
     });
     const data = response?.response?.singer?.data;
-    const songs = Array.isArray(data?.songlist) ? data.songlist : [];
+    if (!Array.isArray(data?.songlist)) throw new OnlineProviderError('invalid-response', 'QQ artist song list is unavailable', 'qq');
+    const songs = data.songlist;
     const items = songs.map(normalizeQqSong);
     const total = Number(data?.total_song);
     const nextOffset = offset + items.length;
@@ -658,7 +663,8 @@ const getArtistAlbums = async (
         page: Math.max(0, offset),
     });
     const data = response?.response?.singer?.data;
-    const albums = Array.isArray(data?.albumList) ? data.albumList : [];
+    if (!Array.isArray(data?.albumList)) throw new OnlineProviderError('invalid-response', 'QQ artist album list is unavailable', 'qq');
+    const albums = data.albumList;
     const items = albums
         .map((item: unknown) => normalizeQqCollection(item, 'album'))
         .filter((collection: ProviderCollection) => collection.id !== '');

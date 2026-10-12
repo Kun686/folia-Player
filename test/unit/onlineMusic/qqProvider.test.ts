@@ -1035,6 +1035,21 @@ describe('qqProvider', () => {
         ]);
     });
 
+    it('rejects missing catalog lists rather than treating them as empty successful pages', async () => {
+        requestMock.mockResolvedValue({ response: { code: 0, singer: { code: 0, data: {} } } });
+        for (const operation of [() => qqProvider.catalog!.getAlbumTracks!('albumMid', 10, 0),
+            () => qqProvider.catalog!.getArtistSongs!('artistMid', 10, 0),
+            () => qqProvider.catalog!.getArtistAlbums!('artistMid', 50, 0),
+            () => qqProvider.catalog!.getArtistDetail!('artistMid')]) {
+            await expect(operation()).rejects.toMatchObject({ code: 'invalid-response' });
+        }
+        requestMock.mockResolvedValue({ response: { code: 0, data: { list: [] }, singer: { code: 0,
+            data: { songlist: [], albumList: [], total: 0, total_song: 0 } } } });
+        await expect(qqProvider.catalog!.getAlbumTracks!('albumMid', 10, 0)).resolves.toMatchObject({ items: [], hasMore: false });
+        await expect(qqProvider.catalog!.getArtistSongs!('artistMid', 10, 0)).resolves.toMatchObject({ items: [], hasMore: false });
+        await expect(qqProvider.catalog!.getArtistAlbums!('artistMid', 50, 0)).resolves.toMatchObject({ items: [], hasMore: false });
+    });
+
     // `/getSingerHotsong` 把 `page` 读成从 1 起算的页码，再换算成 `sin = (page - 1) * num`。
     it('converts the artist song offset into a 1-based page number', async () => {
         requestMock.mockResolvedValue({

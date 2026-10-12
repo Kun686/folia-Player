@@ -18,9 +18,26 @@ async function fixture(fetchImpl: any = vi.fn(async () => new Response('{}')), p
   return { post, fetchImpl, health };
 }
 describe('mobile gateway', () => {
+  it.each([
+    ['netease', '/album', { id: 7 }], ['netease', '/artist/detail', { id: 9 }],
+    ['netease', '/artist/songs', { id: 9, limit: 10, offset: 0 }], ['netease', '/artist/album', { id: 9, limit: 50, offset: 50 }],
+    ['qq', '/getAlbumInfo', { albummid: 'albumMid' }], ['qq', '/getSingerHotsong', { singermid: 'singerMid', limit: 10, page: 1 }],
+    ['qq', '/getSingerAlbum', { singermid: 'singerMid', limit: 50, page: 50 }],
+  ])('routes authenticated %s catalog %s to its fixed backend', async (provider, path, query) => {
+    const { post, fetchImpl } = await fixture();
+    const body = { provider, path, query, headers: { Authorization: 'Bearer do-not-forward' } };
+    expect((await post('/mobile/request', body, 'bad')).status).toBe(401);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect((await post('/mobile/request', body)).status).toBe(200);
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url.origin).toBe(bases[provider as keyof typeof bases]); expect(url.pathname).toBe(path);
+    for (const [key, value] of Object.entries(query)) expect(url.searchParams.get(key)).toBe(String(value));
+    expect(init.headers.authorization).toBeUndefined();
+    expect((await post('/mobile/request', { ...body, method: 'POST', body: '{}' })).status).toBe(403);
+  });
   it('advertises no like writes for a QQ-only gateway', async () => {
     const { health } = await fixture(undefined, ['qq']);
-    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['qq'], songLikeProviders: [] });
+    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['qq'], songLikeProviders: [], catalogProviders: ['qq'] });
   });
   it.each([true, false])('forwards only the authorized NetEase like route with explicit like=%s', async liked => {
     const { post, fetchImpl } = await fixture(vi.fn(async () => new Response('{"code":200}')));
@@ -47,7 +64,7 @@ describe('mobile gateway', () => {
   });
   it('advertises only enabled services and rejects disabled API, lyrics and playback', async () => {
     const { post, fetchImpl, health } = await fixture(undefined, ['netease', 'qq']);
-    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['netease', 'qq'], songLikeProviders: ['netease'] });
+    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['netease', 'qq'], songLikeProviders: ['netease'], catalogProviders: ['netease', 'qq'] });
     for (const body of [{ provider: 'kugou', path: '/login/qr/key' },
       { provider: 'lyrics', path: 'https://lyrics.kugou.com/v1/search' }]) {
       expect((await post('/mobile/request', body)).status).toBe(404);
@@ -65,6 +82,13 @@ describe('mobile gateway', () => {
     { provider: 'netease', path: '/song/url/v1?proxy=http://127.0.0.1' },
     { provider: 'netease', path: '/song/url/v1', method: 'POST', body: '{"proxy":"http://localhost"}' },
     { provider: 'netease', path: '/playlist/tracks' },
+    { provider: 'netease', path: '/artist/songs?id=9&limit=100000' },
+    { provider: 'netease', path: '/album?id=-1' },
+    { provider: 'netease', path: '/artist/album?id=9&offset=-50' },
+    { provider: 'qq', path: '/getAlbumInfo/albumMid' },
+    { provider: 'qq', path: '/getSingerHotsong?singermid=abc&limit=0' },
+    { provider: 'qq', path: '/getSingerAlbum?singermid=abc&page=10001' },
+    { provider: 'qq', path: '/getAlbumInfo?albummid=abc&proxy=http://127.0.0.1' },
     { provider: 'netease', path: '/like?id=42' },
     { provider: 'netease', path: '/like?id=42&like=undefined' },
     { provider: 'netease', path: '/like?id=-1&like=true' },

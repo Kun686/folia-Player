@@ -727,7 +727,8 @@ export const neteaseApi = {
 
   getArtistSongs: async (id: number, limit = 50, offset = 0, order = 'hot') => {
     const res = await fetchWithCreds(`/artist/songs?id=${id}&limit=${limit}&offset=${offset}&order=${order}`);
-    res.songs = mergeSongsWithPrivileges(res.songs, res.privileges);
+    // Leave malformed/missing payloads visible to the provider's response validator.
+    if (Array.isArray(res.songs)) res.songs = mergeSongsWithPrivileges(res.songs, res.privileges);
     return res;
   },
 

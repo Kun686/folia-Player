@@ -84,7 +84,8 @@ export const createOnlineCollectionResource = (key: string, deps: OnlineCollecti
                     },
                 }, 'urgent');
             })
-            .catch(error => console.warn('[LibraryUi] Failed to fetch collection detail:', error));
+            // Provider errors can retain upstream response bodies; do not print session-bearing data.
+            .catch(() => console.warn('[LibraryUi] Failed to fetch collection detail'));
     };
 
     // 后台补齐剩余页，从 startOffset 续上。
@@ -122,7 +123,7 @@ export const createOnlineCollectionResource = (key: string, deps: OnlineCollecti
         });
 
         if (result.status === 'failed') {
-            console.error('[LibraryUi] Background collection sync failed:', result.error);
+            console.error('[LibraryUi] Background collection sync failed');
             state.set({
                 sync: {
                     status: 'interrupted',
@@ -204,7 +205,7 @@ export const createOnlineCollectionResource = (key: string, deps: OnlineCollecti
             }
         } catch (error) {
             if (stale()) return;
-            console.error('[LibraryUi] Failed to load collection tracks:', error);
+            console.error('[LibraryUi] Failed to load collection tracks');
             loading = false;
             state.set({ status: 'error', error: toLoadError(error) }, 'urgent');
         }

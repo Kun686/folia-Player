@@ -1,5 +1,14 @@
 # Folia iPhone / iPad 实现与安装
 
+当前开发源码已接入在线专辑／歌手触摸浏览，复用原 Omni 与 Library Core；网关增加可选能力及只读路由。
+本轮按用户要求仅做不依赖真机的工作，个人 mobile.28 与线上服务器均未更新。
+实现范围、自动测试与未执行项见 [ONLINE_CATALOG.md](ONLINE_CATALOG.md)。
+
+Automix 当前独立 QA 已完成原模型准备、真实分轨／扩展混音及队列交接的模拟器验证；
+手机联合负载／温升仍未通过，详见 [MEL_PREPARATION.md](MEL_PREPARATION.md) 与 [ANALYSIS_SCHEDULING.md](ANALYSIS_SCHEDULING.md)。
+下文保留分阶段历史记录；其中早期“尚未接入模型／用户队列”的描述不代表当前 QA 源码状态，
+也不表示个人安装包已获得完整 Automix。
+
 用户已批准固定ORT1.30.0工程接入。实际Folia QA已加入可取消推理桥，8项原生模拟器测试通过，
 两组拍点及单段四轨输出与原参考逐字节一致；完整窗口和用户队列尚未接入，见 [ORT_INTEGRATION.md](ORT_INTEGRATION.md)。
 

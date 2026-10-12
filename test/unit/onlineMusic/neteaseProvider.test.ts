@@ -18,6 +18,7 @@ vi.mock('@/services/netease', () => ({
         getAlbum: vi.fn(),
         getArtistDetail: vi.fn(),
         getArtistAlbums: vi.fn(),
+        getArtistSongs: vi.fn(),
         getPersonalizedPlaylists: vi.fn(),
         getLikedSongs: vi.fn(),
         likeSong: vi.fn(),
@@ -44,6 +45,36 @@ const song: UnifiedSong = {
 
 describe('neteaseProvider', () => {
     beforeEach(() => vi.clearAllMocks());
+
+    it.each([301, 401, 403, 429, 500, undefined])('rejects catalog business failure %s instead of caching empty data', async code => {
+        vi.mocked(neteaseApi.getAlbum).mockResolvedValue({ code, album: { id: 7 }, songs: [] } as any);
+        vi.mocked(neteaseApi.getArtistDetail).mockResolvedValue({ code, data: { artist: { id: 9 } } } as any);
+        vi.mocked(neteaseApi.getArtistSongs).mockResolvedValue({ code, songs: [] } as any);
+        vi.mocked(neteaseApi.getArtistAlbums).mockResolvedValue({ code, hotAlbums: [] } as any);
+        const catalog = neteaseProvider.catalog!;
+        for (const operation of [() => catalog.getAlbumDetail!(7), () => catalog.getAlbumTracks!(7, 10, 0),
+            () => catalog.getArtistDetail!(9), () => catalog.getArtistSongs!(9, 10, 0), () => catalog.getArtistAlbums!(9, 10, 0)]) {
+            await expect(operation()).rejects.toMatchObject({ code: [301, 401, 403].includes(code!) ? 'auth-required' : 'unavailable' });
+        }
+    });
+
+    it('distinguishes valid empty catalog pages from malformed payloads', async () => {
+        const catalog = neteaseProvider.catalog!;
+        vi.mocked(neteaseApi.getAlbum).mockResolvedValue({ code: 200, songs: [] } as any);
+        vi.mocked(neteaseApi.getArtistSongs).mockResolvedValue({ code: 200, songs: [], more: false } as any);
+        vi.mocked(neteaseApi.getArtistAlbums).mockResolvedValue({ code: 200, hotAlbums: [], more: false } as any);
+        await expect(catalog.getAlbumTracks!(7, 10, 0)).resolves.toMatchObject({ items: [], hasMore: false });
+        await expect(catalog.getArtistSongs!(9, 10, 0)).resolves.toMatchObject({ items: [], hasMore: false });
+        await expect(catalog.getArtistAlbums!(9, 10, 0)).resolves.toMatchObject({ items: [], hasMore: false });
+        vi.mocked(neteaseApi.getAlbum).mockResolvedValue({ code: 200 } as any);
+        vi.mocked(neteaseApi.getArtistDetail).mockResolvedValue({ code: 200, data: {} } as any);
+        vi.mocked(neteaseApi.getArtistSongs).mockResolvedValue({ code: 200, songs: {} } as any);
+        vi.mocked(neteaseApi.getArtistAlbums).mockResolvedValue({ code: 200, hotAlbums: null } as any);
+        for (const operation of [() => catalog.getAlbumDetail!(7), () => catalog.getAlbumTracks!(7, 10, 0),
+            () => catalog.getArtistDetail!(9), () => catalog.getArtistSongs!(9, 10, 0), () => catalog.getArtistAlbums!(9, 10, 0)]) {
+            await expect(operation()).rejects.toMatchObject({ code: 'unavailable' });
+        }
+    });
 
     it.each([true, false])('requires confirmed success when setting like=%s', async liked => {
         vi.mocked(neteaseApi.likeSong).mockResolvedValue({ code: 200 });
@@ -127,6 +158,7 @@ describe('neteaseProvider', () => {
 
     it('normalizes album collection metadata into provider fields', async () => {
         vi.mocked(neteaseApi.getArtistAlbums).mockResolvedValue({
+            code: 200,
             hotAlbums: [{
                 id: 7,
                 name: 'Album',
@@ -152,6 +184,7 @@ describe('neteaseProvider', () => {
 
     it('normalizes artist and full album biographies into the unified description field', async () => {
         vi.mocked(neteaseApi.getArtistDetail).mockResolvedValue({
+            code: 200,
             data: {
                 artist: {
                     id: 9,
@@ -163,6 +196,7 @@ describe('neteaseProvider', () => {
             },
         } as any);
         vi.mocked(neteaseApi.getAlbum).mockResolvedValue({
+            code: 200,
             album: {
                 id: 7,
                 name: 'Album',

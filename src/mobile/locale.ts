@@ -5,6 +5,10 @@ import { modelsEn, modelsZh } from './localeModels';
 
 // src/mobile/locale.ts
 export const mobileEn = {
+  catalogAlbum: 'Album: {{name}}', catalogArtist: 'Artist: {{name}}',
+  catalogUnavailable: 'Album and artist browsing is unavailable on this connection. Check the connection or update the music server.',
+  catalogSections: 'Artist catalog', catalogTopSongs: 'Top songs', catalogTitle: 'Online music catalog', catalogBack: 'Back',
+
   models: modelsEn,
   onlineLikeState: 'Online Liked Songs', onlineLike: 'Like song', onlineUnlike: 'Unlike song',
   onlineLiked: 'Liked', onlineNotLiked: 'Not liked', onlineLikeReload: 'Reload like status',
@@ -86,6 +90,10 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  catalogAlbum: '专辑：{{name}}', catalogArtist: '歌手：{{name}}',
+  catalogUnavailable: '当前连接尚不支持专辑与歌手浏览，请检查连接或更新音乐服务器。',
+  catalogSections: '歌手作品', catalogTopSongs: '热门歌曲', catalogTitle: '在线音乐目录', catalogBack: '返回上一级',
+
   models: modelsZh,
   onlineLikeState: '在线歌曲收藏', onlineLike: '喜欢这首歌', onlineUnlike: '取消喜欢',
   onlineLiked: '已喜欢', onlineNotLiked: '未喜欢', onlineLikeReload: '重新读取收藏状态',
@@ -167,6 +175,10 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  catalogAlbum: 'Album: {{name}}', catalogArtist: 'Artis: {{name}}',
+  catalogUnavailable: 'Koneksi ini belum mendukung album dan artis. Periksa koneksi atau perbarui server musik.',
+  catalogSections: 'Katalog artis', catalogTopSongs: 'Lagu populer', catalogTitle: 'Katalog musik online', catalogBack: 'Kembali',
+
   models: modelsEn,
   onlineLikeState: 'Lagu online yang disukai', onlineLike: 'Sukai lagu', onlineUnlike: 'Batal menyukai',
   onlineLiked: 'Disukai', onlineNotLiked: 'Belum disukai', onlineLikeReload: 'Muat ulang status suka',

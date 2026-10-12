@@ -26,6 +26,17 @@ import { isConnectionResetMessage, isNetworkFailureMessage } from '../../../shar
 
 // src/services/onlineMusic/neteaseProvider.ts
 
+// Catalog errors must not become successful empty pages and poison collection caches.
+function requireCatalogResponse(response: any, validPayload: boolean): void {
+    const code = Number(response?.code);
+    if ([301, 401, 403].includes(code)) {
+        throw new OnlineProviderError('auth-required', 'NetEase catalog requires sign-in', 'netease');
+    }
+    if (code !== 200 || !validPayload) {
+        throw new OnlineProviderError('unavailable', 'NetEase catalog response is unavailable', 'netease');
+    }
+}
+
 export const toNeteaseId = (id: MediaId): number => {
     const numericId = Number(id);
     if (!Number.isFinite(numericId)) throw new Error(`Invalid NetEase id: ${String(id)}`);
@@ -487,7 +498,7 @@ export const neteaseProvider: OnlineMusicProvider = {
         async getAlbumDetail(id, existingCollection) {
             const response = await neteaseApi.getAlbum(toNeteaseId(id));
             const rawAlbum = response?.album;
-            if (!rawAlbum) return existingCollection || null;
+            requireCatalogResponse(response, !!rawAlbum && typeof rawAlbum === 'object' && !Array.isArray(rawAlbum));
 
             const normalized = normalizeCollection({ ...rawAlbum, id: rawAlbum.id ?? id }, 'album');
             return {
@@ -504,23 +515,26 @@ export const neteaseProvider: OnlineMusicProvider = {
         },
         async getAlbumTracks(id) {
             const response = await neteaseApi.getAlbum(toNeteaseId(id));
+            requireCatalogResponse(response, Array.isArray(response?.songs));
             const items = (response?.songs || []).map(normalizeNeteaseSong);
             return { items, hasMore: false, nextOffset: items.length };
         },
         async getArtistSongs(id, limit, offset) {
             const response = await neteaseApi.getArtistSongs(toNeteaseId(id), limit, offset);
+            requireCatalogResponse(response, Array.isArray(response?.songs));
             const items = (response?.songs || []).map(normalizeNeteaseSong);
             return { items, hasMore: Boolean(response?.more), nextOffset: offset + items.length };
         },
         async getArtistAlbums(id, limit, offset) {
             const response = await neteaseApi.getArtistAlbums(toNeteaseId(id), limit, offset);
+            requireCatalogResponse(response, Array.isArray(response?.hotAlbums));
             const items = (response?.hotAlbums || []).map((item: any) => normalizeCollection(item, 'album'));
             return { items, hasMore: Boolean(response?.more), nextOffset: offset + items.length };
         },
         async getArtistDetail(id) {
             const response = await neteaseApi.getArtistDetail(toNeteaseId(id));
             const artist = response?.data?.artist;
-            if (!artist) return null;
+            requireCatalogResponse(response, !!artist && typeof artist === 'object' && !Array.isArray(artist));
             return {
                 ...normalizeCollection(artist, 'artist'),
                 coverUrl: artist.cover || artist.picUrl,
