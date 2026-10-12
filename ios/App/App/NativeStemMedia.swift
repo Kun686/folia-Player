@@ -25,8 +25,7 @@ actor NativeStemMedia {
     private static func decode(_ snapshot: NativeStemSnapshot, role: NativeStemRole, deadline: Double) throws -> NativeStemMaterial {
         let limit = 1_323_000
         var kept = Array(repeating: Array(repeating: Float(0), count: limit), count: 2), position = 0
-        let total = try NativeAudioFileDecoder.read(snapshot.url, rate: NativeStemPCM.rate,
-            maxFrames: 4_503_599_627_370_495, maxChannels: 32, domain: "stem", deadline: deadline) { buffer in
+        let total = try NativeStemFileDecoder.read(snapshot.url, deadline: deadline) { buffer in
             guard let source = buffer.floatChannelData else { throw MobileFailure("stem-decode-failed") }
             let count = Int(buffer.frameLength)
             // Decode continuously from the beginning: seeking straight to the tail would reset the resampler's history.

@@ -475,7 +475,7 @@ export interface StemRequest {
  * Decoded at the model's rate rather than the context's, because the model's rate is not negotiable
  * and resampling twice to land back where we started would only add error.
  */
-const cutWindow = async (bytes: ArrayBuffer, role: StemRole) => {
+export const cutWindow = async (bytes: ArrayBuffer, role: StemRole) => {
     const OfflineContext = window.OfflineAudioContext;
     if (!OfflineContext) return null;
     let decoded: AudioBuffer;

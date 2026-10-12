@@ -160,6 +160,7 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | 本地歌曲完整匹配与元数据／封面选择 | PASS（自动测试及 iPhone 原生专项）；真实平台 NOT_RUN | 原完整弹窗与共享规则；iPhone 测试覆盖实际播放期间保存、并发／删除／过期拒绝和后台歌词。HTTPS 阻塞已解除，但尚未执行真实在线候选保存；iPad 历史短测仅覆盖导入与「不使用在线数据」，见 LOCAL_MATCH.md |
 | 完整 Automix | IN_PROGRESS；尚未接入用户队列 | 官方Apple1.30.0已解除DFT阻塞；真实人声30秒片段iPhone数值通过，退出点同为23.65秒、PCM最大差1单位；耗时41.4秒／峰值1.08GiB。原近静音样本相对误差FAIL保留。原手势桥接93项逻辑／7项原生通过，见STEM_GESTURE.md；四轨PCM总线90项逻辑／6项原生通过，最大误差9.536743e-7，见STEM_MIX.md；共同音频时钟24项原生通过，见[STEM_CLOCK.md](STEM_CLOCK.md)；后续16位缓存／媒体对齐90项逻辑／35项原生通过，见[STEM_STORAGE.md](STEM_STORAGE.md)；原表演重触发／倒放99项逻辑／43项原生通过，12个渲染声道摘要相同，见[EXPANSION.md](EXPANSION.md)；PCM测量到计划138项逻辑／46项原生通过，见[STEM_ANALYSIS.md](STEM_ANALYSIS.md)。模型／用户队列接入、实际听感、播放争用及长期性能待测；未改模型／个人App依赖，见AUTOMIX_MUSIC.md |
 | 完整媒体到原版分轨素材 | PASS（51 项原生模拟器测试）；模型／用户队列／真机 NOT_RUN | 本地与完整缓存快照摘要、首尾 30 秒、单／双／四声道及连续重采样；15,894,152 个生成 WAV 采样逐值一致。保留首轮崩溃与修复证据，压缩编码／WebKit 解码对照待测，见 [STEM_MEDIA.md](STEM_MEDIA.md) |
+| 分轨素材压缩解码对齐 | PASS（原WebKit／53项原生模拟器回归）；真实音乐／真机 NOT_RUN | 修复48 kHz的分步解码／重采样尾部差异，AAC／ALAC／FLAC生成样本16个完整声道摘要相同；保留51/1初次失败，中途取消及恢复通过。MP3等矩阵待测，见 [STEM_CODEC.md](STEM_CODEC.md) |
 | 原 Theme Park 全局自定义编辑 | PASS（自动检查及独立 iPad 模拟器 QA）；个人 App NOT_RUN | 原配色／信息／内容／手动 JSON、触摸预览、失败重试及保存恢复；见 THEME_PARK.md |
 | 原版歌曲主题缓存与自动／手动切换 | PASS（自动检查及独立 iPad 模拟器 QA）；个人 App NOT_RUN | 复用原缓存和偏好，事务保存、迟到隔离、错误重试、外观开关导入导出；见 SONG_THEMES.md |
 | AI／封面主题生成 | PASS（逻辑／WebKit／原生 fixture）；真实服务和个人 App NOT_RUN | 原版提示词／解析／取色、Keychain 配置、取消和自动偏好已接入，见 AI_THEMES.md |
