@@ -6,23 +6,25 @@ import AVFoundation
 struct StemClockFixture {
     let outPCM: NativeStemPCM, inPCM: NativeStemPCM
     let gesture: NativeStemGesture, bus: NativeStemBusParameters
-    init() async throws {
+    init(seconds: Double = 0.8, expansion: Double? = nil) async throws {
         let planner = NativeTransitionPlanner()
-        let request: [String: Any] = ["version": 1, "windowSec": 0.8, "outgoingBarSec": NSNull(),
-            "incomingBarSec": NSNull(), "downbeats": [], "vocals": Array(repeating: 0.5, count: 16),
-            "mix": Array(repeating: 0.5, count: 16), "incoming": [:] as [String: Bool]]
+        let cells = Int(floor(seconds / 0.05)), frames = Int(ceil(seconds * 44100))
+        let request: [String: Any] = ["version": 1, "windowSec": seconds, "outgoingBarSec": NSNull(),
+            "incomingBarSec": NSNull(), "downbeats": [], "vocals": Array(repeating: 0.5, count: cells),
+            "mix": Array(repeating: 0.5, count: cells), "incoming": [:] as [String: Bool],
+            "expansion": expansion as Any? ?? NSNull()]
         gesture = try await planner.stems(JSONSerialization.data(withJSONObject: request)); bus = try await planner.stemBus()
         func pcm(right: Float) throws -> NativeStemPCM {
             try NativeStemPCM(Dictionary(uniqueKeysWithValues: NativeStemName.allCases.map { name in
-                (name, [Array(repeating: name == .drums ? Float(0.125) : 0, count: 35280),
-                        Array(repeating: name == .drums ? right : 0, count: 35280)])
+                (name, [Array(repeating: name == .drums ? Float(0.125) : 0, count: frames),
+                        Array(repeating: name == .drums ? right : 0, count: frames)])
             }))
         }
         outPCM = try pcm(right: 0.125); inPCM = try pcm(right: -0.0625)
     }
     func mixer() throws -> NativeStemMixer { try NativeStemMixer(outgoing: outPCM, incoming: inPCM, gesture: gesture, bus: bus) }
     func schedule(out: UUID, incoming: UUID, hold: Double = 0) throws -> NativeStemTransition {
-        try NativeStemTransition(outgoing: out, incoming: incoming, mixer: mixer(), seconds: 0.8, hold: hold, splice: bus.spliceSec)
+        try NativeStemTransition(outgoing: out, incoming: incoming, mixer: mixer(), seconds: gesture.schedule.windowSec, hold: hold, splice: bus.spliceSec)
     }
     static func buffer(_ count: Int = 512) -> AVAudioPCMBuffer {
         let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 44100, channels: 2, interleaved: true)!

@@ -71,6 +71,8 @@ actor NativeTransitionPlanner {
     // checks cancellation; no partially prepared gesture can reach the caller or audio thread.
     func stems(_ input: Data) throws -> NativeStemGesture {
         let schedule = try decode(NativeStemSchedule.self, method: "stemPlanJSON", input: input)
+        let expansion = try decode(NativeExpansionPlan?.self, method: "expansionPlanJSON", input: input)
+        try expansion?.validate()
         guard var request = try JSONSerialization.jsonObject(with: input) as? [String: Any] else {
             throw MobileFailure("invalid-transition-input")
         }
@@ -89,7 +91,7 @@ actor NativeTransitionPlanner {
             }
         }
         try Task.checkCancellation()
-        return NativeStemGesture(schedule: schedule, outgoing: out, incoming: incoming)
+        return NativeStemGesture(schedule: schedule, outgoing: out, incoming: incoming, expansion: expansion)
     }
 
     func stemBus() throws -> NativeStemBusParameters {

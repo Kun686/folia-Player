@@ -9,13 +9,15 @@ final class NativeStemMixer {
     private let outgoing: [Lane], incoming: [Lane]
     private let bus: NativeStemBusParameters, sweep: NativeStemSchedule.Sweep
     private let duration: Double
+    private let expansion: NativeExpansionPCM?, expansionLevel: Float
     let frames: Int
     private(set) var position = 0
     private var left = AudioEffectBiquadState(), right = AudioEffectBiquadState()
     private var sweepVariable = true
 
     init(outgoing: NativeStemPCM, incoming: NativeStemPCM, gesture: NativeStemGesture,
-         bus: NativeStemBusParameters, outLevel: Double = 1, inLevel: Double = 1) throws {
+         bus: NativeStemBusParameters, outLevel: Double = 1, inLevel: Double = 1,
+         expansion: NativeExpansionPCM? = nil) throws {
         let seconds = gesture.schedule.windowSec, sweep = gesture.schedule.otherSweep
         guard seconds.isFinite, (0.8...30).contains(seconds),
               bus.curve.count == 8192, bus.curve.allSatisfy({ $0.isFinite && abs($0) <= 1 }),
@@ -46,6 +48,12 @@ final class NativeStemMixer {
         }
         self.outgoing = try lanes(outgoing, gesture.outgoing, outLevel, order: Self.order)
         self.incoming = try lanes(incoming, gesture.incoming, inLevel, order: [.drums, .bass, .other, .vocals])
+        guard gesture.expansion == expansion?.plan,
+              expansion == nil || (expansion!.plan.windowSec == seconds
+                && Double(expansion!.peak) * outLevel < Double(Float.greatestFiniteMagnitude) / 16) else {
+            throw MobileFailure("invalid-expansion-pcm")
+        }
+        self.expansion = expansion; expansionLevel = Float(outLevel)
         self.bus = bus; self.sweep = sweep; duration = seconds * NativeStemPCM.rate; self.frames = frames
     }
 
@@ -79,6 +87,12 @@ final class NativeStemMixer {
                 }
                 outL += l; outR += r
                 inL += incoming[lane].left[frame] * inGain; inR += incoming[lane].right[frame] * inGain
+            }
+            if let expansion {
+                // Same outgoing changeover node: original build bypasses the stem sweep, then shares
+                // the 8ms element splice, ReplayGain and common limiter. Never add it after the limiter.
+                outL += expansion.sample(channel: 0, frame: frame) * expansionLevel
+                outR += expansion.sample(channel: 1, frame: frame) * expansionLevel
             }
             let splice = bus.spliceSec * NativeStemPCM.rate
             let outChange = Float(min(1, time / splice)), inChange = Float(min(1, max(0, (duration - time) / splice)))

@@ -24,4 +24,9 @@ struct NativeStemGesture {
     let schedule: NativeStemSchedule
     let outgoing: [NativeStemName: [Float]]
     let incoming: [NativeStemName: [Float]]
+    let expansion: NativeExpansionPlan?
+    init(schedule: NativeStemSchedule, outgoing: [NativeStemName: [Float]], incoming: [NativeStemName: [Float]],
+         expansion: NativeExpansionPlan? = nil) {
+        self.schedule = schedule; self.outgoing = outgoing; self.incoming = incoming; self.expansion = expansion
+    }
 }

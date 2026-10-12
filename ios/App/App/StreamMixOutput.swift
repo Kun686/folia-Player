@@ -135,14 +135,14 @@ final class StreamMixOutput {
     // Prepared/aligned windows only. Model work and media-position selection stay outside the audio graph.
     func scheduleStems(outgoing: AudioPlayer, incoming: AudioPlayer, windows: NativeStemWindowPair,
                        gesture: NativeStemGesture, bus: NativeStemBusParameters, hold: Double,
-                       generation: UInt64) throws -> Bool {
+                       generation: UInt64, expansion: NativeExpansionPCM? = nil) throws -> Bool {
         guard windows.seconds == gesture.schedule.windowSec else { throw MobileFailure("invalid-stem-alignment") }
         return try scheduleStems(outgoing: outgoing, incoming: incoming, outPCM: windows.outgoing, inPCM: windows.incoming,
-                                 gesture: gesture, bus: bus, hold: hold, generation: generation)
+                                 gesture: gesture, bus: bus, hold: hold, generation: generation, expansion: expansion)
     }
     func scheduleStems(outgoing: AudioPlayer, incoming: AudioPlayer, outPCM: NativeStemPCM, inPCM: NativeStemPCM,
                        gesture: NativeStemGesture, bus: NativeStemBusParameters, hold: Double,
-                       generation: UInt64) throws -> Bool {
+                       generation: UInt64, expansion: NativeExpansionPCM? = nil) throws -> Bool {
         guard !closed, let out = sources[ObjectIdentifier(outgoing)]?.source,
               let next = sources[ObjectIdentifier(incoming)]?.source else { throw MobileFailure("audio-failed") }
         guard out.format.sampleRate == NativeStemPCM.rate, next.format.sampleRate == NativeStemPCM.rate,
@@ -150,7 +150,7 @@ final class StreamMixOutput {
             throw MobileFailure("unsupported-audio-format")
         }
         let pcm = try NativeStemMixer(outgoing: outPCM, incoming: inPCM, gesture: gesture, bus: bus,
-            outLevel: out.replayGain.amplitude, inLevel: next.replayGain.amplitude)
+            outLevel: out.replayGain.amplitude, inLevel: next.replayGain.amplitude, expansion: expansion)
         let schedule = try NativeStemTransition(outgoing: out.identity, incoming: next.identity, mixer: pcm,
             seconds: gesture.schedule.windowSec, hold: hold, splice: bus.spliceSec)
         return transitionGain.scheduleStems(schedule, generation: generation)

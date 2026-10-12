@@ -2,7 +2,7 @@ import Foundation
 
 // NativeStemWindow.swift — original peak-scaled planar Int16 storage; floats exist only for a playing slice.
 enum NativeStemRole: String, Hashable { case head, tail }
-struct NativeStemWindowAlignment: Decodable { let covered: Bool, late: Double }
+struct NativeStemWindowAlignment: Decodable { let covered: Bool, late: Double; let expansionOffset: Int?, length: Int? }
 
 final class NativeStemWindow {
     struct Packed { let gain: Double; let pcm: [Int16] }
@@ -63,33 +63,42 @@ final class NativeStemWindow {
     // extrapolates from the final two samples; after the buffer ends it emits zero. The fixture uses
     // actual connectStemDeck output, including a discontinuous final pair, to fix these edge semantics.
     func decoded(offset: Double = 0, count: Int? = nil) throws -> NativeStemPCM {
+        try NativeStemPCM(Dictionary(uniqueKeysWithValues: NativeStemName.allCases.map {
+            ($0, try decodedStem($0, offset: offset, count: count))
+        }))
+    }
+
+    func decodedStem(_ name: NativeStemName, offset: Double = 0, count: Int? = nil) throws -> [[Float]] {
         let count = count ?? frames
         guard offset.isFinite, offset >= 0, offset < Double(frames),
               (1...1_323_000).contains(count) else { throw MobileFailure("invalid-stem-window") }
-        var channels: [NativeStemName: [[Float]]] = [:]
-        for name in NativeStemName.allCases {
-            let stem = packed[name]!
-            func sample(_ index: Int, _ channel: Int) -> Float {
-                Float(Double(stem.pcm[channel * frames + index]) / 32767 * stem.gain)
-            }
-            channels[name] = (0..<2).map { channel in
-                (0..<count).map { i in
-                    let position = offset + Double(i)
-                    guard position < Double(frames) else { return Float(0) }
-                    if frames == 1 { return sample(0, channel) }
-                    let left = min(Int(position), frames - 2), fraction = position - Double(left)
-                    let a = Double(sample(left, channel)), b = Double(sample(left + 1, channel))
-                    return Float(a + (b - a) * fraction)
-                }
+        let stem = packed[name]!
+        func sample(_ index: Int, _ channel: Int) -> Float {
+            Float(Double(stem.pcm[channel * frames + index]) / 32767 * stem.gain)
+        }
+        return (0..<2).map { channel in
+            (0..<count).map { i in
+                let position = offset + Double(i)
+                guard position < Double(frames) else { return Float(0) }
+                if frames == 1 { return sample(0, channel) }
+                let left = min(Int(position), frames - 2), fraction = position - Double(left)
+                let a = Double(sample(left, channel)), b = Double(sample(left + 1, channel))
+                return Float(a + (b - a) * fraction)
             }
         }
-        return try NativeStemPCM(channels)
     }
 }
 
 struct NativeStemWindowPair {
     let outgoing: NativeStemPCM, incoming: NativeStemPCM
     let seconds: Double, late: Double
+    private let originalOut: NativeStemWindow
+    private let expansionOffset: Int, expansionFrames: Int
+
+    // The original build reads a rounded slice, unlike the fractional AudioBufferSource media offset.
+    func expansionChannels(_ name: NativeStemName) throws -> [[Float]] {
+        try originalOut.decodedStem(name, offset: Double(expansionOffset), count: expansionFrames)
+    }
 
     // Same coverage and late-wiring clamp as automixSession.scheduleStemGesture. Callers pass measured
     // media positions at the window's intended opening, including the incoming decoder's elapsed hold.
@@ -103,11 +112,13 @@ struct NativeStemWindowPair {
             "inAt": inAt, "inFrom": incoming.from, "inFrames": incoming.frames, "seconds": seconds, "lateBy": lateBy]
         let alignment = try await planner.stemWindow(JSONSerialization.data(withJSONObject: input))
         guard alignment.covered else { return nil }
+        guard let offset = alignment.expansionOffset, let length = alignment.length,
+              offset >= 0, length > 0, offset <= out.frames - length else { throw MobileFailure("invalid-stem-alignment") }
         let late = alignment.late, rate = NativeStemPCM.rate
         let frames = Int(ceil(seconds * rate))
         return try NativeStemWindowPair(
             outgoing: out.decoded(offset: max(0, (outAt + late - out.from) * rate), count: frames),
             incoming: incoming.decoded(offset: max(0, (inAt + late - incoming.from) * rate), count: frames),
-            seconds: seconds, late: late)
+            seconds: seconds, late: late, originalOut: out, expansionOffset: offset, expansionFrames: length)
     }
 }
