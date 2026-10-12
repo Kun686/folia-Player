@@ -66,14 +66,20 @@ actor NativeTrackProfiler {
     }
     private func analyseFile(_ file: URL, partial: Bool, beatModel: URL?) async throws -> Data? {
         let operation = UUID()
-        try await acquire(operation); defer { release() }
-        try Task.checkCancellation()
-        return try await analysePCM(decode(file, operation: operation), partial: partial, beatModel: beatModel, operation: operation)
+        return try await withAnalysisPermit(operation) {
+            try await analysePCM(decode(file, operation: operation), partial: partial, beatModel: beatModel, operation: operation)
+        }
     }
     func analyse(_ pcm: NativeProfilePCM, partial: Bool = false, beatModel: URL? = nil, operation: UUID = UUID()) async throws -> Data? {
+        try await withAnalysisPermit(operation) {
+            try await analysePCM(pcm, partial: partial, beatModel: beatModel, operation: operation)
+        }
+    }
+    // Both input paths retain the same permit until the awaited pipeline actually exits.
+    func withAnalysisPermit<Result>(_ operation: UUID, _ work: () async throws -> Result) async throws -> Result {
         try await acquire(operation); defer { release() }
         try Task.checkCancellation()
-        return try await analysePCM(pcm, partial: partial, beatModel: beatModel, operation: operation)
+        return try await work()
     }
     // An actor is reentrant at await: hold one logical permit through decode, model and features.
     // Waiting cancellation removes only that caller; an active cancellation releases after real work exits.

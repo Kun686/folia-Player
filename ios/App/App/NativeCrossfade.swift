@@ -300,10 +300,14 @@ final class NativeCrossfade {
     @MainActor private func prepareStems(_ pair: (outgoing: NativeStemWindow, incoming: NativeStemWindow)?,
         session: NativeMutedPreplay, handover: NativeMasterHandover, plan: NativeTransitionPlan, expected: Key) async throws -> NativeLiveStemHandover? {
         guard let pair, let envelope = handover.envelope, envelope.overlap >= 0.8 else { return nil }
-        guard let original = handover.sourceClock,
-              let clocks = try await session.clocks(current: { [weak self] in self?.matches(expected) == true }),
-              clocks.outgoing.source == original.source, clocks.outgoing.epoch == original.epoch else {
-            stemPreparationStatus = "clock-unavailable"; return nil
+        guard let original = handover.sourceClock else {
+            stemPreparationStatus = "clock-unavailable:source"; return nil
+        }
+        guard let clocks = try await session.clocks(current: { [weak self] in self?.matches(expected) == true }) else {
+            stemPreparationStatus = "clock-unavailable:pair"; return nil
+        }
+        guard clocks.outgoing.source == original.source, clocks.outgoing.epoch == original.epoch else {
+            stemPreparationStatus = "clock-unavailable:changed"; return nil
         }
         guard let start = NativeStemAlignment.start(clock: original, hold: envelope.hold),
               let outAt = clocks.outgoing.position(at: start), let inAt = clocks.incoming.position(at: start) else { return nil }

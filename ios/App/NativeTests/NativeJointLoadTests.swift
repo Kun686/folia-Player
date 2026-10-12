@@ -10,18 +10,29 @@ import AVFoundation
     func testProfileSerializationCancelsWaiterAndRecovers() async throws {
         let trace = NativeAnalysisTrace(), profiler = NativeTrackProfiler(trace: trace)
         let activeID = UUID(), cancelledID = UUID(), nextID = UUID()
-        let pcm = profilePCM(["name": "groove", "seconds": 60.0, "stereo": false])
         let nextPCM = profilePCM(["name": "groove", "seconds": 3.0, "stereo": false])
+        defer {
+            if let data = try? JSONSerialization.data(withJSONObject: trace.snapshot(), options: [.sortedKeys]) {
+                let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+                attachment.name = "profile-serialization-trace.json"; attachment.lifetime = .keepAlways; add(attachment)
+            }
+        }
         func has(_ stage: String, _ edge: String, _ id: UUID) -> Bool {
             (trace.snapshot()["events"] as? [[String: Any]] ?? []).contains {
                 $0["stage"] as? String == stage && $0["edge"] as? String == edge && $0["operation"] as? String == id.uuidString
             }
         }
-        let active = Task.detached {
-            try await profiler.analyse(pcm, beatModel: URL(fileURLWithPath: "/missing.onnx"), operation: activeID)
+        var release: CheckedContinuation<Void, Never>?
+        let active = Task {
+            try await profiler.withAnalysisPermit(activeID) {
+                let end = trace.begin("test.active", operation: activeID); defer { end() }
+                // Hold real work independently of CPU speed and cancellation delivery.
+                await withCheckedContinuation { release = $0 }
+                try Task.checkCancellation()
+            }
         }
-        defer { active.cancel() }
-        try await waitForStream { has("beat.prepare", "begin", activeID) }
+        defer { active.cancel(); release?.resume() }
+        try await waitForStream { release != nil }
         let cancelled = Task.detached { try await profiler.analyse(nextPCM, operation: cancelledID) }
         defer { cancelled.cancel() }
         try await waitForStream { has("profile.wait", "begin", cancelledID) }
@@ -33,13 +44,51 @@ import AVFoundation
         try await waitForStream { has("profile.wait", "begin", nextID) }
         XCTAssertFalse(has("profile", "begin", nextID), "The active await must not admit another analysis")
         active.cancel()
+        let lastID = UUID()
+        let last = Task.detached { try await profiler.analyse(nextPCM, operation: lastID) }
+        defer { last.cancel() }
+        try await waitForStream { has("profile.wait", "begin", lastID) }
+        XCTAssertFalse(has("profile.wait", "end", nextID), "Cancellation cannot release work still awaiting actual exit")
+        XCTAssertFalse(has("profile.wait", "end", lastID), "A new caller cannot bypass the held permit")
+        release?.resume(); release = nil
         do { _ = try await active.value; XCTFail("Cancelled active work returned a profile") } catch is CancellationError {}
         let result = try await next.value
         XCTAssertNotNil(result)
+        let lastResult = try await last.value
+        XCTAssertNotNil(lastResult)
         let events = try XCTUnwrap(trace.snapshot()["events"] as? [[String: Any]])
-        let end = try XCTUnwrap(events.first { $0["stage"] as? String == "profile" && $0["edge"] as? String == "end" && $0["operation"] as? String == activeID.uuidString }?["elapsed"] as? Double)
+        let end = try XCTUnwrap(events.first { $0["stage"] as? String == "test.active" && $0["edge"] as? String == "end" && $0["operation"] as? String == activeID.uuidString }?["elapsed"] as? Double)
         let begin = try XCTUnwrap(events.first { $0["stage"] as? String == "profile" && $0["edge"] as? String == "begin" && $0["operation"] as? String == nextID.uuidString }?["elapsed"] as? Double)
         XCTAssertGreaterThanOrEqual(begin, end, "Replacement must wait for actual pipeline exit")
+        let nextEnd = try XCTUnwrap(events.first { $0["stage"] as? String == "profile" && $0["edge"] as? String == "end" && $0["operation"] as? String == nextID.uuidString }?["elapsed"] as? Double)
+        let lastBegin = try XCTUnwrap(events.first { $0["stage"] as? String == "profile" && $0["edge"] as? String == "begin" && $0["operation"] as? String == lastID.uuidString }?["elapsed"] as? Double)
+        XCTAssertGreaterThanOrEqual(lastBegin, nextEnd, "Surviving waiters retain FIFO order without overlapping")
+    }
+
+    func testProfileFailureReleasesPermit() async throws {
+        let profiler = NativeTrackProfiler()
+        let pcm = profilePCM(["name": "groove", "seconds": 3.0, "stereo": false])
+        let missing = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("onnx")
+        do {
+            _ = try await profiler.analyse(pcm, beatModel: missing)
+            XCTFail("A missing model must fail, rather than hold the permit indefinitely")
+        } catch { XCTAssertEqual((error as? MobileFailure)?.code, "stem-source-unavailable") }
+        let recovered = try await profiler.analyse(pcm)
+        XCTAssertNotNil(recovered, "A genuine model failure must release the next analysis")
+    }
+
+    func testAlreadyCancelledProfileNeverTakesPermit() async throws {
+        let trace = NativeAnalysisTrace(), profiler = NativeTrackProfiler(trace: trace), operation = UUID()
+        let pcm = profilePCM(["name": "groove", "seconds": 3.0, "stereo": false])
+        let cancelled = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return try await profiler.analyse(pcm, operation: operation)
+        }
+        do { _ = try await cancelled.value; XCTFail("Already cancelled work returned a profile") } catch is CancellationError {}
+        let events = try XCTUnwrap(trace.snapshot()["events"] as? [[String: Any]])
+        XCTAssertFalse(events.contains { $0["stage"] as? String == "profile" })
+        let recovered = try await profiler.analyse(pcm)
+        XCTAssertNotNil(recovered)
     }
 
     func testResourcePressureCancelsProfilesAndRecoveryUsesCurrentIntent() async throws {
@@ -107,16 +156,29 @@ import AVFoundation
         try await originalJointLoad(includingHandover: true)
     }
 
+    func testDistinctOriginalSongsCompleteStemHandoverWithCadenza() async throws {
+        try await originalJointLoad(includingHandover: true, distinctSongs: true)
+    }
+
     // Reuse the same original-model preparation; the optional leg observes the actual queue adoption.
-    private func originalJointLoad(includingHandover: Bool) async throws {
+    private func originalJointLoad(includingHandover: Bool, distinctSongs: Bool = false) async throws {
         guard Bundle.main.bundleIdentifier == "app.folia.validation.App" else {
             throw XCTSkip("Joint load is restricted to the independent QA identity")
         }
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let assets = documents.appendingPathComponent("ORTQA"), report = documents.appendingPathComponent("joint-load.json")
-        guard FileManager.default.fileExists(atPath: assets.appendingPathComponent("music.wav").path) else {
+        let assets = documents.appendingPathComponent("ORTQA")
+        let prefix = distinctSongs ? "joint-distinct" : "joint"
+        let report = documents.appendingPathComponent(prefix + "-load.json")
+        let firstFile = assets.appendingPathComponent("music.wav")
+        let secondFile = assets.appendingPathComponent(distinctSongs ? "distinct.wav" : "music.wav")
+        guard [firstFile, secondFile].allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) else {
             throw XCTSkip("Stage the approved original music and both unchanged models first")
         }
+        // Verify the actual inputs, not just two filenames or separately imported queue identities.
+        let sourceHashes = try [firstFile, secondFile].map {
+            try NativeStemSnapshot.capture($0, deadline: ProcessInfo.processInfo.systemUptime + 10).digest
+        }
+        if distinctSongs { XCTAssertNotEqual(sourceHashes[0], sourceHashes[1]) }
         guard ProcessInfo.processInfo.thermalState.rawValue < ProcessInfo.ThermalState.serious.rawValue else {
             throw XCTSkip("Device is already under serious thermal pressure")
         }
@@ -134,8 +196,8 @@ import AVFoundation
         web.reload()
         try await Task.sleep(for: .milliseconds(200))
         try await jointUIReady(web, condition: "!!document.querySelector('.mobile-app')")
-        let first = try await player.local.importAudio(assets.appendingPathComponent("music.wav"))
-        let second = try await player.local.importAudio(assets.appendingPathComponent("music.wav"))
+        let first = try await player.local.importAudio(firstFile)
+        let second = try await player.local.importAudio(secondFile)
         let songs = [first, second]
         let lyricFile = documents.appendingPathComponent("joint-load.lrc")
         let lyricLines: [String] = (0..<67).map { i in
@@ -224,7 +286,8 @@ import AVFoundation
                 "audioFrames": pcm.frames, "audioRMS": pcm.rms, "audioChannels": pcm.channels,
                 "web": try JSONSerialization.jsonObject(with: frameData), "samples": samples])
             try JSONSerialization.data(withJSONObject: ["phases": phases, "memoryWarnings": warnings,
-                "memoryScope": "host-only; excludes WebContent", "music": "approved-original-133s",
+                "memoryScope": "host-only; excludes WebContent", "music": distinctSongs ? "fishin-to-vibeace" : "approved-original-133s",
+                "sourceSHA256": sourceHashes,
                 "lyrics": "generated-LRC", "models": "original-beat_this-and-htdemucs",
                 "analysisTrace": trace.snapshot()], options: [.prettyPrinted, .sortedKeys]).write(to: report, options: .atomic)
             print("FOLIA_JOINT phase=\(phase) outcome=\(outcome) audioFrames=\(pcm.frames) rms=\(pcm.rms) mainGap=\(maxPollGap) stoppedSamples=\(stopped)")
@@ -232,11 +295,20 @@ import AVFoundation
             XCTAssertEqual(stopped, 0, "Playback stopped during the measured phase")
             XCTAssertGreaterThan(player.playbackPosition - startPosition, 0.5)
             if phase == "models", includingHandover, outcome == "ready" {
-                try await originalStemHandover(player, web: web, audio: audio, documents: documents)
+                let measured = try songs.map { try XCTUnwrap(profiles.value($0)) }
+                for profile in measured {
+                    XCTAssertEqual(profile["gridless"] as? Bool, false)
+                    XCTAssertEqual(profile["partial"] as? Bool, false)
+                }
+                let data = try JSONSerialization.data(withJSONObject: measured, options: [.prettyPrinted, .sortedKeys])
+                try data.write(to: documents.appendingPathComponent(prefix + "-profiles.json"), options: .atomic)
+                let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+                attachment.name = prefix + "-profiles"; attachment.lifetime = .keepAlways; add(attachment)
+                try await originalStemHandover(player, web: web, audio: audio, documents: documents, reportPrefix: prefix)
             }
         }
         let attachment = XCTAttachment(data: try Data(contentsOf: report), uniformTypeIdentifier: "public.json")
-        attachment.name = "joint-load"; attachment.lifetime = .keepAlways; add(attachment)
+        attachment.name = prefix + "-load"; attachment.lifetime = .keepAlways; add(attachment)
         let picture = try await web.takeSnapshot(configuration: nil)
         let screenshot = XCTAttachment(image: picture); screenshot.name = "joint-cadenza"; screenshot.lifetime = .keepAlways; add(screenshot)
         let modelPhase = try XCTUnwrap(phases.first { $0["phase"] as? String == "models" })
@@ -245,7 +317,7 @@ import AVFoundation
 
     // Seek only to the production planner's measured cue, then leave adoption and mixing to its render clock.
     private func originalStemHandover(_ player: PlaybackEngine, web: WKWebView,
-                                      audio: OutputMeasurement, documents: URL) async throws {
+                                      audio: OutputMeasurement, documents: URL, reportPrefix: String) async throws {
         try await waitForStream {
             let state = player.crossfade?.analysisDiagnostics
             return state?["planKind"] as? String == "fade" && state?["planning"] as? Bool == false
@@ -265,9 +337,9 @@ import AVFoundation
                 "audioFrames": pcm.frames, "audioRMS": pcm.rms, "audioChannels": pcm.channels,
                 "source": "original-models-and-music; production-planner; seek-to-cue"]
             if let data = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) {
-                try? data.write(to: documents.appendingPathComponent("joint-handover.json"), options: .atomic)
+                try? data.write(to: documents.appendingPathComponent(reportPrefix + "-handover.json"), options: .atomic)
                 let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
-                attachment.name = "joint-handover"; attachment.lifetime = .keepAlways; add(attachment)
+                attachment.name = reportPrefix + "-handover"; attachment.lifetime = .keepAlways; add(attachment)
             }
         }
         while ProcessInfo.processInfo.systemUptime - started < 40 {

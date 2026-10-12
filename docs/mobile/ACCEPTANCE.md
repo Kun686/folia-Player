@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+不同歌曲原模型Automix交接已通过独立iPad模拟器；取消／FIFO／异常恢复与原profile参考专项通过。
+同曲回归有一次时钟不可用导致普通淡化，独立复测通过仍不等于问题修复；本轮整体稳定性验收未通过。
+真实设备与在线Automix未测，个人mobile.28及服务器未更新，见 [DISTINCT_HANDOVER.md](DISTINCT_HANDOVER.md)。
+
 开发源码修复 Tilt 生命周期错误与绘光纹理池调用警告；WebKit 使用真实 renderer 和受控播放状态，
 本批原生容器／物理设备／性能验收均 NOT_RUN，见 [VISUALIZER_RUNTIME.md](VISUALIZER_RUNTIME.md)。
 

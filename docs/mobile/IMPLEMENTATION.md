@@ -35,7 +35,11 @@
 本轮按用户要求仅做不依赖真机的工作，个人 mobile.28 与线上服务器均未更新。
 实现范围、自动测试与未执行项见 [ONLINE_CATALOG.md](ONLINE_CATALOG.md)。
 
-Automix 当前独立 QA 已完成原模型准备、真实分轨／扩展混音及队列交接的模拟器验证；
+Automix 新增两首不同完整歌曲的原模型交接验证，已在模拟器通过；取消测试改为明确控制任务退出。
+同曲回归出现一次时钟缺失回退，独立复测通过但根因未定，完整稳定性验收仍未通过，
+详见 [DISTINCT_HANDOVER.md](DISTINCT_HANDOVER.md)。个人 mobile.28 与服务器未更新。
+
+Automix 此前独立 QA 已完成原模型准备、真实分轨／扩展混音及队列交接的模拟器验证；
 手机联合负载／温升仍未通过，详见 [MEL_PREPARATION.md](MEL_PREPARATION.md) 与 [ANALYSIS_SCHEDULING.md](ANALYSIS_SCHEDULING.md)。
 下文保留分阶段历史记录；其中早期“尚未接入模型／用户队列”的描述不代表当前 QA 源码状态，
 也不表示个人安装包已获得完整 Automix。
