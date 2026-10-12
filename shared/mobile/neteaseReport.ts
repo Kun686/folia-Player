@@ -1,5 +1,4 @@
 import type { AudioQualityPreference, ProviderPlaybackReport } from '../../src/types/onlineMusic.ts';
-import { OnlineProviderError } from '../../src/types/onlineMusic.ts';
 
 // neteaseReport.ts — original provider vocabulary and response rules, shared with native reporting.
 export interface NeteaseReportTrack { id: number; name?: string; artists: { name: string }[] }
@@ -22,19 +21,21 @@ export function buildNeteaseReportParams(track: NeteaseReportTrack, report: Prov
     level, bitrate, ...(report.totalSeconds ? { total: Math.round(report.totalSeconds) } : {}),
   };
 }
-export function requireNeteaseReportSuccess(response: unknown): void {
+export function requireNeteaseReportSuccess(response: unknown,
+  makeError: (code: 'auth-required' | 'unavailable', message: string) => Error =
+    (code, message) => Object.assign(new Error(message), { code, providerId: 'netease' })): void {
   // Absence of a status code is a failure, not a success. `fetchWithCreds` does not check
   // `res.ok`, so a gateway error page or an API build without this route comes back as
   // perfectly valid JSON with no `code` at all - and defaulting that to 200 would print
   // "reported a play" for a play that no server ever accepted.
   const code = Number((response as { code?: unknown } | null)?.code);
   if (!Number.isFinite(code)) {
-    throw new OnlineProviderError('unavailable', 'NetEase returned no status code for the listening report', 'netease');
+    throw makeError('unavailable', 'NetEase returned no status code for the listening report');
   }
   if ([301, 401, 403].includes(code)) {
-    throw new OnlineProviderError('auth-required', 'NetEase rejected the listening report: not signed in', 'netease');
+    throw makeError('auth-required', 'NetEase rejected the listening report: not signed in');
   }
   if (code !== 200) {
-    throw new OnlineProviderError('unavailable', `NetEase rejected the listening report: code ${code}`, 'netease');
+    throw makeError('unavailable', `NetEase rejected the listening report: code ${code}`);
   }
 }

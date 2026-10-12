@@ -7,6 +7,10 @@ import { dailyEn, dailyZh, dailyIn } from './localeDaily';
 
 // src/mobile/locale.ts
 export const mobileEn = {
+  listeningUnavailable: 'Listening reports are unavailable on this connection. Check the connection and music server version.',
+  listeningChecking: 'Checking listening report support…',
+  listeningFailed: 'The listening report was not confirmed. Playback is unaffected; the record will not be retried.',
+
   ...dailyEn, ...accountLibraryEn,
   onlinePlaylistAdd: 'Add to online playlist', onlinePlaylistManage: 'Edit playlist tracks',
   onlinePlaylistError: 'The result could not be confirmed. Check your sign-in and reload before trying again.',
@@ -98,6 +102,10 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  listeningUnavailable: '当前连接暂不支持听歌打卡，请检查连接和音乐服务器版本。',
+  listeningChecking: '正在检查听歌打卡支持情况…',
+  listeningFailed: '本次听歌记录未确认，播放不受影响；该记录不会重试。',
+
   ...dailyZh, ...accountLibraryZh,
   onlinePlaylistAdd: '加入在线歌单', onlinePlaylistManage: '编辑歌单歌曲',
   onlinePlaylistError: '未能确认操作结果，请检查登录并重新读取后再操作。',
@@ -189,6 +197,10 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  listeningUnavailable: 'Laporan dengar tidak tersedia. Periksa koneksi dan versi server musik.',
+  listeningChecking: 'Memeriksa dukungan laporan dengar…',
+  listeningFailed: 'Laporan belum dikonfirmasi. Pemutaran tetap berjalan; laporan tidak akan dicoba ulang.',
+
   ...dailyIn, ...accountLibraryIn,
   onlinePlaylistAdd: 'Tambah ke playlist online', onlinePlaylistManage: 'Edit lagu playlist',
   onlinePlaylistError: 'Hasil belum dapat dipastikan. Periksa akun lalu muat ulang sebelum mencoba lagi.',

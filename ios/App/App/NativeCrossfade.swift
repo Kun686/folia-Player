@@ -400,6 +400,7 @@ final class NativeCrossfade {
                     gainGeneration = try session.commit(prepared, fallback: envelope, current: { [weak self] in self?.matches(expected) == true })
                 } else { gainGeneration = try session.commit(envelope, current: { [weak self] in self?.matches(expected) == true }) }
                 self.preplay = nil
+                owner.listening.finishOccurrence()
                 outgoing.clearEvents()
                 owner.task?.cancel(); owner.preload?.cancel(); owner.stalledRecovery?.cancel(); owner.stalledRecovery = nil
                 owner.generation += 1; owner.preparedStream = nil

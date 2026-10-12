@@ -60,10 +60,12 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func configure(_ call: CAPPluginCall) { run(call) {
         let server = try GatewayClient.validatedServer(call.getString("server") ?? "")
         guard let token = call.getString("token"), token.count >= 32, token.count <= 4096 else { throw MobileFailure("invalid-token") }
+        self.engine.listening.invalidate()
         if !self.engine.currentIsLocal { self.engine.stop() }
         self.engine.discardPrepared()
         self.requests.values.forEach { $0.cancel() }; self.requests.removeAll()
         try SecureStore.write("gateway", ["server": server, "token": token])
+        self.engine.listening.refresh()
         self.engine.personalFM.cancelPending()
         self.engine.prefetch()
         call.resolve()
@@ -84,7 +86,9 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
               values.count <= 16, values.values.allSatisfy({ $0.count <= 24000 }) else { throw MobileFailure("invalid-session") }
         let previous = try SecureStore.read("session." + provider)
         let changed = ["cookie", "token", "userid"].contains { (previous[$0] as? String) != values[$0] }
+        if changed && provider == "netease" { self.engine.listening.invalidate() }
         try SecureStore.write("session." + provider, values)
+        if changed && provider == "netease" { self.engine.listening.refresh() }
         if changed && provider == "netease" { self.engine.personalFM.leave(); self.engine.persist(); self.engine.publish() }
         if changed { self.engine.crossfade?.cancelLyricRequests() }
         Task { @MainActor in
@@ -101,6 +105,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         let provider = try self.provider(call)
         self.engine.invalidateProvider(provider)
         try SecureStore.remove("session." + provider)
+        if provider == "netease" { self.engine.listening.refresh() }
         Task { @MainActor in
             do { try await self.engine.mediaCachePurges[provider]?.value; call.resolve() }
             catch { call.reject("cache-clear-failed") }

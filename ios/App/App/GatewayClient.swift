@@ -17,7 +17,8 @@ class GatewayClient: NSObject, URLSessionTaskDelegate {
         return url.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
     func send(_ path: String, body: [String: Any]? = nil) async throws -> [String: Any] {
-        guard ["/mobile/request", "/mobile/resolve", "/mobile/health", "/mobile/fm"].contains(path) else { throw MobileFailure("forbidden") }
+        guard ["/mobile/request", "/mobile/resolve", "/mobile/health", "/mobile/fm", "/mobile/report"].contains(path) else { throw MobileFailure("forbidden") }
+        try Task.checkCancellation()
         let config = try SecureStore.read("gateway")
         let base = try Self.validatedServer(config["server"] as? String ?? "")
         guard let token = config["token"] as? String, !token.isEmpty, let url = URL(string: base + path) else { throw MobileFailure("configure-server") }
@@ -28,12 +29,29 @@ class GatewayClient: NSObject, URLSessionTaskDelegate {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
         }
+        try Task.checkCancellation()
         let (data, response) = try await session.data(for: request)
         try Task.checkCancellation()
         guard data.count <= 9 * 1024 * 1024, let http = response as? HTTPURLResponse,
               let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw MobileFailure("invalid-response") }
         guard (200..<300).contains(http.statusCode) else { throw MobileFailure(object["code"] as? String ?? "network") }
         return object
+    }
+    // Only signed-in cookies are eligible; anonymous credentials can never create an account report.
+    func listeningAccountAvailable() -> Bool {
+        guard let values = try? SecureStore.read("session.netease"), let cookie = values["cookie"] as? String else { return false }
+        return !cookie.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    func reportListening(song: [String: Any], report: NativeListeningReport, quality: String) async throws {
+        try Task.checkCancellation()
+        let values = try SecureStore.read("session.netease")
+        guard let cookie = values["cookie"] as? String, !cookie.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw MobileFailure("auth-required")
+        }
+        let response = try await send("/mobile/report", body: ["song": song, "report": [
+            "playedSeconds": report.playedSeconds, "totalSeconds": report.totalSeconds, "quality": quality],
+            "session": ["cookie": cookie]])
+        guard response["reported"] as? Bool == true else { throw MobileFailure("invalid-response") }
     }
     func personalFM(_ selection: [String: Any]) async throws -> [String: Any] {
         let session = try SecureStore.read("session.netease")

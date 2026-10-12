@@ -18,6 +18,7 @@ final class PlaybackEngine {
     var transitionSettings = NativeTransitionSettings()
     let gateway: GatewayClient
     let personalFM = NativePersonalFM()
+    let listening: NativeListeningReporter
     let storage: UserDefaults
     let sleepTimer: NativeSleepTimer
     let local: LocalMediaLibrary
@@ -43,6 +44,7 @@ final class PlaybackEngine {
     var error: String?
     var revision = 0
     var generation = 0
+    var listeningSeek: UUID?
     var failures = 0
     var retried = false
     var task: Task<Void, Never>?
@@ -72,6 +74,7 @@ final class PlaybackEngine {
         let cacheSettings = storage.data(forKey: "folia.media-cache").flatMap { try? JSONDecoder().decode(NativeMediaCacheSettings.self, from: $0) } ?? NativeMediaCacheSettings()
         self.mediaCache = mediaCache ?? NativeMediaCache(configuration: mediaNetworkConfiguration ?? .ephemeral, settings: cacheSettings)
         self.gateway = gateway
+        self.listening = NativeListeningReporter(gateway: gateway)
         self.storage = storage
         self.sleepTimer = sleepTimer ?? NativeSleepTimer(storage: storage)
         self.local = local
@@ -88,6 +91,8 @@ final class PlaybackEngine {
             _ = try? await self.refreshLocalLibrary()
         }
         restoreAudioSettings()
+        listening.changed = { [weak self] in self?.publish() }
+        listening.refresh()
         crossfade = NativeCrossfade(owner: self)
         restoreTransitionSettings()
         self.sleepTimer.expired = { [weak self] in try? self?.command("pause") }
@@ -144,6 +149,9 @@ final class PlaybackEngine {
     }
     // Every new playback intent invalidates previous resolves and preloads.
     func select(_ target: Int, refresh: Bool = false, position: Double = 0) {
+        guard queue.indices.contains(target) || (target == -1 && detachedSong != nil) else { return }
+        listeningSeek = nil
+        if !refresh { listening.finishOccurrence() } else { listening.discontinuity() }
         if usesStereoOutput { selectStream(target, refresh: refresh, position: position); return }
         guard let song = queue.indices.contains(target) ? queue[target] : (target == -1 ? detachedSong : nil) else { return }
         generation += 1; let epoch = generation
@@ -211,6 +219,10 @@ final class PlaybackEngine {
         guard epoch == generation else { return }
         let code = (cause as? MobileFailure)?.code ?? "network"
         if ["auth-required", "gateway-auth-required", "rate-limited"].contains(code) {
+            if code == "gateway-auth-required" || (code == "auth-required" &&
+                (currentSong?["sourceRef"] as? [String: Any])?["providerId"] as? String == "netease") {
+                listening.authenticationFailed(code)
+            }
             stop(code); return
         }
         if !retried { retried = true; select(index, refresh: true, position: playbackPosition); return }
@@ -227,7 +239,7 @@ final class PlaybackEngine {
         intentToPlay = false; pauseOutput(); error = code; persist(); publish()
     }
     func invalidateProvider(_ provider: String) {
-        if provider == "netease" { personalFM.leave() }
+        if provider == "netease" { listening.invalidate(); personalFM.leave() }
         mediaCacheEpoch += 1
         let previous = mediaCachePurges[provider]
         mediaCachePurges[provider] = Task { [mediaCache, coverCache, lyricCache] in
@@ -252,6 +264,7 @@ final class PlaybackEngine {
     var outputIsPlaying: Bool { usesStereoOutput ? stream?.playing == true && streamOutput?.running == true : player.timeControlStatus == .playing }
     var playbackPosition: Double { usesStereoOutput ? (stream?.position ?? restoredPosition) : (player.currentItem == nil ? restoredPosition : finiteTime(player.currentTime())) }
     func pauseOutput() {
+        listening.discontinuity()
         crossfade?.cancel()
         if usesStereoOutput { stream?.pause(); streamOutput?.pause() } else { player.pause() }
     }
@@ -270,11 +283,14 @@ final class PlaybackEngine {
          "position": playbackPosition,
          "duration": playbackDuration, "playing": outputIsPlaying,
          "repeat": repeatMode, "error": error ?? "", "revision": revision, "personalFM": personalFM.snapshot,
+         "listening": listening.snapshot,
          "transitionCue": crossfade?.cueSnapshot as Any? ?? NSNull(),
          "audioProcessingAvailable": meter?.processingAvailable() ?? false,
          "audioEffects": meter?.effectState() ?? ["available": false, "pending": false, "error": ""]]
     }
     func publish() {
+        listening.observe(song: currentSong, position: playbackPosition, duration: playbackDuration,
+            playing: outputIsPlaying && stream?.seeking != true && listeningSeek == nil, quality: audioSettings.audioQuality)
         revision += 1; updateNowPlaying()
         var event = snapshot()
         if !queueDirty { event.removeValue(forKey: "queue"); event.removeValue(forKey: "currentSong") }

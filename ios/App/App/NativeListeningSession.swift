@@ -42,9 +42,18 @@ final class NativeListeningSession {
     func settle(nowMs: Double = CACurrentMediaTime() * 1000) throws -> NativeListeningReport? {
         try report("settle", [nowMs])
     }
+    func seek(from: Double, to: Double, nowMs: Double = CACurrentMediaTime() * 1000) throws -> NativeListeningReport? {
+        try report("seek", [from, to, nowMs])
+    }
     func discard() throws { _ = try invoke("discard", []) }
     func discontinuity() throws { _ = try invoke("discontinuity", []) }
     func listenedSeconds() throws -> Double { try invoke("listenedSeconds", []).toDouble() }
+    func reserve(nowMs: Double = CACurrentMediaTime() * 1000) throws -> Int? {
+        let ticket = Int(try invoke("reserve", [nowMs]).toInt32())
+        return ticket > 0 ? ticket : nil
+    }
+    func finish(_ ticket: Int) { _ = try? invoke("finish", [ticket]) }
+    var timeoutSeconds: Double { (try? invoke("timeoutMs", []).toDouble()).map { $0 / 1000 } ?? 15 }
     private func report(_ method: String, _ arguments: [Any]) throws -> NativeListeningReport? {
         guard let json = try invoke(method, arguments).toString(), let data = json.data(using: .utf8) else {
             throw MobileFailure("invalid-listening-result")

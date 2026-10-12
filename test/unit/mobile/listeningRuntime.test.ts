@@ -1,3 +1,4 @@
+import { createPlaybackReportLimiter } from '../../../src/utils/playbackReportLimiter';
 import { describe, expect, it } from 'vitest';
 import { create, createListeningSession, type ListeningSample } from '../../../src/mobile/nativeListeningRuntime';
 import { resolveNeteaseListeningIdentity } from '../../../src/utils/playbackListeningIdentity';
@@ -55,6 +56,13 @@ describe('native listening session using the original tracker', () => {
     expect(session.observe(sample(0.75, 41_250))).toBeNull();
     expect(session.listenedSeconds()).toBe(0.25);
   });
+  it('explicit replay settles the earned occurrence, while a short forward seek earns no time', () => {
+    const session = createListeningSession(); play(session, 0, 40);
+    expect(session.seek(40, 0.5, 41_000)).toMatchObject({ playedSeconds: 40 });
+    play(session, 0.5, 29, 42_000);
+    expect(session.seek(29.5, 30.5, 72_000)).toBeNull();
+    expect(session.listenedSeconds()).toBe(29); expect(session.settle(72_001)).toBeNull();
+  });
   it('settles the outgoing eligible track when moving to another platform', () => {
     const session = createListeningSession(); play(session, 0, 35);
     expect(session.observe(sample(0, 36_000, { candidate: null, occurrence: 'qq' }))).toMatchObject({ mediaId: '42', playedSeconds: 35 });
@@ -104,5 +112,30 @@ describe('shared listening eligibility and report protocol', () => {
       try { requireNeteaseReportSuccess({ code }); throw Error('unexpected-success'); }
       catch (error) { expect(error).toMatchObject({ code: 'auth-required', providerId: 'netease' }); }
     }
+  });
+});
+
+
+describe('shared ticketed report limiter', () => {
+  it('keeps the newest reservation busy after reset and late old completion', () => {
+    const limiter = createPlaybackReportLimiter();
+    const old = limiter.reserve(0).ticket!; limiter.reset();
+    const current = limiter.reserve(10000).ticket!; limiter.finish(old);
+    expect(limiter.reserve(20000)).toEqual({ ticket: null, reason: 'busy' });
+    limiter.finish(current); expect(limiter.reserve(20000).ticket).not.toBeNull();
+  });
+  it('rejects invalid/backward time and retains failed/cancelled attempts', () => {
+    const limiter = createPlaybackReportLimiter();
+    expect(limiter.reserve(NaN).ticket).toBeNull();
+    const ticket = limiter.reserve(10000).ticket!; limiter.finish(ticket);
+    expect(limiter.reserve(9000).ticket).toBeNull();
+    expect(limiter.reserve(14999).ticket).toBeNull();
+    expect(limiter.reserve(15000).ticket).not.toBeNull();
+  });
+  it('native bridge enforces the same gap and timeout', () => {
+    const runtime = create(); const first = runtime.reserve(0);
+    expect(first).toBeGreaterThan(0); expect(runtime.reserve(10000)).toBe(0);
+    runtime.finish(first); expect(runtime.reserve(4999)).toBe(0);
+    expect(runtime.reserve(5000)).toBeGreaterThan(0); expect(runtime.timeoutMs()).toBe(15000);
   });
 });

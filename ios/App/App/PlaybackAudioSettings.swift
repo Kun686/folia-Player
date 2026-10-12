@@ -36,7 +36,8 @@ struct NativeAudioSettings: Codable {
     var equalizer = NativeEqualizerSettings()
     var replayGainMode = "off"
     var audioQuality = "standard"
-    private enum CodingKeys: String, CodingKey { case volume, isMuted, equalizer, replayGainMode, audioQuality }
+    var neteaseScrobbleEnabled = false
+    private enum CodingKeys: String, CodingKey { case volume, isMuted, equalizer, replayGainMode, audioQuality, neteaseScrobbleEnabled }
     init() {}
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -44,6 +45,7 @@ struct NativeAudioSettings: Codable {
         isMuted = try values.decode(Bool.self, forKey: .isMuted)
         equalizer = try values.decode(NativeEqualizerSettings.self, forKey: .equalizer)
         replayGainMode = try values.decodeIfPresent(String.self, forKey: .replayGainMode) ?? "off"
+        neteaseScrobbleEnabled = try values.decodeIfPresent(Bool.self, forKey: .neteaseScrobbleEnabled) ?? false
         audioQuality = try values.decodeIfPresent(String.self, forKey: .audioQuality) ?? "standard"
     }
     func validate() throws {
@@ -66,6 +68,7 @@ extension PlaybackEngine {
         try settings.validate()
         let data = try JSONEncoder().encode(settings)
         let qualityChanged = audioSettings.audioQuality != settings.audioQuality
+        listening.setEnabled(settings.neteaseScrobbleEnabled)
         audioSettings = settings
         storage.set(data, forKey: "folia.audio")
         applyAudioSettings()
@@ -85,6 +88,7 @@ extension PlaybackEngine {
     func restoreAudioSettings() {
         if let data = storage.data(forKey: "folia.audio"), let saved = try? JSONDecoder().decode(NativeAudioSettings.self, from: data),
            (try? saved.validate()) != nil { audioSettings = saved }
+        listening.setEnabled(audioSettings.neteaseScrobbleEnabled)
         applyAudioSettings()
     }
     func applyAudioSettings() {

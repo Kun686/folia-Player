@@ -23,6 +23,17 @@ describe('native audio settings synchronization', () => {
     expect(report).toHaveBeenLastCalledWith(true, false);
     disconnect();
   });
+  it('restores old native documents as default-off and persists the original scrobble action', async () => {
+    useAudioSettingsStore.getState().handleToggleNeteaseScrobble(true);
+    const disconnect = connectAudioSettings(vi.fn()); await settle();
+    expect(useAudioSettingsStore.getState().neteaseScrobbleEnabled).toBe(false);
+    bridge.setAudioSettings.mockImplementation(async ({ settings }) => settings);
+    useAudioSettingsStore.getState().handleToggleNeteaseScrobble(true); await settle();
+    expect(bridge.setAudioSettings).toHaveBeenLastCalledWith({ settings: expect.objectContaining({ neteaseScrobbleEnabled: true }) });
+    bridge.setAudioSettings.mockRejectedValue(new Error('rejected'));
+    useAudioSettingsStore.getState().handleToggleNeteaseScrobble(false); await settle();
+    expect(useAudioSettingsStore.getState().neteaseScrobbleEnabled).toBe(true); disconnect();
+  });
   it('serializes rapid changes and preserves the newest volume/mute/EQ intent', async () => {
     const report = vi.fn(), disconnect = connectAudioSettings(report);
     await settle();

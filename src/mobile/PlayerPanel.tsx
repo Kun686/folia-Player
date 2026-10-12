@@ -128,7 +128,7 @@ export default function PlayerPanel({ appearance, state, time, visible, light, e
     <PlayerChrome state={state} cover={cover} hidden={hidden} reveal={revealChrome} collapse={collapse} openQueue={openQueue}
       command={command} toolsOpen={toolsOpen} setToolsOpen={setToolsOpen}>
       <AudioControls light={light} theme={light ? appearance.theme.light : appearance.theme.dark}
-        unavailable={state.playing && state.audioProcessingAvailable === false} effects={state.audioEffects} replayGain={song?.replayGain} />
+        unavailable={state.playing && state.audioProcessingAvailable === false} effects={state.audioEffects} listening={state.listening} replayGain={song?.replayGain} />
       {toolsOpen && expanded && song?.sourceRef?.kind === 'online' && <OnlineSongLike song={song} likes={likes}
         writable={songLikeProviders.includes(song.sourceRef.providerId)} />}
       <div className="player-options"><button onClick={() => setVisualSettings(true)}>{t('mobile.visuals')}</button>

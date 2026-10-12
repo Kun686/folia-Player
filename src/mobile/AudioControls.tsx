@@ -1,3 +1,4 @@
+import ListeningControl from './ListeningControl';
 import { useEffect, useState } from 'react';
 import { ChevronDown, Volume2, VolumeX } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -14,9 +15,9 @@ import type { ReplayGainInfo } from '../types';
 import { AUDIO_QUALITY_OPTIONS } from '../utils/audioQualityOptions';
 
 // src/mobile/AudioControls.tsx — existing store/actions/dialog; AVPlayer owns the audible settings.
-export default function AudioControls({ light, theme, unavailable, effects, replayGain }: {
+export default function AudioControls({ light, theme, unavailable, effects, replayGain, listening }: {
   light: boolean; theme: Theme; unavailable: boolean; effects: PlaybackSnapshot['audioEffects'];
-  replayGain?: ReplayGainInfo;
+  replayGain?: ReplayGainInfo; listening?: PlaybackSnapshot['listening'];
 }) {
   const { t } = useTranslation();
   const [status, setStatus] = useState({ ready: false, error: false });
@@ -61,6 +62,7 @@ export default function AudioControls({ light, theme, unavailable, effects, repl
       <ReplayGainControl isDaylight={light} values={replayGain} mode={replayGainMode} onChangeMode={setReplayGainMode} />
     </fieldset>
     </details>
+    <ListeningControl saved={status.ready} state={listening} />
     {message && <p role="alert">{message}</p>}
     {!status.ready && status.error && <button onClick={() => setAttempt(a => a + 1)}>{t('mobile.retry')}</button>}
     <AudioEqualizerDialog isDaylight={light} theme={theme} mobileLayout commitOnInput statusMessage={message} />

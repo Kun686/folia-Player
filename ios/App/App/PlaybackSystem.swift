@@ -37,13 +37,19 @@ extension PlaybackEngine {
             if usesStereoOutput {
                 if let stream {
                     guard stream.audio.isSeekable else { throw MobileFailure("unsupported-seek") }
+                    listening.seek(from: playbackPosition, to: target)
                     crossfade?.cancel(preservingAnalysis: true); try stream.seek(to: target)
                     if preparedStream == nil { prefetch() }
                 } else { restoredPosition = target }
             } else if player.currentItem == nil { restoredPosition = target }
             else {
+                listening.seek(from: playbackPosition, to: target)
+                let ticket = UUID(), epoch = generation; listeningSeek = ticket
                 player.seek(to: CMTime(seconds: target, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) {
-                    [weak self] _ in DispatchQueue.main.async { self?.publish() }
+                    [weak self] _ in DispatchQueue.main.async {
+                        guard let self, self.generation == epoch, self.listeningSeek == ticket else { return }
+                        self.listeningSeek = nil; self.listening.discontinuity(); self.publish()
+                    }
                 }
             }
         case "repeat":
@@ -77,6 +83,7 @@ extension PlaybackEngine {
         observers.append(center.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: nil, queue: .main) { [weak self] note in
             guard let self, let item = note.object as? AVPlayerItem,
                   item === self.observedItem else { return }
+            self.listening.finishOccurrence()
             self.failures = 0
             if self.prepared == nil { self.move(1, automatic: true) }
         })
@@ -107,6 +114,7 @@ extension PlaybackEngine {
         observers.append(center.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.persist() })
         observers.append(center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
             self?.crossfade?.resourcePressure(ProcessInfo.processInfo.thermalState.rawValue >= ProcessInfo.ThermalState.serious.rawValue)
+            self?.listening.retryUnavailable()
             self?.sleepTimer.reconcile(); self?.publish()
         })
         let remote = MPRemoteCommandCenter.shared()
@@ -142,12 +150,13 @@ extension PlaybackEngine {
     }
     func networkChanged(connected: Bool) {
         sleepTimer.reconcile()
+        if connected { listening.retryUnavailable() }
         if !connected && intentToPlay && !currentIsLocal {
             let pending = playbackPosition
             stop("network"); networkResume = pending
         } else if connected, let pending = networkResume {
             networkResume = nil; intentToPlay = true
-            select(index, position: pending)
+            select(index, refresh: true, position: pending)
         }
     }
     func updateNowPlaying() {

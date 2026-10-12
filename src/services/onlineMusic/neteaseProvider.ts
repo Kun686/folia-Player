@@ -314,7 +314,7 @@ export const neteaseProvider: OnlineMusicProvider = {
             const response = await neteaseApi.scrobbleV1(buildNeteaseReportParams({
                 id: toNeteaseId(song.id), name: song.name, artists: metadata.artists,
             }, report));
-            requireNeteaseReportSuccess(response);
+            requireNeteaseReportSuccess(response, (code, message) => new OnlineProviderError(code, message, 'netease'));
         },
     },
     lyrics: { getLyrics, getChorusRanges: getNeteaseChorusRanges },

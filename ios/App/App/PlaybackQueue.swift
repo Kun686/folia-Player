@@ -111,6 +111,7 @@ extension PlaybackEngine {
     func promotePreparedItem() {
         guard !usesStereoOutput else { return }
         guard let next = prepared, player.currentItem === next.item else { return }
+        listening.finishOccurrence()
         generation += 1; task?.cancel(); preload?.cancel(); stalledRecovery?.cancel()
         index = next.index; prepared = nil; retried = false; failures = 0; error = nil
         meter = next.meter

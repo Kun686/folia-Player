@@ -81,6 +81,19 @@ export class PlaybackListenTracker {
         if (this.session) this.session.lastMediaTime = Number.NaN;
     }
 
+    /** Explicit seeks share restart rules but never contribute a positive position delta. */
+    handleSeek(from: number, to: number, nowMs = Date.now()): PlaybackListenProgress {
+        const restarted = Number.isFinite(from) && Number.isFinite(to) && to >= 0
+            && this.isRestart(from, to, nowMs);
+        this.discontinuity();
+        return { restarted };
+    }
+
+    private isRestart(previous: number, position: number, nowMs: number): boolean {
+        return !!this.session && position < previous && position <= RESTART_POSITION_SECONDS
+            && this.qualifies(this.session, nowMs);
+    }
+
     /**
      * Folds one `timeupdate` into the accumulator.
      *
@@ -109,9 +122,7 @@ export class PlaybackListenTracker {
 
         // A rewind to the top of a track that has already been listened to is a second play of it,
         // not a correction to the first. The caller settles the old session and opens a new one.
-        const restarted = delta < 0
-            && mediaTimeSeconds <= RESTART_POSITION_SECONDS
-            && this.qualifies(session, nowMs);
+        const restarted = this.isRestart(previous, mediaTimeSeconds, nowMs);
         return { restarted };
     }
 

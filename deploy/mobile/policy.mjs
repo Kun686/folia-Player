@@ -21,7 +21,7 @@ const lyricRoutes = new Set([
   'lyrics.kugou.com/download', 'm.kugou.com/app/i/getSongInfo.php',
 ]);
 export function fault(code, status = 400) { return Object.assign(new Error(code), { code, status }); }
-export function authorizeTarget(input, bases) {
+export function authorizeTarget(input, bases, playbackReport = false) {
   const { provider, path, method = 'GET' } = input;
   if (!['GET', 'POST'].includes(method) || typeof path !== 'string' || path.length > 32000) throw fault('invalid-request');
   const parsed = new URL(path, 'https://mobile.invalid');
@@ -41,7 +41,8 @@ export function authorizeTarget(input, bases) {
   if (method !== 'GET' || input.body) throw fault('forbidden', 403);
   if (!Object.hasOwn(routes, provider) || !path.startsWith('/') || parsed.origin !== 'https://mobile.invalid') throw fault('forbidden', 403);
   const qqRead = provider === 'qq' && /^\/(?:getMusicPlay|getSongListDetail|getSongInfo)\/[A-Za-z0-9_-]+(?:\/\d+)?$/.test(parsed.pathname);
-  if (!routes[provider].has(parsed.pathname) && !qqRead) throw fault('unsupported', 404);
+  const reportWrite = playbackReport && provider === 'netease' && parsed.pathname === '/scrobble/v1';
+  if (!routes[provider].has(parsed.pathname) && !qqRead && !reportWrite) throw fault('unsupported', 404);
   const params = { ...Object.fromEntries(parsed.searchParams), ...(input.query ?? {}) };
   if (provider === 'netease') {
     if (parsed.pathname === '/personalized') {

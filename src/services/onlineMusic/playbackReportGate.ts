@@ -3,6 +3,8 @@ import type { OmniPlaybackReport } from '../../types/onlineMusic';
 import { getPlaybackSourceRef } from '../../utils/appPlaybackGuards';
 import { useOnlineProviderAccountStore } from '../../stores/useOnlineProviderAccountStore';
 import { omni } from './omni';
+import { createPlaybackReportLimiter, MAX_REPORTS_PER_HOUR, REPORT_TIMEOUT_MS } from '../../utils/playbackReportLimiter';
+export { MIN_REPORT_GAP_MS, MAX_REPORTS_PER_HOUR } from '../../utils/playbackReportLimiter';
 
 // src/services/onlineMusic/playbackReportGate.ts
 // The last thing between a listening report and the user's account.
@@ -10,12 +12,6 @@ import { omni } from './omni';
 // A listening report is a write to a real music account, and a burst of implausible ones is what
 // trips a provider's risk control. The tracker upstream already refuses to count audio that was not
 // played; this refuses to SEND at a rate no listener could produce, whatever the tracker believed.
-
-/** No listener finishes two songs inside this. A second report that soon is a bug, not a listen. */
-export const MIN_REPORT_GAP_MS = 5000;
-
-/** An hour of back-to-back two-minute tracks is 30. Twice that is already generous. */
-export const MAX_REPORTS_PER_HOUR = 60;
 
 /**
  * How long a report may stay in flight before the gate stops waiting for it.
@@ -26,20 +22,8 @@ export const MAX_REPORTS_PER_HOUR = 60;
  * feature would switch itself off silently. Losing the race does not cancel the request; it only
  * gives up the slot, which is the part that must not leak.
  */
-const REPORT_TIMEOUT_MS = 15_000;
-
-const HOUR_MS = 60 * 60 * 1000;
-
-// In memory only: restarting the app clears the hourly window. Persisting it would buy little,
-// since every report still needs 30 seconds of real audio behind it, but the ceiling is a guard
-// against bursts within a session rather than a durable quota.
-let recentReportTimes: number[] = [];
-let inFlight = false;
-
-export const resetPlaybackReportGate = (): void => {
-    recentReportTimes = [];
-    inFlight = false;
-};
+const limiter = createPlaybackReportLimiter();
+export const resetPlaybackReportGate = (): void => limiter.reset();
 
 /** The provider is registered, declares the capability, and is configured on this build. */
 export const isNeteaseScrobbleSupported = (): boolean => {
@@ -72,26 +56,17 @@ export const sendPlaybackReport = async (
     report: OmniPlaybackReport,
     nowMs = Date.now(),
 ): Promise<boolean> => {
-    if (inFlight) {
-        console.warn('[Scrobble] dropped a listening report: another one is still in flight');
+    const reservation = limiter.reserve(nowMs);
+    if (reservation.ticket === null) {
+        const reasons = {
+            busy: 'another one is still in flight',
+            gap: 'reports are arriving faster than a listener could play',
+            hour: `over ${MAX_REPORTS_PER_HOUR} reports in the last hour`,
+            clock: 'invalid clock',
+        };
+        console.warn('[Scrobble] dropped a listening report: ' + reasons[reservation.reason]);
         return false;
     }
-
-    recentReportTimes = recentReportTimes.filter(time => nowMs - time < HOUR_MS);
-    const lastReportTime = recentReportTimes[recentReportTimes.length - 1];
-    if (lastReportTime !== undefined && nowMs - lastReportTime < MIN_REPORT_GAP_MS) {
-        console.warn('[Scrobble] dropped a listening report: reports are arriving faster than a listener could play');
-        return false;
-    }
-    if (recentReportTimes.length >= MAX_REPORTS_PER_HOUR) {
-        console.warn(`[Scrobble] dropped a listening report: over ${MAX_REPORTS_PER_HOUR} reports in the last hour`);
-        return false;
-    }
-
-    // Counted before the request rather than after it, so a slow or failing endpoint cannot be
-    // retried into a burst - a dropped record is always cheaper than a flagged account.
-    recentReportTimes.push(nowMs);
-    inFlight = true;
     let deadline: ReturnType<typeof setTimeout> | undefined;
     try {
         await Promise.race([
@@ -115,6 +90,6 @@ export const sendPlaybackReport = async (
         return false;
     } finally {
         clearTimeout(deadline);
-        inFlight = false;
+        limiter.finish(reservation.ticket);
     }
 };

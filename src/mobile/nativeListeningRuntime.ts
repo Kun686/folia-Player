@@ -2,6 +2,7 @@ import type { PlaybackListenReport, PlaybackListenSessionInput } from '../utils/
 import { PlaybackListenTracker } from '../utils/playbackListenTracker';
 import { resolveNeteaseListeningIdentity } from '../utils/playbackListeningIdentity';
 import type { SongResult } from '../types';
+import { createPlaybackReportLimiter, REPORT_TIMEOUT_MS } from '../utils/playbackReportLimiter';
 
 // nativeListeningRuntime.ts — original accounting in JavaScriptCore; no network or WebView dependency.
 export const protocolVersion = 1;
@@ -44,6 +45,11 @@ export function createListeningSession() {
       }
       return report;
     },
+    seek(from: number, to: number, nowMs: number) {
+      if (!Number.isFinite(nowMs) || nowMs < previousTime) { clear(); return null; }
+      previousTime = nowMs;
+      return tracker.handleSeek(from, to, nowMs).restarted ? settle(nowMs) : null;
+    },
     discontinuity: () => tracker.discontinuity(),
     settle(nowMs: number) {
       if (!Number.isFinite(nowMs) || nowMs < previousTime) { clear(); return null; }
@@ -58,6 +64,7 @@ export function createListeningSession() {
 // JSON methods keep the native boundary finite and independent of bridged JS object lifetimes.
 export function create() {
   const session = createListeningSession();
+  const limiter = createPlaybackReportLimiter();
   return {
     observe: (json: string) => {
       const sample: Omit<ListeningSample, 'candidate'> & { song: SongResult | null; duration: number } = JSON.parse(json);
@@ -67,8 +74,12 @@ export function create() {
         candidate: identity ? { ...identity, totalSeconds: sample.duration } : null }));
     },
     settle: (nowMs: number) => JSON.stringify(session.settle(nowMs)),
+    seek: (from: number, to: number, nowMs: number) => JSON.stringify(session.seek(from, to, nowMs)),
     discontinuity: session.discontinuity,
     discard: session.discard,
     listenedSeconds: session.listenedSeconds,
+    reserve: (nowMs: number) => limiter.reserve(nowMs).ticket ?? 0,
+    finish: limiter.finish,
+    timeoutMs: () => REPORT_TIMEOUT_MS,
   };
 }

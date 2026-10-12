@@ -1,3 +1,5 @@
+import { mobileNeteaseReportParams } from '../../shared/mobile/neteaseReportRequest.ts';
+import { requireNeteaseReportSuccess } from '../../shared/mobile/neteaseReport.ts';
 import { readNeteaseFm } from '../../shared/mobile/neteaseFm.ts';
 import { timingSafeEqual, createHash } from 'node:crypto';
 import express from 'express';
@@ -37,8 +39,8 @@ export function createMobileApp({ token, bases, providers = ['netease', 'qq', 'k
     res.once('close', () => { active--; });
     next();
   });
-  async function upstream(input, signal) {
-    const url = authorizeTarget(input, bases);
+  async function upstream(input, signal, playbackReport = false) {
+    const url = authorizeTarget(input, bases, playbackReport);
     const provider = input.provider === 'lyrics' ? (url.hostname === 'u.y.qq.com' ? 'qq' : 'kugou') : input.provider;
     if (!enabled.has(provider)) throw fault('provider-disabled', 404);
     const headers = { accept: 'application/json' };
@@ -65,6 +67,7 @@ export function createMobileApp({ token, bases, providers = ['netease', 'qq', 'k
     };
   }
   app.get('/mobile/health', (_req, res) => res.json({ protocol: 1, providers: [...enabled],
+    playbackReportProviders: enabled.has('netease') ? ['netease'] : [],
     songLikeProviders: enabled.has('netease') ? ['netease'] : [],
     playlistEditProviders: enabled.has('netease') ? ['netease'] : [],
     subscriptionProviders: enabled.has('netease') ? ['netease'] : [],
@@ -77,6 +80,23 @@ export function createMobileApp({ token, bases, providers = ['netease', 'qq', 'k
   app.post('/mobile/request', route(async (req, res, signal) => {
     if (!req.body || typeof req.body !== 'object') throw fault('invalid-request');
     res.json(await upstream(req.body, signal));
+  }));
+  app.post('/mobile/report', route(async (req, res, signal) => {
+    if (!enabled.has('netease')) throw fault('provider-disabled', 404);
+    const params = mobileNeteaseReportParams(req.body);
+    const cookie = req.body?.session?.cookie;
+    if (typeof cookie !== 'string' || !cookie.trim() || cookie.length > 24000) throw fault('auth-required', 401);
+    signal.throwIfAborted();
+    const result = await upstream({ provider: 'netease', path: '/scrobble/v1',
+      query: { ...Object.fromEntries(Object.entries(params).filter(([, value]) => value !== undefined)), cookie, timestamp: Date.now() } }, signal, true);
+    signal.throwIfAborted();
+    if ([401, 403].includes(result.status)) throw fault('auth-required', 401);
+    if (result.status === 429) throw fault('rate-limited', 429);
+    if (result.status >= 400) throw fault('upstream-unavailable', 502);
+    let body; try { body = JSON.parse(result.body); } catch { throw fault('invalid-response', 502); }
+    try { requireNeteaseReportSuccess(body); }
+    catch (error) { throw fault(error.code === 'auth-required' ? 'auth-required' : 'upstream-unavailable', error.code === 'auth-required' ? 401 : 502); }
+    res.json({ reported: true });
   }));
   app.post('/mobile/fm', route(async (req, res, signal) => {
     if (req.body?.provider !== 'netease') throw fault('unsupported', 404);
