@@ -66,7 +66,7 @@ export function stemWindowJSON(text: string): string {
     const { offset, inOffset, length, covered } = stemWindowCoverage(outAt, outFrom, outFrames, inAt, inFrom, inFrames, seconds, 44100);
     if (!covered) return JSON.stringify({ covered: false, late: 0 });
     const late = stemWindowLate(lateBy, 0, outFrames, inFrames, offset, inOffset, length, 44100);
-    return JSON.stringify({ covered: true, late, expansionOffset: offset + Math.round(late * 44100), length });
+    return JSON.stringify({ covered: true, late, expansionOffset: offset + Math.round(late * 44100), inOffset, length });
 }
 
 /** One Float32 curve per bounded response; retains all original 200Hz samples, including both ends. */

@@ -32,8 +32,8 @@ import {
 } from './expansionGesture';
 import { STEM_NAMES, type TrackStems } from './stems';
 import { createDeckClock, type DeckClock } from './deckClock';
-import { barGrid, RAW_RATE_LIMIT } from './musicalTime';
-import { BEATS_PER_BAR } from './signalAnalysis';
+import { RAW_RATE_LIMIT } from './musicalTime';
+import { incomingStemSings, stemDownbeats } from './stemObservation';
 import { applyTempoBend, resetTempoBend } from './tempoBend';
 import { handoverWindow, handoverStretch, handoverPeriod, handoverBeatGrid, waitToGrid, shapeMasterHandover, masterHandoverCue } from './masterHandover';
 import {
@@ -443,18 +443,7 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
         // place inside the bar - which looks like a bar line and is one three times in four. Null
         // downbeats means no bar lines, and `planStemHandover` then places the swap on the plain fraction,
         // the honest answer rather than a guessed line.
-        const bars: number[] = [];
-        const barLines = barGrid(
-            args.outgoingBpm, args.outgoingDownbeat, args.outgoingBeatsPerBar ?? BEATS_PER_BAR,
-        );
-        if (barLines) {
-            const first = Math.ceil((startMedia - barLines.offset) / barLines.period);
-            for (let k = first; ; k += 1) {
-                const at = barLines.offset + k * barLines.period - startMedia;
-                if (at > wall) break;
-                if (at >= 0) bars.push(at);
-            }
-        }
+        const bars = stemDownbeats(args.outgoingBpm, args.outgoingDownbeat, args.outgoingBeatsPerBar, startMedia, wall);
         const barSec = args.outgoingBarSec;
 
         /**
@@ -473,10 +462,7 @@ export const createAutomixSession = (ports: AutomixSessionPorts) => {
          * intro - the one the listener reported as 压音. The other stem negative in that session was
          * overruled by a boundary at 6.5s of a 16.6s window, the case this conjunction exists to catch.
          */
-        const introAt = args.incomingSectionStart === null
-            ? null
-            : args.incomingSectionStart - args.inAt;
-        const incomingSings = !(!stemFindsVoice && introAt !== null && introAt > wall);
+        const incomingSings = incomingStemSings(stemFindsVoice, args.incomingSectionStart, args.inAt, wall);
 
         const handover = planStemHandover(
             wall, barSec, args.incomingBarSec, bars, vocals, mix,

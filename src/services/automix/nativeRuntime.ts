@@ -16,6 +16,7 @@ import { fail, object, numeric, optionalNumber, numbers, read } from './nativeTr
 export { protocolVersion } from './nativeTransitionInput';
 export { stemPlanJSON, stemCurveJSON, stemBusJSON, stemWindowJSON, expansionPlanJSON } from './nativeStemRuntime';
 export { renderExpansionPCM } from './nativeExpansionRuntime';
+export { stemEnvelopeJSON, stemVocalEndJSON, stemObservationJSON } from './nativeStemAnalysis';
 const styles: TransitionStyle[] = ['beatCut', 'bassSwap', 'tailRide', 'plainBlend'];
 
 function track(value: unknown): TransitionTrack {

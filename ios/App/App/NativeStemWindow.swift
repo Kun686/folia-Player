@@ -2,7 +2,7 @@ import Foundation
 
 // NativeStemWindow.swift — original peak-scaled planar Int16 storage; floats exist only for a playing slice.
 enum NativeStemRole: String, Hashable { case head, tail }
-struct NativeStemWindowAlignment: Decodable { let covered: Bool, late: Double; let expansionOffset: Int?, length: Int? }
+struct NativeStemWindowAlignment: Decodable { let covered: Bool, late: Double; let expansionOffset: Int?, inOffset: Int?, length: Int? }
 
 final class NativeStemWindow {
     struct Packed { let gain: Double; let pcm: [Int16] }
@@ -86,6 +86,22 @@ final class NativeStemWindow {
                 return Float(a + (b - a) * fraction)
             }
         }
+    }
+
+    // Original session sums the restored lanes in this order, with a Float32 store after each add.
+    // Only one decoded stereo stem is held at a time; no four-stem float copy is retained for analysis.
+    func mixed(offset: Int = 0, count: Int? = nil) throws -> [[Float]] {
+        let count = count ?? frames
+        guard offset >= 0, count > 0, count <= frames, offset <= frames - count else {
+            throw MobileFailure("invalid-stem-window")
+        }
+        var result = Array(repeating: Array(repeating: Float(0), count: count), count: 2)
+        for name in [NativeStemName.vocals, .drums, .bass, .other] {
+            try Task.checkCancellation()
+            let channels = try decodedStem(name, offset: Double(offset), count: count)
+            for c in 0..<2 { for i in 0..<count { result[c][i] += channels[c][i] } }
+        }
+        return result
     }
 }
 

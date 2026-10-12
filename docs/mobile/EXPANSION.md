@@ -79,6 +79,7 @@
 ```
 
 原生完整选择与命令保存在 `tests.json`、`command.json`；清理检查见 `cleanup.json`。
+后续从分轨 PCM 直接生成包络、前奏判断及计划的衔接已通过独立对照，见 [STEM_ANALYSIS.md](STEM_ANALYSIS.md)。
 `NativeCrossfade` 的生产请求仍为 `performance: false`，还没有调用分轨缓存／表演渲染接口。
 模型、完整媒体读取、真实播放位置、强度选择／空间不足诊断、连续过渡与资源争用必须接通并验证后，
 才可声称完整 Automix 可供用户使用。
