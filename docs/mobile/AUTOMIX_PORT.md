@@ -7,6 +7,7 @@
 完整 Automix 的模型推理与分轨表现手势仍未完成，运行库评估见 [AUTOMIX_RUNTIME_DECISION.md](AUTOMIX_RUNTIME_DECISION.md)。
 2026-10-12更新：工程已接入固定ORT、[完整分轨窗口](ORT_WINDOW_INTEGRATION.md)及
 [拍点模型到原歌曲分析](BEAT_PROFILE_INTEGRATION.md)，独立模拟器QA通过；实际模型管理／队列调度与完整模式尚未启用。
+后续[原生模型存储服务](MODEL_STORE_INTEGRATION.md)已通过独立iPhone与模拟器QA；设置页、队列能力升级和完整分轨调度仍待接线。
 
 ## 已验证：原规则独立于 WebView 执行
 

@@ -5,25 +5,15 @@ import Foundation
 extension FoliaORTJob: @unchecked Sendable {}
 
 final class NativeORTInference: @unchecked Sendable {
-    enum Kind: String { case beatThis = "beat_this", htdemucs }
-    private struct Manifest: Decodable {
-        struct Entry: Decodable { let name: String, bytes: Int64?, sha256: String? }
-        let models: [Entry]
-    }
+    typealias Kind = NativeModelManifest.Name
     // Global across service instances: a second caller cannot load a second model alongside the first.
     private static let worker = DispatchQueue(label: "app.folia.models", qos: .utility)
     static var runtimeVersion: String { FoliaORTJob.runtimeVersion() }
 
     static func modelDigest(_ kind: Kind) throws -> String { try descriptor(kind).digest }
     private static func descriptor(_ kind: Kind) throws -> (bytes: Int64, digest: String) {
-        guard let url = Bundle.main.url(forResource: "modelManifest", withExtension: "json"),
-              let entry = try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: url))
-                .models.first(where: { $0.name == kind.rawValue }),
-              let bytes = entry.bytes, bytes > 0, let digest = entry.sha256,
-              digest.count == 64, digest.allSatisfy({ "0123456789abcdef".contains($0) }) else {
-            throw MobileFailure("ort-manifest-unavailable")
-        }
-        return (bytes, digest)
+        let entry = try NativeModelManifest().entry(kind)
+        return (entry.bytes, entry.sha256)
     }
 
     func infer(_ kind: Kind, model: URL, input: Data, frames: Int) async throws -> [Data] {

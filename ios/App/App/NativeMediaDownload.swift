@@ -6,6 +6,8 @@ final class NativeMediaDownload: NSObject, URLSessionDownloadDelegate, @unchecke
     private let configuration: URLSessionConfiguration
     private let maximumBytes: Double
     private let resourceTimeout: TimeInterval
+    private let progress: (@Sendable (Int64) -> Void)?
+    private var lastProgress: TimeInterval = 0
     private let lock = NSLock()
     private var continuation: CheckedContinuation<DownloadedMedia, Error>?
     private var session: URLSession?
@@ -13,8 +15,9 @@ final class NativeMediaDownload: NSObject, URLSessionDownloadDelegate, @unchecke
     private var started = false, cancelled = false
     private var redirects = 0
     init(configuration: URLSessionConfiguration = .ephemeral, maximumBytes: Double = .greatestFiniteMagnitude,
-         resourceTimeout: TimeInterval = 600) {
-        self.configuration = configuration; self.maximumBytes = maximumBytes; self.resourceTimeout = resourceTimeout; super.init()
+         resourceTimeout: TimeInterval = 600, progress: (@Sendable (Int64) -> Void)? = nil) {
+        self.configuration = configuration; self.maximumBytes = maximumBytes; self.resourceTimeout = resourceTimeout
+        self.progress = progress; super.init()
     }
     func read(_ url: URL) async throws -> DownloadedMedia {
         let request = try NativeMediaTransport.request(url)
@@ -69,6 +72,10 @@ final class NativeMediaDownload: NSObject, URLSessionDownloadDelegate, @unchecke
         do {
             _ = try Self.validate(downloadTask.response, maximumBytes: maximumBytes)
             guard Double(totalBytesWritten) <= maximumBytes else { throw MobileFailure("cache-limit") }
+            let now = ProcessInfo.processInfo.systemUptime
+            if now - lastProgress >= 0.2 || totalBytesWritten == totalBytesExpectedToWrite {
+                lastProgress = now; progress?(totalBytesWritten)
+            }
         } catch { finish(.failure(error)) }
     }
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {

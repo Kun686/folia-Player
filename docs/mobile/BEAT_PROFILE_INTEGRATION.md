@@ -36,6 +36,8 @@
 - 首轮远端CI为377通过／1超时，定位在31秒梅尔对照的测试断言。改为收集FFT尺寸后统一断言、
   用原生`Buffer.compare`逐字节比较大缓冲，避免深比较逐元素记账；31秒输入、逐字节标准、默认5秒限时
   及产品代码均不变。`mobile-suite.log`复跑完整移动逻辑：54文件、378项通过，原CI失败日志保留。
+  修正后的提交`8163928`已通过[远端CI 38213470907](https://github.com/Kun686/folia-Player/actions/runs/38213470907)，
+  完整结果与源码身份保存为`ci.json`／`final-check.json`。
 - `native-final.xcresult`／`native-final-summary.json`：实际Release Folia QA，
   `app.folia.validation.App`，iPad Pro11-inch(M5)／iOS26.5模拟器，**19通过、0失败、0跳过**。
   准备梅尔与模型logits的最大绝对差均为0，最终37／10个时间点精确一致；
