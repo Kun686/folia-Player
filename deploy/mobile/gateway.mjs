@@ -69,6 +69,8 @@ export function createMobileApp({ token, bases, providers = ['netease', 'qq', 'k
     playlistEditProviders: enabled.has('netease') ? ['netease'] : [],
     dailyProviders: enabled.has('netease') ? ['netease'] : [],
     personalFmProviders: enabled.has('netease') ? ['netease'] : [],
+    userAlbumProviders: [...enabled].filter(provider => ['netease', 'qq'].includes(provider)),
+    cloudProviders: enabled.has('netease') ? ['netease'] : [],
     catalogProviders: [...enabled].filter(provider => ['netease', 'qq'].includes(provider)) }));
   app.post('/mobile/request', route(async (req, res, signal) => {
     if (!req.body || typeof req.body !== 'object') throw fault('invalid-request');

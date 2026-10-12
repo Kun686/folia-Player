@@ -407,6 +407,12 @@ export const omni = {
         return withActiveProvider(async provider => provider.library?.getUserAlbums?.(userId, page.limit, page.offset) ?? emptyPage(page.offset));
     },
 
+    async getProviderUserAlbums(providerId: OmniProviderId, userId: MediaId, page: PageInput): Promise<OmniPage<OmniCollection>> {
+        const provider = requireOnlineMusicProvider(providerId);
+        if (!providerSupports(provider, 'userAlbums') || !provider.library?.getUserAlbums) return unsupported(providerId, 'user-albums');
+        return provider.library.getUserAlbums(userId, page.limit, page.offset);
+    },
+
     async getLikedSongIds(userId: MediaId): Promise<MediaId[]> {
         return withActiveProvider(async provider => provider.library?.getLikedSongIds?.(userId) ?? []);
     },

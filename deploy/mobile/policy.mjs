@@ -5,11 +5,11 @@ export const routes = {
   netease: new Set(['/register/anonimous', '/login/qr/key', '/login/qr/create', '/login/qr/check',
     '/login/status', '/logout', '/user/account', '/user/detail', '/user/playlist', '/playlist/detail',
     '/playlist/track/all', '/song/detail', '/song/url/v1', '/cloudsearch', '/search', '/lyric', '/lyric/new', '/cloud/lyric/get', '/song/chorus', '/likelist', '/like',
-    '/album', '/artist/detail', '/artist/songs', '/artist/album', '/playlist/tracks',
+    '/album', '/album/sublist', '/user/cloud', '/artist/detail', '/artist/songs', '/artist/album', '/playlist/tracks',
     '/personal_fm', '/personal/fm/mode', '/recommend/songs', '/recommend/songs/dislike', '/history/recommend/songs', '/history/recommend/songs/detail']),
   qq: new Set(['/login/qr/key', '/login/qr/create', '/login/qr/check', '/login/qr/cancel',
     '/login/status', '/login/channels', '/logout', '/user/detail', '/user/playlist', '/user/playlist-detail',
-    '/user/liked-songs', '/getAlbumInfo', '/getSingerHotsong', '/getSingerAlbum']),
+    '/user/liked-songs', '/user/albums', '/getAlbumInfo', '/getSingerHotsong', '/getSingerAlbum']),
   kugou: new Set(['/register/dev', '/login/qr/key', '/login/qr/create', '/login/qr/check', '/logout',
     '/user/detail', '/user/vip/detail', '/user/playlist', '/search', '/audio', '/krm/audio', '/song/url',
     '/search/lyric', '/lyric', '/song/climax', '/playlist/track/all', '/playlist/detail']),
@@ -62,8 +62,8 @@ export function authorizeTarget(input, bases) {
   const catalogId = provider === 'netease' && ['/album', '/artist/detail', '/artist/songs', '/artist/album'].includes(parsed.pathname) ? 'id'
     : provider === 'qq' && parsed.pathname === '/getAlbumInfo' ? 'albummid'
     : provider === 'qq' && ['/getSingerHotsong', '/getSingerAlbum'].includes(parsed.pathname) ? 'singermid' : null;
-  if (catalogId) {
-    if (!(provider === 'netease' ? /^[1-9][0-9]{0,19}$/ : /^[A-Za-z0-9_-]{1,128}$/).test(String(params[catalogId] ?? ''))) throw fault('invalid-request');
+  if (catalogId && !(provider === 'netease' ? /^[1-9][0-9]{0,19}$/ : /^[A-Za-z0-9_-]{1,128}$/).test(String(params[catalogId] ?? ''))) throw fault('invalid-request');
+  if (catalogId || (provider === 'netease' && ['/album/sublist', '/user/cloud'].includes(parsed.pathname)) || (provider === 'qq' && parsed.pathname === '/user/albums')) {
     for (const key of ['limit', 'offset', 'page']) {
       if (params[key] !== undefined && (!/^\d+$/.test(String(params[key])) || Number(params[key]) > (key === 'limit' ? 1000 : 10000)
           || (key === 'limit' && Number(params[key]) < 1))) throw fault('invalid-request');

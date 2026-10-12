@@ -47,6 +47,7 @@ import PlayerPanel from './PlayerPanel';
 import type { SongResult } from '../types';
 import { addMobileSongs, editMobileQueue, type QueueAction } from './queueActions';
 import { initializeSyncCoordinator } from '../services/sync/syncCoordinator';
+import OnlineAccountLibrary from './OnlineAccountLibrary';
 
 // src/mobile/MobileApp.tsx — library and full-window player share the original native playback state.
 export default function MobileApp({ initialServer }: { initialServer: string }) {
@@ -143,11 +144,17 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         <Search size={20} /><input aria-label={t('mobile.search')} placeholder={t('mobile.search')} value={query} onChange={e => setQuery(e.target.value)} />
         <button disabled={(!isLocal && !isCached && !providerEnabled) || catalog.busy || !query.trim()}>{t('mobile.search')}</button>
       </form>
-      <div className="section-heading"><h2>{queueView ? t('mobile.queue') : t(isCached ? 'options.mediaCache' : isLocal ? 'mobile.local' : 'mobile.playlists')}</h2>
+      <div className="section-heading"><h2>{queueView ? t('mobile.queue') : t(isCached ? 'options.mediaCache' : isLocal ? 'mobile.local' : catalog.collection?.type === 'cloud' ? 'mobile.accountCloud' : 'mobile.playlists')}</h2>
         <button aria-pressed={queueView} onClick={() => setQueueView(!queueView)}>{t('mobile.queue')} · {playback.state.queue.length}</button></div>
       {isLocal && !queueView && <LocalLibraryNav browser={localBrowser} clearQuery={() => setQuery('')} />}
       <PersonalFM provider={queueView ? '' : provider} enabled={available.personalFmProviders.includes(provider)} signedIn={!!catalog.user}
         state={playback.state} busy={queueBusy} work={queueWork} playing={() => setExpanded(true)} />
+      {!queueView && <OnlineAccountLibrary key={provider + ':' + String(catalog.user?.id)} provider={provider} user={catalog.user}
+        albumsEnabled={available.userAlbumProviders.includes(provider)} cloudEnabled={available.cloudProviders.includes(provider)}
+        open={collection => {
+          if (collection.type === 'cloud') { setQuery(''); void catalog.load({ collection }); }
+          else setOnlineTarget({ collection: { ...collection, source: 'online' } });
+        }} />}
       <DailyRecommendations provider={queueView ? '' : provider} enabled={available.dailyProviders.includes(provider)} signedIn={!!catalog.user}
         queueBusy={queueBusy} queueError={queueError} add={(song, next) => void add(song, next)} actions={onlineActions}
         play={(tracks, index) => queueWork(async () => { await flushSessions(); await native.setQueue({ songs: tracks, index }); setExpanded(true); })} />

@@ -23,6 +23,7 @@ vi.mock('@/services/netease', () => ({
         getLikedSongs: vi.fn(),
         likeSong: vi.fn(),
         getUserPlaylists: vi.fn(),
+        getFavoriteAlbums: vi.fn(), getUserCloud: vi.fn(),
         getPlaylistTracks: vi.fn(),
         updatePlaylistTracks: vi.fn(),
         getDailyRecommendedSongs: vi.fn(), getDailyRecommendationHistoryDates: vi.fn(),
@@ -49,6 +50,29 @@ const song: UnifiedSong = {
 
 describe('neteaseProvider', () => {
     beforeEach(() => vi.clearAllMocks());
+
+    it.each([301, 401, 403, 429, 502, undefined])('rejects failed account library responses with code %s', async code => {
+        vi.mocked(neteaseApi.getFavoriteAlbums).mockResolvedValue({ code, data: [] } as any);
+        vi.mocked(neteaseApi.getUserCloud).mockResolvedValue({ code, songs: [], count: 0 } as any);
+        for (const read of [() => neteaseProvider.library!.getUserAlbums!(9, 50, 0),
+            () => neteaseProvider.library!.getCloudCollection!(), () => neteaseProvider.catalog!.getCloudTracks!(50, 0)]) {
+            await expect(read()).rejects.toMatchObject({ code: [301, 401, 403].includes(code!) ? 'auth-required' : 'unavailable' });
+        }
+    });
+    it('retains cloud variant and rejects missing lists or counts rather than fabricating empty data', async () => {
+        vi.mocked(neteaseApi.getUserCloud).mockResolvedValue({ code: 200, songs: [song], count: 51, hasMore: true } as any);
+        expect(await neteaseProvider.library!.getCloudCollection!()).toMatchObject({ type: 'cloud', trackCount: 51, providerId: 'netease' });
+        expect(await neteaseProvider.catalog!.getCloudTracks!(50, 0)).toMatchObject({ total: 51, hasMore: true,
+            items: [{ sourceRef: { ...song.sourceRef, variant: 'cloud' } }] });
+        for (const response of [{ code: 200 }, { code: 200, count: 0 }, { code: 200, songs: [] }]) {
+            vi.mocked(neteaseApi.getUserCloud).mockResolvedValue(response as any);
+            await expect(neteaseProvider.catalog!.getCloudTracks!(50, 0)).rejects.toMatchObject({ code: 'unavailable' });
+        }
+        vi.mocked(neteaseApi.getUserCloud).mockResolvedValue({ code: 200, songs: [], count: 0, hasMore: false } as any);
+        await expect(neteaseProvider.library!.getCloudCollection!()).resolves.toBeNull();
+        vi.mocked(neteaseApi.getFavoriteAlbums).mockResolvedValue({ code: 200 } as any);
+        await expect(neteaseProvider.library!.getUserAlbums!(9, 50, 0)).rejects.toMatchObject({ code: 'unavailable' });
+    });
 
     it('uses normalized daily/history values instead of raw nested fields', async () => {
         vi.mocked(neteaseApi.getDailyRecommendedSongs).mockResolvedValue({ code: 200, songs: [song] } as any);

@@ -589,6 +589,11 @@ describe('qqProvider', () => {
         expect(emptyPage).toMatchObject({ items: [], hasMore: false, nextOffset: 1 });
     });
 
+    it('rejects a missing favorite-album list instead of treating a malformed response as empty', async () => {
+        requestMock.mockResolvedValue({ code: 200 });
+        await expect(qqProvider.library!.getUserAlbums!(123, 20, 0)).rejects.toMatchObject({ code: 'unavailable' });
+    });
+
     it('reports an empty favourite album collection as an empty page', async () => {
         requestMock.mockResolvedValue({ code: 200, albums: [], total: 0, more: false });
 

@@ -444,11 +444,13 @@ export const neteaseProvider: OnlineMusicProvider = {
         },
         async getUserAlbums(_userId, limit, offset) {
             const response = await neteaseApi.getFavoriteAlbums(limit, offset);
+            requireCatalogResponse(response, Array.isArray(response?.data));
             const items = (response?.data || []).map((item: any) => normalizeCollection(item, 'album'));
             return { items, hasMore: Boolean(response?.hasMore), nextOffset: offset + items.length };
         },
         async getCloudCollection(user) {
             const response = await neteaseApi.getUserCloud(1, 0);
+            requireCatalogResponse(response, Array.isArray(response?.songs) && Number.isSafeInteger(Number(response?.count)) && Number(response.count) >= 0);
             const trackCount = Number(response?.count || 0);
             if (trackCount <= 0) return null;
             const firstSong = response?.songs?.[0] ? normalizeNeteaseSong(response.songs[0]) : null;
@@ -471,6 +473,7 @@ export const neteaseProvider: OnlineMusicProvider = {
         },
         async getCloudTracks(limit, offset) {
             const response = await neteaseApi.getUserCloud(limit, offset);
+            requireCatalogResponse(response, Array.isArray(response?.songs) && Number.isSafeInteger(Number(response?.count)) && Number(response.count) >= 0);
             const items = (response?.songs || []).map((item: unknown) => {
                 const song = normalizeNeteaseSong(item);
                 return { ...song, sourceRef: { ...song.sourceRef, variant: 'cloud' } } as UnifiedSong;

@@ -530,6 +530,7 @@ const getUserAlbums = async (
     const safeOffset = Math.max(0, offset);
     const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)));
     const response = await requestQq<any>('user_albums', { offset: safeOffset, limit: safeLimit });
+    if (!Array.isArray(response?.albums)) throw new OnlineProviderError('unavailable', 'QQ returned no favorite album list', 'qq');
     const albums = Array.isArray(response?.albums) ? response.albums : [];
     const items = albums.map((item: unknown) => normalizeQqCollection(item, 'album'));
     const nextOffset = safeOffset + items.length;

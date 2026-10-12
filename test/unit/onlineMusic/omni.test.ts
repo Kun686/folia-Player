@@ -56,6 +56,17 @@ afterEach(() => {
 });
 
 describe('omni routing', () => {
+    it('routes favorite albums explicitly without changing the active provider', async () => {
+        const selected = provider(providerId, undefined), other = provider(otherProviderId, undefined);
+        selected.capabilities = { ...capabilities, userAlbums: true };
+        selected.library = { getUserPlaylists: vi.fn(), getUserAlbums: vi.fn(async () => ({ items: [], hasMore: false, nextOffset: 50 })) };
+        registerOnlineMusicProvider(selected); registerOnlineMusicProvider(other);
+        useOnlineProviderAccountStore.getState().setActiveProviderId(otherProviderId);
+        await expect(omni.getProviderUserAlbums(providerId, 9, { limit: 50, offset: 50 })).resolves.toMatchObject({ items: [], nextOffset: 50 });
+        expect(selected.library.getUserAlbums).toHaveBeenCalledWith(9, 50, 50);
+        await expect(omni.getProviderUserAlbums(otherProviderId, 9, { limit: 50, offset: 0 })).rejects.toMatchObject({ code: 'unsupported' });
+        expect(useOnlineProviderAccountStore.getState().activeProviderId).toBe(otherProviderId);
+    });
     it('routes explicit daily/history requests independently of desktop active provider', async () => {
         const selected = provider(providerId, undefined), other = provider(otherProviderId, undefined);
         selected.recommendations = { getDailySongs: vi.fn(async () => [song(providerId)]), getHistoryDates: async () => ['2026-10-11'],

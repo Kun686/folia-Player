@@ -622,13 +622,14 @@ export const neteaseApi = {
 
   getUserCloud: async (limit = 200, offset = 0) => {
     const res = await fetchWithCreds(`/user/cloud?limit=${limit}&offset=${offset}`);
-    const normalizedSongs = (res.data || []).map((item: any) => normalizeSongResult({
+    // Preserve malformed-list failures so the provider cannot cache them as an empty cloud drive.
+    const normalizedSongs = Array.isArray(res.data) ? res.data.map((item: any) => normalizeSongResult({
       ...item,
       t: item?.t ?? 1,
       simpleSong: item?.simpleSong
         ? { ...item.simpleSong, t: item.simpleSong.t ?? item?.t ?? 1 }
         : item.simpleSong,
-    }));
+    })) : undefined;
     return {
       ...res,
       songs: normalizedSongs,
