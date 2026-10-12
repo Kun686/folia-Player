@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { List, type RowComponentProps } from 'react-window';
 import type { ReactNode } from 'react';
-import type { SongResult } from '../types';
+import type { QueueAddBehavior, SongResult } from '../types';
 import type { OnlineGridViewCollectionDescriptor } from '../library/core/contracts/collection';
 import type { LibraryArtistResource, LibraryArtistSnapshot } from '../library/core/contracts/artist';
 import type { CollectionResource, CollectionResourceSnapshot } from '../library/core/contracts/resource';
@@ -16,7 +16,7 @@ import SongList from './SongList';
 export interface OnlineCatalogContentProps {
   collection: OnlineGridViewCollectionDescriptor;
   play(songs: SongResult[], index: number): void;
-  add(song: SongResult, next?: boolean): void;
+  add(song: SongResult, behavior?: QueueAddBehavior): void;
   actions(song: SongResult, close: () => void): ReactNode;
   open(collection: OnlineGridViewCollectionDescriptor): void;
   busy: boolean;

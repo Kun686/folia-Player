@@ -12,6 +12,7 @@ import type { useNativeSleepTimer } from './useNativeSleepTimer';
 import AISettingsSheet from './AISettingsSheet';
 import SyncSettingsSheet from './SyncSettingsSheet';
 import LocalLyricPreference, { type useLocalLyricPreference } from './LocalLyricPreference';
+import QueuePreference from './QueuePreference';
 
 // src/mobile/SettingsSheet.tsx
 export default function SettingsSheet({ appearance, mediaCache, timer, server, light, setLight, saved, close, lyricPreference }: {
@@ -57,6 +58,7 @@ export default function SettingsSheet({ appearance, mediaCache, timer, server, l
       <option value="dark">{t('mobile.dark')}</option><option value="light">{t('mobile.light')}</option>
     </select></label>
     <MediaCacheControls cache={mediaCache} light={light} />
+    <QueuePreference />
     <LocalLyricPreference status={lyricPreference} />
     <button onClick={() => setSleep(true)}>{t('commandPalette.sleepTimerTitle')}</button>
     <button onClick={() => setAISettings(true)}>{t('mobile.ai.settings')}</button>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { SongResult } from '../types';
+import type { QueueAddBehavior, SongResult } from '../types';
 import type { ProviderCollection } from '../types/onlineMusic';
 import type { CollectionResource, CollectionResourceSnapshot } from '../library/core/contracts/resource';
 import type { CollectionMutationController } from '../library/core/contracts/mutations';
@@ -14,7 +14,7 @@ import SongList from './SongList';
 // OnlinePlaylistManager.tsx — original collection resource and authoritative removal controller in a touch sheet.
 export default function OnlinePlaylistManager({ collection, editor, close, play, add, queueBusy, queueError }: {
   collection: ProviderCollection; editor: MobilePlaylistEditor; close(): void;
-  play(songs: SongResult[], index: number): void; add(song: SongResult, next?: boolean): void;
+  play(songs: SongResult[], index: number): void; add(song: SongResult, behavior?: QueueAddBehavior): void;
   queueBusy: boolean; queueError: string;
 }) {
   const { t } = useTranslation(), dialog = useRef<HTMLDialogElement>(null);

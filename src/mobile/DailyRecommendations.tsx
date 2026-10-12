@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { SongResult } from '../types';
+import type { QueueAddBehavior, SongResult } from '../types';
 import { omni } from '../services/onlineMusic/omni';
 import { captureProviderSession, flushSessions } from './runtime';
 import { createMobileDailyRecommendations } from './mobileDailyRecommendations';
@@ -10,7 +10,7 @@ import SongList from './SongList';
 type DailyController = ReturnType<typeof createMobileDailyRecommendations>;
 interface Props {
   provider: string; enabled: boolean; signedIn: boolean; queueBusy: boolean; queueError: string;
-  play(songs: SongResult[], index: number): Promise<boolean>; add(song: SongResult, next?: boolean): void;
+  play(songs: SongResult[], index: number): Promise<boolean>; add(song: SongResult, behavior?: QueueAddBehavior): void;
   actions(song: SongResult, close: () => void): ReactNode;
 }
 function Sheet({ service, close, ...props }: Props & { service: DailyController; close(): void }) {

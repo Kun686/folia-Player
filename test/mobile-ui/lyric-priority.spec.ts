@@ -25,6 +25,7 @@ test('priority persists, changes automatic lyrics and leaves a manual selection 
   await expect(choice).toHaveValue('online');
   await page.setViewportSize(info.project.name === 'phone' ? { width: 844, height: 390 } : { width: 834, height: 1194 });
   await expect(choice).toBeVisible();
+  expect((await choice.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   expect(await settings.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
   await settings.getByRole('button', { name: '关闭', exact: true }).tap();
   await page.getByRole('button', { name: '导入音乐', exact: true }).tap();

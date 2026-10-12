@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ReactNode } from 'react';
-import type { SongResult } from '../types';
+import type { QueueAddBehavior, SongResult } from '../types';
 import type { OnlineGridViewCollectionDescriptor } from '../library/core/contracts/collection';
 import { collectionKey } from '../library/core/model/collectionIdentity';
 import { captureProviderSession } from './runtime';
@@ -14,7 +14,7 @@ import OnlineCollectionSubscription from './OnlineCollectionSubscription';
 // OnlineCatalogSheet.tsx — scoped navigation; dismissing or replacing a target rejects late resolution.
 export default function OnlineCatalogSheet({ target, play, add, busy, close, error: queueError, songActions, editor, subscriptionProviders }: {
   target: OnlineCatalogTarget; play(songs: SongResult[], index: number): void;
-  add(song: SongResult, next?: boolean): void; busy: boolean; close(): void;
+  add(song: SongResult, behavior?: QueueAddBehavior): void; busy: boolean; close(): void;
   error: string; songActions(song: SongResult): ReactNode;
   editor: MobilePlaylistEditor; subscriptionProviders: string[];
 }) {

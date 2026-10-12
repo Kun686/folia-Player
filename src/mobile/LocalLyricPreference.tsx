@@ -16,7 +16,7 @@ export function useLocalLyricPreference() {
 export default function LocalLyricPreference({ status }: { status: ReturnType<typeof useLocalLyricPreference> }) {
   const { t } = useTranslation();
   const priority = useLyricSettingsStore(s => s.localLyricsPriority);
-  return <section aria-label={t('options.localLyricsPriority')}>
+  return <section className="mobile-preference" aria-label={t('options.localLyricsPriority')}>
     <label>{t('options.localLyricsPriority')}
       <select disabled={!status.ready} value={priority} aria-describedby="local-lyrics-priority-hint" onChange={event => {
         if (event.target.value === 'local' || event.target.value === 'online') useLyricSettingsStore.getState().handleSetLocalLyricsPriority(event.target.value);
