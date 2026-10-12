@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+Automix「表现模式」已补齐原设置到原生引擎的保存／恢复，兼容旧配置并在失败时回退。
+40 项逻辑、12 项 WebKit、8 项原生模拟器回归及构建通过；公开分轨能力仍保持关闭。
+本批只做独立 QA，个人 App／服务器未更新，真机验收仍待完成，见 [AUTOMIX_SETTINGS.md](AUTOMIX_SETTINGS.md)。
+
 移动弹窗已修复键盘出现／旋转后的输入遮挡，分词编辑器在短可视区可滚动；保留原播放器和动画。
 6 项新增、27 项原有 WebKit 回归通过，独立 iPhone／iPad 模拟器实际键盘检查通过，构建及资源核对通过。
 个人 App／服务器未更新，真机与完整键盘矩阵仍待验收，见 [SHEET_KEYBOARD.md](SHEET_KEYBOARD.md)。

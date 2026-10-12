@@ -90,7 +90,7 @@ test('original transition settings reach native state and recover from failed ed
   await dialog.getByRole('button', { name: /Folia Crossfade/ }).click();
   const duration = dialog.getByRole('slider', { name: '过渡最长时长' });
   await duration.fill('12');
-  await expect.poll(() => page.evaluate(() => (window as any).fixtureTransition)).toEqual({ enabled: true, mode: 'crossfade', crossfadeMaxSec: 12 });
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureTransition)).toEqual({ enabled: true, mode: 'crossfade', crossfadeMaxSec: 12, performance: false });
   await page.screenshot({ path: `.mobile-test-results/transition-settings-${info.project.name}.png` });
   await page.evaluate(() => { (window as any).fixtureTransitionFailure = true; });
   await toggle.click();

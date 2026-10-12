@@ -12,11 +12,13 @@ export function connectTransitionSettings(report: (ready: boolean, error: boolea
       store.handleToggleAutomix(value.enabled);
       store.handleSetTransitionMode(value.mode);
       store.handleSetCrossfadeMaxSec(value.crossfadeMaxSec);
+      store.handleToggleTransitionPerformance(value.performance ?? false);
     },
     subscribe: changed => useAutomixSettingsStore.subscribe((state, previous) => {
       if (state.automixEnabled === previous.automixEnabled && state.transitionMode === previous.transitionMode &&
-          state.crossfadeMaxSec === previous.crossfadeMaxSec) return;
-      changed({ enabled: state.automixEnabled, mode: state.transitionMode, crossfadeMaxSec: state.crossfadeMaxSec });
+          state.crossfadeMaxSec === previous.crossfadeMaxSec && state.transitionPerformance === previous.transitionPerformance) return;
+      changed({ enabled: state.automixEnabled, mode: state.transitionMode, crossfadeMaxSec: state.crossfadeMaxSec,
+        performance: state.transitionPerformance });
     }),
   }, report);
 }

@@ -63,7 +63,8 @@ actor MeasuredQueueStemSeparator: NativeStemSeparating {
                 player.network.cancel(); player.crossfade = NativeCrossfade(owner: player, profiles: profiles, stems: stems)
                 defer { player.stop(); player.clearOutput(); stems.cancel(); profiles.cancel() }
                 player.crossfade?.modelsChanged(beat: nil, stems: URL(fileURLWithPath: "/test-only-fake.onnx"))
-                try player.crossfade?.configure(enabled: true, maximumSeconds: 2, mode: "automix", performance: performance)
+                _ = try player.setTransitionSettings(["enabled": true, "crossfadeMaxSec": 2.0,
+                                                      "mode": "automix", "performance": performance])
                 let plan = try await NativeTransitionPlanner().plan(JSONSerialization.data(withJSONObject: ["version": 1,
                     "settings": ["mode": "automix", "crossfadeMaxSec": 2, "performance": performance],
                     "from": tracks[0], "to": tracks[1], "bpm": 120, "at": 0]))

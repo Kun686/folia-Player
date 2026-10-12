@@ -1,12 +1,17 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAutomixSettingsStore } from '../../../src/stores/useAutomixSettingsStore';
-import { connectTransitionSettings } from '../../../src/mobile/transitionSettingsSync';
+import { connectTransitionSettings as connect } from '../../../src/mobile/transitionSettingsSync';
 
 // Original store actions with reordered/failing bridge responses, without audio or account fixtures.
 const bridge = vi.hoisted(() => ({ getTransitionSettings: vi.fn(), setTransitionSettings: vi.fn() }));
 vi.mock('../../../src/mobile/bridge', () => ({ native: bridge }));
-const settings = () => ({ enabled: true, mode: 'crossfade' as const, crossfadeMaxSec: 8 });
+const settings = () => ({ enabled: true, mode: 'crossfade' as const, crossfadeMaxSec: 8, performance: false });
 const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+const connections: (() => void)[] = [];
+function connectTransitionSettings(report: (ready: boolean, error: boolean) => void) {
+  const stop = connect(report); connections.push(stop); return stop;
+}
+afterEach(() => { for (const stop of connections.splice(0)) stop(); });
 beforeEach(() => {
   vi.resetAllMocks();
   bridge.getTransitionSettings.mockResolvedValue(settings());
@@ -29,7 +34,7 @@ describe('native transition settings', () => {
     expect(bridge.setTransitionSettings).toHaveBeenCalledTimes(1);
     reject(new Error('interrupted')); await settle();
     expect(bridge.setTransitionSettings).toHaveBeenCalledTimes(2);
-    expect(bridge.setTransitionSettings).toHaveBeenLastCalledWith({ settings: { enabled: false, mode: 'crossfade', crossfadeMaxSec: 12 } });
+    expect(bridge.setTransitionSettings).toHaveBeenLastCalledWith({ settings: { enabled: false, mode: 'crossfade', crossfadeMaxSec: 12, performance: false } });
     expect(useAutomixSettingsStore.getState()).toMatchObject({ automixEnabled: false, crossfadeMaxSec: 12 });
     expect(report).toHaveBeenLastCalledWith(true, false); stop();
   });
@@ -52,5 +57,37 @@ describe('native transition settings', () => {
     useAutomixSettingsStore.getState().handleToggleAutomix(false);
     expect(bridge.setTransitionSettings).not.toHaveBeenCalled();
     expect(report).toHaveBeenLastCalledWith(false, true); disconnect();
+  });
+  it('restores performance from native storage and writes the original toggle with the other settings', async () => {
+    bridge.getTransitionSettings.mockResolvedValue({ ...settings(), mode: 'automix', performance: true });
+    const stop = connectTransitionSettings(vi.fn());
+    try {
+      await settle();
+      expect(useAutomixSettingsStore.getState().transitionPerformance).toBe(true);
+      expect(bridge.setTransitionSettings).not.toHaveBeenCalled();
+      useAutomixSettingsStore.getState().handleToggleTransitionPerformance(false); await settle();
+      expect(bridge.setTransitionSettings).toHaveBeenLastCalledWith({ settings: { ...settings(), mode: 'automix', performance: false } });
+    } finally { stop(); }
+  });
+  it('defaults a legacy native response to performance off instead of reviving a web-only preference', async () => {
+    useAutomixSettingsStore.getState().handleToggleTransitionPerformance(true);
+    bridge.getTransitionSettings.mockResolvedValue({ enabled: true, mode: 'automix', crossfadeMaxSec: 12 });
+    const stop = connectTransitionSettings(vi.fn());
+    try {
+      await settle();
+      expect(useAutomixSettingsStore.getState()).toMatchObject({ transitionPerformance: false, crossfadeMaxSec: 12 });
+      expect(bridge.setTransitionSettings).not.toHaveBeenCalled();
+    } finally { stop(); }
+  });
+  it('restores the accepted performance value after a failed toggle without another write', async () => {
+    const report = vi.fn(), stop = connectTransitionSettings(report);
+    try {
+      await settle();
+      bridge.setTransitionSettings.mockRejectedValue(new Error('bridge-failed'));
+      useAutomixSettingsStore.getState().handleToggleTransitionPerformance(true); await settle();
+      expect(useAutomixSettingsStore.getState().transitionPerformance).toBe(false);
+      expect(bridge.setTransitionSettings).toHaveBeenCalledTimes(1);
+      expect(report).toHaveBeenLastCalledWith(true, true);
+    } finally { stop(); }
   });
 });

@@ -44,7 +44,7 @@ import Foundation
         } ?? []
         return ["ready": ready, "revision": revision, "models": models,
                 "analysisAvailable": ready && engine?.usesStereoOutput == true,
-                // A stored stem model is not yet a connected stem transition engine.
+                // Stem playback is under independent QA; storing weights does not clear device acceptance.
                 "capabilities": ["beatGrid": ready && !suspended.contains(.beatThis) && latest?.paths[.beatThis] != nil,
                                  "stems": false, "full": false, "desktop": false]]
     }

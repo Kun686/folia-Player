@@ -5,6 +5,43 @@ import WebKit
 
 // NativeModelQueueTests.swift — real approved beat weights, capability changes, and the existing identity queue.
 @MainActor extension NativeTests {
+    func testPackagedTransitionSettingsBridgePersistsPerformanceAndKeepsCapabilitiesClosed() async throws {
+        XCTAssertEqual(Bundle.main.bundleIdentifier, "app.folia.validation.App")
+        let controller = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows).compactMap { $0.rootViewController as? CAPBridgeViewController }.first)
+        let web = try XCTUnwrap(controller.webView)
+        try await waitForStream({ !web.isLoading && web.url?.scheme == "capacitor" }, seconds: 15)
+        let plugin = try XCTUnwrap(controller.bridge?.plugin(withName: "FoliaNative") as? FoliaNativePlugin)
+        try await waitForStream({ plugin.models?.ready == true }, seconds: 15)
+        let engine = try XCTUnwrap(plugin.engine), original = engine.transitionSettings.dictionary
+        engine.stop()
+        defer { _ = try? engine.setTransitionSettings(original) }
+        let result = try await web.callAsyncJavaScript("""
+            const invoke = (method, options = {}) => window.Capacitor.nativePromise('FoliaNative', method, options);
+            const saved = await invoke('setTransitionSettings', {settings: {
+                enabled: true, mode: 'automix', crossfadeMaxSec: 7, performance: true
+            }});
+            const restored = await invoke('getTransitionSettings');
+            let invalid = '';
+            try { await invoke('setTransitionSettings', {settings: {...saved, performance: 'true'}}); }
+            catch (error) { invalid = error.message; }
+            return {saved, restored, invalid, after: await invoke('getTransitionSettings'),
+                    models: await invoke('getModels')};
+            """, arguments: [:], in: nil, contentWorld: .page)
+        let values = try XCTUnwrap(result as? [String: Any])
+        for key in ["saved", "restored", "after"] {
+            let settings = try XCTUnwrap(values[key] as? [String: Any])
+            XCTAssertEqual(settings["performance"] as? Bool, true)
+            XCTAssertEqual(settings["enabled"] as? Bool, true)
+            XCTAssertEqual(settings["mode"] as? String, "automix")
+            XCTAssertEqual(settings["crossfadeMaxSec"] as? Double, 7)
+        }
+        XCTAssertEqual(values["invalid"] as? String, "invalid-transition-settings")
+        XCTAssertEqual(engine.crossfade?.performance, true)
+        let models = try XCTUnwrap(values["models"] as? [String: Any])
+        let capabilities = try XCTUnwrap(models["capabilities"] as? [String: Bool])
+        XCTAssertEqual(capabilities["stems"], false); XCTAssertEqual(capabilities["full"], false)
+    }
     func testPackagedModelBridgeReadsNativeStateAndRejectsUnknownModels() async throws {
         XCTAssertEqual(Bundle.main.bundleIdentifier, "app.folia.validation.App")
         let controller = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }

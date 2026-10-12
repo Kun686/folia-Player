@@ -32,7 +32,7 @@ export interface NativeMediaCacheState {
 }
 export interface GatewayBootstrap { server: string; scope: string; sessions: Record<string, Record<string, string>> }
 export interface NativeAudioSettings { playbackFadeEnabled?: boolean; neteaseScrobbleEnabled?: boolean; volume: number; isMuted: boolean; equalizer: AudioEqualizerSettings; replayGainMode: ReplayGainMode; audioQuality: AudioQualityPreference }
-export interface NativeTransitionSettings { enabled: boolean; mode: 'crossfade' | 'automix'; crossfadeMaxSec: number }
+export interface NativeTransitionSettings { enabled: boolean; mode: 'crossfade' | 'automix'; crossfadeMaxSec: number; performance: boolean }
 export interface NativeSleepTimerState { hours: number; minutes: number; enabled: boolean; deadlineMs: number | null; revision: number }
 export type NativeSleepTimerEdit = Partial<Pick<NativeSleepTimerState, 'hours' | 'minutes' | 'enabled'>>;
 export type PlaybackEvent = Omit<PlaybackSnapshot, 'queue' | 'currentSong'> & Partial<Pick<PlaybackSnapshot, 'queue' | 'currentSong'>>;

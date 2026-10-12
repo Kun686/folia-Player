@@ -23,29 +23,54 @@ import AVFoundation
 
     func testTransitionSettingsPersistRestoreAndRejectInvalidEditsAtomically() throws {
         let tested = engine()
+        defer { tested.network.cancel(); tested.stop(); tested.clearOutput(); tested.storage.removeObject(forKey: "folia.transition") }
         XCTAssertFalse(tested.transitionSettings.enabled)
         XCTAssertEqual(tested.transitionSettings.mode, "automix")
-        let values: [String: Any] = ["enabled": true, "mode": "crossfade", "crossfadeMaxSec": 12.0]
-        _ = try tested.setTransitionSettings(values)
+        let values: [String: Any] = ["enabled": true, "mode": "crossfade", "crossfadeMaxSec": 12.0, "performance": true]
+        let result = try tested.setTransitionSettings(values)
+        XCTAssertEqual(result["performance"] as? Bool, true)
+        XCTAssertTrue(tested.crossfade!.performance)
         let saved = tested.storage.data(forKey: "folia.transition")
         for invalid in [["enabled": false, "mode": "other", "crossfadeMaxSec": 5.0],
                         ["enabled": false, "mode": "automix", "crossfadeMaxSec": 26.0],
-                        ["enabled": "yes", "mode": "crossfade", "crossfadeMaxSec": 5.0]] as [[String: Any]] {
+                        ["enabled": "yes", "mode": "crossfade", "crossfadeMaxSec": 5.0],
+                        ["enabled": false, "mode": "automix", "crossfadeMaxSec": 5.0, "performance": "true"],
+                        ["enabled": false, "mode": "automix", "crossfadeMaxSec": 5.0, "performance": 1],
+                        ["enabled": false, "mode": "automix", "crossfadeMaxSec": 5.0, "performance": NSNull()]] as [[String: Any]] {
             XCTAssertThrowsError(try tested.setTransitionSettings(invalid))
             XCTAssertEqual(tested.storage.data(forKey: "folia.transition"), saved)
             XCTAssertTrue(tested.crossfade!.enabled)
             XCTAssertEqual(tested.crossfade!.maximumSeconds, 12)
+            XCTAssertTrue(tested.crossfade!.performance)
         }
         let restored = PlaybackEngine(gateway: FailingGateway(), storage: tested.storage)
+        defer { restored.network.cancel(); restored.stop(); restored.clearOutput() }
         XCTAssertTrue(restored.crossfade!.enabled)
         XCTAssertEqual(restored.transitionSettings.mode, "crossfade")
         XCTAssertEqual(restored.crossfade!.maximumSeconds, 12)
+        XCTAssertTrue(restored.crossfade!.performance)
         _ = try restored.setTransitionSettings(["enabled": false, "mode": "automix", "crossfadeMaxSec": 5.0])
         XCTAssertFalse(restored.crossfade!.enabled)
+        XCTAssertFalse(restored.crossfade!.performance)
         tested.storage.set(Data("invalid".utf8), forKey: "folia.transition")
         let corrupt = PlaybackEngine(gateway: FailingGateway(), storage: tested.storage)
+        defer { corrupt.network.cancel(); corrupt.stop(); corrupt.clearOutput() }
         XCTAssertFalse(corrupt.crossfade!.enabled)
         tested.storage.removeObject(forKey: "folia.transition")
+    }
+
+    func testLegacyTransitionSettingsKeepModeAndDurationWithPerformanceOff() throws {
+        let tested = engine()
+        defer { tested.network.cancel(); tested.stop(); tested.clearOutput(); tested.storage.removeObject(forKey: "folia.transition") }
+        let legacy: [String: Any] = ["enabled": true, "mode": "crossfade", "crossfadeMaxSec": 17.0]
+        tested.storage.set(try JSONSerialization.data(withJSONObject: legacy), forKey: "folia.transition")
+        let restored = PlaybackEngine(gateway: FailingGateway(), storage: tested.storage)
+        defer { restored.network.cancel(); restored.stop(); restored.clearOutput() }
+        XCTAssertEqual(restored.transitionSettings.dictionary["performance"] as? Bool, false)
+        XCTAssertEqual(restored.transitionSettings.mode, "crossfade")
+        XCTAssertEqual(restored.crossfade?.maximumSeconds, 17)
+        XCTAssertEqual(restored.crossfade?.enabled, true)
+        XCTAssertEqual(restored.crossfade?.performance, false)
     }
 
     func testNativeCrossfadeAdvancesIdentityQueueAndReleasesTail() async throws {
