@@ -55,6 +55,11 @@ ORT 工程接入仍遵循 [接入评估](AUTOMIX_INTEGRATION_DECISION.md) 的 PE
 
 ## 交付与回退
 
+源码提交 `ba803046b2dbe89f5068a85eec853b08361b0d75` 已推送至 `Kun686/folia-Player` 的 main。
+该准确提交的 [Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38194847733) 为 **completed / success**；
+首次完整SHA查询遇到TLS超时，关闭HTTP/2后的一次重试取得最终结果，见本地 `ci.json`。
+清理确认没有运行中的构建／测试／QA进程或已启动模拟器，见 `cleanup.json`。
+
 本批是待接入播放器的计算模块，没有开启分轨播放，也不改变现有主混音回退。
 个人构建记录 SHA256 仍为 `ec176ad6a9b5d72435ada9d0fa3a8e399e7c7ed0047045b7991423d1adb2de73`。
 可按独立提交撤回新增桥接、测试与共享校验提取；不涉及用户数据迁移。
