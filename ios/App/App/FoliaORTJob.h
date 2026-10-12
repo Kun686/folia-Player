@@ -6,6 +6,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, readonly) BOOL cancelled;
 @property(nonatomic, readonly) BOOL running;
 @property(nonatomic, readonly) NSUInteger completedSegments;
+// Numeric, on-demand QA diagnostics; never contains model paths, input PCM or credentials.
+@property(nonatomic, readonly) NSDictionary<NSString *, NSNumber *> *diagnostics;
 + (NSString *)runtimeVersion;
 - (void)cancel;
 - (nullable NSArray<NSData *> *)runModel:(NSURL *)model

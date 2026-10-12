@@ -12,6 +12,47 @@ import XCTest
         return root
     }
 
+    // A bounded diagnostic contrast, not a full-window or playback acceptance test.
+    func testORTWindowSchedulingFirstChunkProbe() async throws {
+        let root = try ortWindowFixtures(), model = root.appendingPathComponent("htdemucs.onnx")
+        XCTAssertEqual(NativeProfileCache.digest(try Data(contentsOf: model)), "099b5be76c1f6922124d07f850250f39d1f33f254a0b8cc90f4ec0dfd0912329")
+        let input = try Data(contentsOf: root.appendingPathComponent("windows/music/input.f32"))
+        XCTAssertEqual(NativeProfileCache.digest(input), "33ab08343bbe235478aba3835c5313083cfedf2caca038b67333bb867eb523aa")
+        for qos in [DispatchQoS.utility, .userInitiated] {
+            guard ProcessInfo.processInfo.thermalState.rawValue < ProcessInfo.ThermalState.serious.rawValue else {
+                throw XCTSkip("Wait for the independent QA device to cool before the next scheduling probe")
+            }
+            let job = FoliaORTJob(), queue = DispatchQueue(label: "folia.qa.scheduling", qos: qos)
+            let start = ProcessInfo.processInfo.systemUptime
+            let watchdog = DispatchWorkItem { job.cancel() }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 25, execute: watchdog)
+            defer { watchdog.cancel(); job.cancel() }
+            let work = Task { () throws -> [Data] in
+                try await withCheckedThrowingContinuation { continuation in
+                    queue.async(qos: qos, flags: .enforceQoS) {
+                        do { continuation.resume(returning: try job.separateWindow(model: model, input: input, frames: input.count / 8)) }
+                        catch { continuation.resume(throwing: error) }
+                    }
+                }
+            }
+            var reported = -1
+            while job.completedSegments == 0 && ProcessInfo.processInfo.systemUptime - start < 20 {
+                let elapsed = Int(ProcessInfo.processInfo.systemUptime - start)
+                if elapsed / 5 != reported {
+                    reported = elapsed / 5
+                    print("FOLIA_ORT_SCHEDULING phase=first-chunk elapsed=\(elapsed) thermal=\(ProcessInfo.processInfo.thermalState.rawValue) metrics=\(job.diagnostics)")
+                }
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            let completed = job.completedSegments
+            job.cancel()
+            do { _ = try await work.value; XCTFail("Cancelled probe returned a complete window") }
+            catch { XCTAssertTrue(error.localizedDescription.contains("ort-cancelled")) }
+            XCTAssertGreaterThanOrEqual(completed, 1); XCTAssertFalse(job.running)
+            print("FOLIA_ORT_SCHEDULING phase=cancelled elapsed=\(ProcessInfo.processInfo.systemUptime - start) thermal=\(ProcessInfo.processInfo.thermalState.rawValue) metrics=\(job.diagnostics)")
+        }
+    }
+
     func testORTFullWindowsMatchOriginalStitchingAndBoundaries() async throws {
         let root = try ortWindowFixtures(), service = NativeORTInference()
         for name in ["synthetic", "music", "one-frame", "stride-exact", "stride-plus-one"] {

@@ -3,6 +3,8 @@
 2026-10-12，承接已批准的固定 Apple ONNX Runtime 1.30.0 和原始模型。
 **PASS_SIMULATOR / PARTIAL_DEVICE / FULL_AUTOMIX_IN_PROGRESS**。
 个人 `app.folia.personal` 保持 mobile.28；本阶段只安装、运行独立 `app.folia.validation.App`。
+后续调度修正已让同一真机的原始完整窗口通过，见 [ORT_SCHEDULING.md](ORT_SCHEDULING.md)；
+本文保留该修正前的失败证据。联合资源验证和真实四轨交接仍未完成。
 
 ## 实现与复用
 

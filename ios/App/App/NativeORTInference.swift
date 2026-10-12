@@ -7,7 +7,9 @@ extension FoliaORTJob: @unchecked Sendable {}
 final class NativeORTInference: @unchecked Sendable {
     typealias Kind = NativeModelManifest.Name
     // Global across service instances: a second caller cannot load a second model alongside the first.
-    private static let worker = DispatchQueue(label: "app.folia.models", qos: .utility)
+    // Current/next-track analysis is deadline-bound user work. Utility doubled the measured
+    // first-chunk compute time on XS Max; this remains serial and below the audio render priority.
+    private static let worker = DispatchQueue(label: "app.folia.models", qos: .userInitiated)
     static var runtimeVersion: String { FoliaORTJob.runtimeVersion() }
 
     static func modelDigest(_ kind: Kind) throws -> String { try descriptor(kind).digest }

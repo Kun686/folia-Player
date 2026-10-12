@@ -158,7 +158,9 @@ actor MeasuredQueueStemSeparator: NativeStemSeparating {
             let elapsed = Int(ProcessInfo.processInfo.systemUptime - started)
             if elapsed / 10 != reported {
                 reported = elapsed / 10
-                print("FOLIA_STEM_QUEUE elapsed=\(elapsed) phase=\(queue.phase(song, role: .tail)) thermal=\(ProcessInfo.processInfo.thermalState.rawValue)")
+                let memory = FoliaORTJob().diagnostics
+                let footprint = memory["footprintBytes"]!, peak = memory["peakFootprintBytes"]!
+                print("FOLIA_STEM_QUEUE elapsed=\(elapsed) phase=\(queue.phase(song, role: .tail)) thermal=\(ProcessInfo.processInfo.thermalState.rawValue) footprint=\(footprint) peak=\(peak)")
             }
             return queue.value(song, role: .tail) != nil || queue.failure(song, role: .tail) != nil
         }, seconds: 75)
@@ -167,6 +169,23 @@ actor MeasuredQueueStemSeparator: NativeStemSeparating {
         XCTAssertEqual(result.fromFrame, 4_541_768); XCTAssertEqual(result.frames, 1_323_000)
         XCTAssertEqual(try XCTUnwrap(result.vocalEnd), 23.650000000000002, accuracy: 1e-9)
         XCTAssertEqual(result.storedBytes, 21_168_000)
+        // The existing phone-vs-Mac allowance is one quantized PCM unit, not cross-device bit identity.
+        func channels(_ name: String) throws -> [[Float]] {
+            let bytes = try Data(contentsOf: assets.appendingPathComponent("windows/music/" + name + ".f32"))
+            var values = [Float](repeating: 0, count: bytes.count / 4)
+            _ = values.withUnsafeMutableBytes { bytes.copyBytes(to: $0) }
+            let half = values.count / 2
+            return [Array(values[..<half]), Array(values[half...])]
+        }
+        let reference = try await NativeStemAnalysis().window(fromFrame: result.fromFrame, role: .tail,
+            mix: channels("input"), separated: [.drums: channels("drums"), .bass: channels("bass"), .vocals: channels("vocals")])
+        for stem in NativeStemName.allCases {
+            let actual = try XCTUnwrap(result.packed[stem]), expected = try XCTUnwrap(reference.packed[stem])
+            XCTAssertEqual(actual.gain, expected.gain); XCTAssertEqual(actual.pcm.count, expected.pcm.count)
+            let difference = zip(actual.pcm, expected.pcm).reduce(0) { max($0, abs(Int($1.0) - Int($1.1))) }
+            XCTAssertLessThanOrEqual(difference, 1)
+            print("FOLIA_STEM_QUEUE packed=\(stem.rawValue) maxDifference=\(difference)")
+        }
         print("FOLIA_STEM_QUEUE original30SecondTail=PASS storedBytes=\(result.storedBytes)")
         queue.cancel(); queue.update(outgoing: song, incoming: missing)
         try await waitForStream({ queue.value(song, role: .tail) != nil }, seconds: 2)

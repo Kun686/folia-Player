@@ -3,7 +3,10 @@
 #include <onnxruntime/onnxruntime_cxx_api.h>
 #include <atomic>
 #include <cmath>
+#include <chrono>
+#include <mach/mach.h>
 #include <mutex>
+#include <pthread/qos.h>
 #include <vector>
 
 // FoliaORTJob.mm — thin official ORT boundary, with no alternative preprocessing or model algorithms.
@@ -12,18 +15,32 @@
     std::atomic_bool _used;
     std::atomic_bool _running;
     std::atomic_size_t _completedSegments;
+    std::atomic<double> _loadSeconds, _runSeconds;
+    std::atomic_uint _workerQoS;
     std::mutex _lock;
     std::unique_ptr<Ort::RunOptions> _options;
 }
 - (instancetype)init {
     self = [super init];
-    if (self) { _cancelled.store(false); _used.store(false); _running.store(false); _completedSegments.store(0); }
+    if (self) {
+        _cancelled.store(false); _used.store(false); _running.store(false); _completedSegments.store(0);
+        _loadSeconds.store(0); _runSeconds.store(0); _workerQoS.store(0);
+    }
     return self;
 }
 + (NSString *)runtimeVersion { return @(OrtGetApiBase()->GetVersionString()); }
 - (BOOL)cancelled { return _cancelled.load(); }
 - (BOOL)running { return _running.load(); }
 - (NSUInteger)completedSegments { return _completedSegments.load(); }
+- (NSDictionary<NSString *, NSNumber *> *)diagnostics {
+    task_vm_info_data_t memory{};
+    mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
+    const auto status = task_info(mach_task_self(), TASK_VM_INFO, reinterpret_cast<task_info_t>(&memory), &count);
+    return @{ @"loadSeconds": @(_loadSeconds.load()), @"runSeconds": @(_runSeconds.load()),
+              @"completedSegments": @(_completedSegments.load()), @"workerQoS": @(_workerQoS.load()),
+              @"memoryStatus": @(status), @"footprintBytes": @(memory.phys_footprint),
+              @"peakFootprintBytes": @(memory.ledger_phys_footprint_peak) };
+}
 - (void)cancel {
     _cancelled.store(true);
     std::lock_guard<std::mutex> guard(_lock);
@@ -51,6 +68,7 @@
     };
     if (NSThread.isMainThread) return fail(@"ort-main-thread-forbidden");
     if (_used.exchange(true)) return fail(@"ort-job-already-used");
+    _workerQoS.store(qos_class_self());
     const bool beat = [kind isEqualToString:@"beat_this"];
     if (!beat && ![kind isEqualToString:@"htdemucs"]) return fail(@"ort-unsupported-model");
     if (!model.isFileURL || inputs.count == 0 || inputs.count > (beat ? 41 : 1) || frameCounts.count != inputs.count)
@@ -75,7 +93,9 @@
         settings.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
         settings.DisableCpuMemArena().DisableMemPattern();
         if (strcmp(OrtGetApiBase()->GetVersionString(), "1.30.0") != 0) return fail(@"ort-runtime-version-mismatch");
+        const auto loading = std::chrono::steady_clock::now();
         Ort::Session session(environment, model.fileSystemRepresentation, settings);
+        _loadSeconds.store(std::chrono::duration<double>(std::chrono::steady_clock::now() - loading).count());
         if (_cancelled.load()) return fail(@"ort-cancelled");
         const char *inputName = beat ? "input_spectrogram" : "mix";
         const char *outputNames[] = {beat ? "beat" : "stems", "downbeat"};
@@ -92,7 +112,12 @@
             if (_cancelled.load()) return fail(@"ort-cancelled");
         }
         _running.store(true);
-        struct ResetRunning { std::atomic_bool& flag; ~ResetRunning() { flag.store(false); } } reset{_running};
+        const auto started = std::chrono::steady_clock::now();
+        struct ResetRunning {
+            std::atomic_bool& flag; std::atomic<double>& seconds;
+            std::chrono::steady_clock::time_point started;
+            ~ResetRunning() { seconds.store(std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count()); flag.store(false); }
+        } reset{_running, _runSeconds, started};
         if (window) {
             auto stitched = foliaStemWindow(samples, static_cast<size_t>(shape[2]), [&](auto& chunk, auto consume) {
                 if (_cancelled.load()) throw std::runtime_error("cancelled");
@@ -104,6 +129,7 @@
                     type.GetShape() != std::vector<int64_t>({1, 4, 2, shape[2]})) throw std::runtime_error("invalid stem output");
                 consume(result[0].template GetTensorData<float>(), type.GetElementCount());
             }, [&](size_t completed) {
+                _runSeconds.store(std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count());
                 _completedSegments.store(completed);
                 if (_cancelled.load()) throw std::runtime_error("cancelled");
             });
@@ -139,6 +165,7 @@
                 [outputs addObject:[NSData dataWithBytes:data length:type.GetElementCount() * sizeof(float)]];
             }
             _completedSegments.store(index + 1);
+            _runSeconds.store(std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count());
         }
         return outputs; // Tensors, session, environment and work buffers die before returning to Swift.
     } catch (const std::exception &) {
