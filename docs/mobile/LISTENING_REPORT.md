@@ -47,8 +47,8 @@ Cookie 只从 Keychain 读取并送往配置的 HTTPS 网关，匿名 Cookie 不
 | 原 tracker／provider／Omni、共享频控、网关及原生脚本 | 286 PASS／7 文件，`unit-release.log` |
 | 类型检查、移动资源构建 | PASS，`typecheck-release.log`、`build-release.log` |
 | 三种窗口 WebKit | 21 PASS，`ui-final.log`；布局修正后受影响 6 项 PASS，`ui-layout-current.log` |
-| 独立 QA 编译 | PASS，`native-build-final.log`；最终资源复封装见 `qa-resources-final.log` |
-| 原生 iPad 模拟器 | 15 PASS，0 FAIL／SKIP，`native-final.xcresult`、`native-summary.json` |
+| 独立 QA 编译 | PASS，`native-build-current.log`；最终资源复封装见 `qa-resources-final.log` |
+| 原生 iPad 模拟器 | 15 PASS，0 FAIL／SKIP，`native-current.xcresult`、`native-summary.json` |
 | 真实平台写入／物理设备／系统挂起／安装／部署 | NOT_RUN |
 
 首轮网关单测的两个旧能力列表断言随新增字段更新。首轮 WebKit 中 3 个失败为保存失败后的
@@ -78,7 +78,8 @@ Cookie 只从 Keychain 读取并送往配置的 HTTPS 网关，匿名 Cookie 不
 
 
 最终 dist、Capacitor 拷贝、QA 包的 **124 项 Web 资源逐项一致**，原生计量脚本为 **4,249 字节**。
-277 项原生输入与最终原生测试时保持一致；随后仅重封装 Node 兼容修正后的 Web 资源，计量脚本未变。
+277 项原生输入与最终原生测试时保持一致；最终回归使用 Node 兼容修正后的打包资源。
+收尾补充清理旧 AVPlayer 被停止的跳转标记，避免旧完成回调因播放代次变化被丢弃后，后续播放一直不计时。
 内嵌构建标签为提交前 `2de0ccd…/mobile.28`，不是个人包升级记录。
 个人 `BUILD_RECORD.json` 的 SHA256 仍为
 `ec176ad6a9b5d72435ada9d0fa3a8e399e7c7ed0047045b7991423d1adb2de73`。

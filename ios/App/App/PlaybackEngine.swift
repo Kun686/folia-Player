@@ -231,6 +231,8 @@ final class PlaybackEngine {
         if let next = nextIndex() { select(next) }
     }
     func stop(_ code: String? = nil) {
+        // A stopped AVPlayer seek can no longer clear its marker through the old generation callback.
+        listeningSeek = nil
         personalFM.cancelPending()
         crossfade?.cancel()
         generation += 1; task?.cancel(); discardPrepared(); stalledRecovery?.cancel(); stalledRecovery = nil; networkResume = nil
