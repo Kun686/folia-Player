@@ -1,5 +1,8 @@
 # Folia iPhone / iPad 实现与安装
 
+开发源码新增原版分轨手势的原生计算接口，直接复用原计划与200Hz曲线。
+93项逻辑、7项原生JavaScriptCore测试通过；尚未连接模型推理与实际四轨输出，个人App未更新，见 [STEM_GESTURE.md](STEM_GESTURE.md)。
+
 开发源码接入原版在线歌曲收藏：网易云写入、QQ 按原能力只读；复用 Omni、会话代次和触摸菜单。
 新旧网关通过可选能力字段兼容；个人 App 与服务器尚未更新，真实收藏读写未验收，见 [ONLINE_LIKES.md](ONLINE_LIKES.md)。
 

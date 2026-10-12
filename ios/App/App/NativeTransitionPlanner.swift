@@ -67,6 +67,31 @@ actor NativeTransitionPlanner {
             JSONSerialization.data(withJSONObject: ["version": 1, "info": info?.dictionary as Any? ?? NSNull()]))
     }
 
+    // Stateless requests prevent interleaved work from sharing a stale plan. Each bounded decode
+    // checks cancellation; no partially prepared gesture can reach the caller or audio thread.
+    func stems(_ input: Data) throws -> NativeStemGesture {
+        let schedule = try decode(NativeStemSchedule.self, method: "stemPlanJSON", input: input)
+        guard var request = try JSONSerialization.jsonObject(with: input) as? [String: Any] else {
+            throw MobileFailure("invalid-transition-input")
+        }
+        var out: [NativeStemName: [Float]] = [:], incoming: [NativeStemName: [Float]] = [:]
+        for direction in ["out", "in"] {
+            request["direction"] = direction
+            for name in NativeStemName.allCases {
+                request["stem"] = name.rawValue
+                let curve = try decode([Float].self, method: "stemCurveJSON",
+                    input: JSONSerialization.data(withJSONObject: request))
+                guard curve.count == max(2, Int(ceil(schedule.windowSec * 200))),
+                      curve.allSatisfy({ $0.isFinite && $0 >= 0 && $0 <= 1 }) else {
+                    throw MobileFailure("invalid-transition-result")
+                }
+                if direction == "out" { out[name] = curve } else { incoming[name] = curve }
+            }
+        }
+        try Task.checkCancellation()
+        return NativeStemGesture(schedule: schedule, outgoing: out, incoming: incoming)
+    }
+
     // Only this actor touches JS values. Request data is passed as an argument, never evaluated as source.
     private func decode<T: Decodable>(_ type: T.Type, method: String, input: Data) throws -> T {
         try Task.checkCancellation()
