@@ -49,9 +49,11 @@ import type { SongResult } from '../types';
 import { addMobileSongs, editMobileQueue, playMobileSearchSong, type QueueAction } from './queueActions';
 import { initializeSyncCoordinator } from '../services/sync/syncCoordinator';
 import OnlineAccountLibrary from './OnlineAccountLibrary';
+import { useSheetViewport } from './useSheetViewport';
 
 // src/mobile/MobileApp.tsx — library and full-window player share the original native playback state.
 export default function MobileApp({ initialServer }: { initialServer: string }) {
+  useSheetViewport();
   const { t } = useTranslation();
   const server = initialServer;
   const [provider, setProvider] = useState(initialServer ? 'netease' : 'local');
