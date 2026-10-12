@@ -1,5 +1,8 @@
 # Folia iPhone / iPad 实现与安装
 
+开发源码开放原版 AMLLDB 歌词匹配，复用原搜索／TTML解析／预览和存储，修复跨平台同数字ID预览。
+54项逻辑、24项WebKit界面及1项真实公开接口检查通过；手机新入口未验收，个人App未更新，见 [AMLL_MATCH.md](AMLL_MATCH.md)。
+
 开发源码修复分轨素材的压缩音频重采样边界：AAC／ALAC／FLAC 生成样本的16个完整声道摘要
 与原WebKit一致，最终53项原生回归通过；22项原逻辑回归通过。模型和用户队列仍未接入，
 个人App未更新，见 [STEM_CODEC.md](STEM_CODEC.md)。

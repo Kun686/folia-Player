@@ -72,8 +72,9 @@ export const LyricPreviewPanel: React.FC<LyricPreviewPanelProps> = ({
     const [error, setError] = useState<string | null>(null);
     const [retryTrigger, setRetryTrigger] = useState(0);
 
-    const [prevResultId, setPrevResultId] = useState<number | string | null>(null);
-    const [prevSource, setPrevSource] = useState<LyricMatchSource | null>(null);
+    // AMLL entries from QQ and NetEase can share a numeric ID but contain different lyrics.
+    const selectionKey = JSON.stringify([source, selectedResult?.amllDbPlatform, selectedResult?.id]);
+    const [prevSelectionKey, setPrevSelectionKey] = useState<string | null>(null);
 
     const [display, setDisplay] = useState<RemoteLyricDisplay>(EMPTY_DISPLAY);
     const displayRef = useRef(display);
@@ -91,9 +92,8 @@ export const LyricPreviewPanel: React.FC<LyricPreviewPanelProps> = ({
     }, [display]);
 
     // 选中曲目或源变更时，同步清空歌词并开启 loading，避免旧歌词闪烁
-    if (selectedResult && (selectedResult.id !== prevResultId || source !== prevSource)) {
-        setPrevResultId(selectedResult.id);
-        setPrevSource(source);
+    if (selectedResult && selectionKey !== prevSelectionKey) {
+        setPrevSelectionKey(selectionKey);
         setLyricData(null);
         setError(null);
         setIsLoading(true);
@@ -163,7 +163,7 @@ export const LyricPreviewPanel: React.FC<LyricPreviewPanelProps> = ({
         return () => {
             isCancelled = true;
         };
-    }, [selectedResult?.id, source, retryTrigger, t, fetchLyrics]);
+    }, [selectionKey, retryTrigger, t, fetchLyrics]);
 
     /**
      * 测量并记录滚动参数，计算各个字符/单词的中点，防范 text-center 下的溢出截断

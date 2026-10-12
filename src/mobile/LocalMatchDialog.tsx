@@ -1,29 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { MotionValue } from 'framer-motion';
-import type { LocalMatchRequests, LocalMatchSnapshot } from '../types/localSongMatch';
-import { omni } from '../services/onlineMusic/omni';
-import { calculateMatchScore } from '../utils/lyrics/matchScore';
-import { hasRenderableLyrics } from '../utils/lyrics/validity';
+import type { LocalMatchSnapshot } from '../types/localSongMatch';
 import { localMatchTarget } from '../utils/localMatchDocument';
 import LyricMatchModal from '../components/modal/LyricMatchModal';
 import { localMatchStorage } from './localMatchStorage';
 import { native } from './bridge';
+import { MOBILE_LYRIC_MATCH_SOURCES, mobileLocalMatchRequests } from './lyricMatchRequests';
 
 // LocalMatchDialog.tsx — original complete dialog, Omni transport and native storage for one mounted local song.
-const sources = ['netease', 'qq'] as const;
-const requests: LocalMatchRequests = {
-  search: async (source, query, target) => {
-    if (source !== 'netease' && source !== 'qq') throw new Error('unsupported');
-    const page = await omni.searchProviderSongs(source, query, { limit: 50, offset: 0 });
-    return [...page.items].sort((a, b) => calculateMatchScore(target, b) - calculateMatchScore(target, a));
-  },
-  fetch: async (source, song) => {
-    if (song.sourceRef?.kind !== 'online' || song.sourceRef.providerId !== source) throw new Error('invalid-identity');
-    const result = await omni.getLyrics(song);
-    return { lyrics: hasRenderableLyrics(result.lyrics) ? result.lyrics : null, isPureMusic: result.isPureMusic };
-  },
-};
 export default function LocalMatchDialog({ id, light, time, close, done }: {
   id: string; light: boolean; time?: MotionValue<number>; close(): void; done(): void;
 }) {
@@ -38,7 +23,7 @@ export default function LocalMatchDialog({ id, light, time, close, done }: {
   const storage = useMemo(() => snapshot && localMatchStorage(snapshot, () => active.current), [snapshot]);
   const dismiss = () => { active.current = false; close(); };
   return <div className="mobile-lyric-match mobile-local-match">
-    {song && storage ? <LyricMatchModal song={song} storage={storage} requests={requests} sources={sources}
+    {song && storage ? <LyricMatchModal song={song} storage={storage} requests={mobileLocalMatchRequests} sources={MOBILE_LYRIC_MATCH_SOURCES}
       localCover={snapshot?.embeddedCover} isDaylight={light} currentTime={time} onClose={dismiss} onMatch={done} />
       : <section role="dialog" aria-label={t('localMusic.matchLyrics')} className="sheet">
         <button onClick={dismiss}>{t('mobile.close')}</button>

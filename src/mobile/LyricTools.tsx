@@ -15,9 +15,9 @@ import LyricExportDialog from './LyricExportDialog';
 import type { MobileSegmentation } from './useMobileSegmentation';
 import { getLyricProviderLabel, getSongNativeLyricProviderSource } from '../utils/lyrics/lyricSourceLabels';
 import { importMobileOnlineLyrics, resetMobileOnlineLyrics, scopedLyricStorage, switchMobileOnlineLyrics } from './onlineLyricEditor';
+import { MOBILE_LYRIC_MATCH_SOURCES } from './lyricMatchRequests';
 
 // LyricTools.tsx — original lyric operations and timing controls, keyed to the displayed song by the parent.
-const sources = ['netease', 'qq'] as const;
 export default function LyricTools({ song, time, lyricTime, lyrics, rawLyrics, segmentation, duration, onSeek, theme, offsetMs, onOffsetChange, light, visible, close, captureSongGuard }: {
   song: SongResult; time: MotionValue<number>; lyricTime: MotionValue<number>; lyrics: LyricData | null;
   rawLyrics: LyricData | null; duration: number; onSeek(position: number): void; theme: Theme;
@@ -62,7 +62,7 @@ export default function LyricTools({ song, time, lyricTime, lyrics, rawLyrics, s
     currentTime={lyricTime} duration={duration} onSeek={onSeek} onClose={() => setTimeline(false)}
     isDaylight={light} theme={theme} primaryColor={theme.primaryColor} secondaryColor={theme.secondaryColor} accentColor={theme.accentColor} /></div>;
   if (matching && storage) return <div className="mobile-lyric-match">
-    <OnlineLyricMatchModal song={song} storage={storage} sources={sources} currentTime={time} isDaylight={light}
+    <OnlineLyricMatchModal song={song} storage={storage} sources={MOBILE_LYRIC_MATCH_SOURCES} currentTime={time} isDaylight={light}
       onClose={() => setMatching(false)} onMatch={dismiss} />
   </div>;
   if (calibrating) return <div className="mobile-lyric-offset">
