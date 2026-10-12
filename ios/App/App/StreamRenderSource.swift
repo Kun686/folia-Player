@@ -27,7 +27,8 @@ final class StreamRenderSource {
         self.tempo = tempo
         if let tempo {
             node = AVAudioSourceNode(format: player.externalOutputFormat) { silence, time, frames, output in
-                let status = tempo.render(output, frames: frames)
+                let status = tempo.render(output, frames: frames,
+                    sampleTime: time.pointee.mFlags.contains(.sampleTimeValid) ? time.pointee.mSampleTime : nil)
                 if status == noErr { replayGain.process(output, frames: Int(frames)) }
                 if status == noErr, time.pointee.mFlags.contains(.sampleTimeValid) {
                     capture.consume(output, frames: Int(frames), sampleTime: time.pointee.mSampleTime)

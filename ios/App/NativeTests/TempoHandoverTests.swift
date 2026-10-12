@@ -74,6 +74,124 @@ private final class LimitedTempoFeed: NativeTempoFeed {
 }
 
 @MainActor extension NativeTests {
+    func testExactMediaClockTracksHostFramesAndRejectsStaleOrDiscontinuousAnchors() throws {
+        var tracker = NativeMediaClockTracker()
+        let first = try XCTUnwrap(tracker.record(sampleTime: 100000, frames: 128, sampleRate: 44100,
+            mediaEnd: 2 + 128 / 44100.0, complete: true))
+        XCTAssertEqual(try XCTUnwrap(first.position(at: 100000)), 2, accuracy: 1e-12)
+        XCTAssertEqual(try XCTUnwrap(first.position(at: 144100)), 3, accuracy: 1e-12)
+        XCTAssertTrue(first.isCurrent(at: 100128)); XCTAssertFalse(first.isCurrent(at: 100256))
+        XCTAssertFalse(first.isCurrent(at: 100127)); XCTAssertFalse(first.isCurrent(at: 100129))
+        XCTAssertNil(first.position(at: .nan)); XCTAssertNil(first.position(at: 0.5))
+        let continuous = try XCTUnwrap(tracker.record(sampleTime: 100128, frames: 257, sampleRate: 44100,
+            mediaEnd: 2 + 385 / 44100.0, complete: true))
+        XCTAssertEqual(first.source, continuous.source); XCTAssertEqual(first.epoch, continuous.epoch)
+        let moved = try XCTUnwrap(tracker.record(sampleTime: 100385, frames: 128, sampleRate: 44100,
+            mediaEnd: 5, complete: true))
+        XCTAssertNotEqual(moved.epoch, continuous.epoch, "A media jump invalidates an earlier projection")
+        let restarted = try XCTUnwrap(tracker.record(sampleTime: 0, frames: 128, sampleRate: 44100,
+            mediaEnd: 5 + 128 / 44100.0, complete: true))
+        XCTAssertNotEqual(restarted.epoch, moved.epoch, "A rebuilt host graph cannot reuse its former sample timeline")
+        for invalid in [Double?.none, .nan, .infinity, 0.5, 4_503_599_627_370_496] {
+            XCTAssertNil(tracker.record(sampleTime: invalid, frames: 128, sampleRate: 44100, mediaEnd: 5, complete: true))
+        }
+        XCTAssertNil(tracker.record(sampleTime: 128, frames: 128, sampleRate: 44100, mediaEnd: 5, complete: false))
+        tracker.invalidate()
+        let recovered = try XCTUnwrap(tracker.record(sampleTime: 256, frames: 128, sampleRate: 44100, mediaEnd: 6, complete: true))
+        XCTAssertNotEqual(recovered.epoch, restarted.epoch)
+        var replacement = NativeMediaClockTracker()
+        let other = try XCTUnwrap(replacement.record(sampleTime: 256, frames: 128, sampleRate: 44100, mediaEnd: 6, complete: true))
+        XCTAssertNotEqual(other.source, recovered.source)
+    }
+
+    func testExactPCMClockIsRevokedOnUnderflowPauseSeekBendAndClose() throws {
+        let input = LimitedTempoFeed(), tested = try NativeTempoHandover(source: input)
+        defer { tested.close() }
+        let pcm = AVAudioPCMBuffer(pcmFormat: input.format, frameCapacity: 512)!
+        pcm.frameLength = 512; input.available = 768
+        XCTAssertEqual(tested.render(pcm.mutableAudioBufferList, frames: 512, sampleTime: 10000), noErr)
+        let first = try XCTUnwrap(tested.snapshot().mediaClock)
+        XCTAssertEqual(try XCTUnwrap(first.position(at: 10000)), 0, accuracy: 1e-12)
+        XCTAssertEqual(tested.render(pcm.mutableAudioBufferList, frames: 512, sampleTime: 10512), noErr)
+        XCTAssertNil(tested.snapshot().mediaClock, "A half-filled buffer cannot project a moving media clock")
+        XCTAssertEqual(tested.snapshot().position, 768 / 44100.0, accuracy: 1e-12)
+        input.available = input.length
+        XCTAssertEqual(tested.render(pcm.mutableAudioBufferList, frames: 512, sampleTime: 11024), noErr)
+        let resumed = try XCTUnwrap(tested.snapshot().mediaClock)
+        XCTAssertNotEqual(resumed.epoch, first.epoch)
+        XCTAssertEqual(try XCTUnwrap(resumed.position(at: 11024)), 768 / 44100.0, accuracy: 1e-12)
+        for i in 0..<512 { for channel in 0..<2 {
+            XCTAssertEqual(pcm.floatChannelData![0][i * 2 + channel], LimitedTempoFeed.sample(768 + i, channel))
+        } }
+        input.isPaused = true
+        XCTAssertEqual(tested.render(pcm.mutableAudioBufferList, frames: 512, sampleTime: 11536), noErr)
+        XCTAssertNil(tested.snapshot().mediaClock)
+        input.isPaused = false
+        XCTAssertEqual(tested.render(pcm.mutableAudioBufferList, frames: 512, sampleTime: 12048), noErr)
+        XCTAssertNotNil(tested.snapshot().mediaClock)
+        try tested.request(rate: 1.1)
+        XCTAssertNil(tested.snapshot().mediaClock, "A pending bend revokes the control-side anchor immediately")
+        XCTAssertEqual(tested.render(pcm.mutableAudioBufferList, frames: 512, sampleTime: 12560), noErr)
+        XCTAssertNil(tested.snapshot().mediaClock)
+        input.cursor = 4410; try tested.reset()
+        XCTAssertNil(tested.snapshot().mediaClock)
+        XCTAssertEqual(tested.render(pcm.mutableAudioBufferList, frames: 512, sampleTime: 0), noErr)
+        XCTAssertEqual(try XCTUnwrap(tested.snapshot().mediaClock?.position(at: 0)), 0.1, accuracy: 1e-12)
+        input.isSeeking = true
+        XCTAssertNotEqual(tested.render(pcm.mutableAudioBufferList, frames: 512, sampleTime: 512), noErr)
+        XCTAssertNil(tested.snapshot().mediaClock)
+        input.isSeeking = false; try tested.reset()
+        XCTAssertEqual(tested.render(pcm.mutableAudioBufferList, frames: 512, sampleTime: 1024), noErr)
+        XCTAssertNotNil(tested.snapshot().mediaClock)
+        tested.close(); XCTAssertNil(tested.snapshot().mediaClock)
+    }
+
+    func testRealDeckMediaClocksUseSameHostTimelineAtDifferentMediaOffsets() async throws {
+        let url = try sharedConstantFile(seconds: 4, stereo: true)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let output = try await StreamMixOutput.make()
+        defer { output.close() }
+        let a = try await StreamOccurrence.prepare(url: url, output: output, allowsTempo: true)
+        defer { a.dispose() }
+        let b = try await StreamOccurrence.prepare(url: url, position: 0.75, output: output, allowsTempo: true)
+        defer { b.dispose() }
+        let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2)!
+        let pcm = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 512)!
+        try output.engine.enableManualRenderingMode(.realtime, format: format, maximumFrameCount: 512)
+        try a.play(); try b.play()
+        var checked = 0
+        for _ in 0..<32 {
+            let start = Double(output.engine.manualRenderingSampleTime)
+            pcm.frameLength = 512
+            var error: OSStatus = noErr
+            XCTAssertEqual(output.engine.manualRenderingBlock(512, pcm.mutableAudioBufferList, &error), .success)
+            XCTAssertEqual(error, noErr)
+            if let out = output.mediaClock(a.audio), let incoming = output.mediaClock(b.audio) {
+                XCTAssertEqual(out.sampleEnd, start + 512); XCTAssertEqual(incoming.sampleEnd, out.sampleEnd)
+                XCTAssertNotEqual(out.source, incoming.source)
+                XCTAssertEqual(incoming.mediaEnd - out.mediaEnd, 0.75, accuracy: 1e-6)
+                XCTAssertEqual(try XCTUnwrap(out.position(at: start + 512)), a.position, accuracy: 1e-12)
+                XCTAssertEqual(try XCTUnwrap(incoming.position(at: start + 512)), b.position, accuracy: 1e-12)
+                checked += 1
+            }
+        }
+        XCTAssertGreaterThan(checked, 24)
+        let beforePause = try XCTUnwrap(output.mediaClock(a.audio))
+        output.pause()
+        XCTAssertNil(output.mediaClock(a.audio)); XCTAssertNil(output.mediaClock(b.audio))
+        XCTAssertNil(output.tempoState(a.audio)?.mediaClock)
+        try output.start()
+        XCTAssertNil(output.mediaClock(a.audio), "The old timeline cannot return before a fresh render")
+        pcm.frameLength = 512
+        var error: OSStatus = noErr
+        XCTAssertEqual(output.engine.manualRenderingBlock(512, pcm.mutableAudioBufferList, &error), .success)
+        XCTAssertEqual(error, noErr)
+        let resumed = try XCTUnwrap(output.mediaClock(a.audio))
+        XCTAssertEqual(resumed.source, beforePause.source); XCTAssertNotEqual(resumed.epoch, beforePause.epoch)
+        output.remove(b.audio); XCTAssertNil(output.mediaClock(b.audio))
+        print("FOLIA_MEDIA_CLOCK realDecoderPairs=\(checked) offset=0.75 hostRate=44100")
+    }
+
     func testTempoRenderFailureNoticesAreCoalescedAndOldSeekNoticesExpire() async throws {
         let input = LimitedTempoFeed()
         let tested = try NativeTempoHandover(source: input)
@@ -95,6 +213,49 @@ private final class LimitedTempoFeed: NativeTempoFeed {
         tested.close()
         try await Task.sleep(nanoseconds: 10_000_000)
         XCTAssertEqual(failures, 1)
+    }
+
+    func testLiveHardwareMediaClocksProjectTwoDecodersAndInvalidateOnRestart() async throws {
+        let file = try sharedConstantFile(seconds: 4, stereo: true)
+        defer { try? FileManager.default.removeItem(at: file) }
+        let output = try await StreamMixOutput.make()
+        defer { output.close() }
+        let a = try await StreamOccurrence.prepare(url: file, output: output, allowsTempo: true)
+        defer { a.dispose() }
+        let b = try await StreamOccurrence.prepare(url: file, position: 0.75, output: output, allowsTempo: true)
+        defer { b.dispose() }
+        try AVAudioSession.sharedInstance().setCategory(.playback)
+        try AVAudioSession.sharedInstance().setActive(true)
+        // Release both prepared decoders before starting the hardware, so neither gains a head start.
+        try a.attachOutput(); try b.attachOutput()
+        XCTAssertTrue(a.audio.startPreparedPlayback()); XCTAssertTrue(b.audio.startPreparedPlayback())
+        try output.start()
+        var last: NativeMediaClock?, checked = 0, maximum = 0.0
+        let deadline = ProcessInfo.processInfo.systemUptime + 3
+        while checked < 16 && ProcessInfo.processInfo.systemUptime < deadline {
+            if let out = output.mediaClock(a.audio), let incoming = output.mediaClock(b.audio) {
+                let common = max(out.sampleEnd, incoming.sampleEnd)
+                if out.isCurrent(at: common), incoming.isCurrent(at: common), last?.sampleEnd != out.sampleEnd {
+                    let difference = try XCTUnwrap(incoming.position(at: common)) - XCTUnwrap(out.position(at: common))
+                    maximum = max(maximum, abs(difference - 0.75))
+                    if let last {
+                        XCTAssertEqual(last.epoch, out.epoch)
+                        XCTAssertEqual(try XCTUnwrap(last.position(at: out.sampleEnd)), out.mediaEnd, accuracy: 1e-9)
+                    }
+                    last = out; checked += 1
+                }
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertEqual(checked, 16); XCTAssertLessThan(maximum, 0.5 / 44100)
+        let old = try XCTUnwrap(last)
+        output.pause(); a.audio.pause(); b.audio.pause()
+        XCTAssertNil(output.mediaClock(a.audio)); XCTAssertNil(output.tempoState(a.audio)?.mediaClock)
+        a.audio.resume(); b.audio.resume(); try output.start()
+        try await waitForStream { output.mediaClock(a.audio)?.epoch != old.epoch && output.mediaClock(a.audio) != nil }
+        let resumed = try XCTUnwrap(output.mediaClock(a.audio))
+        XCTAssertEqual(resumed.source, old.source); XCTAssertGreaterThanOrEqual(resumed.mediaEnd, old.mediaEnd)
+        print("FOLIA_LIVE_MEDIA_CLOCK pairs=\(checked) maxMediaErrorSeconds=\(maximum) sampleRate=\(resumed.sampleRate) restart=PASS")
     }
 
     func testWarmTempoHandoverPreservesRawHistoryAndMatchesSystemAtFirstActiveBlock() async throws {
@@ -133,7 +294,7 @@ private final class LimitedTempoFeed: NativeTempoFeed {
                 try handover.request(rate: 1.12)
             }
             let begin = CACurrentMediaTime()
-            let status = handover.render(pcm.mutableAudioBufferList, frames: count)
+            let status = handover.render(pcm.mutableAudioBufferList, frames: count, sampleTime: Double(at))
             let renderedSeconds = CACurrentMediaTime() - begin
             XCTAssertEqual(status, noErr)
             let state = handover.snapshot()
@@ -148,8 +309,13 @@ private final class LimitedTempoFeed: NativeTempoFeed {
             at += Int(count)
             XCTAssertEqual(state.rate, 1)
             XCTAssertEqual(state.position, Double(at) / 44100, accuracy: 0.00003)
-            if state.phase == .active { warmed = true; warmSeconds = renderedSeconds; break }
+            if state.phase == .active {
+                XCTAssertNil(state.mediaClock, "TimePitch cannot publish an exact source clock, including its unity-rate warm block")
+                warmed = true; warmSeconds = renderedSeconds; break
+            }
             XCTAssertEqual(state.phase, .raw)
+            XCTAssertEqual(state.mediaClock?.sampleEnd, Double(at))
+            XCTAssertEqual(try XCTUnwrap(state.mediaClock).mediaEnd, Double(at) / 44100, accuracy: 1e-9)
         }
         XCTAssertTrue(warmed); XCTAssertLessThan(maximum, 1e-6)
         XCTAssertEqual(player!.progress - handover.snapshot().position, 4096 / 44100.0, accuracy: 1e-6)
@@ -161,6 +327,7 @@ private final class LimitedTempoFeed: NativeTempoFeed {
             XCTAssertEqual(handover.render(pcm.mutableAudioBufferList, frames: 512), noErr)
             let state = handover.snapshot()
             XCTAssertEqual(state.phase, .active)
+            XCTAssertNil(state.mediaClock, "Returning TimePitch to unity does not turn its estimated position into exact PCM timing")
             XCTAssertEqual(state.rate, block < 50 ? Double(Float(1.12)) : 1)
             // TimePitch pulls input in chunks. A rate change may briefly hold the latency-corrected
             // estimate; require monotonicity and bounded timing error, not invented per-block progress.

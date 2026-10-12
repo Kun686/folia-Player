@@ -42,7 +42,7 @@ final class StreamMixOutput {
                 guard let self, !self.closed else { return }
                 self.transitionGain.cancel()
                 self.analysis.configure(running: false)
-                for entry in self.sources.values { entry.source.capture.reset() }
+                for entry in self.sources.values { entry.source.capture.reset(); entry.source.tempo?.invalidateMediaClock() }
                 self.configurationChanged?()
             }
     }
@@ -89,6 +89,11 @@ final class StreamMixOutput {
         try tempo.request(rate: rate)
     }
     func tempoState(_ player: AudioPlayer) -> NativeTempoHandover.State? { sources[ObjectIdentifier(player)]?.source.tempo?.snapshot() }
+    func mediaClock(_ player: AudioPlayer) -> NativeMediaClock? {
+        guard running, let clock = tempoState(player)?.mediaClock,
+              let end = transitionGain.clock.renderedEnd, clock.isCurrent(at: end) else { return nil }
+        return clock
+    }
     func observeTempo(_ player: AudioPlayer, changed: @escaping (Bool) -> Void) throws {
         guard !closed, let tempo = sources[ObjectIdentifier(player)]?.source.tempo else { throw MobileFailure("tempo-unavailable") }
         tempo.changed = changed
@@ -101,10 +106,16 @@ final class StreamMixOutput {
 
     func start() throws {
         guard !closed, !sources.isEmpty else { throw MobileFailure("audio-failed") }
-        if !engine.isRunning { engine.prepare(); try engine.start() }
+        if !engine.isRunning {
+            for entry in sources.values { entry.source.tempo?.invalidateMediaClock() }
+            engine.prepare(); try engine.start()
+        }
         analysis.configure(running: true)
     }
-    func pause() { transitionGain.cancel(); engine.pause(); analysis.configure(running: false) }
+    func pause() {
+        transitionGain.cancel(); engine.pause(); analysis.configure(running: false)
+        for entry in sources.values { entry.source.tempo?.invalidateMediaClock() }
+    }
     func setAnalysisEnabled(_ enabled: Bool) { analysis.configure(enabled: enabled) }
     func resetAnalysis(_ player: AudioPlayer) { sources[ObjectIdentifier(player)]?.source.capture.reset() }
     func replayGainDb(_ player: AudioPlayer) -> Double {
