@@ -12,6 +12,7 @@ import {
     parseSyncedThemeRecords,
 } from './syncSchema';
 import { assertSyncCurrent, type SyncConnection } from './syncConnection';
+import { THEME_BUCKET_COUNT } from './syncMerkle';
 
 // src/services/sync/syncClient.ts
 // HTTP adapter for Folia's user-hosted sync API.
@@ -80,9 +81,15 @@ export const getRemoteState = async (config: SyncConnection): Promise<SyncRemote
     parseSyncRemoteState(await requestJson(config, '/state'))
 );
 
-export const getRemoteThemeManifest = async (config: SyncConnection): Promise<SyncThemeManifest | null> => (
-    parseSyncThemeManifest(await requestJson(config, '/themes/manifest'))
-);
+export const getRemoteThemeManifest = async (config: SyncConnection): Promise<SyncThemeManifest | null> => {
+    const manifest = parseSyncThemeManifest(await requestJson(config, '/themes/manifest'));
+    // A missing or duplicate bucket could otherwise be mistaken for an empty library and checkpointed as complete.
+    if (config.nativeSession && (!manifest || manifest.bucketCount !== THEME_BUCKET_COUNT
+        || manifest.buckets.length !== THEME_BUCKET_COUNT
+        || new Set(manifest.buckets.map(bucket => bucket.bucketId)).size !== THEME_BUCKET_COUNT
+        || manifest.buckets.some(bucket => bucket.bucketId >= THEME_BUCKET_COUNT))) throw new Error('sync-invalid-response');
+    return manifest;
+};
 
 export const getRemoteSettings = async (config: SyncConnection): Promise<SyncedSettingsRecord | null> => {
     const value = await requestJson(config, '/settings'), parsed = parseSyncedSettingsRecord(value);
@@ -111,7 +118,7 @@ export const getRemoteThemes = async (
         body: JSON.stringify({ fingerprints: uniqueFingerprints }),
     });
 
-    return parseThemeResponse(config, response.themes ?? []);
+    return parseThemeResponse(config, config.nativeSession ? response.themes : response.themes ?? []);
 };
 
 export const putRemoteThemes = async (
@@ -142,7 +149,7 @@ export const getRemoteThemesByBuckets = async (
         body: JSON.stringify({ bucketIds: ids }),
     });
 
-    return parseThemeResponse(config, response.themes ?? []);
+    return parseThemeResponse(config, config.nativeSession ? response.themes : response.themes ?? []);
 };
 
 export const listRemoteThemes = async (
@@ -158,7 +165,7 @@ export const listRemoteThemes = async (
     });
 
     return {
-        themes: parseThemeResponse(config, response.themes ?? []),
+        themes: parseThemeResponse(config, config.nativeSession ? response.themes : response.themes ?? []),
         cursor: typeof response.cursor === 'string' && response.cursor ? response.cursor : null,
     };
 };

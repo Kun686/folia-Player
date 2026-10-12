@@ -28,16 +28,20 @@
 
 | 边界 | 结果 |
 | --- | --- |
-| 原生 Keychain／网络 fixture | PASS，16 项：6 项同步 + 原有 10 项 AI；`.mobile-test-results/sync/native.xcresult` |
+| 原生 Keychain／网络 fixture | PASS，16 项：6 项同步 + 原有 10 项 AI；`.mobile-test-results/sync/native.xcresult`；另有原音频网络 5 项回归通过，`profile-regression.xcresult` |
 | 原生重定向策略 | 原有 AI delegate 回调拒绝测试覆盖共用实现；真实 HTTPS 重定向 NOT_RUN |
-| 逻辑与存储事务 | PASS，50 项，`.mobile-test-results/sync/unit-session.log`；含原同步 schema／ZIP／注册表、移动主题与 AI 回归 |
+| 逻辑与存储事务 | PASS，51 项，`.mobile-test-results/sync/unit-manifest.log`；含原同步 schema／ZIP／注册表、移动主题与 AI 回归；增加缺失／重复清单分桶拒绝 |
 | 同步界面，手机／宽 iPad／窄 iPad | PASS，9 项，`.mobile-test-results/sync/ui-corrected.log`；使用明确的原生桥 fixture |
-| TypeScript | PASS，`.mobile-test-results/sync/typecheck-session.log` |
-| 打包、扩展界面回归 | 本文件后续记录最终结果 |
+| TypeScript | PASS，`.mobile-test-results/sync/typecheck-manifest.log` |
+| 扩展界面回归 | PASS，57 项，`.mobile-test-results/sync/ui-regression.log`；包含9 项同步及48 项原 AI／主题回归；最后清单校验补丁另由逻辑测试覆盖 |
+| 移动 Web 资源与 Capacitor 同步 | PASS，源码 `06cf1b0`，`.mobile-test-results/sync/build.log`；后续清单校验补丁的最终包见补充记录 |
+| 初始准确源码 CI | PASS，`06cf1b0`：[Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38189638992)；后续源码结果单独记录 |
 | 真实同步服务、跨设备数据、服务器部署 | NOT_RUN；未连接或部署用户服务 |
 | 个人 iPhone、物理 iPad 的新同步入口 | NOT_RUN；个人 App 未更新 |
 
 首轮界面测试误用了不存在的“设置”按钮定位器，停止后改为已有“服务器与外观”，重跑九项通过。类型检查曾发现新测试缺少 `durationMs`，已修正；失败日志保留且不计为通过。
+
+原生测试在独立 iPad Pro 11-inch M5 / iPadOS 26.5 模拟器、`app.folia.validation.App` 标识下运行。测试使用生成凭据和 URLProtocol 样本，不能替代真实平台、HTTPS 服务或物理设备验收。已有 QQ 歌曲主题 fixture 会打印歌词读取错误，不表示访问了真实平台。
 
 ## 剩余与回退
 

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { appDatabase } from '../../../src/services/appDatabase';
 import { buildThemeBucketSummaries } from '../../../src/services/sync/syncMerkle';
 import { listAllRemoteThemeRecords, pushMissingLocalThemesToRemote } from '../../../src/services/sync/syncRepository';
-import { getRemoteThemes, getRemoteSettings } from '../../../src/services/sync/syncClient';
+import { getRemoteThemes, getRemoteSettings, getRemoteThemeManifest } from '../../../src/services/sync/syncClient';
 import { syncNow } from '../../../src/services/sync/syncCoordinator';
 import { SYNC_PROVIDER } from '../../../src/services/sync/syncTypes';
 import { getSyncConfig, saveSyncConfig } from '../../../src/services/sync/syncConfig';
@@ -51,6 +51,16 @@ it('rejects repeated pagination cursors and invalid records instead of silently 
   await expect(getRemoteThemes(config, ['netease:id:42'])).rejects.toThrow('sync-invalid-response');
   config.nativeSession.request.mockImplementation(async () => json({ schemaVersion: 99 }));
   await expect(getRemoteSettings(config)).rejects.toThrow('sync-invalid-response');
+});
+it('does not checkpoint a missing or duplicate manifest bucket as an empty library', async () => {
+  const config = connection();
+  for (const buckets of [[], buildThemeBucketSummaries([]).map(bucket => ({ ...bucket, bucketId: 0 }))]) {
+    config.nativeSession.request.mockImplementation(async () => json({ schemaVersion: 1, bucketCount: 256, buckets }));
+    await expect(getRemoteThemeManifest(config)).rejects.toThrow('sync-invalid-response');
+  }
+  config.nativeSession.request.mockImplementation(async () => json({}));
+  await expect(getRemoteThemes(config, ['netease:id:42'])).rejects.toThrow('sync-invalid-response');
+  expect(localStorage.getItem('folia_sync_theme_watermark_v1:one')).toBeNull();
 });
 it('keeps a local visual edit made during an in-flight pull and does not push it implicitly', async () => {
   const config = connection();
