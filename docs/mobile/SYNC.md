@@ -34,14 +34,19 @@
 | 同步界面，手机／宽 iPad／窄 iPad | PASS，9 项，`.mobile-test-results/sync/ui-corrected.log`；使用明确的原生桥 fixture |
 | TypeScript | PASS，`.mobile-test-results/sync/typecheck-manifest.log` |
 | 扩展界面回归 | PASS，57 项，`.mobile-test-results/sync/ui-regression.log`；包含9 项同步及48 项原 AI／主题回归；最后清单校验补丁另由逻辑测试覆盖 |
-| 移动 Web 资源与 Capacitor 同步 | PASS，源码 `06cf1b0`，`.mobile-test-results/sync/build.log`；后续清单校验补丁的最终包见补充记录 |
-| 初始准确源码 CI | PASS，`06cf1b0`：[Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38189638992)；后续源码结果单独记录 |
+| 移动 Web 资源与 Capacitor 同步 | PASS，最终源码 `5db70f1`，`.mobile-test-results/sync/build-final.log` |
+| Release 模拟器构建与包校验 | PASS，`native-build.log`、`package.json`；125 项 public 资源逐项 SHA-256 一致，签名严格校验通过，MinimumOSVersion 17.0 |
+| 准确源码 CI | PASS，最终 `5db70f1`：[Mobile checks](https://github.com/Kun686/folia-Player/actions/runs/38189771387)；初始 `06cf1b0` 也通过 [对应 CI](https://github.com/Kun686/folia-Player/actions/runs/38189638992) |
 | 真实同步服务、跨设备数据、服务器部署 | NOT_RUN；未连接或部署用户服务 |
 | 个人 iPhone、物理 iPad 的新同步入口 | NOT_RUN；个人 App 未更新 |
 
 首轮界面测试误用了不存在的“设置”按钮定位器，停止后改为已有“服务器与外观”，重跑九项通过。类型检查曾发现新测试缺少 `durationMs`，已修正；失败日志保留且不计为通过。
 
 原生测试在独立 iPad Pro 11-inch M5 / iPadOS 26.5 模拟器、`app.folia.validation.App` 标识下运行。测试使用生成凭据和 URLProtocol 样本，不能替代真实平台、HTTPS 服务或物理设备验收。已有 QQ 歌曲主题 fixture 会打印歌词读取错误，不表示访问了真实平台。
+
+最终 Release 包内 `public/build-identity.json` 为 `5db70f12e9471d1d38970e3bf409c0128c519cb3`，仍使用 mobile.28 开发版本号，但 Bundle ID 是独立 QA 标识。此 Release 包没有安装或做新入口的原生 UI 手动验收；原生 XCTest 与 WebKit 界面证据分别记载，不能合并成真机或原生触摸通过。个人 `BUILD_RECORD.json` 未修改。
+
+测试进程均已结束，测试服务器 4179 未监听、没有 booted 模拟器；尝试关闭指定模拟器时系统确认它已经是 Shutdown，未再次执行关闭操作。未保留本轮后台日志采集或开发服务器。
 
 ## 剩余与回退
 
