@@ -156,4 +156,52 @@ import AVFoundation
         pcm = nil
         XCTAssertNil(owner, "A completed mel stage must not retain the native PCM through its JS callback")
     }
+
+    // Isolate the original JSC preprocessing/features from ORT and live playback, using the same full song.
+    func testOriginalPreparationRepeatedMemory() async throws {
+        try await originalPreparationMemory(includingModel: false)
+    }
+
+    func testOriginalBeatInferenceRepeatedMemory() async throws {
+        try await originalPreparationMemory(includingModel: true)
+    }
+
+    private func originalPreparationMemory(includingModel: Bool) async throws {
+        guard Bundle.main.bundleIdentifier == "app.folia.validation.App" else { throw MobileFailure("memory-probe-requires-qa") }
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let file = documents.appendingPathComponent("ORTQA/music.wav")
+        guard FileManager.default.fileExists(atPath: file.path) else { throw XCTSkip("Stage the approved original song") }
+        let digest = try NativeStemSnapshot.capture(file, deadline: ProcessInfo.processInfo.systemUptime + 10).digest
+        XCTAssertEqual(digest, "d7db2870d3ab5c1b56f793288c045a34043c1e1cfda468010a3e200f4e8c38a2")
+        let pcm = try await Task.detached { try NativeProfilePCM.decode(file) }.value
+        let beat = NativeBeatAnalysis(), profiler = NativeTrackProfiler(), inference = NativeORTInference()
+        let name = includingModel ? "beat-memory" : "preparation-memory"
+        var rows = [nativeMemorySnapshot("baseline")], expected: [String]?
+        func signatures() async throws -> [String] {
+            let prepared = try await beat.prepare(pcm.mid)
+            let measured = try await profiler.analyse(pcm)
+            let profile = try XCTUnwrap(measured)
+            var values = prepared.inputs.map(NativeProfileCache.digest) + [NativeProfileCache.digest(profile)]
+            if includingModel {
+                let output = try await inference.inferBeatChunks(model: documents.appendingPathComponent("ORTQA/beat_this.onnx"),
+                    inputs: prepared.inputs, frames: prepared.lengths)
+                let grid = try await beat.finish(prepared, outputs: output)
+                values += output.map(NativeProfileCache.digest) + [NativeProfileCache.digest(grid)]
+            }
+            return values
+        }
+        for index in 0..<3 {
+            let actual = try await signatures()
+            if let expected { XCTAssertEqual(actual, expected) } else { expected = actual }
+            try await Task.sleep(for: .seconds(2))
+            let row = nativeMemorySnapshot("preparation-\(index)"); rows.append(row)
+            print("FOLIA_PREPARATION_MEMORY kind=\(name) round=\(index) footprint=\(row["footprintBytes"]!) mallocInUse=\(row["mallocInUseBytes"]!)")
+        }
+        let data = try JSONSerialization.data(withJSONObject: ["samples": rows,
+            "includesBeatModel": includingModel,
+            "scope": "host-only original full-song mel and gridless features; no playback"], options: [.prettyPrinted, .sortedKeys])
+        try data.write(to: documents.appendingPathComponent(name + ".json"), options: .atomic)
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+    }
 }

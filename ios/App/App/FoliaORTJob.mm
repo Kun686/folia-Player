@@ -88,6 +88,8 @@
         memcpy(samples.data(), input.bytes, input.length);
         for (float x : samples) if (!std::isfinite(x)) return fail(@"ort-invalid-input");
         Ort::Env environment(ORT_LOGGING_LEVEL_FATAL, "folia");
+        // Local model analysis needs no telemetry. Disable it before any session can enqueue events.
+        environment.DisableTelemetryEvents();
         Ort::SessionOptions settings;
         settings.SetIntraOpNumThreads(2).SetInterOpNumThreads(1).SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
         settings.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);

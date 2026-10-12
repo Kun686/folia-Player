@@ -1,4 +1,5 @@
 import XCTest
+import Darwin
 @testable import App
 
 // NativeORTWindowTests.swift — actual full-window ORT in the independent Folia host, using original-function references.
@@ -10,6 +11,66 @@ import XCTest
             throw XCTSkip("Stage original ORT window references in the independent QA sandbox first")
         }
         return root
+    }
+
+    // System allocation counters are observations, not a leak or device-performance verdict.
+    func nativeMemorySnapshot(_ phase: String) -> [String: Any] {
+        var row: [String: Any] = FoliaORTJob().diagnostics
+        var stats = malloc_statistics_t(); malloc_zone_statistics(nil, &stats)
+        row["phase"] = phase; row["mallocInUseBytes"] = stats.size_in_use
+        row["mallocAllocatedBytes"] = stats.size_allocated; row["mallocBlocksInUse"] = stats.blocks_in_use
+        var addresses: UnsafeMutablePointer<vm_address_t>?, count: UInt32 = 0
+        let status = malloc_get_all_zones(mach_task_self_, nil, &addresses, &count)
+        row["zoneStatus"] = status
+        if status == KERN_SUCCESS, let addresses {
+            row["zones"] = Array(UnsafeBufferPointer(start: addresses, count: Int(count))).compactMap { address -> [String: Any]? in
+                guard let zone = UnsafeMutablePointer<malloc_zone_t>(bitPattern: address) else { return nil }
+                var zoneStats = malloc_statistics_t(); malloc_zone_statistics(zone, &zoneStats)
+                return ["name": malloc_get_zone_name(zone).map { String(cString: $0) } ?? "unnamed",
+                    "inUseBytes": zoneStats.size_in_use, "allocatedBytes": zoneStats.size_allocated]
+            }
+        }
+        return row
+    }
+
+    // Diagnostic isolation of the original model runtime; hashes, not output tensors, survive each round.
+    func testORTRepeatedOriginalWindowsMeasureAllocations() async throws {
+        let root = try ortWindowFixtures(), service = NativeORTInference()
+        guard Bundle.main.bundleIdentifier == "app.folia.validation.App" else { throw MobileFailure("memory-probe-requires-qa") }
+        let input = try Data(contentsOf: root.appendingPathComponent("windows/music/input.f32"))
+        XCTAssertEqual(NativeProfileCache.digest(input), "33ab08343bbe235478aba3835c5313083cfedf2caca038b67333bb867eb523aa")
+        let expected = try ["drums", "bass", "vocals"].map {
+            NativeProfileCache.digest(try Data(contentsOf: root.appendingPathComponent("windows/music/" + $0 + ".f32")))
+        }
+        var rows: [[String: Any]] = []
+        func sample(_ phase: String) {
+            let row = nativeMemorySnapshot(phase)
+            rows.append(row)
+            print("FOLIA_ORT_MEMORY phase=\(phase) footprint=\(row["footprintBytes"]!) mallocInUse=\(row["mallocInUseBytes"]!)")
+        }
+        func run() async throws -> [String] {
+            let output = try await service.separateWindow(model: root.appendingPathComponent("htdemucs.onnx"),
+                input: input, frames: input.count / 8)
+            return output.map(NativeProfileCache.digest)
+        }
+        sample("baseline")
+        for index in 0..<3 {
+            guard ProcessInfo.processInfo.thermalState.rawValue < ProcessInfo.ThermalState.serious.rawValue else {
+                throw XCTSkip("Wait for the independent QA host to cool before another full window")
+            }
+            let hashes = try await run()
+            XCTAssertEqual(hashes, expected)
+            try await Task.sleep(for: .seconds(2))
+            sample("window-\(index)")
+        }
+        // Only this diagnostic requests allocator reclamation; production playback never calls this API.
+        let reclaimed = malloc_zone_pressure_relief(nil, 0)
+        try await Task.sleep(for: .seconds(2)); sample("allocator-relief")
+        let data = try JSONSerialization.data(withJSONObject: ["samples": rows, "reclaimedBytes": reclaimed,
+            "scope": "host-only original 30-second stem windows; no playback or WebContent"], options: [.prettyPrinted, .sortedKeys])
+        try data.write(to: root.deletingLastPathComponent().appendingPathComponent("ort-memory.json"), options: .atomic)
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = "ort-memory"; attachment.lifetime = .keepAlways; add(attachment)
     }
 
     // A bounded diagnostic contrast, not a full-window or playback acceptance test.

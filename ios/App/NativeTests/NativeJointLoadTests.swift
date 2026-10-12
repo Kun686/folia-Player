@@ -6,6 +6,12 @@ import AVFoundation
 @testable import App
 
 // NativeJointLoadTests.swift — opt-in original models, actual Capacitor UI and hardware audio; QA identity only.
+private final class JointMemoryOwner {
+    let name: String
+    weak var value: AnyObject?
+    init(_ name: String, _ value: AnyObject) { self.name = name; self.value = value }
+}
+
 @MainActor extension NativeTests {
     func testProfileSerializationCancelsWaiterAndRecovers() async throws {
         let trace = NativeAnalysisTrace(), profiler = NativeTrackProfiler(trace: trace)
@@ -162,15 +168,53 @@ import AVFoundation
 
     func testConsecutiveOriginalModelHandoversWithCadenza() async throws {
         // Bounded continuation of the original joint workload; keep every round's evidence and stop on failure.
+        var owners: [JointMemoryOwner] = []
+        try await jointMemoryCheckpoint("baseline", owners: owners)
         for index in 0..<3 {
             try await originalJointLoad(includingHandover: true, distinctSongs: index == 0,
-                reportPrefix: "joint-consecutive-\(index)")
+                reportPrefix: "joint-consecutive-\(index)", observeOwner: { name, value in
+                    owners.append(JointMemoryOwner("round-\(index)." + name, value))
+                })
             if (testRun?.failureCount ?? 0) > 0 { return }
+            try await jointMemoryCheckpoint("round-\(index)", owners: owners)
+            // The shared output belongs to PlaybackEngine across all queue rounds.
+            for owner in owners where !owner.name.hasPrefix("round-\(index).") && !owner.name.hasSuffix(".output") {
+                XCTAssertNil(owner.value, "Previous round is still retained: \(owner.name)")
+            }
         }
     }
 
+    // Optional host-side memgraph capture after work has returned; never stall ordinary regression runs.
+    private func jointMemoryCheckpoint(_ phase: String, owners: [JointMemoryOwner]) async throws {
+        guard let mode = ProcessInfo.processInfo.environment["FOLIA_MEMORY_CAPTURE"], ["1", "sample"].contains(mode) else { return }
+        guard Bundle.main.bundleIdentifier == "app.folia.validation.App" else {
+            throw MobileFailure("memory-capture-requires-qa")
+        }
+        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("MemoryCapture", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let ack = directory.appendingPathComponent(phase + ".ack")
+        if FileManager.default.fileExists(atPath: ack.path) { try FileManager.default.removeItem(at: ack) }
+        // Let cancelled tasks and actor cache invalidations finish before freezing the graph.
+        try await Task.sleep(for: .seconds(2))
+        var state = nativeMemorySnapshot(phase)
+        state["pid"] = ProcessInfo.processInfo.processIdentifier; state["phase"] = phase
+        state["liveOwners"] = owners.filter { $0.value != nil }.map(\.name)
+        try JSONSerialization.data(withJSONObject: state, options: [.prettyPrinted, .sortedKeys])
+            .write(to: directory.appendingPathComponent(phase + ".json"), options: .atomic)
+        print("FOLIA_MEMORY phase=\(phase) footprint=\(state["footprintBytes"]!) mallocInUse=\(state["mallocInUseBytes"]!) liveOwners=\(state["liveOwners"]!)")
+        if mode == "sample" { return }
+        for second in 0..<45 {
+            if FileManager.default.fileExists(atPath: ack.path) { return }
+            if second % 5 == 0 { print("FOLIA_MEMORY phase=\(phase) awaitingCapture=\(second)s") }
+            try await Task.sleep(for: .seconds(1))
+        }
+        throw MobileFailure("memory-capture-timed-out")
+    }
+
     // Reuse the same original-model preparation; the optional leg observes the actual queue adoption.
-    private func originalJointLoad(includingHandover: Bool, distinctSongs: Bool = false, reportPrefix: String? = nil) async throws {
+    private func originalJointLoad(includingHandover: Bool, distinctSongs: Bool = false, reportPrefix: String? = nil,
+                                   observeOwner: ((String, AnyObject) -> Void)? = nil) async throws {
         guard Bundle.main.bundleIdentifier == "app.folia.validation.App" else {
             throw XCTSkip("Joint load is restricted to the independent QA identity")
         }
@@ -234,6 +278,8 @@ import AVFoundation
             providerBarrier: { [weak player] in player?.mediaCachePurges[$0] })
         player.crossfade?.cancel()
         player.crossfade = NativeCrossfade(owner: player, profiles: profiles, stems: stems, trace: trace)
+        observeOwner?("crossfade", player.crossfade!); observeOwner?("profiles", profiles)
+        observeOwner?("stems", stems); observeOwner?("profiler", profiler); observeOwner?("trace", trace)
         defer { stems.cancel(); profiles.cancel() }
         try await models.install(assets.appendingPathComponent("beat_this.onnx"))
         try await models.install(assets.appendingPathComponent("htdemucs.onnx"))
@@ -242,6 +288,7 @@ import AVFoundation
         _ = try await jointJS(web, "document.querySelector('.mini-title').click(); true")
         try await jointUIReady(web, condition: "!!document.querySelector('.player-panel.expanded .lyric-stage canvas') && !document.querySelector('.lyric-notice')")
         let output = try XCTUnwrap(player.streamOutput), audio = OutputMeasurement()
+        observeOwner?("output", output)
         output.engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, _ in audio.consume(buffer) }
         defer { output.engine.mainMixerNode.removeTap(onBus: 0) }
         var phases: [[String: Any]] = []
