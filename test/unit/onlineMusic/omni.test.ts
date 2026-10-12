@@ -395,6 +395,27 @@ describe('omni like mutations', () => {
         expect(account.likedSongFileIds).toEqual({});
     });
 
+    it.each(['success', 'failure'])('does not commit an old-account like %s after its session is revoked', async outcome => {
+        let finish!: () => void, current = true;
+        registerOnlineMusicProvider(likeProvider(async () => {
+            await new Promise<void>(resolve => { finish = resolve; });
+            if (outcome === 'failure') throw Error('old-account-error');
+        }));
+        seedAccount({ likedSongIds: ['7'], likedSongFileIds: { '7': 987 } });
+        vi.mocked(saveProviderAccountSnapshot).mockClear();
+        const pending = omni.likeSong(song(providerId, '7'), false, { isCurrent: () => current });
+        const assertion = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+        current = false; seedAccount({ likedSongIds: ['7'], likedSongFileIds: { '7': 456 } });
+        finish(); await assertion;
+        expect(useOnlineProviderAccountStore.getState().accounts[providerId]).toMatchObject({ likedSongIds: ['7'], likedSongFileIds: { '7': 456 } });
+        expect(saveProviderAccountSnapshot).not.toHaveBeenCalled();
+    });
+    it('rejects a revoked like before sending it', async () => {
+        const write = vi.fn(async () => {}); registerOnlineMusicProvider(likeProvider(write));
+        await expect(omni.likeSong(song(providerId, '7'), true, { isCurrent: () => false })).rejects.toMatchObject({ name: 'AbortError' });
+        expect(write).not.toHaveBeenCalled();
+    });
+
     it('hands the cached playlist-local file id to the provider', async () => {
         const likeSong = vi.fn(async () => undefined);
         registerOnlineMusicProvider(likeProvider(likeSong));

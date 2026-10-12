@@ -3,7 +3,10 @@ import { Settings, Search, Music2, Play, Pause } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import '../i18n/config';
 import { native, isNative } from './bridge';
-import { flushSessions } from './runtime';
+import { captureProviderSession, flushSessions } from './runtime';
+import { omni } from '../services/onlineMusic/omni';
+import { createMobileSongLikes } from './mobileSongLikes';
+import OnlineSongLike from './OnlineSongLike';
 import { usePlayback } from './usePlayback';
 import { useMobileTheme } from './useMobileTheme';
 import { useCatalog } from './useCatalog';
@@ -55,6 +58,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const [queueBusy, setQueueBusy] = useState(false);
   const queueLock = useRef(false);
   const available = useProviders(server);
+  const likes = useMemo(() => createMobileSongLikes(omni, captureProviderSession), []);
   const providerEnabled = available.providers.includes(provider);
   useEffect(() => {
     if (provider !== 'local' && provider !== 'cached' && available.providers.length && !providerEnabled) setProvider(available.providers[0]);
@@ -148,13 +152,16 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       {isLocal && !queueView && localBrowser.browsing ? <LocalCollections collections={localBrowser.collections}
         select={id => { localBrowser.select(id); setQuery(''); }} /> : songs.length ? <SongList songs={songs} play={index => void play(index)} add={(song, next) => void add(song, next)}
         busy={queueBusy || localPlaylists.busy} edit={queueView ? edit : undefined} currentIndex={queueView ? playback.state.index : undefined}
-        libraryActions={(song, close) => <LocalSongPlaylistActions song={song} controller={localPlaylists}
-          selected={isLocal && !queueView ? localBrowser.selected : undefined} close={close} />}
+        libraryActions={(song, close) => <>{song.sourceRef?.kind === 'online' && <OnlineSongLike song={song} likes={likes}
+          writable={available.songLikeProviders.includes(song.sourceRef.providerId)} />}
+          <LocalSongPlaylistActions song={song} controller={localPlaylists}
+          selected={isLocal && !queueView ? localBrowser.selected : undefined} close={close} /></>}
         remove={isLocal && !queueView ? song => { if (window.confirm(t('mobile.confirmRemove', { name: song.name }))) void local.remove(song); } : undefined} />
         : browsingFolders && !queueView && !folderView.root ? null : <div className="empty"><Music2 size={44} /><p>{t(queueView ? 'mobile.queueEmpty' : isLocal ? (local.songs.length ? 'mobile.empty' : 'mobile.localEmpty') : 'mobile.noSongs')}</p></div>}
       {!isLocal && !isCached && catalog.more && !queueView && <button disabled={catalog.busy} onClick={() => void catalog.load()}>{t('mobile.more')}</button>}
     </div>
     <PlayerPanel appearance={appearance} state={playback.state} time={playback.currentTime} visible={playback.visible} light={light} songEpoch={playback.songEpoch}
+      likes={likes} songLikeProviders={available.songLikeProviders}
       captureSongGuard={playback.captureSongGuard}
       expanded={expanded} collapse={() => setExpanded(false)} openQueue={() => { setQueueView(true); setExpanded(false); }} />
     <footer className="mini-player" inert={expanded}>

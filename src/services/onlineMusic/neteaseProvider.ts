@@ -581,7 +581,12 @@ export const neteaseProvider: OnlineMusicProvider = {
     },
     mutations: {
         async likeSong(song, liked) {
-            await neteaseApi.likeSong(toNeteaseId(typeof song === 'object' ? song.id : song), liked);
+            const response = await neteaseApi.likeSong(toNeteaseId(typeof song === 'object' ? song.id : song), liked);
+            const code = Number(response?.code);
+            if ([301, 401, 403].includes(code)) {
+                throw new OnlineProviderError('auth-required', 'NetEase rejected the like request: not signed in', 'netease');
+            }
+            if (code !== 200) throw new OnlineProviderError('unavailable', 'NetEase did not confirm the like request', 'netease');
         },
         async updatePlaylistTracks(operation, playlist, tracks) {
             const playlistId = typeof playlist === 'object' ? playlist.id : playlist;

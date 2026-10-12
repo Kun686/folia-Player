@@ -26,6 +26,17 @@ describe('mobile secure runtime', () => {
     expect(port.read('qq', 'cookie')).toBeNull();
     expect(native.clearSession).toHaveBeenCalledWith({ provider: 'qq' });
   });
+  it('captures provider-scoped intent and revokes it on credential replacement, cancellation or logout', async () => {
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    await runtime.initializeRuntime(); const port = getMobileRuntime()!;
+    const first = runtime.captureProviderSession('qq'), other = runtime.captureProviderSession('netease');
+    port.write('qq', 'cookie', 'fixture'); expect(first()).toBe(true);
+    port.write('qq', 'cookie', 'replacement'); expect(first()).toBe(false); expect(other()).toBe(true);
+    const next = runtime.captureProviderSession('qq'); await runtime.cancelProvider('qq'); expect(next()).toBe(false);
+    const last = runtime.captureProviderSession('qq'); await runtime.clearProvider('qq'); expect(last()).toBe(false);
+    await runtime.flushSessions();
+  });
   it('rejects a response that arrives after logout even if native cancellation races', async () => {
     const runtime = await import('../../../src/mobile/runtime');
     const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');

@@ -112,12 +112,12 @@ const fetchWithCreds = async (endpoint: string, options: RequestInit = {}) => {
     mode: 'cors',
   };
 
-  // Selective Timestamp: Only for login, user, and playlist detail endpoints
+  // Selective Timestamp: login, user, playlist detail and like read/write endpoints
   // as per request to avoid caching issues on dynamic user data, but keep content cacheable.
   const needsTimestamp =
     endpoint.includes('/login') ||
     endpoint.includes('/user') ||
-    endpoint.includes('/playlist/detail');
+    endpoint.includes('/playlist/detail') || endpoint.startsWith('/like?') || endpoint.startsWith('/likelist?');
 
   let finalUrl = url;
   if (needsTimestamp) {

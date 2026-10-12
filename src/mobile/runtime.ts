@@ -10,6 +10,11 @@ const persistenceErrors = new Map<string, unknown>();
 const generations = new Map<string, number>();
 const pending = new Map<string, string>();
 const generation = (provider: string) => generations.get(provider) ?? 0;
+const sessionRevisions = new Map<string, number>();
+export function captureProviderSession(provider: string): () => boolean {
+  const epoch = generation(provider), revision = sessionRevisions.get(provider);
+  return () => epoch === generation(provider) && revision === sessionRevisions.get(provider);
+}
 let coverGeneration = 0;
 let lyricGeneration = 0;
 const enqueueSave = (provider: string) => {
@@ -82,6 +87,7 @@ export async function initializeRuntime() {
     },
     read: (provider, key) => sessions[provider]?.[key] ?? null,
     write: (provider, key, value) => {
+      if ((sessions[provider]?.[key] ?? null) !== value) sessionRevisions.set(provider, (sessionRevisions.get(provider) ?? 0) + 1);
       sessions[provider] ??= {};
       if (value === null) delete sessions[provider][key]; else sessions[provider][key] = value;
       enqueueSave(provider);

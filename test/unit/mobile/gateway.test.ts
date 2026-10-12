@@ -18,6 +18,22 @@ async function fixture(fetchImpl: any = vi.fn(async () => new Response('{}')), p
   return { post, fetchImpl, health };
 }
 describe('mobile gateway', () => {
+  it('advertises no like writes for a QQ-only gateway', async () => {
+    const { health } = await fixture(undefined, ['qq']);
+    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['qq'], songLikeProviders: [] });
+  });
+  it.each([true, false])('forwards only the authorized NetEase like route with explicit like=%s', async liked => {
+    const { post, fetchImpl } = await fixture(vi.fn(async () => new Response('{"code":200}')));
+    const body = { provider: 'netease', path: '/like', query: { id: 42, like: liked, cookie: 'fixture-platform' },
+      headers: { Authorization: 'Bearer do-not-forward' } };
+    expect((await post('/mobile/request', body, 'bad')).status).toBe(401);
+    expect(fetchImpl).not.toHaveBeenCalled(); expect((await post('/mobile/request', body)).status).toBe(200);
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url.origin).toBe(bases.netease); expect(url.pathname).toBe('/like');
+    expect(url.searchParams.get('like')).toBe(String(liked)); expect(init.headers.authorization).toBeUndefined();
+    expect((await post('/mobile/request', { ...body, method: 'POST', body: '{}' })).status).toBe(403);
+    expect((await post('/mobile/request', { ...body, provider: 'qq' })).status).toBe(404);
+  });
   it('allows authenticated read-only cloud lyrics through the fixed NetEase backend', async () => {
     const { post, fetchImpl } = await fixture(vi.fn(async () => new Response('{"code":200,"lyric":"fixture"}')));
     const response = await post('/mobile/request', { provider: 'netease', path: '/cloud/lyric/get', query: { uid: 9, sid: 42, cookie: 'fixture-session' } });
@@ -31,7 +47,7 @@ describe('mobile gateway', () => {
   });
   it('advertises only enabled services and rejects disabled API, lyrics and playback', async () => {
     const { post, fetchImpl, health } = await fixture(undefined, ['netease', 'qq']);
-    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['netease', 'qq'] });
+    expect(await (await health()).json()).toEqual({ protocol: 1, providers: ['netease', 'qq'], songLikeProviders: ['netease'] });
     for (const body of [{ provider: 'kugou', path: '/login/qr/key' },
       { provider: 'lyrics', path: 'https://lyrics.kugou.com/v1/search' }]) {
       expect((await post('/mobile/request', body)).status).toBe(404);
@@ -49,6 +65,10 @@ describe('mobile gateway', () => {
     { provider: 'netease', path: '/song/url/v1?proxy=http://127.0.0.1' },
     { provider: 'netease', path: '/song/url/v1', method: 'POST', body: '{"proxy":"http://localhost"}' },
     { provider: 'netease', path: '/playlist/tracks' },
+    { provider: 'netease', path: '/like?id=42' },
+    { provider: 'netease', path: '/like?id=42&like=undefined' },
+    { provider: 'netease', path: '/like?id=-1&like=true' },
+    { provider: 'netease', path: '/like?id=42&like=true&proxy=http://127.0.0.1' },
     { provider: 'lyrics', path: 'https://u.y.qq.com.evil.test/cgi-bin/musicu.fcg' },
     { provider: 'lyrics', path: 'https://u.y.qq.com/cgi-bin/musicu.fcg', method: 'POST', body: '{"request":{"method":"Delete"}}' },
     { provider: 'kugou', path: '/youth/day/vip' },

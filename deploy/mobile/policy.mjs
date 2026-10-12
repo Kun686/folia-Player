@@ -2,7 +2,7 @@
 export const routes = {
   netease: new Set(['/register/anonimous', '/login/qr/key', '/login/qr/create', '/login/qr/check',
     '/login/status', '/logout', '/user/account', '/user/detail', '/user/playlist', '/playlist/detail',
-    '/playlist/track/all', '/song/detail', '/song/url/v1', '/cloudsearch', '/search', '/lyric', '/lyric/new', '/cloud/lyric/get', '/song/chorus', '/likelist']),
+    '/playlist/track/all', '/song/detail', '/song/url/v1', '/cloudsearch', '/search', '/lyric', '/lyric/new', '/cloud/lyric/get', '/song/chorus', '/likelist', '/like']),
   qq: new Set(['/login/qr/key', '/login/qr/create', '/login/qr/check', '/login/qr/cancel',
     '/login/status', '/login/channels', '/logout', '/user/detail', '/user/playlist', '/user/playlist-detail',
     '/user/liked-songs']),
@@ -38,6 +38,8 @@ export function authorizeTarget(input, bases) {
   const qqRead = provider === 'qq' && /^\/(?:getMusicPlay|getSongListDetail|getSongInfo)\/[A-Za-z0-9_-]+(?:\/\d+)?$/.test(parsed.pathname);
   if (!routes[provider].has(parsed.pathname) && !qqRead) throw fault('unsupported', 404);
   const params = { ...Object.fromEntries(parsed.searchParams), ...(input.query ?? {}) };
+  if (provider === 'netease' && parsed.pathname === '/like' &&
+      (!/^[1-9][0-9]{0,19}$/.test(String(params.id)) || !['true', 'false'].includes(String(params.like)))) throw fault('invalid-request');
   for (const [key, value] of Object.entries(params)) {
     if (!/^[a-zA-Z0-9_]+$/.test(key) || /^(proxy|realIP|ip|url|host|baseURL)$/i.test(key) ||
       !['string', 'number', 'boolean'].includes(typeof value) || String(value).length > 24000) throw fault('invalid-request');

@@ -127,7 +127,8 @@ const loadRawLikedTracks = async (
     offset: number,
 ): Promise<{ tracks: unknown[]; total?: number; more: boolean }> => {
     const response = await requestQq<any>('user_liked_songs', { offset, limit });
-    const tracks = Array.isArray(response?.songs) ? response.songs : [];
+    if (!Array.isArray(response?.songs)) throw new OnlineProviderError('unavailable', 'QQ returned no liked-songs list', 'qq');
+    const tracks = response.songs;
     const total = Number(response?.total);
     return {
         tracks,
@@ -494,17 +495,25 @@ const getUserPlaylists = async (
     };
 };
 
-const getLikedSongIds = async (_userId: MediaId): Promise<MediaId[]> => {
+const getLikedSongIds = async (_userId: MediaId, isCurrent = () => true): Promise<MediaId[]> => {
     const tracks: unknown[] = [];
-    let offset = 0;
+    let offset = 0, complete = false;
     while (offset < 10000) {
+        if (!isCurrent()) throw new DOMException('Account changed', 'AbortError');
         const page = await loadRawLikedTracks(100, offset);
+        if (!isCurrent()) throw new DOMException('Account changed', 'AbortError');
         tracks.push(...page.tracks);
         const nextOffset = offset + page.tracks.length;
-        if (page.tracks.length === 0 || (!page.more && (page.total === undefined || nextOffset >= page.total)))
-            break;
+        if (page.tracks.length === 0 && (page.more || (page.total !== undefined && page.total > offset))) {
+            throw new OnlineProviderError('unavailable', 'QQ liked-songs pagination stopped before completion', 'qq');
+        }
+        if (page.tracks.length === 0 || (!page.more && (page.total === undefined || nextOffset >= page.total))) {
+            complete = true; break;
+        }
         offset = nextOffset;
     }
+    // A bounded partial list cannot prove that an absent song is not liked.
+    if (!complete) throw new OnlineProviderError('unavailable', 'QQ liked-songs list exceeded the read limit', 'qq');
     return tracks
         .map(normalizeQqSong)
         .map(item => item.sourceRef?.kind === 'online' ? item.sourceRef.mediaId : item.id)

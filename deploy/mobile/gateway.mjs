@@ -63,7 +63,8 @@ export function createMobileApp({ token, bases, providers = ['netease', 'qq', 'k
       }
     };
   }
-  app.get('/mobile/health', (_req, res) => res.json({ protocol: 1, providers: [...enabled] }));
+  app.get('/mobile/health', (_req, res) => res.json({ protocol: 1, providers: [...enabled],
+    songLikeProviders: enabled.has('netease') ? ['netease'] : [] }));
   app.post('/mobile/request', route(async (req, res, signal) => {
     if (!req.body || typeof req.body !== 'object') throw fault('invalid-request');
     res.json(await upstream(req.body, signal));

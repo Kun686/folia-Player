@@ -20,6 +20,7 @@ vi.mock('@/services/netease', () => ({
         getArtistAlbums: vi.fn(),
         getPersonalizedPlaylists: vi.fn(),
         getLikedSongs: vi.fn(),
+        likeSong: vi.fn(),
         getUserPlaylists: vi.fn(),
         checkQr: vi.fn(),
         getQrKey: vi.fn(),
@@ -43,6 +44,18 @@ const song: UnifiedSong = {
 
 describe('neteaseProvider', () => {
     beforeEach(() => vi.clearAllMocks());
+
+    it.each([true, false])('requires confirmed success when setting like=%s', async liked => {
+        vi.mocked(neteaseApi.likeSong).mockResolvedValue({ code: 200 });
+        await expect(neteaseProvider.mutations!.likeSong!(song, liked)).resolves.toBeUndefined();
+        expect(neteaseApi.likeSong).toHaveBeenCalledWith(42, liked);
+    });
+    it.each([301, 401, 403, 500, 429, undefined])('rejects like business failure %s rather than reporting success', async code => {
+        vi.mocked(neteaseApi.likeSong).mockResolvedValue({ code });
+        await expect(neteaseProvider.mutations!.likeSong!(song, true)).rejects.toMatchObject({
+            code: [301, 401, 403].includes(code!) ? 'auth-required' : 'unavailable',
+        });
+    });
 
     it.each([
         ['standard', 'standard'], ['high', 'exhigh'], ['lossless', 'lossless'], ['hires', 'hires'],

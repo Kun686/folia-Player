@@ -711,6 +711,28 @@ describe('qqProvider', () => {
         ]);
     });
 
+    it('rejects malformed liked-song pages instead of reporting every track as unliked', async () => {
+        requestMock.mockResolvedValue({ code: 0, songs: null });
+        await expect(qqProvider.library!.getLikedSongIds!('user')).rejects.toMatchObject({ code: 'unavailable' });
+    });
+    it('stops liked-song pagination when the account or caller changes', async () => {
+        let current = true;
+        requestMock.mockImplementationOnce(async () => {
+            current = false; return { songs: [SEARCH_ITEM], more: true, total: 200 };
+        });
+        await expect(qqProvider.library!.getLikedSongIds!('user', () => current)).rejects.toMatchObject({ name: 'AbortError' });
+        expect(requestMock).toHaveBeenCalledOnce();
+    });
+    it('refuses a truncated liked list instead of returning false negatives after 10,000 entries', async () => {
+        requestMock.mockResolvedValue({ songs: Array(100).fill(SEARCH_ITEM), more: true, total: 10001 });
+        await expect(qqProvider.library!.getLikedSongIds!('user')).rejects.toMatchObject({ code: 'unavailable' });
+        expect(requestMock).toHaveBeenCalledTimes(100);
+    });
+    it('rejects a stalled liked-song page that still advertises more tracks', async () => {
+        requestMock.mockResolvedValue({ songs: [], more: true, total: 10 });
+        await expect(qqProvider.library!.getLikedSongIds!('user')).rejects.toMatchObject({ code: 'unavailable' });
+        expect(requestMock).toHaveBeenCalledOnce();
+    });
     it('loads regular playlists normally but uses the encrypted-UIN endpoint for liked songs', async () => {
         requestMock
             .mockResolvedValueOnce({

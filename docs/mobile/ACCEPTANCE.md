@@ -165,6 +165,7 @@ iPad 模拟器实际容器确认应用偏移后重启恢复；见 LYRIC_TIMING.m
 | 主题生成区域纵向触摸滚动 | PASS（12 项 WebKit 回归及最终 iPad QA）；真机 NOT_RUN | `ffdd06a` 局部 CSS；原失败路径、横竖屏、进度拖动和控制器点按通过。其他区域和键盘矩阵未扩展验收，见 SHEET_TOUCH.md |
 | 原版可选同步服务 | PASS（逻辑／WebKit／原生 fixture／独立 iPad 页面短测）；真实服务／真机 NOT_RUN | 启动／手动主题、视觉设置、ZIP 及保存单曲后上传已接入；57 项逻辑、18 项同步 UI 及48 项主题／AI回归；原生关闭配置保存／重启恢复、旋转与空白区滚动通过。软件键盘及多任务矩阵未验收，见 SYNC.md |
 | 其余桌面工具 | NOT_IMPLEMENTED | 仍待移植，完整移植目标未完成 |
+| 在线歌曲收藏状态与原版写入能力 | PASS（逻辑／受控 WebKit）；部署／真实平台／真机 NOT_RUN | 网易云收藏写入与 QQ 只读状态、旧网关能力降级、错误回读与会话隔离；202 项相关逻辑及51 项 WebKit 通过。个人 App 和网关未更新，见 ONLINE_LIKES.md |
 
 音频格式由AudioStreaming、系统AudioToolbox及获批的Ogg／Vorbis决定；Ogg目前不支持拖动。
 实际支持情况需按设备和编码测试，不能仅凭文件扩展名判定。

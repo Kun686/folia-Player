@@ -411,8 +411,12 @@ export const omni = {
         return withActiveProvider(async provider => provider.library?.getLikedSongIds?.(userId) ?? []);
     },
 
-    async getProviderLikedSongIds(providerId: OmniProviderId, userId: MediaId): Promise<MediaId[]> {
-        return requireOnlineMusicProvider(providerId).library?.getLikedSongIds?.(userId) ?? [];
+    async getProviderLikedSongIds(providerId: OmniProviderId, userId: MediaId, isCurrent?: () => boolean): Promise<MediaId[]> {
+        if (isCurrent && !isCurrent()) throw new DOMException('Account changed', 'AbortError');
+        const library = requireOnlineMusicProvider(providerId).library;
+        const ids = await (isCurrent ? library?.getLikedSongIds?.(userId, isCurrent) : library?.getLikedSongIds?.(userId)) ?? [];
+        if (isCurrent && !isCurrent()) throw new DOMException('Account changed', 'AbortError');
+        return ids;
     },
 
     async getProviderLikedSongs(providerId: OmniProviderId, userId: MediaId): Promise<UnifiedSong[]> {
@@ -641,7 +645,11 @@ export const omni = {
         }
     },
 
-    async likeSong(song: SongResult, liked: boolean): Promise<void> {
+    async likeSong(song: SongResult, liked: boolean, context?: { isCurrent(): boolean }): Promise<void> {
+        const checkCurrent = () => {
+            if (context && !context.isCurrent()) throw new DOMException('Account changed', 'AbortError');
+        };
+        checkCurrent();
         const provider = providerForSong(song);
         if (!this.canLikeSong(song) || !provider.mutations?.likeSong) return unsupported(provider.id, 'likes');
 
@@ -661,9 +669,12 @@ export const omni = {
             }
         } catch (error) {
             // 失败时只丢掉可能已经失效的 fileId，点赞状态保持原样——调用方会把错误往上抛。
+            checkCurrent();
             dropProviderLikedFileId(source.providerId, songKey);
             throw error;
         }
+
+        checkCurrent();
 
         // 成功之后 likedSongIds 和 likedSongFileIds 一次提交：直接调 likeSong 的入口（例如"我喜欢"
         // 网格里删歌）也必须让账号缓存跟着走，否则和 toggleSongLike 两个入口语义不同。

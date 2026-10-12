@@ -4,6 +4,11 @@ import { foldersEn, foldersZh, foldersIn } from './localeFolders';
 
 // src/mobile/locale.ts
 export const mobileEn = {
+  onlineLikeState: 'Online Liked Songs', onlineLike: 'Like song', onlineUnlike: 'Unlike song',
+  onlineLiked: 'Liked', onlineNotLiked: 'Not liked', onlineLikeReload: 'Reload like status',
+  onlineLikeLogin: 'Sign in to this song’s music platform to view your likes.',
+  onlineLikeReadOnly: 'This platform or server connection supports reading likes only.',
+  onlineLikeError: 'Could not confirm the like status. Reload it before trying again.',
   sync: syncEn,
   ai: aiEn,
   themeEditor: 'Theme Park · Theme editor', themeEditorSections: 'Theme editor sections', themePreview: 'Preview theme',
@@ -79,6 +84,11 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  onlineLikeState: '在线歌曲收藏', onlineLike: '喜欢这首歌', onlineUnlike: '取消喜欢',
+  onlineLiked: '已喜欢', onlineNotLiked: '未喜欢', onlineLikeReload: '重新读取收藏状态',
+  onlineLikeLogin: '请先登录这首歌所属的音乐平台，再查看收藏。',
+  onlineLikeReadOnly: '当前平台或服务器连接仅支持读取收藏状态。',
+  onlineLikeError: '无法确认收藏结果，请重新读取状态后再操作。',
   sync: syncZh,
   ai: aiZh,
   themeEditor: 'Theme Park · 主题编辑', themeEditorSections: '主题编辑分类', themePreview: '预览主题',
@@ -154,6 +164,11 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  onlineLikeState: 'Lagu online yang disukai', onlineLike: 'Sukai lagu', onlineUnlike: 'Batal menyukai',
+  onlineLiked: 'Disukai', onlineNotLiked: 'Belum disukai', onlineLikeReload: 'Muat ulang status suka',
+  onlineLikeLogin: 'Masuk ke platform musik lagu ini untuk melihat status suka.',
+  onlineLikeReadOnly: 'Platform atau koneksi server ini hanya mendukung pembacaan status suka.',
+  onlineLikeError: 'Status suka tidak dapat dipastikan. Muat ulang sebelum mencoba lagi.',
   sync: syncEn,
   ai: aiEn,
   themeEditor: 'Theme Park · Editor tema', themeEditorSections: 'Bagian editor tema', themePreview: 'Pratinjau tema',

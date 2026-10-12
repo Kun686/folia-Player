@@ -155,8 +155,8 @@ export const test = base.extend<{ nativeBridge: void }>({
           state.audioEffects = { available: !win.fixtureEffectError, pending: false, error: win.fixtureEffectError || '' };
           emit(); return structuredClone(win.fixtureAudio);
         }
-        if (method === 'health') return { protocol: 1, providers: ['netease', 'qq'] };
-        if (method === 'bootstrap') return { server: win.fixtureNoServer ? '' : 'https://fixture.invalid', sessions: {} };
+        if (method === 'health') return win.fixtureHealth ?? { protocol: 1, providers: ['netease', 'qq'] };
+        if (method === 'bootstrap') return { server: win.fixtureNoServer ? '' : 'https://fixture.invalid', sessions: win.fixtureSessions ?? {} };
         if (method === 'readLocalLibrary' || method === 'editLocalLibrary') {
           const path = '/src/mobile/nativeLibraryRuntime.ts';
           // Init scripts execute in the browser; prevent the test runner's CommonJS transform from rewriting import().
@@ -254,6 +254,10 @@ export const test = base.extend<{ nativeBridge: void }>({
           emit(); return {};
         }
         if (method !== 'request') return {};
+        if (win.fixtureOnlineRequest) {
+          const response = await win.fixtureOnlineRequest(options.payload);
+          if (response !== undefined) return response;
+        }
         const path = options.payload.path as string;
         let body: any = { code: 200 };
         if (path === 'https://u.y.qq.com/cgi-bin/musicu.fcg' && win.fixtureLyricTools) {

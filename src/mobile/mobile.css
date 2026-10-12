@@ -145,3 +145,7 @@
 .mobile-batch-lyrics [data-ponder="lyric-export-surface"] { min-height: 0; flex: 1; }
 .mobile-batch-lyrics button { min-height: 44px; min-width: 44px; touch-action: manipulation; }
 .mobile-batch-lyrics p.batch-feedback { margin: 4px 0; flex-shrink: 0; font-size: 12px; }
+/* Online actions inherit the existing sheet theme and touch target rules. */
+.online-song-like { display: grid; gap: 8px; margin-block: 8px; }
+.online-song-like > button { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.online-song-like > p { margin: 0; overflow-wrap: anywhere; }

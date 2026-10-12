@@ -374,7 +374,7 @@ export interface OnlineAuthProvider {
 
 export interface OnlineLibraryProvider {
     getUserPlaylists(userId: MediaId, limit: number, offset: number): Promise<ProviderPage<ProviderCollection>>;
-    getLikedSongIds?(userId: MediaId): Promise<MediaId[]>;
+    getLikedSongIds?(userId: MediaId, isCurrent?: () => boolean): Promise<MediaId[]>;
     /** Full liked-track records, used when a provider needs more than the song id (e.g. KuGou fileId). */
     getLikedSongs?(userId: MediaId): Promise<UnifiedSong[]>;
     getUserAlbums?(userId: MediaId, limit: number, offset: number): Promise<ProviderPage<ProviderCollection>>;
