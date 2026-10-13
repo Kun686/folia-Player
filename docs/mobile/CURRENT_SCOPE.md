@@ -64,3 +64,8 @@ iPad 原生键盘、物理设备和真实账号本批 NOT_RUN。见 [SETTINGS_NA
 当前平台队列／音频／封面／歌词清理、另一平台保留和旧响应拒绝。iPhone 4 项加相关原生回归 6 项、
 iPad 相同 4 项全部通过，共 10 个唯一用例；见 [NATIVE_LOGOUT_INTEGRATION.md](NATIVE_LOGOUT_INTEGRATION.md)。
 本批只新增 QA 测试，不是完整 React 页面或真实账号验收；真机／长播 NOT_RUN，个人 mobile.28 和服务器未更新。
+
+2026-10-14 两平台扫码重试：修复重新生成／再次分享成功后仍保留错误，以及旧分享迟到失败污染新二维码的问题。
+复用原扫码状态机，保留平台错误；349 项相关逻辑、84 个唯一 WebKit 用例、类型检查与移动资源构建通过。
+本批原生容器／系统分享面板／真实扫码／物理设备 NOT_RUN，个人 mobile.28 未更新。
+见 [LOGIN_RECOVERY.md](LOGIN_RECOVERY.md)，不把受控确认登录当作真实账号验收。

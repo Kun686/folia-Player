@@ -28,6 +28,10 @@
 
 ## 本轮核对的集合与队列行为
 
+扫码弹窗重试恢复见 [LOGIN_RECOVERY.md](LOGIN_RECOVERY.md)：重新生成／分享成功后旧错误消失，
+旧分享迟到失败不能污染新二维码，仍保留本轮失败与共享扫码状态。349 项相关逻辑、84 个唯一 WebKit
+用例、类型检查和移动构建通过；原生／系统分享／真实账号／真机本批 NOT_RUN，个人 mobile.28 未更新。
+
 退出的原生整合补验见 [NATIVE_LOGOUT_INTEGRATION.md](NATIVE_LOGOUT_INTEGRATION.md)：生产 runtime 通过真实
 Capacitor／Keychain 和原生三类缓存，iPhone 新增 4 项及既有 6 项回归、iPad 相同 4 项全部通过，
 合计 10 个唯一用例。验证取消桥失败后仍清理该平台、保留另一平台并拒绝旧响应；本批只新增 QA 测试。

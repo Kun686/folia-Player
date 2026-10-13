@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { omni } from '../services/onlineMusic/omni';
 import { createProviderLoginSession } from '../library/core/services/providerLoginSession';
@@ -12,23 +12,34 @@ export default function LoginSheet({ provider, refresh, close }: { provider: str
   const [methods, setMethods] = useState(omni.getQrLoginMethods(provider));
   const [method, setMethod] = useState('');
   const [error, setError] = useState(false);
+  const errorEpoch = useRef(0);
   const session = useMemo(() => createProviderLoginSession({
     auth: omni, clock: windowAccountClock, diagnostics: { appVersion: __APP_VERSION__, userAgent: navigator.userAgent },
     log: (_level, event) => { if (import.meta.env.DEV) console.info('[mobile-login]', event); },
-    onInvalidate: id => { void cancelProvider(id).catch(() => setError(true)); },
+    onInvalidate: id => {
+      const epoch = errorEpoch.current;
+      void cancelProvider(id).catch(() => { if (epoch === errorEpoch.current) setError(true); });
+    },
     onConfirmed: async () => { await flushSessions(); return refresh(); },
   }), [refresh]);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
   useEffect(() => {
     let active = true;
-    void omni.resolveQrLoginMethods(provider).then(value => { if (active) setMethods(value); }).catch(() => setError(true));
+    void omni.resolveQrLoginMethods(provider).then(value => { if (active) setMethods(value); }).catch(() => { if (active) setError(true); });
     const resume = () => { if (!document.hidden) session.resume(); };
     document.addEventListener('visibilitychange', resume);
-    return () => { active = false; session.dispose(); document.removeEventListener('visibilitychange', resume); };
+    return () => { active = false; session.dispose(); errorEpoch.current++; document.removeEventListener('visibilitychange', resume); };
   }, [provider, session]);
-  const start = async () => {
-    session.stop(); await cancelProvider(provider);
-    session.start(provider, method || undefined);
+  // UI errors belong to the latest action; the shared session still owns QR/auth generations.
+  const attempt = async (action: () => Promise<unknown>) => {
+    const epoch = ++errorEpoch.current;
+    setError(false);
+    try { await action(); }
+    catch { if (epoch === errorEpoch.current) setError(true); }
+  };
+  const start = () => {
+    session.stop();
+    return attempt(async () => { await cancelProvider(provider); session.start(provider, method || undefined); });
   };
   return <div className="sheet-backdrop"><section className="sheet" role="dialog" aria-modal="true" aria-label={t('mobile.login')}>
     <header><h2>{t('mobile.login')}</h2><button onClick={close}>{t('mobile.close')}</button></header>
@@ -40,8 +51,8 @@ export default function LoginSheet({ provider, refresh, close }: { provider: str
     <p role="status">{t(('mobile.' + (['waiting', 'scanned', 'confirmed', 'expired', 'loading'].includes(state.phase) ? state.phase : 'login')) as 'mobile.login')}</p>
     {(state.phase === 'error' || error) && <p role="alert">{t('mobile.error')}</p>}
     <div className="actions">
-      <button disabled={state.phase === 'loading'} onClick={() => void start().catch(() => setError(true))}>{t('mobile.refresh')}</button>
-      {state.qrImageUrl && <button onClick={() => void native.shareQR({ image: state.qrImageUrl }).catch(() => setError(true))}>{t('mobile.share')}</button>}
+      <button disabled={state.phase === 'loading'} onClick={() => void start()}>{t('mobile.refresh')}</button>
+      {state.qrImageUrl && <button onClick={() => void attempt(() => native.shareQR({ image: state.qrImageUrl }))}>{t('mobile.share')}</button>}
     </div>
   </section></div>;
 }
