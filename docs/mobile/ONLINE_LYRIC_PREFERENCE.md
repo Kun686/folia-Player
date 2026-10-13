@@ -22,6 +22,9 @@
 
 ## 后台边界
 
+后续已完成原算法的请求端口分离，87 个逻辑用例、30 个 WebKit 场景及裸 JavaScriptCore 验证通过，
+见 [LYRIC_MATCH_CORE.md](LYRIC_MATCH_CORE.md)。这只解除算法对 Web 宿主的耦合，未接通原生后台请求。
+
 **后台独立跨平台自动匹配尚未实现。** `NativeLyricCache` 使用已经保存的原歌词及来源选择；
 缓存未命中时，`NativeOnlineLyrics` 获取歌曲所属平台歌词。前台匹配写入共享缓存，后台后续读取
 可以使用这个结果，但这不代表 WebView 停止运行时仍可自动搜索四个平台。

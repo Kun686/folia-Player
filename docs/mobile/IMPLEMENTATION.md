@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+原版最佳歌词匹配已分离请求端口，现有前台与独立宿主可复用同一算法；87 个逻辑用例、30 个 WebKit
+场景及 Mac 裸 JavaScriptCore 四来源验证通过。原生后台请求／会话／缓存接线仍未完成，
+个人 App／服务器未更新，见 [LYRIC_MATCH_CORE.md](LYRIC_MATCH_CORE.md)。
+
 Automix 补齐主进程／WebContent／GPU 的独立模拟器联合测量：一个原生用例内三轮真实分轨交接通过，
 185 次有效阶段快照覆盖 15 个阶段。最高同次物理账本之和约 1.38GiB，清理后约 259／260／246MiB；
 未见逐轮累积，但真机、长期和去重整 App 内存仍未验收。本批只改 QA 与文档，个人 App／服务器未更新，
