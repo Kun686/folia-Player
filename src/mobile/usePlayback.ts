@@ -19,7 +19,7 @@ export function usePlayback() {
   }, []);
   useEffect(() => {
     if (!isNative) return;
-    let disposed = false;
+    let disposed = false, restoreSequence = 0;
     const transitions = createNativeTransitionCueSync();
     const receive = (event: PlaybackEvent) => {
       const value = { ...snapshot.current.state, ...event, queue: event.queue ?? snapshot.current.state.queue };
@@ -31,9 +31,16 @@ export function usePlayback() {
     };
     const subscription = native.addListener('playback', receive);
     const restore = () => {
+      const request = ++restoreSequence, observed = snapshot.current;
       transitions.clear();
       setVisible(!document.hidden);
-      if (!document.hidden) void native.getState().then(receive).catch(() => setState(s => ({ ...s, error: 'state-unavailable' })));
+      if (!document.hidden) void native.getState().then(value => {
+        if (!disposed && request === restoreSequence) receive(value);
+      }).catch(() => {
+        // A later foreground read or accepted native event already supersedes this failure.
+        if (disposed || request !== restoreSequence || observed !== snapshot.current) return;
+        setState(s => s.error ? s : { ...s, error: 'state-unavailable' });
+      });
     };
     restore();
     document.addEventListener('visibilitychange', restore);
