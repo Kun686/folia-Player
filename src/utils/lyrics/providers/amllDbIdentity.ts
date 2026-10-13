@@ -14,4 +14,3 @@ export function getAmllDbMusicIds(
 ): string[] {
     return normalizeMusicIds(platform === 'qq' ? [song.qqMid, song.id] : [song.id]);
 }
-
