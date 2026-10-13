@@ -193,3 +193,4 @@
 .mobile-video-settings button { min-height: 44px; min-width: 44px; touch-action: manipulation; }
 .mobile-video-settings input[type=range] { width: 100%; min-height: 44px; touch-action: none; }
 .mobile-video-settings fieldset { min-width: 0; }
+.audio-route-control > button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }

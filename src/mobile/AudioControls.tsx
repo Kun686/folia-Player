@@ -13,6 +13,7 @@ import ReplayGainControl from '../components/panelTab/ReplayGainControl';
 import { usePlaybackStore } from '../stores/usePlaybackStore';
 import type { ReplayGainInfo } from '../types';
 import { AUDIO_QUALITY_OPTIONS } from '../utils/audioQualityOptions';
+import AudioRouteControl from './AudioRouteControl';
 
 // src/mobile/AudioControls.tsx — existing store/actions/dialog; AVPlayer owns the audible settings.
 export default function AudioControls({ light, theme, unavailable, effects, replayGain, listening }: {
@@ -58,6 +59,7 @@ export default function AudioControls({ light, theme, unavailable, effects, repl
       </span>
     </label>
     <p id="mobile-quality-hint" className="quality-hint">{t('mobile.audioQualityHint')}</p>
+    <AudioRouteControl light={light} />
     <details className="replay-gain-disclosure"><summary>{t('localMusic.replayGainTitle')}</summary>
     <fieldset disabled={!status.ready} className="replay-gain-controls">
       <ReplayGainControl isDaylight={light} values={replayGain} mode={replayGainMode} onChangeMode={setReplayGainMode} />

@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+原版「播放设备」已接入移动音频设置与系统 AVRoutePickerView；26 项逻辑、9 个 WebKit 场景和两种模拟器各 5 项原生测试通过。
+覆盖面板生命周期、PCM 连续输出和明暗主题；模拟器未显示可选设备列表，真实蓝牙／AirPlay 切换 NOT_RUN。
+个人 mobile.28／服务器未更新，完整移植与 Automix 真机验收仍未完成，见 [AUDIO_ROUTE.md](AUDIO_ROUTE.md)。
+
 原版视频层已接入移动画布与触摸设置，保留静音、循环、原参数和本地文件优先规则。
 687 项逻辑、24 项 WebKit（另 3 项旧字体用例跳过）、1 项打包后 iOS 模拟器 PCM／视频共存检查通过。
 桌面 Chromium UI 受缺少运行文件阻塞；真机／长期性能 NOT_RUN，个人 App／服务器未更新，见 [VIDEO_LAYER.md](VIDEO_LAYER.md)。

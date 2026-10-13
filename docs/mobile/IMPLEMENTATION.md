@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+原版「播放设备」已适配为移动触摸入口与 Apple 系统输出选择器，沿用原音频设置和主题，不新增依赖。
+26 项逻辑、9 个 WebKit 场景，以及 iPhone／iPad 模拟器各 5 项原生测试通过。
+真实蓝牙／AirPlay 路由切换 NOT_RUN，个人 mobile.28／服务器未更新，见 [AUDIO_ROUTE.md](AUDIO_ROUTE.md)。
+
 原版静音视频层已接入移动设置与原生播放时钟，复用原组件、参数和本地文件／URL 规则。
 687 项逻辑、24 项 WebKit 与 1 项打包后 iOS 模拟器用例通过；3 项外部字体回归跳过，桌面 Chromium UI 因缺运行文件未执行。
 真机／长期性能 NOT_RUN，个人 mobile.28／服务器未更新，见 [VIDEO_LAYER.md](VIDEO_LAYER.md)。

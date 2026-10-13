@@ -7,6 +7,8 @@ import { dailyEn, dailyZh, dailyIn } from './localeDaily';
 
 // src/mobile/locale.ts
 export const mobileEn = {
+  audioRouteHint: 'Tap the AirPlay icon to choose an available audio output. Pair Bluetooth devices in system Settings first.',
+  audioRouteFailed: 'Could not open the audio output picker. Close any system dialog and try again.',
   replacementUnsupported: 'This music source or server does not support alternate version lookup yet.',
   replacementUnavailable: 'No playable alternate version was found.',
   copySongInfo: 'Copy song info', openSongPage: 'Open official song page',
@@ -106,6 +108,8 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  audioRouteHint: '轻点 AirPlay 图标选择可用的播放设备。蓝牙设备需先在系统设置中配对。',
+  audioRouteFailed: '无法打开播放设备选择器，请关闭其他系统弹窗后重试。',
   replacementUnsupported: '此音乐来源或服务器暂不支持查询其他版本。',
   replacementUnavailable: '未找到可播放的其他版本。',
   copySongInfo: '复制歌曲信息', openSongPage: '打开官方歌曲页',
@@ -205,6 +209,8 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  audioRouteHint: 'Ketuk ikon AirPlay untuk memilih keluaran audio. Pasangkan perangkat Bluetooth di Pengaturan sistem terlebih dahulu.',
+  audioRouteFailed: 'Pemilih keluaran audio tidak dapat dibuka. Tutup dialog sistem lain lalu coba lagi.',
   replacementUnsupported: 'Sumber musik atau server ini belum mendukung pencarian versi alternatif.',
   replacementUnavailable: 'Tidak ditemukan versi alternatif yang dapat diputar.',
   copySongInfo: 'Salin info lagu', openSongPage: 'Buka halaman lagu resmi',

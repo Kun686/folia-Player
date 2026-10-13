@@ -58,7 +58,7 @@ export const test = base.extend<{ nativeBridge: void }>({
     win.fixtureCommands = [];
     const emit = () => { state.revision++; subscriber?.({ ...state }); };
     win.fixtureEmitPlayback = (patch: Record<string, unknown>) => { Object.assign(state, patch); emit(); };
-    const methods = ['getLyricSettings', 'setLyricSettings', 'startPersonalFM', 'leavePersonalFM', 'getModels', 'downloadModel', 'cancelModel', 'removeModels', 'importModel', 'bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile', 'sharePlaylistFile',
+    const methods = ['chooseAudioRoute', 'getLyricSettings', 'setLyricSettings', 'startPersonalFM', 'leavePersonalFM', 'getModels', 'downloadModel', 'cancelModel', 'removeModels', 'importModel', 'bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile', 'sharePlaylistFile',
       'readLocalFolders', 'beginFolderImport', 'readFolderImport', 'prepareFolderImport', 'finishFolderImport', 'cancelFolderImport', 'removeLocalFolder',
       'readLocalLibrary', 'editLocalLibrary', 'localCatalog', 'importAudio', 'localDetails', 'readLocalLyrics', 'readLocalMatch', 'writeLocalMatch', 'selectLocalLyrics', 'importLyrics', 'pickLyricFile', 'saveLocalLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
       'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache', 'listExportLyrics', 'readExportLyrics', 'shareLyricArchive', 'getSleepTimer', 'setSleepTimer', 'getAISettings', 'setAISettings', 'aiRequest', 'cancelAIRequest', 'getSyncSettings', 'setSyncSettings', 'syncRequest', 'cancelSyncRequest'];
@@ -185,6 +185,11 @@ export const test = base.extend<{ nativeBridge: void }>({
         if (method === 'setTransitionSettings') {
           if (win.fixtureTransitionFailure) throw new Error('transition-settings-failed');
           win.fixtureTransition = structuredClone(options.settings); return structuredClone(win.fixtureTransition);
+        }
+        if (method === 'chooseAudioRoute') {
+          (win.fixtureRouteRequests ??= []).push(structuredClone(options));
+          if (win.fixtureRouteFailure) throw new Error('audio-route-busy');
+          return new Promise(resolve => { win.fixtureFinishAudioRoute = () => resolve({}); });
         }
         if (method === 'getAudioSettings') return structuredClone(win.fixtureAudio);
         if (method === 'setAudioSettings') {
