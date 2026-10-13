@@ -36,10 +36,18 @@ def identify(marker, simulator):
 
 
 def main():
-    if len(sys.argv) != 4:
-        raise SystemExit("usage: sample-joint-processes.py command.json simulator-uuid NEW-output-directory")
+    if len(sys.argv) not in (4, 5):
+        raise SystemExit("usage: sample-joint-processes.py command.json simulator-uuid NEW-output-directory [expected-phases.json]")
     command = json.loads(Path(sys.argv[1]).read_text())
     simulator, directory = sys.argv[2], Path(sys.argv[3])
+    expected = {f"joint-consecutive-{index}-{phase}" for index in range(3)
+                for phase in ("baseline", "models", "handover", "recovery")}
+    expected.update(f"round-{index}-cleanup" for index in range(3))
+    if len(sys.argv) == 5:
+        requested = json.loads(Path(sys.argv[4]).read_text())
+        if not isinstance(requested, list) or not requested or any(not isinstance(phase, str) or not phase for phase in requested):
+            raise ValueError("expected phases must be a non-empty list of names")
+        expected = set(requested)
     if command[:2] != ["xcodebuild", "test-without-building"] or (
         "platform=iOS Simulator,id=" + simulator not in command
     ):
@@ -131,9 +139,6 @@ def main():
             (directory / "samples.json").write_text(json.dumps({"simulator": simulator, "bundleId": BUNDLE,
                 "runnerPID": os.getpid(), "testPID": child.pid, "testExitCode": child.returncode,
                 "failure": failure, "samplingDone": sampling_done, "markers": markers, "samples": samples}, indent=2) + "\n")
-    expected = {f"joint-consecutive-{index}-{phase}" for index in range(3)
-                for phase in ("baseline", "models", "handover", "recovery")}
-    expected.update(f"round-{index}-cleanup" for index in range(3))
     measured = {sample["phase"] for sample in samples}
     if failure or code != 0 or not sampling_done or not expected.issubset(measured):
         raise SystemExit(f"Incomplete measurement: exit={code}; error={failure}; done={sampling_done}; missing={sorted(expected - measured)}")

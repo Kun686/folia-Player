@@ -122,7 +122,7 @@ private final class JointMemoryOwner {
         XCTAssertFalse(profiles.hasPending, "Recovery cannot resurrect a cancelled queue")
     }
 
-    private func jointJS(_ web: WKWebView, _ script: String) async throws -> Any {
+    func jointJS(_ web: WKWebView, _ script: String) async throws -> Any {
         try await withCheckedThrowingContinuation { continuation in
             web.evaluateJavaScript(script) { value, error in
                 if let error { continuation.resume(throwing: error) }
@@ -131,7 +131,7 @@ private final class JointMemoryOwner {
         }
     }
 
-    private func jointUIReady(_ web: WKWebView, condition: String) async throws {
+    func jointUIReady(_ web: WKWebView, condition: String) async throws {
         for _ in 0..<200 {
             if (try? await jointJS(web, condition)) as? Bool == true { return }
             try await Task.sleep(for: .milliseconds(50))
@@ -156,7 +156,7 @@ private final class JointMemoryOwner {
 
     // Simulator QA only: identify this WKWebView's actual processes for the external footprint sampler.
     // These WebKit-private diagnostic getters are never used by, or linked into, the production target.
-    private func jointProcessCheckpoint(_ phase: String, web: WKWebView) throws {
+    func jointProcessCheckpoint(_ phase: String, web: WKWebView) throws {
         guard ProcessInfo.processInfo.environment["FOLIA_JOINT_PROCESS_SAMPLING"] == "1" else { return }
         #if targetEnvironment(simulator)
         guard Bundle.main.bundleIdentifier == "app.folia.validation.App" else { throw MobileFailure("joint-qa-identity") }
