@@ -36,14 +36,15 @@ def identify(marker, simulator):
 
 
 def main():
-    if len(sys.argv) not in (4, 5):
-        raise SystemExit("usage: sample-joint-processes.py command.json simulator-uuid NEW-output-directory [expected-phases.json]")
+    if len(sys.argv) not in (4, 5, 6) or (len(sys.argv) == 6 and sys.argv[5] != "--screenshots"):
+        raise SystemExit("usage: sample-joint-processes.py command.json simulator-uuid NEW-output-directory [expected-phases.json [--screenshots]]")
+    capture_screens = len(sys.argv) == 6
     command = json.loads(Path(sys.argv[1]).read_text())
     simulator, directory = sys.argv[2], Path(sys.argv[3])
     expected = {f"joint-consecutive-{index}-{phase}" for index in range(3)
                 for phase in ("baseline", "models", "handover", "recovery")}
     expected.update(f"round-{index}-cleanup" for index in range(3))
-    if len(sys.argv) == 5:
+    if len(sys.argv) >= 5:
         requested = json.loads(Path(sys.argv[4]).read_text())
         if not isinstance(requested, list) or not requested or any(not isinstance(phase, str) or not phase for phase in requested):
             raise ValueError("expected phases must be a non-empty list of names")
@@ -55,7 +56,8 @@ def main():
     directory.mkdir(parents=True, exist_ok=False)
     log = directory / "test.log"
     started = time.monotonic()
-    markers, samples, identities = [], [], {}
+    markers, samples, identities, screens = [], [], {}, []
+    captured_phases = set()
     marker, last_sample, log_offset = None, started, 0
     last_output, size, shown = started, 0, started
     failure, sampling_done = None, False
@@ -94,6 +96,18 @@ def main():
                     read_updates(now)
                 if now - last_output > 60 or now - started > 540:
                     raise TimeoutError("test produced no output for 60s or exceeded 540s")
+                if capture_screens and marker and not sampling_done and marker["phase"] in expected - captured_phases:
+                    phase = marker["phase"]
+                    target = directory / f"screen-{len(screens):04d}.png"
+                    before = time.monotonic()
+                    subprocess.run(["xcrun", "simctl", "io", simulator, "screenshot", str(target)],
+                                   capture_output=True, text=True, check=True, timeout=10)
+                    read_updates(time.monotonic())
+                    if sampling_done or marker["phase"] != phase:
+                        raise RuntimeError("simulator screenshot crossed a phase boundary")
+                    screens.append({"phase": phase, "file": target.name, "elapsed": before - started,
+                                    "captureSeconds": time.monotonic() - before})
+                    captured_phases.add(phase)
                 if marker and not sampling_done and now - last_sample >= 1:
                     key = tuple(marker[role] for role in ("host", "web", "gpu"))
                     phase = marker["phase"]
@@ -138,8 +152,11 @@ def main():
         finally:
             (directory / "samples.json").write_text(json.dumps({"simulator": simulator, "bundleId": BUNDLE,
                 "runnerPID": os.getpid(), "testPID": child.pid, "testExitCode": child.returncode,
-                "failure": failure, "samplingDone": sampling_done, "markers": markers, "samples": samples}, indent=2) + "\n")
+                "failure": failure, "samplingDone": sampling_done, "markers": markers, "samples": samples,
+                "screens": screens}, indent=2) + "\n")
     measured = {sample["phase"] for sample in samples}
+    if capture_screens and not expected.issubset(captured_phases):
+        failure = failure or "missing requested simulator screenshots"
     if failure or code != 0 or not sampling_done or not expected.issubset(measured):
         raise SystemExit(f"Incomplete measurement: exit={code}; error={failure}; done={sampling_done}; missing={sorted(expected - measured)}")
     print(f"PASS samples={len(samples)} phases={len(measured)} elapsed={time.monotonic()-started:.1f}s", flush=True)

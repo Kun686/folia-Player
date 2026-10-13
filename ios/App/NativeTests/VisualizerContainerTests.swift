@@ -16,7 +16,8 @@ import AVFoundation
     }
 
     // Reuses the same native output and page lifecycle for both mode groups, without a second playback fixture.
-    private func checkPackagedVisualizers(_ modes: [String]) async throws {
+    func checkPackagedVisualizers(_ modes: [String],
+        afterRestore: (@MainActor (WKWebView, String) async throws -> Void)? = nil) async throws {
         #if !targetEnvironment(simulator)
         throw XCTSkip("Independent simulator container check only")
         #endif
@@ -148,6 +149,7 @@ import AVFoundation
                         let image = try await web.takeSnapshot(configuration: config)
                         let attachment = XCTAttachment(image: image); attachment.name = "\(provider)-\(mode)-restored"
                         attachment.lifetime = .keepAlways; add(attachment)
+                        try await afterRestore?(web, "\(provider)-\(mode)")
                     }
                 }
             }
