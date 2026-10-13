@@ -1,0 +1,40 @@
+// localePlayback.ts — actionable playback feedback; native codes and response details stay out of the UI.
+export const playbackZh = {
+  command: '操作未成功，请再试一次。',
+  auth: '{{provider}} 登录已失效。请返回音乐库重新登录后播放。',
+  platform: '当前音乐平台',
+  gateway: '音乐服务认证失败。请在设置中检查访问凭据。',
+  network: '播放连接中断，请检查网络后重试播放。',
+  rateLimited: '音乐服务暂时限制请求，请稍后重试播放。',
+  unavailable: '这首歌暂时无法播放，请重试或选择其他歌曲。',
+  audio: '音频播放失败，请重试播放或切换歌曲。',
+  audioSession: '无法启用音频输出，请检查系统音频设备后重试播放。',
+  state: '无法读取播放状态，请稍后重试。',
+  failed: '播放遇到问题，请重试或返回音乐库检查连接。',
+};
+export const playbackEn: typeof playbackZh = {
+  command: 'The action failed. Please try again.',
+  auth: 'Your {{provider}} sign-in has expired. Return to the library and sign in again to play.',
+  platform: 'music platform',
+  gateway: 'Music server authentication failed. Check the access token in Settings.',
+  network: 'The playback connection was interrupted. Check your network and retry playback.',
+  rateLimited: 'The music service is limiting requests. Try playback again later.',
+  unavailable: 'This song is unavailable. Retry or choose another song.',
+  audio: 'Audio playback failed. Retry playback or choose another song.',
+  audioSession: 'Could not start audio output. Check the system audio device and retry playback.',
+  state: 'Could not read the playback state. Please try again shortly.',
+  failed: 'Playback encountered a problem. Retry or return to the library to check the connection.',
+};
+export const playbackIn: typeof playbackZh = {
+  command: 'Tindakan gagal. Silakan coba lagi.',
+  auth: 'Sesi masuk {{provider}} telah kedaluwarsa. Kembali ke pustaka dan masuk lagi untuk memutar.',
+  platform: 'platform musik',
+  gateway: 'Autentikasi server musik gagal. Periksa token akses di Pengaturan.',
+  network: 'Koneksi pemutaran terputus. Periksa jaringan lalu coba putar lagi.',
+  rateLimited: 'Layanan musik sedang membatasi permintaan. Coba putar lagi nanti.',
+  unavailable: 'Lagu ini tidak tersedia. Coba lagi atau pilih lagu lain.',
+  audio: 'Pemutaran audio gagal. Coba putar lagi atau pilih lagu lain.',
+  audioSession: 'Keluaran audio tidak dapat dimulai. Periksa perangkat audio sistem lalu coba putar lagi.',
+  state: 'Status pemutaran tidak dapat dibaca. Silakan coba lagi sebentar lagi.',
+  failed: 'Pemutaran mengalami masalah. Coba lagi atau kembali ke pustaka untuk memeriksa koneksi.',
+};

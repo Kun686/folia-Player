@@ -16,6 +16,8 @@ import { useNativeAudio } from './useNativeAudio';
 import VisualSettings from './VisualSettings';
 import AudioControls from './AudioControls';
 import PlayerChrome from './PlayerChrome';
+import PlayerFeedback from './PlayerFeedback';
+import { usePlaybackCommands } from './usePlaybackCommands';
 import { usePlayerChrome } from './usePlayerChrome';
 import TransitionControls from './TransitionControls';
 import LyricTools from './LyricTools';
@@ -26,7 +28,7 @@ import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useVisualizerAssetStore } from '../stores/useVisualizerAssetStore';
 import { NO_LYRIC_LINES } from '../utils/lyrics/noLyricLines';
-import { native, type PlaybackSnapshot } from './bridge';
+import type { PlaybackSnapshot } from './bridge';
 import type { SongResult } from '../types';
 import { useMobileThemeGeneration } from './useMobileThemeGeneration';
 import OnlineSongLike from './OnlineSongLike';
@@ -78,13 +80,14 @@ export default function PlayerPanel({ appearance, state, time, visible, light, e
   const [line, setLine] = useState(-1);
   const lineRef = useRef(-1);
   const [error, setError] = useState(false);
+  const { send, error: commandError } = usePlaybackCommands(songEpoch);
   const song = state.currentSong;
   const videoSongKey = JSON.stringify(song?.sourceRef);
   const videoPlayback = useMemo(() => ({ time, playing: state.playing, songKey: videoSongKey }), [time, state.playing, videoSongKey]);
   const { lyricTime, offsetMs, setOffsetMs, toPlaybackTime } = useLyricClock(song, time);
   const seekLyrics = useCallback((position: number) => {
-    void native.command({ action: 'seek', position: toPlaybackTime(position) }).catch(() => setError(true));
-  }, [toPlaybackTime]);
+    send({ action: 'seek', position: toPlaybackTime(position) });
+  }, [toPlaybackTime, send]);
   const lyricSongKey = JSON.stringify(song?.sourceRef);
   const currentLyricSongKey = useRef(lyricSongKey); currentLyricSongKey.current = lyricSongKey;
   useEffect(() => { currentLyricSongKey.current = lyricSongKey; return () => { currentLyricSongKey.current = ''; }; }, []);
@@ -95,7 +98,7 @@ export default function PlayerPanel({ appearance, state, time, visible, light, e
   const modalOpen = visualSettings || audioSettingsOpen || transitionSettings || lyricTools;
   const rendering = visible && expanded && !modalOpen;
   const { hidden, reveal: revealChrome, focusProps, stageTapProps } = usePlayerChrome(visible && expanded, state.playing,
-    toolsOpen || modalOpen || error || !!state.error || !!lyricsError);
+    toolsOpen || modalOpen || error || commandError || !!state.error || !!lyricsError);
   useEffect(() => { if (modalOpen || !expanded) setToolsOpen(false); }, [modalOpen, expanded]);
   const audio = useNativeAudio(rendering, state.playing);
   const importLyrics = async () => {
@@ -114,7 +117,7 @@ export default function PlayerPanel({ appearance, state, time, visible, light, e
     if (next !== lineRef.current) { lineRef.current = next; setLine(next); }
   });
   const command = (action: 'play' | 'pause' | 'next' | 'previous' | 'seek' | 'repeat', position?: number, mode?: string) =>
-    void native.command({ action, position, mode }).catch(() => setError(true));
+    send({ action, position, mode });
   return <section className={'player-panel ' + (expanded ? 'expanded' : '')} aria-label={t('mobile.play')}
     data-controls-hidden={hidden} {...focusProps}>
     <div className="lyric-stage" {...stageTapProps}>
@@ -143,7 +146,7 @@ export default function PlayerPanel({ appearance, state, time, visible, light, e
         {song && <button onClick={() => setLyricToolsFor(lyricSongKey)}>{t('localMusic.lyrics')}</button>}
         {song?.sourceRef?.kind === 'local' && <button onClick={() => { setToolsOpen(false); void importLyrics(); }}>{t('mobile.importLyrics')}</button>}</div>
     </PlayerChrome>
-    {(state.error || error || lyricsError) && <p className="player-error" role="alert">{t('mobile.error')} {state.error}</p>}
+    <PlayerFeedback state={state} commandError={commandError} otherError={error || !!lyricsError} />
     <TransitionControls light={light} theme={light ? appearance.theme.light : appearance.theme.dark}
       open={transitionSettings} setOpen={setTransitionSettings} />
     {lyricTools && song && <LyricTools key={lyricSongKey} song={song} time={time} lyricTime={lyricTime} lyrics={lyrics}
