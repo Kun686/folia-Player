@@ -1,5 +1,10 @@
 # Folia iPhone / iPad 实现与安装
 
+Automix 补齐主进程／WebContent／GPU 的独立模拟器联合测量：一个原生用例内三轮真实分轨交接通过，
+185 次有效阶段快照覆盖 15 个阶段。最高同次物理账本之和约 1.38GiB，清理后约 259／260／246MiB；
+未见逐轮累积，但真机、长期和去重整 App 内存仍未验收。本批只改 QA 与文档，个人 App／服务器未更新，
+见 [AUTOMIX_PROCESS_MEMORY.md](AUTOMIX_PROCESS_MEMORY.md)。
+
 原版不可播放歌曲的其他版本确认已接入移动歌单、目录与每日推荐，共用原 Omni、弹窗和队列算法。
 140项逻辑、87个不同 WebKit 场景及类型检查通过；仅网易云按原能力开放查询，QQ／搜索维持原行为。
 个人 App／服务器未更新，真实平台与真机 NOT_RUN，见 [SONG_REPLACEMENT.md](SONG_REPLACEMENT.md)。
@@ -97,7 +102,8 @@ Keychain 迁移失败可恢复，退出后的缓存清理错误也会恢复真�
 实现范围、自动测试与未执行项见 [ONLINE_CATALOG.md](ONLINE_CATALOG.md)。
 
 Automix 已复现并修正模型工作分配随调用线程保留的问题；13 项最终原生回归通过，含三轮原模型联合交接。
-完整内存验收仍需真机／长期／WebContent 合计证据，见 [AUTOMIX_THREAD_MEMORY.md](AUTOMIX_THREAD_MEMORY.md)。
+主进程修正见 [AUTOMIX_THREAD_MEMORY.md](AUTOMIX_THREAD_MEMORY.md)；后续 WebContent／GPU 测量见
+[AUTOMIX_PROCESS_MEMORY.md](AUTOMIX_PROCESS_MEMORY.md)，完整内存验收仍需真机与长期证据。
 此前内存诊断已检查前轮对象释放，并在包含原拍点模型的独立路径复现增长。
 固定 ORT 在 Session 创建前关闭默认遥测，原遥测线程退出崩溃与模型数值结果分开记录。
 本轮生产改动不涉及音乐算法、模型或界面，见 [AUTOMIX_MEMORY.md](AUTOMIX_MEMORY.md)。

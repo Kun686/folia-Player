@@ -154,6 +154,27 @@ private final class JointMemoryOwner {
     })()
     """# }
 
+    // Simulator QA only: identify this WKWebView's actual processes for the external footprint sampler.
+    // These WebKit-private diagnostic getters are never used by, or linked into, the production target.
+    private func jointProcessCheckpoint(_ phase: String, web: WKWebView) throws {
+        guard ProcessInfo.processInfo.environment["FOLIA_JOINT_PROCESS_SAMPLING"] == "1" else { return }
+        #if targetEnvironment(simulator)
+        guard Bundle.main.bundleIdentifier == "app.folia.validation.App" else { throw MobileFailure("joint-qa-identity") }
+        func pid(_ key: String) throws -> Int {
+            guard web.responds(to: NSSelectorFromString(key)), let value = web.value(forKey: key) as? NSNumber,
+                  value.intValue > 0 else { throw MobileFailure("joint-web-process-unavailable") }
+            return value.intValue
+        }
+        let value: [String: Any] = ["phase": phase, "host": ProcessInfo.processInfo.processIdentifier,
+            "web": try pid("_webProcessIdentifier"), "gpu": try pid("_gpuProcessIdentifier"),
+            "uptime": ProcessInfo.processInfo.systemUptime]
+        let data = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
+        print("FOLIA_JOINT_PROCESS " + String(decoding: data, as: UTF8.self))
+        #else
+        throw XCTSkip("External process sampling is limited to the simulator")
+        #endif
+    }
+
     func testOriginalModelsWithLivePlaybackAndCadenza() async throws {
         try await originalJointLoad(includingHandover: false)
     }
@@ -181,6 +202,17 @@ private final class JointMemoryOwner {
             for owner in owners where !owner.name.hasPrefix("round-\(index).") && !owner.name.hasSuffix(".output") {
                 XCTAssertNil(owner.value, "Previous round is still retained: \(owner.name)")
             }
+            if ProcessInfo.processInfo.environment["FOLIA_JOINT_PROCESS_SAMPLING"] == "1" {
+                let controller = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+                    .flatMap(\.windows).compactMap { $0.rootViewController as? CAPBridgeViewController }.first)
+                try jointProcessCheckpoint("round-\(index)-cleanup", web: XCTUnwrap(controller.webView))
+                // Allow bounded post-cleanup observations while the same host and WebContent remain alive.
+                try await Task.sleep(for: .seconds(3))
+            }
+        }
+        if ProcessInfo.processInfo.environment["FOLIA_JOINT_PROCESS_SAMPLING"] == "1" {
+            // Stop external sampling before XCTest tears down the App's processes; still require its final verdict.
+            print("FOLIA_JOINT_PROCESS_DONE")
         }
     }
 
@@ -308,6 +340,7 @@ private final class JointMemoryOwner {
         // Baseline, unchanged production scheduling under load, then recovery; bounded samples only.
         for phase in ["baseline", "models", "recovery"] {
             trace.mark("phase." + phase, operation: observation)
+            try jointProcessCheckpoint(prefix + "-" + phase, web: web)
             if phase == "models" { try player.crossfade?.configure(enabled: true, maximumSeconds: 5, mode: "automix", performance: true) }
             if phase == "recovery" { try player.crossfade?.configure(enabled: false, maximumSeconds: 5, mode: "automix") }
             _ = try await jointJS(web, jointFrameProbe); audio.reset()
@@ -377,6 +410,7 @@ private final class JointMemoryOwner {
     // Seek only to the production planner's measured cue, then leave adoption and mixing to its render clock.
     private func originalStemHandover(_ player: PlaybackEngine, web: WKWebView,
                                       audio: OutputMeasurement, documents: URL, reportPrefix: String) async throws {
+        try jointProcessCheckpoint(reportPrefix + "-handover", web: web)
         try await waitForStream {
             let state = player.crossfade?.analysisDiagnostics
             return state?["planKind"] as? String == "fade" && state?["planning"] as? Bool == false
