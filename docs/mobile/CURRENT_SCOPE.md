@@ -40,7 +40,7 @@
 | 手头的启动续播 | 默认关闭、一次恢复、取消优先、打包桥接、模拟器真实 PCM；见 [LAUNCH_PLAYBACK.md](LAUNCH_PLAYBACK.md) | QQ／网易云真实账号冷启动、物理设备 |
 | 两平台核心功能 | 受控登录／账号隔离、歌单／搜索／目录、队列、歌词缓存／来源、失败与迟到取消回归；近期修复见 [点歌会话校验](COLLECTION_PLAYBACK_SESSION.md)、[歌单异常响应](PLAYLIST_RESPONSE.md) | 最新源码对应服务与安装包、真实账号完整矩阵；网易云 30 分钟锁屏未完成 |
 | 特效动画 | 原模式切换、控制器与字号触摸见 [SETTINGS_LAYOUT.md](SETTINGS_LAYOUT.md)；已修复 Tilt 旋转旧排版和 Tempera 失效纹理，14 模式旋转／模拟前后台加最小复现共 51 项 WebKit、1014 项逻辑通过，见 [VISUALIZER_ROTATION.md](VISUALIZER_ROTATION.md) | 实际歌词／主题观感、原生磨砂合成、真实系统挂起、真机歌词精度／卡顿／温升／长期内存；自动窗口测试不替代真机旋转验收 |
-| 设置 UI | 常用设置分组、三处固定标题、返回保留滚动、小屏三语言无横向溢出、模拟键盘避让；原批 152 个唯一 WebKit 用例 PASS；另见 [iPhone 原生键盘修复](SETTINGS_NATIVE_KEYBOARD.md) 的 34 项回归与实际模拟器观察，批间不累加 | iPad 原生键盘、多任务、VoiceOver、真机观感与触摸验收；未标为整体验收完成 |
+| 设置 UI | 常用设置分组、三处固定标题、返回保留滚动、小屏三语言无横向溢出、模拟键盘避让；原批 152 个唯一 WebKit 用例 PASS；另见 [iPhone 原生键盘修复](SETTINGS_NATIVE_KEYBOARD.md) 的 34 项回归及 [iPad 键盘补验](SETTINGS_IPAD_KEYBOARD.md) 的实际模拟器观察，批间不累加 | iPad 多任务、浮动／硬件键盘、VoiceOver、真机观感与触摸验收；未标为整体验收完成 |
 
 上述是本批源码验证状态，不是新安装包交付。继续工作时先处理两平台核心发现的问题，随后推进动画与设置 UI。
 
@@ -73,3 +73,7 @@ iPad 相同 4 项全部通过，共 10 个唯一用例；见 [NATIVE_LOGOUT_INTE
 2026-10-14 扫码通道与时序：QQ 要码先等待后端通道声明，淘汰不再支持的临时选择；
 旧取消晚到不再启动一轮旧方式扫码，准备期间隐藏已停止的二维码。397 项相关逻辑、51 项 WebKit 与类型检查通过，
 见 [LOGIN_INTENT.md](LOGIN_INTENT.md)。本批真实扫码／原生容器／物理设备 NOT_RUN，个人 mobile.28 未更新。
+
+2026-10-14 已完成 [iPad 原生键盘补验](SETTINGS_IPAD_KEYBOARD.md)：独立 QA 的实际软件键盘输入、
+地址／凭据焦点切换、横竖屏恢复、设置子页返回位置观察通过；128 个资源与当前源码构建一致。
+未复现新产品问题，本批仅补充证据；多任务／VoiceOver／物理设备／真实账号仍 NOT_RUN，个人 App 和服务器未更新。

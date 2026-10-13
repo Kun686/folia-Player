@@ -1,6 +1,9 @@
 <!-- SETTINGS_NATIVE_KEYBOARD.md — actual simulator keyboard evidence; not physical-device acceptance. -->
 # 横屏软件键盘下的设置输入框
 
+后续 iPad 实际软件键盘／旋转／子页返回已补验，见 [SETTINGS_IPAD_KEYBOARD.md](SETTINGS_IPAD_KEYBOARD.md)。
+下文保留本次 iPhone 修复当时的测试范围，不将两批证据混为一次验收。
+
 2026-10-14，源码父提交 `accb042313a35a5e8457a433edc428a1d516b58b`。
 按 [CURRENT_SCOPE.md](CURRENT_SCOPE.md) 收尾设置 UI 巡检；本批没有扩展功能。
 
