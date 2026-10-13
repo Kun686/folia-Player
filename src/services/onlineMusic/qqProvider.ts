@@ -71,7 +71,10 @@ const loadRawPlaylistTracks = async (
         );
     }
 
-    const tracks = Array.isArray(detail.songlist) ? detail.songlist : [];
+    if (!Array.isArray(detail.songlist)) {
+        throw new OnlineProviderError('invalid-response', 'QQMusicApi song_list_detail returned no track list', 'qq');
+    }
+    const tracks = detail.songlist;
     const total = Number(detail.total_song_num ?? detail.songnum);
     return { tracks, ...(Number.isFinite(total) && total >= 0 ? { total } : {}) };
 };
@@ -106,7 +109,8 @@ const loadRawOwnedPlaylistTracks = async (
             offset,
             limit,
         });
-        const tracks = Array.isArray(response?.songs) ? response.songs : [];
+        if (!Array.isArray(response?.songs)) throw new OnlineProviderError('unavailable', 'QQ returned no owned playlist track list', 'qq');
+        const tracks = response.songs;
         const total = Number(response?.total);
         return {
             tracks,
@@ -472,7 +476,8 @@ const getUserPlaylists = async (
     // 不传 `uid`：会话账号是这条 route 唯一读得到的账号，而后端从凭据里挑出来的账号 ID 比前端
     // 手上这个展示用的可靠 —— 微信凭据的 `musicid` 是占位的 0，回传它只会让自建歌单整段消失。
     const response = await requestQq<any>('user_playlist', {});
-    const playlists = Array.isArray(response?.playlist) ? response.playlist : [];
+    if (!Array.isArray(response?.playlist)) throw new OnlineProviderError('unavailable', 'QQ returned no playlist list', 'qq');
+    const playlists = response.playlist;
     const items = playlists
         .slice(offset, offset + Math.max(0, limit))
         .map((item: unknown) => normalizeQqCollection(item));

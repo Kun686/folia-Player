@@ -529,6 +529,16 @@ describe('qqProvider', () => {
         expect(pastEnd).toMatchObject({ items: [], hasMore: false, nextOffset: 4 });
     });
 
+    it.each([undefined, null, {}, 'not-a-list'])('rejects a missing or malformed personal playlist list: %j', async playlist => {
+        requestMock.mockResolvedValue({ code: 200, playlist });
+        await expect(qqProvider.library!.getUserPlaylists(123, 100, 100)).rejects.toMatchObject({ code: 'unavailable', providerId: 'qq' });
+    });
+
+    it('keeps a confirmed empty personal playlist list successful', async () => {
+        requestMock.mockResolvedValue({ code: 200, playlist: [], total: 0, more: false });
+        await expect(qqProvider.library!.getUserPlaylists(123, 100, 0)).resolves.toMatchObject({ items: [], total: 0, hasMore: false, nextOffset: 0 });
+    });
+
     // 条目形状取自 2026-08-08 对真实账号的实测：收藏专辑走的是 profile-asset CGI，
     // 字段名与 `/getAlbumInfo` 那条不同（pic / songnum / pubtime 都是这条独有的拼写）。
     const FAVORITE_ALBUM = {
@@ -802,6 +812,19 @@ describe('qqProvider', () => {
             total: 0,
             hasMore: false,
         });
+    });
+
+    it.each([undefined, null, {}, 'not-a-list'])('does not turn missing public playlist tracks into a successful empty page: %j', async songlist => {
+        requestMock.mockResolvedValue({ response: { code: 0, cdlist: [{ disstid: '7', dissname: 'Readable title', songlist }] } });
+        await expect(qqProvider.catalog!.getPlaylistTracks!(7, 50, 0)).rejects.toMatchObject({ code: 'invalid-response', providerId: 'qq' });
+    });
+
+    it.each([undefined, null, {}, 'not-a-list'])('does not turn missing owned playlist tracks into a successful empty page: %j', async songs => {
+        requestMock.mockResolvedValue({ code: 200, songs, total: 100, more: true });
+        const collection = normalizeQqCollection({ tid: 7, dirId: 2, dirName: '自建歌单' });
+        await expect(qqProvider.catalog!.getPlaylistTracks!(7, 50, 50, collection)).rejects.toMatchObject({ code: 'unavailable', providerId: 'qq' });
+        // Invalid data is not a missing route and must not fall back to an anonymous request.
+        expect(requestMock.mock.calls.map(call => call[0])).toEqual(['user_playlist_detail']);
     });
 
     // 自建歌单只有带凭据的路由读得到（匿名 CGI 对不公开歌单回空壳），且它支持真正的分页。
