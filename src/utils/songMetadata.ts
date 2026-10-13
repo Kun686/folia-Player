@@ -3,6 +3,12 @@ import type { ProviderSongMetadata } from '../types/onlineMusic';
 
 // src/utils/songMetadata.ts
 
+// The original cover-panel clipboard format, shared with touch-based song actions.
+export const formatSongInfoText = (title: string, metadata: Pick<ProviderSongMetadata, 'artists' | 'album'>, pageUrl?: string | null): string => (
+    [`${title} - ${metadata.artists.map(artist => artist.name).join(', ')} - ${metadata.album.name}`, pageUrl || '']
+        .filter(Boolean).join('\n')
+);
+
 export const getSongAlbumCoverUrl = (song?: Pick<SongResult, 'album'> | null): string | undefined => {
     const coverUrl = song?.album?.coverUrl;
     return typeof coverUrl === 'string' && coverUrl ? coverUrl : undefined;

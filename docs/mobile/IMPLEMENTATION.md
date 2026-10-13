@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+原版歌曲信息复制和官方歌曲页已提供移动触摸入口，共用桌面格式、元数据与现有原生剪贴板。
+219项逻辑／provider、48个 WebKit 场景及类型检查通过，QQ 沿用原版仅复制元数据的能力。
+个人 App／服务器未更新，实际系统剪贴板与外部跳转仍待验收，见 [SONG_INFORMATION.md](SONG_INFORMATION.md)。
+
 原版降低动态效果已接入移动触摸设置，控制器与 CSS 统一遵循原逐项／系统偏好，并修复保存失败状态漂移。
 42项逻辑、33个 WebKit 场景及类型检查通过，包含实际背景漂移与混音圆环；个人 App／服务器未更新。
 真机系统设置和性能仍待验证，见 [MOTION_PREFERENCES.md](MOTION_PREFERENCES.md)。

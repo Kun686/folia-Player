@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Album, Artist, SongResult, UnifiedSong } from '../../types';
 import { canResolveSongCatalogRef } from '../../services/onlineMusic/catalogRefs';
 import { getProviderSongMetadata, getProviderSongPageUrl } from '../../services/onlineMusic/songMetadata';
+import { formatSongInfoText } from '../../utils/songMetadata';
 
 interface CoverTabProps {
     currentSong: SongResult | null;
@@ -38,13 +39,9 @@ const CoverTab: React.FC<CoverTabProps> = ({
         || isNavidromeSong
         || canResolveSongCatalogRef(currentSong as UnifiedSong, 'album', currentSong.album)
     ));
-    const displayArtistNames = displayArtists.map((artist) => artist.name).join(', ');
-    const copyTitleLine = currentSong
-        ? `${currentSong.name || ''} - ${displayArtistNames} - ${displayAlbumName}`
-        : '';
     const songPageUrl = getProviderSongPageUrl(currentSong);
-    const copyPayload = copyTitleLine
-        ? [copyTitleLine, songPageUrl || ''].filter(Boolean).join('\n')
+    const copyPayload = currentSong && songMetadata
+        ? formatSongInfoText(currentSong.name || '', songMetadata, songPageUrl)
         : '';
     const canCopySongInfo = Boolean(copyPayload);
 

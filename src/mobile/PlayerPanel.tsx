@@ -31,6 +31,7 @@ import type { SongResult } from '../types';
 import { useMobileThemeGeneration } from './useMobileThemeGeneration';
 import OnlineSongLike from './OnlineSongLike';
 import type { MobileSongLikes } from './mobileSongLikes';
+import SongInfoActions from './SongInfoActions';
 
 // src/mobile/PlayerPanel.tsx — original registry renderers consume the native clock and decoded audio.
 const MobileVisualizer = memo(VisualizerRenderer);
@@ -131,6 +132,7 @@ export default function PlayerPanel({ appearance, state, time, visible, light, e
         unavailable={state.playing && state.audioProcessingAvailable === false} effects={state.audioEffects} listening={state.listening} replayGain={song?.replayGain} />
       {toolsOpen && expanded && song?.sourceRef?.kind === 'online' && <OnlineSongLike song={song} likes={likes}
         writable={songLikeProviders.includes(song.sourceRef.providerId)} />}
+      {toolsOpen && expanded && song && <SongInfoActions song={song} details />}
       <div className="player-options"><button onClick={() => setVisualSettings(true)}>{t('mobile.visuals')}</button>
         <button onClick={() => setTransitionSettings(true)}>{t('options.transitionSettings')}</button>
         {song && <button onClick={() => setLyricToolsFor(lyricSongKey)}>{t('localMusic.lyrics')}</button>}

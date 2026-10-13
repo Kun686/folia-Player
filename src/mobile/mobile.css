@@ -34,6 +34,12 @@
 .typography-controls fieldset { min-width: 0; padding: 0; border: 0; }
 .typography-controls select { appearance: auto; height: 44px; min-height: 44px; width: 100%; }
 .mobile-preference select { height: 44px; font-size: 16px; }
+.song-info-actions { display: grid; gap: 8px; }
+.song-info-actions a { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 14px; border-radius: 12px; background: var(--raised); color: inherit; text-decoration: none; touch-action: manipulation; }
+.song-info-actions a:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+.song-info-details { margin-block: 12px; }
+.song-info-details summary { min-height: 44px; padding-block: 12px; cursor: pointer; }
+.song-info-details > p { overflow-wrap: anywhere; margin-bottom: 8px; }
 .mobile-format-settings { --text-primary: var(--text); --text-secondary: var(--muted); --border-primary: var(--border); }
 .typography-controls textarea { min-width: 0; }
 .typography-controls input[type=range] { width: 100%; min-height: 44px; touch-action: none; }

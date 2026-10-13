@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+歌曲信息触摸复制、错误恢复、跨来源隔离及显式页面链接通过219项逻辑／provider与48个 WebKit 场景。
+外部网页和剪贴板均为受控测试，真实跳转／原生剪贴板／真机 NOT_RUN；个人 App／服务器未更新，
+见 [SONG_INFORMATION.md](SONG_INFORMATION.md)。
+
 原版动效偏好通过42项逻辑、33个 WebKit 场景与类型检查，覆盖触摸、旋转、重载、失败恢复及实际动画行为。
 桥接使用受控数据，原生容器／真实系统事件／真机 NOT_RUN；个人 App／服务器未更新，
 见 [MOTION_PREFERENCES.md](MOTION_PREFERENCES.md)。

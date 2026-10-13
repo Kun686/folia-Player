@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import type { QueueAddBehavior, SongResult } from '../types';
 import type { QueueAction } from './queueActions';
 import { isSongUnavailable, getSongUnavailableLabel } from '../services/onlineMusic/songAvailability';
+import SongInfoActions from './SongInfoActions';
 
 // src/mobile/SongList.tsx — virtualized, touch-accessible rows; no hover-only actions.
 interface Props {
@@ -50,6 +51,7 @@ export default function SongList(props: Props) {
             ? props.edit({ type: 'end', index: selected }) : props.add(song, 'append'))}>{t('mobile.toEnd')}</button>
           {props.edit && <button disabled={props.busy} onClick={() => act(() => props.edit?.({ type: 'remove', index: selected }))}>{t('mobile.removeFromQueue')}</button>}
           {props.libraryActions?.(song, () => setSelected(null))}
+          <SongInfoActions song={song} />
           {props.remove && <button onClick={() => act(() => props.remove?.(song))} aria-label={t('mobile.remove') + ' ' + song.name}>{t('mobile.remove')}</button>}
         </div>
       </>}
