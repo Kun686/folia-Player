@@ -86,3 +86,8 @@ iPad 相同 4 项全部通过，共 10 个唯一用例；见 [NATIVE_LOGOUT_INTE
 2026-10-14 [启动连接恢复](CONNECTION_RECOVERY.md)：首次能力检查失败后可手动重试，失败时回前台／online
 可再次检查；恢复后保留账号与原搜索点播流程。63 项 WebKit、74 项逻辑、类型检查通过。
 本批真实网络／账号、原生容器、物理设备 NOT_RUN，个人 mobile.28 和服务器未更新。
+
+2026-10-14 [启动连接恢复原生补验](NATIVE_CONNECTION_RECOVERY.md)：完整 React 页面经真实 Capacitor、
+Keychain 与 URLSession，iPad 两平台共2项 PASS，恢复后截图一致；样本响应不代表真实服务。
+iPhone 初次及一次重试均为测试工具 FAIL，最终截图修正版本在 iPhone NOT_RUN；不追加重试或计作通过。
+本批只新增 QA 测试，未播放音频、未更新个人 App／服务器，真实账号／物理设备仍待验收。

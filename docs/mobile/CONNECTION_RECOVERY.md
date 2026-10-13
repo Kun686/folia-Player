@@ -57,3 +57,7 @@ npm run build:mobile
 资源内嵌构建身份与最终提交分别保存在本地 `delivery.json`；不将构建基线标签视为新个人安装包。
 回滚只需回退本批两个移动前端文件，不涉及数据迁移；回滚后临时连接失败仍需重载或保存设置才能恢复。
 最新源码真实账号、网易云30分钟锁屏、物理iPad、网络／蓝牙、歌词精度和长期动画性能仍待验收。
+
+后续 [原生连接恢复补验](NATIVE_CONNECTION_RECOVERY.md) 已在独立 iPad QA 通过两平台共2项测试，
+使用真实 Capacitor／Keychain／URLSession 与受控响应；iPhone 测试工具失败及最终版本未跑状态单独保留。
+这不修改本页前批原生 NOT_RUN 的历史边界，也不代表真实平台或个人 App 更新。

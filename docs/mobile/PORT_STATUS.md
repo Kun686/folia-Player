@@ -8,6 +8,10 @@
 个人 App 仍为 mobile.28。本轮仅核对源码和执行受控自动测试，没有连接物理设备或部署服务器。
 完整移植与完整 Automix 的最终验收仍未完成。下表的“已接入”只表示代码存在并装配，不代表真机通过。
 
+2026-10-14 [连接恢复原生补验](NATIVE_CONNECTION_RECOVERY.md)：独立 iPad QA 两平台共2项 PASS，
+完整 React 页面经真实桥接／Keychain／URLSession 恢复账号与歌单，使用受控响应。iPhone 的两次测试工具
+失败保留，最终截图修正版在 iPhone NOT_RUN；本批无音频或真实账号验证，个人 App／服务器未更新。
+
 2026-10-14 [启动连接恢复](CONNECTION_RECOVERY.md)：补齐首次服务检查失败后的重试与前台／online 恢复，
 沿用原生检查、Omni 账号读取及现有界面，检查期间不重复发送。63 项 WebKit、74 项逻辑、类型检查 PASS；
 真实网络／账号、原生容器、物理设备仍 NOT_RUN，个人 App 和服务器未更新。
