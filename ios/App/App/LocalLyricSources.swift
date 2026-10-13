@@ -18,13 +18,20 @@ extension LocalMediaLibrary {
     }
     // Legacy lyrics.txt has no provenance. Only an exact match to the retained audio tag is classified as embedded.
     func readLyricSources(_ id: String) async throws -> [String: Any] {
-        let audio = try resolve(id), expected = lyricToken(id)
+        _ = try resolve(id)
+        let expected = lyricToken(id)
         var record = try lyricSource(id) ?? LyricSource(content: "", fileName: nil)
         if (record.embeddedScanVersion ?? 0) < Self.embeddedScanVersion {
             let embedded: EmbeddedLyrics
             do {
-                let metadata = try await AVURLAsset(url: audio).load(.metadata)
-                embedded = try await Self.embeddedLyrics(metadata, parser: lyricImportParser, fileURL: audio)
+                let audio = try metadataAudio(id)
+                if audio.pathExtension.lowercased() == "ogg" {
+                    let metadata = try await lyricImportParser.vorbisMetadata(vorbisDecoder.comments(audio))
+                    embedded = try JSONDecoder().decode(EmbeddedLyrics.self, from: JSONSerialization.data(withJSONObject: metadata))
+                } else {
+                    let metadata = try await AVURLAsset(url: audio).load(.metadata)
+                    embedded = try await Self.embeddedLyrics(metadata, parser: lyricImportParser, fileURL: audio)
+                }
             } catch {
                 // Optional tag failures must not hide saved imports or prevent replacing them.
                 // Leave the scan pending so a transient metadata failure can recover on the next read.

@@ -38,6 +38,21 @@ actor NativeLyricParser {
         guard let result = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw MobileFailure("invalid-track-metadata") }
         return result
     }
+    func vorbisMetadata(_ comments: [String]) throws -> [String: Any] {
+        try Task.checkCancellation()
+        let data = try JSONSerialization.data(withJSONObject: ["version": 1, "comments": comments])
+        guard data.count <= 48_100_000, let input = String(data: data, encoding: .utf8) else { throw MobileFailure("invalid-local-metadata") }
+        let context = try lyricContext()
+        var result: String?
+        let done: @convention(block) (String) -> Void = { result = $0 }
+        context.exception = nil
+        context.objectForKeyedSubscript("FoliaLocalLyrics")?.invokeMethod("vorbisMetadataJSON", withArguments: [input, done])
+        try Task.checkCancellation()
+        guard context.exception == nil, let result, result.utf8.count <= 32_000_000,
+              let bytes = result.data(using: .utf8), let fields = try JSONSerialization.jsonObject(with: bytes) as? [String: Any],
+              fields["error"] == nil else { self.context = nil; throw MobileFailure("invalid-local-metadata") }
+        return fields
+    }
     func localMatchDocument(_ document: [String: Any]) throws -> String {
         let input = try JSONSerialization.data(withJSONObject: document)
         let result = try call("localMatchJSON", input: input, limit: 3_000_000, inputLimit: 8_000_000)

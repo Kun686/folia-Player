@@ -39,6 +39,11 @@ extension LocalFolderStore {
         else { throw MobileFailure("invalid-folder-media") }
         let audio = try directory.appendingPathComponent(name).resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
         guard audio.isRegularFile == true, audio.isSymbolicLink != true, let size = audio.fileSize, size > 0 else { throw MobileFailure("invalid-folder-media") }
+        if let original = media["original"] {
+            guard original == "audio.ogg", name == "audio.caf" else { throw MobileFailure("invalid-folder-media") }
+            let source = try directory.appendingPathComponent(original).resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+            guard source.isRegularFile == true, source.isSymbolicLink != true, (source.fileSize ?? 0) > 0 else { throw MobileFailure("invalid-folder-media") }
+        }
         let lyrics = try JSONDecoder().decode(LocalMediaLibrary.LyricSource.self,
             from: read(directory.appendingPathComponent("lyrics.json"), limit: 37_000_000)).validated()
         if let text = lyrics.matchJSON {

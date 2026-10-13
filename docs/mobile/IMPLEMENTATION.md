@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+本地 Ogg／Vorbis 已复用批准的解码库接入导入，保留原文件并生成可拖动的 PCM 副本，标签／歌词沿用原版解析。
+1380 项逻辑、25 项原生模拟器测试与移动／原生构建通过；有额外存储成本，单副本限制 1 GiB。
+实际 Files／真机／大文件性能 NOT_RUN，个人 mobile.28／服务器未更新，见 [LOCAL_VORBIS.md](LOCAL_VORBIS.md)。
+
 本地曲库已补齐原碟号／曲号与文件名／修改日期／专辑号排序，旧数据只补读缺失标签，保留歌词和人工匹配。
 1376 项逻辑、57 个 WebKit 场景、23 项原生模拟器测试通过；个人 mobile.28／服务器未更新。
 真机与大规模曲库首次补读性能 NOT_RUN，见 [LOCAL_TRACK_ORDER.md](LOCAL_TRACK_ORDER.md)。

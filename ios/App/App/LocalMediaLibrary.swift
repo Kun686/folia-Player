@@ -27,6 +27,7 @@ actor LocalMediaLibrary {
     lazy var folderScanner = LocalFolderScanner()
     var lyricEditTokens: [String: String] = [:]
     let lyricImportParser = NativeLyricParser()
+    let vorbisDecoder = NativeVorbisFile()
     init(root: URL? = nil) {
         self.root = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("FoliaMedia", isDirectory: true)
@@ -174,7 +175,7 @@ actor LocalMediaLibrary {
     // Copy before inspecting metadata so cloud/security-scoped documents can be released promptly.
     func importAudio(_ source: URL) async throws -> [String: Any] {
         let ext = source.pathExtension.lowercased()
-        guard ["mp3", "m4a", "aac", "wav", "aiff", "aif", "flac", "caf", "mp4"].contains(ext) else { throw MobileFailure("unsupported-audio") }
+        guard ["mp3", "m4a", "aac", "wav", "aiff", "aif", "flac", "caf", "mp4", "ogg"].contains(ext) else { throw MobileFailure("unsupported-audio") }
         let scoped = source.startAccessingSecurityScopedResource()
         defer { if scoped { source.stopAccessingSecurityScopedResource() } }
         let id = UUID().uuidString
@@ -188,6 +189,10 @@ actor LocalMediaLibrary {
             }
             if let error = coordinationError ?? copyError as NSError? { throw error }
             try FileManager.default.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: target.path)
+            if ext == "ogg" {
+                let song = try await importVorbis(target, sourceName: source.lastPathComponent, id: id, folder: folder)
+                mediaEpoch = UUID(); return song
+            }
             let asset = AVURLAsset(url: target)
             guard try await asset.load(.isPlayable), !(try await asset.loadTracks(withMediaType: .audio)).isEmpty else { throw MobileFailure("unsupported-audio") }
             let duration = try await asset.load(.duration).seconds

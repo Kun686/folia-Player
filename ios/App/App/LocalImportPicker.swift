@@ -6,7 +6,9 @@ final class LocalImportPicker: NSObject, UIDocumentPickerDelegate {
     private var completion: (([URL]) -> Void)?
     private weak var activePicker: UIDocumentPickerViewController?
     func present(on controller: UIViewController, lyrics: Bool, completion: @escaping ([URL]) -> Void) throws {
-        try present(on: controller, types: lyrics ? [.data] : [.audio], multiple: !lyrics, completion: completion)
+        // Ogg may have a dynamic type that does not conform to public.audio on older iOS releases.
+        let audioTypes = [UTType.audio] + [UTType(filenameExtension: "ogg")].compactMap { $0 }
+        try present(on: controller, types: lyrics ? [.data] : audioTypes, multiple: !lyrics, completion: completion)
     }
     func presentFolder(on controller: UIViewController, completion: @escaping ([URL]) -> Void) throws {
         try present(on: controller, types: [.folder], multiple: false, completion: completion)
