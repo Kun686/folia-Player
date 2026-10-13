@@ -10,6 +10,7 @@ final class ProfileHTTPFixture: @unchecked Sendable {
     var delay = 0.001
     var advertised: Int?
     var redirect: URL?
+    var completesDeclinedRedirect = false
     private let lock = NSLock()
     private var requests: [URLRequest] = []
     private var sent = 0, stopped = 0
@@ -56,6 +57,16 @@ final class ProfileHTTPProtocol: URLProtocol, @unchecked Sendable {
             let response = HTTPURLResponse(url: request.url!, statusCode: 302, httpVersion: "HTTP/1.1",
                 headerFields: found.headers.merging(["Location": target.absoluteString], uniquingKeysWith: { _, value in value }))!
             client?.urlProtocol(self, wasRedirectedTo: next, redirectResponse: response)
+            if found.completesDeclinedRedirect {
+                // A real server finishes its 302 response even when the delegate declines the new request.
+                // The default fixture models only followed redirects, whose original protocol is cancelled.
+                DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.02) { [self] in
+                    gate.lock(); let active = !closed; gate.unlock()
+                    guard active else { return }
+                    client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+                    client?.urlProtocolDidFinishLoading(self)
+                }
+            }
             return
         }
         let range = (request.value(forHTTPHeaderField: "Range") ?? "bytes=0-").dropFirst(6).split(separator: "-", omittingEmptySubsequences: false)

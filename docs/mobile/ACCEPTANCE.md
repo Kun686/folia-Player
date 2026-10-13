@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+Navidrome 原生连接层已通过 60 项原版逻辑与 30 项原生模拟器测试，包含真实 Keychain、URLSession 和 Capacitor 桥接。
+仅完成凭据与只读请求，移动浏览／原生播放尚未接入；真实服务器和物理设备 NOT_RUN。
+个人 mobile.28／服务器未更新，见 [NAVIDROME_TRANSPORT.md](NAVIDROME_TRANSPORT.md)。
+
 定位状态竞争已用真实解码与最小并发程序复现并修复；iPad 模拟器 26 项流式路径 Thread Sanitizer、
 iPhone 模拟器普通 Release 39 项回归通过。旧 AVPlayer 的系统 tap 交接诊断仍未定论，未把完整插桩组标为通过。
 物理设备／真实平台／长期性能 NOT_RUN，个人 App／服务器未更新，见 [PLAYBACK_THREAD_SAFETY.md](PLAYBACK_THREAD_SAFETY.md)。

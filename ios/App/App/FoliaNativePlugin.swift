@@ -16,6 +16,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         "readLocalFolders", "beginFolderImport", "readFolderImport", "prepareFolderImport", "finishFolderImport", "cancelFolderImport", "removeLocalFolder",
         "getAISettings", "setAISettings", "aiRequest", "cancelAIRequest",
         "getSyncSettings", "setSyncSettings", "syncRequest", "cancelSyncRequest",
+        "getNavidromeSettings", "setNavidromeSettings", "navidromeRequest", "cancelNavidromeRequest",
         "getModels", "downloadModel", "cancelModel", "removeModels", "importModel"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
     let picker = LocalImportPicker()
     let lyricFileShare = LyricFileShare()
@@ -23,6 +24,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     var folders: FolderImportBridge!
     var ai: NativeAIClient!
     var sync: NativeSyncClient!
+    var navidrome: NativeNavidromeClient!
     var models: PlaybackModels?
     var displaySleep: NativeDisplaySleep?
     private let gateway = GatewayClient()
@@ -32,6 +34,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         DispatchQueue.main.async {
             self.ai = NativeAIClient()
             self.sync = NativeSyncClient()
+            self.navidrome = NativeNavidromeClient()
             self.engine = PlaybackEngine(gateway: self.gateway, usesStereoOutput: true)
             self.displaySleep = NativeDisplaySleep { [weak self] in
                 self?.engine?.intentToPlay == true && self?.engine?.outputIsPlaying == true

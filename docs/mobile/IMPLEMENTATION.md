@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+原版 Navidrome 已补齐独立 Keychain 凭据与 17 个只读原生请求接口，复用现有传输层和系统认证算法，无新依赖。
+60 项原版逻辑、30 项原生模拟器回归及类型／构建检查通过；浏览与原生播放尚未接入，不算音源交付。
+个人 mobile.28／服务器未更新，真实服务／真机 NOT_RUN，见 [NAVIDROME_TRANSPORT.md](NAVIDROME_TRANSPORT.md)。
+
 线程检查修复了流式解码与恢复定位之间的数据竞争；复用原锁，统一定位快照及新旧请求版本。
 当前流式路径 26 项 Thread Sanitizer、普通 Release 39 项原生模拟器回归通过，原界面和音效算法不变。
 旧 AVPlayer 的一份系统 tap 线程交接报告仍为 INCONCLUSIVE，完整 TSan 组不算全过；个人 mobile.28／服务器未更新。
