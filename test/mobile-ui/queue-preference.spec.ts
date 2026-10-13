@@ -5,8 +5,10 @@ import { searchPlaybackFixture, seedSearchQueue } from './search-playback-fixtur
 // queue-preference.spec.ts — original persisted preference over the real touch handlers and controlled queue bridge.
 const settings = (page: Page) => page.getByRole('dialog', { name: '服务器与外观', exact: true });
 const preference = (page: Page) => settings(page).getByRole('combobox', { name: '加入队列的默认位置', exact: true });
+// During capability loading the connection hint may expose a second settings button.
+const openSettings = (page: Page) => page.locator('.brand').getByRole('button', { name: '服务器与外观', exact: true }).tap();
 async function choose(page: Page, value: 'append' | 'next') {
-  await page.getByRole('button', { name: '服务器与外观', exact: true }).tap();
+  await openSettings(page);
   await preference(page).selectOption(value);
   await expect(preference(page)).toHaveValue(value);
   await settings(page).getByRole('button', { name: '关闭', exact: true }).tap();
@@ -27,12 +29,12 @@ test.beforeEach(async ({ page }) => {
 
 test('queue preference persists and generic additions honor it while explicit next and end remain exact', async ({ page }, info) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
-  await page.getByRole('button', { name: '服务器与外观', exact: true }).tap();
+  await openSettings(page);
   await expect(preference(page)).toHaveValue('append');
   await preference(page).selectOption('next');
   expect(await page.evaluate(() => localStorage.getItem('queue_add_behavior'))).toBe('next');
   await page.reload(); await seedSearchQueue(page);
-  await page.getByRole('button', { name: '服务器与外观', exact: true }).tap();
+  await openSettings(page);
   await expect(preference(page)).toHaveValue('next');
   await page.setViewportSize(info.project.name === 'phone' ? { width: 844, height: 390 } : { width: 834, height: 1194 });
   await preference(page).scrollIntoViewIfNeeded();
@@ -76,7 +78,7 @@ test('queue preference reports storage failure and an in-flight add retains the 
       return original.call(this, key, value);
     };
   });
-  await page.getByRole('button', { name: '服务器与外观', exact: true }).tap();
+  await openSettings(page);
   await preference(page).selectOption('next');
   await expect(preference(page)).toHaveValue('append');
   await expect(settings(page).getByRole('alert')).toBeVisible();

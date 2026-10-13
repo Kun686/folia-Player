@@ -18,6 +18,7 @@ import LocalLyricFormatSettings from './LocalLyricFormatSettings';
 import OnlineLyricPreference from './OnlineLyricPreference';
 import type { LocalFolders } from './useLocalFolders';
 import DisplaySleepPreference from './DisplaySleepPreference';
+import LanguagePreference from './LanguagePreference';
 
 // src/mobile/SettingsSheet.tsx
 export default function SettingsSheet({ appearance, mediaCache, timer, server, light, setLight, saved, close, lyricPreference, folders }: {
@@ -64,7 +65,8 @@ export default function SettingsSheet({ appearance, mediaCache, timer, server, l
     </form>
     {!isNative && <p>{t('mobile.nativeOnly')}</p>}
     {error && <p role="alert">{t('mobile.error')}</p>}
-    <label>{t('mobile.theme')}<select value={light ? 'light' : 'dark'} onChange={e => setLight(e.target.value === 'light')}>
+    <LanguagePreference />
+    <label className="mobile-preference">{t('mobile.theme')}<select value={light ? 'light' : 'dark'} onChange={e => setLight(e.target.value === 'light')}>
       <option value="dark">{t('mobile.dark')}</option><option value="light">{t('mobile.light')}</option>
     </select></label>
     <MediaCacheControls cache={mediaCache} light={light} />

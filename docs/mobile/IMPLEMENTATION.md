@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+移动设置已补齐原界面语言入口，复用原状态、存储和翻译；修复「跟随系统」被旧检测缓存覆盖，并接通浏览器印尼语标识。
+976 项逻辑、33 个 WebKit 场景及最后 3 项触摸复测通过，类型和移动构建通过；原语言命令不变，无新依赖。
+个人 mobile.28 未更新，实际 iOS 系统语言／真机 NOT_RUN，见 [LANGUAGE_SETTINGS.md](LANGUAGE_SETTINGS.md)。
+
 移动队列已接入原版索引搜索和按匹配项批量下一首／移到队尾／移除，保留当前出现、重复项和原队列顺序。
 769 项逻辑、72 个 WebKit 场景、类型与移动构建通过；修复 WebKit 搜索范围下拉框触摸高度，无新依赖。
 个人 mobile.28 未更新，本批原生／真机 NOT_RUN，见 [QUEUE_SEARCH.md](QUEUE_SEARCH.md)。

@@ -103,7 +103,10 @@ i18n
     supportedLngs: ['en', 'zh-CN', 'in'],
     ...(initialLanguagePreference !== 'system' ? { lng: initialLanguagePreference } : {}),
     detection: {
-      order: ['localStorage', 'navigator', 'htmlTag'],
+      // A detected-language cache is not a manual choice. Re-detect the system on each launch.
+      order: initialLanguagePreference === 'system' ? ['navigator', 'htmlTag'] : ['localStorage', 'navigator', 'htmlTag'],
+      // Browsers use id / id-ID, while the original bundled Indonesian resource is named in.
+      convertDetectedLanguage: (language: string) => language.toLowerCase().startsWith('id') ? 'in' : language,
       caches: ['localStorage'],
       lookupLocalStorage: 'i18nextLng'
     },
