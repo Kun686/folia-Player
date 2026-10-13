@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+本地曲库已补齐原碟号／曲号与文件名／修改日期／专辑号排序，旧数据只补读缺失标签，保留歌词和人工匹配。
+1376 项逻辑、57 个 WebKit 场景、23 项原生模拟器测试通过；个人 mobile.28／服务器未更新。
+真机与大规模曲库首次补读性能 NOT_RUN，见 [LOCAL_TRACK_ORDER.md](LOCAL_TRACK_ORDER.md)。
+
 原版本地歌曲批量信息整理已接入全部歌曲／实际文件夹触摸入口，保留两路匹配、逐曲结果、人工整理保护和恢复导入信息。
 709 项逻辑、45 个 WebKit 场景、19 项原生模拟器测试通过；真实平台／真机 NOT_RUN。
 个人 mobile.28／服务器未更新，见 [LOCAL_METADATA_MATCH.md](LOCAL_METADATA_MATCH.md)。

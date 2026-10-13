@@ -80,7 +80,8 @@ export function flacTags(size: number, read: ReadBytes, done: (result: string) =
             if (tokenizer.failed || metadata.format.container !== 'FLAC' || (metadata.common.lyrics?.length ?? 0) > 64) invalid();
             const result = selectEmbeddedLyrics(metadata.common.lyrics ?? [], metadata.native);
             if ([result.lyrics, result.translationLyrics].some(text => text && Buffer.byteLength(text, 'utf8') > 2_000_000)) invalid();
-            return JSON.stringify(result);
+            return JSON.stringify({ ...result, trackNumber: metadata.common.track.no ?? undefined,
+                discNumber: metadata.common.disk.no ?? undefined });
         } finally { await tokenizer.close(); }
     })().then(done, () => done(JSON.stringify({ error: 'invalid-flac-metadata' })));
 }

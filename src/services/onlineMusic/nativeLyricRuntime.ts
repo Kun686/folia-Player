@@ -11,6 +11,7 @@ import { parseQqSongDetail } from './qqNormalize';
 export { parseJSON, sourcesJSON, protocolVersion } from '../../utils/lyrics/nativeLocalRuntime';
 export { embeddedTagsJSON } from '../../utils/lyrics/nativeEmbeddedRuntime';
 export { flacTags } from '../../utils/lyrics/nativeFlacRuntime';
+export { trackOrderJSON } from '../../utils/lyrics/nativeTrackOrder';
 export { localMatchJSON } from '../../utils/lyrics/nativeLocalMatchRuntime';
 export { localAutomaticInputJSON, localAutomaticResultJSON } from './nativeLocalAutomaticMatch';
 export { cacheJSON } from '../../utils/lyrics/nativeCacheRuntime';

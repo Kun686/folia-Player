@@ -5,6 +5,8 @@ struct EmbeddedLyrics: Decodable {
     var lyrics: String?
     var translationLyrics: String?
     var legacyContent: String?
+    var trackNumber: Int?
+    var discNumber: Int?
 }
 extension LocalMediaLibrary {
     static let embeddedScanVersion = 3

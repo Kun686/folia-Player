@@ -33,6 +33,7 @@ extension PlaybackEngine {
     }
     func refreshLocalLibrary() async throws -> [String: Any] {
         localMetadataRequest += 1; let request = localMetadataRequest
+        try await local.refreshTrackOrder()
         let snapshot = try await local.librarySnapshot()
         if request == localMetadataRequest { localLibraryChanged(snapshot["songs"] as? [[String: Any]] ?? []) }
         return snapshot

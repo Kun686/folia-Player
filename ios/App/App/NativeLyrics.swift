@@ -32,6 +32,12 @@ actor NativeLyricParser {
         do { return try NativeMetadataFile.read(url, context: lyricContext()) }
         catch { context = nil; throw error } // Discard any unfinished JS jobs before reusing this actor.
     }
+    func trackOrder(_ tags: [[String: String]]) throws -> [String: Any] {
+        let input = try JSONSerialization.data(withJSONObject: ["version": 1, "tags": tags])
+        let data = try call("trackOrderJSON", input: input, limit: 1024, inputLimit: 80_000)
+        guard let result = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw MobileFailure("invalid-track-metadata") }
+        return result
+    }
     func localMatchDocument(_ document: [String: Any]) throws -> String {
         let input = try JSONSerialization.data(withJSONObject: document)
         let result = try call("localMatchJSON", input: input, limit: 3_000_000, inputLimit: 8_000_000)

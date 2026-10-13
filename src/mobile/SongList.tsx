@@ -10,17 +10,19 @@ import SongInfoActions from './SongInfoActions';
 
 // src/mobile/SongList.tsx — virtualized, touch-accessible rows; no hover-only actions.
 interface Props {
+  trackLabels?: ReadonlyMap<string, string | null>;
   libraryActions?(song: SongResult, close: () => void): ReactNode;
   songs: SongResult[]; play: (index: number) => void; add: (song: SongResult, behavior?: QueueAddBehavior) => void;
   remove?: (song: SongResult) => void; edit?: (action: QueueAction) => void; currentIndex?: number; busy?: boolean; respectAvailability?: boolean;
 }
-function Row({ index, style, songs, play, add, remove, edit, currentIndex, busy, respectAvailability, open }: RowComponentProps<Props & { open: (index: number) => void }>) {
+function Row({ index, style, songs, play, add, remove, edit, currentIndex, busy, respectAvailability, trackLabels, open }: RowComponentProps<Props & { open: (index: number) => void }>) {
   const { t } = useTranslation();
   const song = songs[index];
   const unavailable = respectAvailability && isSongUnavailable(song);
+  const track = song.sourceRef?.kind === 'local' ? trackLabels?.get(song.sourceRef.mediaId) : null;
   return <div className="song-row" style={style}>
     <button className="song-main" disabled={busy || unavailable} aria-current={currentIndex === index ? 'true' : undefined} onClick={() => play(index)} aria-label={t('mobile.play') + ' ' + song.name}>
-      <div className="song-art" aria-hidden="true"><Music2 size={18} /></div><span><strong>{song.name}</strong><small>{unavailable
+      <div className="song-art" aria-hidden="true">{track ?? <Music2 size={18} />}</div><span><strong>{song.name}</strong><small>{unavailable
         ? getSongUnavailableLabel(song, t('status.songUnavailableTag')) : song.artists.map(a => a.name).join(' / ')}</small></span>
     </button>
     {!edit && <button className="icon-button" disabled={busy || unavailable} onClick={() => add(song)} aria-label={t('mobile.add') + ' ' + song.name}><Plus size={20} /></button>}

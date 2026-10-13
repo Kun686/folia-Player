@@ -203,6 +203,9 @@ actor LocalMediaLibrary {
             var song: [String: Any] = ["importedFileName": String(source.lastPathComponent.prefix(1024)), "id": id, "name": String(title.prefix(512)),
                 "artists": [["id": "", "name": String(artist.prefix(256))]], "album": ["id": "", "name": String(album.prefix(512))],
                 "durationMs": duration * 1000, "sourceRef": ["kind": "local", "mediaId": id]]
+            let attributes = try target.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
+            song["fileLastModified"] = attributes.contentModificationDate.map { $0.timeIntervalSince1970 * 1000 }
+            song["fileSize"] = attributes.fileSize
             if let art = metadata.first(where: { $0.commonKey == .commonKeyArtwork }),
                let data = try? await art.load(.dataValue), data.count <= 20_000_000,
                let image = UIImage(data: data), image.size.width > 0, image.size.height > 0 {
@@ -215,7 +218,16 @@ actor LocalMediaLibrary {
             let allMetadata = try await asset.load(.metadata)
             if let info = await NativeReplayGainInfo.read(allMetadata) { song["replayGain"] = info.dictionary }
             song["replayGainScanned"] = true
-            if let embedded = try? await Self.embeddedLyrics(allMetadata, parser: lyricImportParser, fileURL: target), let text = embedded.lyrics {
+            let embedded = try? await Self.embeddedLyrics(allMetadata, parser: lyricImportParser, fileURL: target)
+            if ext == "flac" {
+                if let embedded {
+                    song["trackNumber"] = embedded.trackNumber; song["discNumber"] = embedded.discNumber
+                    song["trackOrderVersion"] = Self.trackOrderVersion
+                }
+            } else if let order = try? await Self.trackOrder(allMetadata, parser: lyricImportParser) {
+                song.merge(order) { _, new in new }; song["trackOrderVersion"] = Self.trackOrderVersion
+            }
+            if let embedded, let text = embedded.lyrics {
                 let lyrics = LyricSource(content: text, fileName: nil, embeddedContent: text,
                     embeddedTranslation: embedded.translationLyrics, embeddedScanned: true,
                     embeddedScanVersion: Self.embeddedScanVersion, contentIsEmbedded: true)

@@ -30,6 +30,10 @@ import { filterMobileLocalSongs } from './localLibraryGroups';
 import LocalFolderTools from './LocalFolderTools';
 import FolderImportStatus from './FolderImportStatus';
 import LocalMetadataManager from './LocalMetadataManager';
+import LocalTrackSortControls from './LocalTrackSortControls';
+import { sortMobileLocalTracks } from './localTrackSorting';
+import { useLocalTrackSortStore } from '../library/core/state/useLocalTrackSortStore';
+import { formatLocalAlbumTrackLabel } from '../utils/localSongSorting';
 import { useLocalBrowser } from './useLocalBrowser';
 import { useLocalPlaylists } from './useLocalPlaylists';
 import LocalPlaylistToolbar from './LocalPlaylistToolbar';
@@ -115,9 +119,16 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const isLocal = provider === 'local';
   const searchingOnline = !isLocal && !isCached && !queueView && catalog.searchQuery !== null;
   const browsingFolders = isLocal && localBrowser.section === 'folders';
-  const songs = useMemo(() => queueView ? playback.state.queue : browsingFolders ? filterMobileLocalSongs(folderView.songs, query) : isLocal ? localBrowser.songs : isCached ? (mediaCache.state?.songs ?? []).filter(song =>
+  const sortField = useLocalTrackSortStore(s => s.field), sortDirection = useLocalTrackSortStore(s => s.direction);
+  const sortable = isLocal && !queueView && (localBrowser.section === 'songs' || (browsingFolders && Boolean(folderView.root)));
+  const listedSongs = useMemo(() => queueView ? playback.state.queue : browsingFolders ? filterMobileLocalSongs(folderView.songs, query) : isLocal ? localBrowser.songs : isCached ? (mediaCache.state?.songs ?? []).filter(song =>
     `${song.name} ${song.artists.map(a => a.name).join(' ')}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) : catalog.songs,
   [queueView, playback.state.queue, browsingFolders, folderView.songs, isLocal, isCached, mediaCache.state?.songs, localBrowser.songs, query, catalog.songs]);
+  const songs = useMemo(() => sortable ? sortMobileLocalTracks(listedSongs, local.snapshot?.editorSongs, sortField, sortDirection) : listedSongs,
+    [sortable, listedSongs, local.snapshot?.editorSongs, sortField, sortDirection]);
+  const trackLabels = useMemo(() => isLocal && !queueView && localBrowser.selected?.type === 'album'
+    ? new Map(local.snapshot?.editorSongs.map(song => [song.id, formatLocalAlbumTrackLabel(song)])) : undefined,
+  [isLocal, queueView, localBrowser.selected?.type, local.snapshot?.editorSongs]);
   const active = playback.state.currentSong;
   const queueWork = async (work: () => Promise<unknown>) => {
     if (queueLock.current) return false;
@@ -169,6 +180,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       <div className="section-heading"><h2>{queueView ? t('mobile.queue') : t(isCached ? 'options.mediaCache' : isLocal ? 'mobile.local' : catalog.collection?.type === 'cloud' ? 'mobile.accountCloud' : 'mobile.playlists')}</h2>
         <button aria-pressed={queueView} onClick={() => setQueueView(!queueView)}>{t('mobile.queue')} · {playback.state.queue.length}</button></div>
       {isLocal && !queueView && <LocalLibraryNav browser={localBrowser} clearQuery={() => setQuery('')} />}
+      {sortable && <LocalTrackSortControls />}
       <PersonalFM provider={queueView ? '' : provider} enabled={available.personalFmProviders.includes(provider)} signedIn={!!catalog.user}
         state={playback.state} busy={queueBusy} work={queueWork} playing={() => setExpanded(true)} />
       {!queueView && <OnlineAccountLibrary key={provider + ':' + String(catalog.user?.id)} provider={provider} user={catalog.user}
@@ -221,6 +233,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       {(catalog.busy || catalog.accountBusy || local.busy) && <p role="status">{t('mobile.loading')}</p>}
       {isLocal && !queueView && localBrowser.browsing ? <LocalCollections collections={localBrowser.collections}
         select={id => { localBrowser.select(id); setQuery(''); }} /> : songs.length ? <SongList songs={songs} play={index => void play(index)} add={(song, behavior) => void add(song, behavior)}
+        trackLabels={trackLabels}
         respectAvailability={searchingOnline}
         busy={queueBusy || localPlaylists.busy} edit={queueView ? edit : undefined} currentIndex={queueView ? playback.state.index : undefined}
         libraryActions={(song, close) => <>{onlineActions(song, close)}

@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+本地歌曲排序移植通过 1376 项逻辑、57 个 WebKit 场景、23 项原生模拟器测试，真实 MP3／M4A／FLAC 样本与桌面解析一致。
+覆盖保留文件升级、歌词／人工匹配保留、排序偏好与播放队列一致性；本批实际 Files 提供方／真机／真实平台 NOT_RUN。
+个人 mobile.28／服务器未更新，大规模旧曲库性能待验，见 [LOCAL_TRACK_ORDER.md](LOCAL_TRACK_ORDER.md)。
+
 本地歌曲批量信息整理复用原版界面与匹配规则，提供全部歌曲／实际文件夹入口，歌曲与会话版本校验保护并发保存。
 709 项逻辑、45 个 WebKit 场景、19 项原生模拟器测试通过；本批真实平台／真机／系统挂起 NOT_RUN。
 个人 mobile.28／服务器未更新，见 [LOCAL_METADATA_MATCH.md](LOCAL_METADATA_MATCH.md)。
