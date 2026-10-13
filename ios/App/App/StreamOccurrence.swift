@@ -11,7 +11,7 @@ final class StreamOccurrence: AudioPlayerDelegate {
     let node: AVAudioUnit
     let unit: AudioEffectUnit
     private let output: StreamMixOutput?
-    private let networkConfiguration: URLSessionConfiguration?
+    private let networkConfiguration: URLSessionConfiguration
     let allowsTempo: Bool
     var meter: AudioMeter { unit.meter }
     var changed: (() -> Void)?
@@ -50,8 +50,9 @@ final class StreamOccurrence: AudioPlayerDelegate {
     private init(url: URL, node: AVAudioUnit, unit: AudioEffectUnit, output: StreamMixOutput?, allowsTempo: Bool, networkConfiguration: URLSessionConfiguration?) {
         sourceURL = url
         self.node = node; self.unit = unit; self.output = output; self.allowsTempo = allowsTempo
-        self.networkConfiguration = networkConfiguration?.copy() as? URLSessionConfiguration
-        audio = Self.makeDecoder(external: output != nil, configuration: networkConfiguration)
+        let isolated = NativeMediaTransport.streamingConfiguration(networkConfiguration)
+        self.networkConfiguration = isolated
+        audio = Self.makeDecoder(external: output != nil, configuration: isolated)
         if output == nil { audio.attach(node: node) }
         audio.delegate = self
     }

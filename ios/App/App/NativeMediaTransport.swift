@@ -12,10 +12,24 @@ enum NativeMediaTransport {
         return request
     }
     static func configuration(_ source: URLSessionConfiguration, resourceTimeout: TimeInterval) -> URLSessionConfiguration {
+        let config = credentialFreeConfiguration(source)
+        config.timeoutIntervalForRequest = 20; config.timeoutIntervalForResource = resourceTimeout
+        return config
+    }
+    // Keep AudioStreaming's default scheduling and caller-supplied timeouts, but isolate every CDN session.
+    static func streamingConfiguration(_ source: URLSessionConfiguration?) -> URLSessionConfiguration {
+        let config = credentialFreeConfiguration(source ?? .default)
+        if source == nil {
+            config.networkServiceType = .avStreaming
+            config.requestCachePolicy = .reloadIgnoringLocalCacheData
+            config.shouldUseExtendedBackgroundIdleMode = true
+        }
+        return config
+    }
+    private static func credentialFreeConfiguration(_ source: URLSessionConfiguration) -> URLSessionConfiguration {
         let config = source.copy() as! URLSessionConfiguration
         config.httpCookieStorage = nil; config.httpShouldSetCookies = false; config.urlCredentialStorage = nil
         config.urlCache = nil; config.httpAdditionalHeaders = [:]
-        config.timeoutIntervalForRequest = 20; config.timeoutIntervalForResource = resourceTimeout
         return config
     }
     static func fileExtension(_ response: URLResponse) -> String {

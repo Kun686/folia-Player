@@ -9,6 +9,7 @@ final class ProfileHTTPFixture: @unchecked Sendable {
     var headers: [String: String] = [:]
     var delay = 0.001
     var advertised: Int?
+    var redirect: URL?
     private let lock = NSLock()
     private var requests: [URLRequest] = []
     private var sent = 0, stopped = 0
@@ -22,6 +23,9 @@ final class ProfileHTTPFixture: @unchecked Sendable {
     var prefixRequests: Int {
         lock.lock(); defer { lock.unlock() }
         return requests.filter { $0.value(forHTTPHeaderField: "Range") == "bytes=0-1572863" }.count
+    }
+    var capturedRequests: [URLRequest] {
+        lock.lock(); defer { lock.unlock() }; return requests
     }
 }
 final class ProfileHTTPProtocol: URLProtocol, @unchecked Sendable {
@@ -47,6 +51,13 @@ final class ProfileHTTPProtocol: URLProtocol, @unchecked Sendable {
         Self.lock.lock(); let found = Self.fixtures[request.url!.host! + request.url!.path]; Self.lock.unlock()
         guard let found else { client?.urlProtocol(self, didFailWithError: URLError(.fileDoesNotExist)); return }
         fixture = found; found.request(request)
+        if let target = found.redirect {
+            var next = request; next.url = target
+            let response = HTTPURLResponse(url: request.url!, statusCode: 302, httpVersion: "HTTP/1.1",
+                headerFields: found.headers.merging(["Location": target.absoluteString], uniquingKeysWith: { _, value in value }))!
+            client?.urlProtocol(self, wasRedirectedTo: next, redirectResponse: response)
+            return
+        }
         let range = (request.value(forHTTPHeaderField: "Range") ?? "bytes=0-").dropFirst(6).split(separator: "-", omittingEmptySubsequences: false)
         let start = range.first.flatMap { Int($0) } ?? 0
         let requestedEnd = range.count > 1 ? Int(range[1]) ?? found.bytes.count - 1 : found.bytes.count - 1

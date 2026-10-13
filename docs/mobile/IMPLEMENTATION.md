@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+原模型 Automix 已通过受控在线混合队列、完整缓存、离线重播及退出隔离验证，并修复流式请求继承凭据的问题。
+11项原生模拟器测试及构建通过；真实平台、系统挂起、真机与长期性能仍待验收，公开完整能力继续关闭。
+个人 mobile.28／服务器未更新，见 [ONLINE_AUTOMIX.md](ONLINE_AUTOMIX.md)。
+
 原版自动使用最佳歌词与首选来源已接入移动设置，保存／恢复、旧结果隔离和已选歌词保护通过
 56 项逻辑、30 个 WebKit 场景及类型检查。后台独立跨平台匹配仍未实现，个人 App／服务器未更新，
 见 [ONLINE_LYRIC_PREFERENCE.md](ONLINE_LYRIC_PREFERENCE.md)。
