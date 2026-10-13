@@ -11,6 +11,14 @@
 .mobile-entity-dialog button:disabled { opacity: .45; }
 .mobile-entity-dialog :focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
 .local-entity-edit { align-self: flex-start; min-height: 44px; padding: 8px 16px; border-radius: 12px; background: var(--raised); }
+.mobile-metadata-batch, .mobile-metadata-loading { padding: 16px; }
+.mobile-metadata-dialog button { min-width: 44px; }
+.mobile-metadata-dialog input[type=checkbox] { min-height: 24px; width: 24px; accent-color: #3b82f6; }
+.mobile-metadata-dialog label { min-height: 44px; }
+.mobile-metadata-single > div { position: static; padding: 0; background: transparent; backdrop-filter: none; }
+.mobile-metadata-single [role=dialog] { max-height: none; max-width: none; border: 0; background: var(--bg); color: var(--text); }
+.mobile-metadata-single [role=dialog] > div { overflow: visible; }
+.mobile-metadata-single [role=dialog] > div > .overflow-y-auto { max-height: 35dvh; flex: none; }
 @media (max-width: 700px), (max-height: 500px) {
   .mobile-entity-dialog > fieldset > div { padding: 16px; gap: 20px; }
   .mobile-entity-dialog footer { flex-wrap: wrap; margin-inline: -16px; margin-bottom: -16px; padding-inline: 16px; }

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, FileAudio, Loader2, Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { LocalSong } from '../../types';
@@ -24,11 +24,15 @@ interface LocalSongMetadataMatchDialogProps {
     isDaylight: boolean;
     onClose: () => void;
     onChanged: () => Promise<void>;
+    sources?: readonly OnlineMetadataSource[];
+    localCover?: string;
+    services?: { search: typeof searchOnlineMetadata; apply: typeof applyOnlineMetadataCandidate; restore: typeof useImportedSnapshotForLocalSong };
+    onBusyChange?: (busy: boolean) => void;
 }
 
-export const LocalSongMetadataMatchDialog = ({ song, assignment, isDaylight, onClose, onChanged }: LocalSongMetadataMatchDialogProps) => {
+export const LocalSongMetadataMatchDialog = ({ song, assignment, isDaylight, onClose, onChanged, services, localCover, sources = ['netease', 'qq', 'kugou'], onBusyChange }: LocalSongMetadataMatchDialogProps) => {
     const { t } = useTranslation();
-    const [source, setSource] = useState<OnlineMetadataSource>('netease');
+    const [source, setSource] = useState<OnlineMetadataSource>(sources[0] ?? 'netease');
     const [query, setQuery] = useState(() => buildLocalSongMetadataSearchQuery(song));
     const [results, setResults] = useState<OnlineMetadataCandidate[]>([]);
     const [selected, setSelected] = useState<OnlineMetadataCandidate | null>(null);
@@ -37,8 +41,14 @@ export const LocalSongMetadataMatchDialog = ({ song, assignment, isDaylight, onC
     const [restoringLocalInfo, setRestoringLocalInfo] = useState(false);
     const [useOnlineMetadata, setUseOnlineMetadata] = useState(song.titleOrigin !== 'import');
     const [useOnlineCover, setUseOnlineCover] = useState(song.useOnlineCover ?? !song.localCoverAssetId);
-    const localCoverUrl = getLocalCoverAssetUrl(song.localCoverAssetId, 512);
-    const requestIdRef = useRef(0);
+    const localCoverUrl = localCover ?? getLocalCoverAssetUrl(song.localCoverAssetId, 512);
+    const requestIdRef = useRef(0), controller = useRef<AbortController | undefined>(undefined), locked = useRef(false), mounted = useRef(true);
+    const [error, setError] = useState(false);
+    const busy = applying || restoringLocalInfo;
+    const invalidate = () => { requestIdRef.current++; controller.current?.abort(); };
+    useEffect(() => { mounted.current = true; return () => { mounted.current = false; invalidate(); }; }, []);
+    useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
+    const close = () => { if (!locked.current) { invalidate(); onClose(); } };
     const target = useMemo(() => buildLocalSongMetadataSearchTarget(song), [song]);
     const currentTitle = song.title;
     const currentArtist = (song.titleOrigin !== 'import'
@@ -58,33 +68,37 @@ export const LocalSongMetadataMatchDialog = ({ song, assignment, isDaylight, onC
 
     const search = async () => {
         const safeQuery = query.trim();
-        if (!safeQuery) return;
+        if (!safeQuery || locked.current) return;
+        invalidate();
+        controller.current = new AbortController();
+        setError(false);
         const requestId = ++requestIdRef.current;
         setSearching(true);
         setSelected(null);
         try {
-            const next = await searchOnlineMetadata(source, safeQuery, target);
+            const next = await (services?.search ?? searchOnlineMetadata)(source, safeQuery, target, { signal: controller.current.signal });
             if (requestId === requestIdRef.current) setResults(next);
         } catch (error) {
             console.error('[LocalMusic] Manual metadata search failed:', error);
-            if (requestId === requestIdRef.current) setResults([]);
+            if (requestId === requestIdRef.current) { setResults([]); setError(true); }
         } finally {
             if (requestId === requestIdRef.current) setSearching(false);
         }
     };
     const apply = async () => {
-        if (!selected) return;
+        if (!selected || locked.current) return;
         const replacesProtectedArtist = selected.artists.length > 0 && ['manual', 'split'].includes(assignment?.artistOrigin || '');
         const replacesProtectedAlbum = Boolean(selected.album) && ['manual', 'split'].includes(assignment?.albumOrigin || '');
         if (useOnlineMetadata && (replacesProtectedArtist || replacesProtectedAlbum)
             && !window.confirm(t('localMusic.replaceProtectedEntityConfirm'))) return;
-        setApplying(true);
+        locked.current = true; invalidate(); setSearching(false); setError(false); setApplying(true);
         try {
-            const applied = await applyOnlineMetadataCandidate(song, selected, {
+            const applied = await (services?.apply ?? applyOnlineMetadataCandidate)(song, selected, {
                 mode: 'manual',
                 useOnlineMetadata,
                 useOnlineCover,
             });
+            if (!mounted.current) return;
             await onChanged();
             if (applied.coverAttempted && !applied.coverCached) {
                 window.alert(t('localMusic.coverCacheFailed'));
@@ -92,20 +106,24 @@ export const LocalSongMetadataMatchDialog = ({ song, assignment, isDaylight, onC
             onClose();
         } catch (error) {
             console.error('[LocalMusic] Failed to apply manual metadata match:', error);
+            if (mounted.current) setError(true);
         } finally {
-            setApplying(false);
+            locked.current = false; if (mounted.current) setApplying(false);
         }
     };
     const useLocalInfo = async () => {
-        setRestoringLocalInfo(true);
+        if (locked.current) return;
+        locked.current = true; invalidate(); setSearching(false); setError(false); setRestoringLocalInfo(true);
         try {
-            await useImportedSnapshotForLocalSong(song.id);
+            await (services?.restore ?? useImportedSnapshotForLocalSong)(song.id);
+            if (!mounted.current) return;
             await onChanged();
             onClose();
         } catch (error) {
             console.error('[LocalMusic] Failed to restore imported snapshot:', error);
+            if (mounted.current) setError(true);
         } finally {
-            setRestoringLocalInfo(false);
+            locked.current = false; if (mounted.current) setRestoringLocalInfo(false);
         }
     };
     const panelTheme = isDaylight ? 'border-black/10 bg-white text-zinc-900' : 'border-white/10 bg-zinc-950 text-white';
@@ -130,12 +148,12 @@ export const LocalSongMetadataMatchDialog = ({ song, assignment, isDaylight, onC
                             )}
                         </div>
                     </div>
-                    <button type="button" onClick={onClose} className="rounded-full p-2 hover:bg-current/10"><X size={19} /></button>
+                    <button type="button" disabled={busy} aria-label={t('mobile.close', { defaultValue: 'Close' })} onClick={close} className="rounded-full p-2 hover:bg-current/10"><X size={19} /></button>
                 </header>
                 <div className="flex min-h-0 flex-1 flex-col gap-4 p-5">
                     <div className="flex gap-2">
-                        {(['netease', 'qq', 'kugou'] as const).map(item => (
-                            <button key={item} type="button" onClick={() => { setSource(item); setResults([]); setSelected(null); }} className={`rounded-full px-4 py-2 text-xs font-bold ${source === item ? 'bg-blue-500 text-white' : 'bg-current/10'}`}>
+                        {sources.map(item => (
+                            <button key={item} type="button" disabled={busy} onClick={() => { invalidate(); setSearching(false); setError(false); setSource(item); setResults([]); setSelected(null); }} className={`rounded-full px-4 py-2 text-xs font-bold ${source === item ? 'bg-blue-500 text-white' : 'bg-current/10'}`}>
                                 {item === 'netease'
                                     ? t('localMusic.neteaseSource')
                                     : item === 'qq'
@@ -147,15 +165,15 @@ export const LocalSongMetadataMatchDialog = ({ song, assignment, isDaylight, onC
                     <form onSubmit={event => { event.preventDefault(); void search(); }} className="flex gap-2">
                         <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-current/10 px-3">
                             <Search size={15} className="opacity-45" />
-                            <input value={query} onChange={event => setQuery(event.target.value)} className="min-w-0 flex-1 bg-transparent py-3 text-sm outline-none" />
+                            <input disabled={busy} aria-label={t('localMusic.search')} value={query} onChange={event => setQuery(event.target.value)} className="min-w-0 flex-1 bg-transparent py-3 text-sm outline-none" />
                         </label>
-                        <button type="submit" disabled={searching || !query.trim()} className="rounded-xl bg-blue-500 px-4 text-sm font-bold text-white disabled:opacity-40">
+                        <button type="submit" disabled={busy || searching || !query.trim() || !sources.length} className="rounded-xl bg-blue-500 px-4 text-sm font-bold text-white disabled:opacity-40">
                             {searching ? <Loader2 size={16} className="animate-spin" /> : t('localMusic.search')}
                         </button>
                     </form>
                     <div className="min-h-48 flex-1 space-y-2 overflow-y-auto custom-scrollbar">
                         {results.map(candidate => (
-                            <button key={`${candidate.source}:${candidate.songId}`} type="button" onClick={() => { setSelected(candidate); if (!candidate.coverUrl) setUseOnlineCover(false); }} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left ${selected === candidate ? 'border-blue-500 bg-blue-500/10' : 'border-current/10 hover:bg-current/5'}`}>
+                            <button key={`${candidate.source}:${candidate.songId}`} type="button" disabled={busy} onClick={() => { setSelected(candidate); if (!candidate.coverUrl) setUseOnlineCover(false); }} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left ${selected === candidate ? 'border-blue-500 bg-blue-500/10' : 'border-current/10 hover:bg-current/5'}`}>
                                 <span className="min-w-0 flex-1">
                                     <span className="block truncate text-sm font-bold">{candidate.title}</span>
                                     <span className="block truncate text-xs opacity-55">{candidate.artists.map(artist => artist.name).join(', ')} · {candidate.album?.name || t('localMusic.unknownAlbum')}</span>
@@ -197,14 +215,14 @@ export const LocalSongMetadataMatchDialog = ({ song, assignment, isDaylight, onC
                                     </div>
                                 </div>
                             </div>
-                            <button type="button" role="switch" aria-checked={useOnlineMetadata} onClick={() => setUseOnlineMetadata(value => !value)} className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left ${useOnlineMetadata ? 'border-blue-500 bg-blue-500/10' : 'border-current/10'}`}>
+                            <button type="button" role="switch" aria-checked={useOnlineMetadata} disabled={busy} onClick={() => setUseOnlineMetadata(value => !value)} className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left ${useOnlineMetadata ? 'border-blue-500 bg-blue-500/10' : 'border-current/10'}`}>
                                 <span>
                                     <span className="block text-sm font-bold">{t('localMusic.useOnlineMetadataResult')}</span>
                                     <span className="block text-xs opacity-50">{t('localMusic.metadataBundleHint')}</span>
                                 </span>
                                 {useOnlineMetadata && <Check size={18} className="text-blue-500" />}
                             </button>
-                            <button type="button" role="switch" aria-checked={useOnlineCover} disabled={!selected.coverUrl} onClick={() => setUseOnlineCover(value => !value)} className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left disabled:opacity-35 ${useOnlineCover ? 'border-blue-500 bg-blue-500/10' : 'border-current/10'}`}>
+                            <button type="button" role="switch" aria-checked={useOnlineCover} disabled={busy || !selected.coverUrl} onClick={() => setUseOnlineCover(value => !value)} className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left disabled:opacity-35 ${useOnlineCover ? 'border-blue-500 bg-blue-500/10' : 'border-current/10'}`}>
                                 <span>
                                     <span className="block text-sm font-bold">{t('localMusic.useOnlineCoverResult')}</span>
                                     {!selected.coverUrl && <span className="block text-xs opacity-50">{t('localMusic.candidateHasNoCover')}</span>}
@@ -213,6 +231,7 @@ export const LocalSongMetadataMatchDialog = ({ song, assignment, isDaylight, onC
                             </button>
                         </div>
                     )}
+                    {error && <p role="alert">{t('localMusic.entityOperationFailed')}</p>}
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <button type="button" disabled={applying || restoringLocalInfo} onClick={() => void useLocalInfo()} className="flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-500 disabled:opacity-35">
                             {restoringLocalInfo && <Loader2 size={15} className="animate-spin" />}{t('localMusic.dontUseOnlineMetadata')}

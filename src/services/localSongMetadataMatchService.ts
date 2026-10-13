@@ -36,12 +36,13 @@ export const applyOnlineMetadataCandidate = async (
     song: LocalSong,
     candidate: OnlineMetadataCandidate,
     options: ApplyOnlineMetadataCandidateOptions,
+    apply: typeof applyLocalSongMatchSelection = applyLocalSongMatchSelection,
 ): Promise<{ song?: LocalSong; coverAttempted: boolean; coverCached: boolean }> => {
     const useOnlineMetadata = options.useOnlineMetadata ?? true;
     const useOnlineCover = options.mode === 'manual'
         ? Boolean(options.useOnlineCover && candidate.coverUrl)
         : Boolean(candidate.coverUrl && !hasLocalSongCover(song));
-    const result = await applyLocalSongMatchSelection({
+    const result = await apply({
         songId: song.id,
         candidate,
         metadata: useOnlineMetadata ? 'online' : 'imported',
@@ -55,8 +56,8 @@ export const applyOnlineMetadataCandidate = async (
 };
 
 // Restores the complete imported snapshot and keeps future automatic matching from replacing it.
-export const useImportedSnapshotForLocalSong = async (songId: string): Promise<void> => {
-    await applyLocalSongMatchSelection({
+export const useImportedSnapshotForLocalSong = async (songId: string, apply: typeof applyLocalSongMatchSelection = applyLocalSongMatchSelection): Promise<void> => {
+    await apply({
         songId,
         metadata: 'imported',
         cover: 'embedded',
@@ -72,6 +73,8 @@ export async function batchAutoMatchLocalSongMetadata(
         signal?: AbortSignal;
         onUpdate?: (update: LocalSongMetadataMatchUpdate) => void;
         concurrency?: number;
+        find?: typeof findAutomaticOnlineMetadataCandidate;
+        apply?: typeof applyOnlineMetadataCandidate;
     } = {},
 ): Promise<BatchLocalSongMetadataMatchResult> {
     const updates: LocalSongMetadataMatchUpdate[] = [];
@@ -88,13 +91,13 @@ export async function batchAutoMatchLocalSongMetadata(
                 continue;
             }
             try {
-                const candidate = await findAutomaticOnlineMetadataCandidate(song, options.signal);
+                const candidate = await (options.find ?? findAutomaticOnlineMetadataCandidate)(song, options.signal);
                 if (options.signal?.aborted) return;
                 if (!candidate) {
                     record({ songId: song.id, status: 'no-match' });
                     continue;
                 }
-                const applied = await applyOnlineMetadataCandidate(song, candidate, {
+                const applied = await (options.apply ?? applyOnlineMetadataCandidate)(song, candidate, {
                     mode: 'automatic',
                     protectOrigins: ['manual', 'manual-match', 'split'],
                 });

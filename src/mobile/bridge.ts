@@ -73,8 +73,8 @@ export interface FoliaNativePlugin {
   shareLyricArchive(options: { fileName: string; data: string; token?: string }): Promise<{ completed: boolean }>;
   readLocalLibrary(): Promise<NativeLibrarySnapshot>;
   editLocalLibrary(options: { revision: string; operation: NativeLibraryOperation }): Promise<NativeLibrarySnapshot>;
-  readLocalMatch(options: { id: string }): Promise<LocalMatchSnapshot>;
-  writeLocalMatch(options: { id: string; token: string; document: LocalMatchDocument; source: 'local' | 'embedded' | 'online' | null; cacheCover: boolean; libraryRevision?: string; metadata: 'keep' | 'online' | 'imported'; updateArtists: boolean; updateAlbum: boolean; protectOrigins?: string[] }): Promise<{ coverCached: boolean }>;
+  readLocalMatch(options: { id: string; online?: boolean; includeCover?: boolean }): Promise<LocalMatchSnapshot>;
+  writeLocalMatch(options: { id: string; token: string; document: LocalMatchDocument; source: 'local' | 'embedded' | 'online' | null; cacheCover: boolean; libraryRevision?: string; contextToken?: string; sessionToken?: string; metadata: 'keep' | 'online' | 'imported'; updateArtists: boolean; updateAlbum: boolean; protectOrigins?: string[] }): Promise<{ coverCached: boolean }>;
   addListener(name: 'localCatalog', listener: () => void): Promise<PluginListenerHandle>;
   readLocalLyrics(options: { id: string }): Promise<LocalLyricSnapshot>;
   selectLocalLyrics(options: { id: string; token: string; source: 'local' | 'embedded' | 'online' }): Promise<LocalLyricSnapshot>;

@@ -4,6 +4,47 @@ import AVFoundation
 
 // LocalMatchTests.swift — atomic matching, immutable imported assets and background parsing without a WebView.
 @MainActor extension NativeTests {
+    func testLocalMetadataReceiptAllowsUnrelatedCommitAndRejectsLaterSongEdit() async throws {
+        let audio = try silentAudio(), root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: audio) }
+        let local = LocalMediaLibrary(root: root)
+        let a = try await local.importAudio(audio), b = try await local.importAudio(audio)
+        let aID = try XCTUnwrap(a["id"] as? String), bID = try XCTUnwrap(b["id"] as? String)
+        let first = try await local.readLocalMatch(aID, includeCover: false), second = try await local.readLocalMatch(bID, includeCover: false)
+        func commit(_ id: String, _ snapshot: [String: Any]) async throws {
+            _ = try await local.writeLocalMatch(id, token: XCTUnwrap((snapshot["lyrics"] as? [String: Any])?["token"] as? String),
+                document: matchDocument(), source: nil, libraryRevision: snapshot["libraryRevision"] as? String,
+                contextToken: XCTUnwrap(snapshot["contextToken"] as? String))
+        }
+        try await commit(bID, second)
+        let rebased = try await local.readLocalMatch(aID, includeCover: false)
+        XCTAssertNotEqual(rebased["libraryRevision"] as? String, first["libraryRevision"] as? String)
+        XCTAssertEqual(rebased["contextToken"] as? String, first["contextToken"] as? String)
+        try await commit(aID, first)
+        do { try await commit(aID, first); XCTFail("Stale song receipt accepted") }
+        catch let failure as MobileFailure { XCTAssertEqual(failure.code, "local-lyrics-changed") }
+        let stored = try await local.readLocalMatch(aID)
+        XCTAssertEqual((stored["document"] as? [String: Any])?["title"] as? String, "Matched title")
+    }
+    func testLocalMetadataReceiptRejectsRenamedAssignedEntity() async throws {
+        let audio = try silentAudio(), root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: audio) }
+        let local = LocalMediaLibrary(root: root), song = try await local.importAudio(audio), id = try XCTUnwrap(song["id"] as? String)
+        let initial = try await local.readLocalMatch(id)
+        _ = try await local.writeLocalMatch(id, token: XCTUnwrap((initial["lyrics"] as? [String: Any])?["token"] as? String),
+            document: matchDocument(), source: nil)
+        let before = try await local.readLocalMatch(id), assignment = try XCTUnwrap(before["assignment"] as? [String: Any])
+        let entityID = try XCTUnwrap((assignment["artistEntityIds"] as? [String])?.first)
+        _ = try await local.editLibrary(revision: XCTUnwrap(before["libraryRevision"] as? String),
+            operation: ["type": "rename", "entityId": entityID, "displayName": "Human correction"])
+        do {
+            _ = try await local.writeLocalMatch(id, token: XCTUnwrap((before["lyrics"] as? [String: Any])?["token"] as? String),
+                document: matchDocument(), source: nil, contextToken: XCTUnwrap(before["contextToken"] as? String))
+            XCTFail("Relevant entity change accepted")
+        } catch let failure as MobileFailure { XCTAssertEqual(failure.code, "local-library-changed") }
+        let after = try await local.readLocalMatch(id)
+        XCTAssertEqual((((after["display"] as? [String: Any])?["artists"] as? [[String: Any]])?.first)?["name"] as? String, "Human correction")
+    }
     private func matchDocument() -> [String: Any] {
         ["title": "Matched title", "titleOrigin": "manual-match", "artistNames": ["Matched artist"], "albumName": "Matched album",
          "useOnlineCover": true, "onlineMetadata": ["source": "qq", "songId": "qq-mid", "artists": [["name": "Matched artist"]],

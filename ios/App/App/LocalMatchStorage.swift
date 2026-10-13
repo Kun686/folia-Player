@@ -38,24 +38,33 @@ extension LocalMediaLibrary {
     }
     func readLocalMatch(_ id: String, includeCover: Bool = true) async throws -> [String: Any] {
         _ = try await readLyricSources(id)
+        return try localMatchSnapshot(id, includeCover: includeCover)
+    }
+    // A song receipt excludes unrelated catalog revisions and binary artwork, but includes manual entity display/assignment.
+    private func localMatchSnapshot(_ id: String, includeCover: Bool, library: [String: Any]? = nil) throws -> [String: Any] {
         let record = try lyricSource(id) ?? LyricSource(content: "", fileName: nil)
         let lyrics = lyricSnapshot(record, id: id), base = try importedSong(id)
         let fileName = try base["importedFileName"] as? String ?? resolve(id).lastPathComponent
         var result: [String: Any] = ["base": base, "fileName": fileName, "lyrics": lyrics]
         if let document = try matchDocument(record) { result["document"] = document }
-        let library = try librarySnapshot()
+        let library = try library ?? librarySnapshot()
         result["libraryRevision"] = library["revision"]
         result["assignment"] = (library["assignments"] as? [[String: Any]])?.first { $0["songId"] as? String == id }
         result["display"] = (library["songs"] as? [[String: Any]])?.first { $0["id"] as? String == id }
         if let data = try cover(id) {
             result["hasLocalCover"] = true
+            result["coverToken"] = NativeProfileCache.digest(data)
             if includeCover { result["embeddedCover"] = "data:image/jpeg;base64," + data.base64EncodedString() }
         }
+        var context = result
+        context.removeValue(forKey: "libraryRevision"); context.removeValue(forKey: "embeddedCover")
+        result["contextToken"] = NativeProfileCache.digest(try JSONSerialization.data(withJSONObject: context, options: [.sortedKeys]))
         return result
     }
     func writeLocalMatch(_ id: String, token: String, document: [String: Any], source: String?,
                          libraryRevision: String? = nil, metadata: String = "online", updateArtists: Bool = true,
-                         updateAlbum: Bool = true, protectOrigins: [String] = [], validate: () throws -> Void = {}) async throws -> [String: Any] {
+                         updateAlbum: Bool = true, protectOrigins: [String] = [], contextToken: String? = nil,
+                         validate: () throws -> Void = {}) async throws -> [String: Any] {
         try validate()
         guard source == nil || ["local", "embedded", "online"].contains(source!) else { throw MobileFailure("invalid-lyrics-source") }
         guard ["keep", "online", "imported"].contains(metadata),
@@ -78,7 +87,10 @@ extension LocalMediaLibrary {
             guard !available.isEmpty else { throw MobileFailure("lyrics-source-unavailable") }
         }
         let current = try librarySnapshot()
-        if let libraryRevision, current["revision"] as? String != libraryRevision { throw MobileFailure("local-library-changed") }
+        if let contextToken {
+            guard try localMatchSnapshot(id, includeCover: false, library: current)["contextToken"] as? String == contextToken
+            else { throw MobileFailure("local-library-changed") }
+        } else if let libraryRevision, current["revision"] as? String != libraryRevision { throw MobileFailure("local-library-changed") }
         let assignment = (current["assignments"] as? [[String: Any]])?.first { $0["songId"] as? String == id }
         let original = try importedSong(id), prior = try lyricSource(id)
         var input = try libraryInput(id, base: original, record: prior)

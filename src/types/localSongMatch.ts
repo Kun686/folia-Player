@@ -13,6 +13,9 @@ export type LocalMatchDocument = Pick<LocalSong, 'title' | 'titleOrigin' | 'onli
   'noAutoMatch' | 'matchedLyrics' | 'matchedIsPureMusic' | 'matchedLyricsSongId' | 'matchedLyricsSource' |
   'matchedLyricsProviderPlatform' | 'hasManualLyricSelection'> & { artistNames: string[]; albumName?: string };
 export interface LocalMatchSnapshot {
+  contextToken?: string;
+  sessionToken?: string;
+  hasLocalCover?: boolean;
   libraryRevision?: string;
   assignment?: LocalLibraryAssignment;
   base: SongResult;

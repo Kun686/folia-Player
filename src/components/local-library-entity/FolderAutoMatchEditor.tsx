@@ -16,6 +16,8 @@ interface FolderAutoMatchEditorProps {
     isDaylight: boolean;
     onManualMatch: (song: LocalSong) => void;
     onChanged: () => Promise<void>;
+    services?: { batch: typeof batchAutoMatchLocalSongMetadata; restore: typeof useImportedSnapshotForLocalSong };
+    onBusyChange?: (busy: boolean) => void;
 }
 
 const formatMatchCandidate = (candidate: OnlineMetadataCandidate) => [
@@ -24,7 +26,7 @@ const formatMatchCandidate = (candidate: OnlineMetadataCandidate) => [
     candidate.album?.name,
 ].filter(Boolean).join(' · ');
 
-export const FolderAutoMatchEditor = ({ songs, assignments, isDaylight, onManualMatch, onChanged }: FolderAutoMatchEditorProps) => {
+export const FolderAutoMatchEditor = ({ songs, assignments, isDaylight, onManualMatch, onChanged, services, onBusyChange }: FolderAutoMatchEditorProps) => {
     const { t } = useTranslation();
     const assignmentBySongId = useMemo(() => new Map(assignments.map(item => [item.songId, item])), [assignments]);
     const [selectedSongIds, setSelectedSongIds] = useState(() => new Set(songs
@@ -38,12 +40,16 @@ export const FolderAutoMatchEditor = ({ songs, assignments, isDaylight, onManual
     const [completed, setCompleted] = useState(0);
     const [statusBySongId, setStatusBySongId] = useState(new Map<string, string>());
     const abortControllerRef = useRef<AbortController | null>(null);
+    const mounted = useRef(true), locked = useRef(false);
     const selectAllRef = useRef<HTMLInputElement | null>(null);
     const eligibleSongs = useMemo(() => songs.filter(song => !song.noAutoMatch), [songs]);
     const selectedCount = eligibleSongs.reduce((count, song) => count + Number(selectedSongIds.has(song.id)), 0);
     const allSelected = eligibleSongs.length > 0 && selectedCount === eligibleSongs.length;
     const localInfoCount = songs.length - eligibleSongs.length;
     const busy = running || restoringLocalInfo;
+
+    useEffect(() => { mounted.current = true; return () => { mounted.current = false; abortControllerRef.current?.abort(); }; }, []);
+    useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
 
     useEffect(() => {
         if (selectAllRef.current) {
@@ -58,17 +64,19 @@ export const FolderAutoMatchEditor = ({ songs, assignments, isDaylight, onManual
 
     const run = async () => {
         const selectedSongs = songs.filter(song => selectedSongIds.has(song.id));
-        if (selectedSongs.length === 0) return;
+        if (selectedSongs.length === 0 || locked.current) return;
+        locked.current = true;
         const controller = new AbortController();
         abortControllerRef.current = controller;
         setRunning(true);
         setCompleted(0);
         setStatusBySongId(new Map());
         try {
-            await batchAutoMatchLocalSongMetadata(selectedSongs, {
+            await (services?.batch ?? batchAutoMatchLocalSongMetadata)(selectedSongs, {
                 signal: controller.signal,
                 concurrency: 2,
                 onUpdate: update => {
+                    if (!mounted.current) return;
                     setCompleted(value => value + 1);
                     const statusText = t(`localMusic.autoMatchStatus.${update.status}`);
                     const candidateText = update.candidate ? formatMatchCandidate(update.candidate) : '';
@@ -80,27 +88,36 @@ export const FolderAutoMatchEditor = ({ songs, assignments, isDaylight, onManual
                     setStatusBySongId(current => new Map(current).set(update.songId, displayText));
                 },
             });
-            await onChanged();
+            if (mounted.current) await onChanged();
+        } catch {
+            if (mounted.current) window.alert(t('localMusic.entityOperationFailed'));
         } finally {
             abortControllerRef.current = null;
-            setRunning(false);
+            locked.current = false;
+            if (mounted.current) setRunning(false);
         }
     };
 
     const useLocalInfo = async () => {
         const songIds = eligibleSongs.filter(song => selectedSongIds.has(song.id)).map(song => song.id);
-        if (songIds.length === 0) return;
+        if (songIds.length === 0 || locked.current) return;
+        locked.current = true;
         setRestoringLocalInfo(true);
         try {
-            await Promise.all(songIds.map(useImportedSnapshotForLocalSong));
+            for (const id of songIds) {
+                if (!mounted.current) return;
+                await (services?.restore ?? useImportedSnapshotForLocalSong)(id);
+            }
+            if (!mounted.current) return;
             const restoredIds = new Set(songIds);
             setSelectedSongIds(current => new Set([...current].filter(songId => !restoredIds.has(songId))));
             await onChanged();
         } catch (error) {
             console.error('[LocalMusic] Failed to restore imported snapshots:', error);
-            window.alert(t('localMusic.entityOperationFailed'));
+            if (mounted.current) window.alert(t('localMusic.entityOperationFailed'));
         } finally {
-            setRestoringLocalInfo(false);
+            locked.current = false;
+            if (mounted.current) setRestoringLocalInfo(false);
         }
     };
 

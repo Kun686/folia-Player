@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+原版本地歌曲批量信息整理已接入全部歌曲／实际文件夹触摸入口，保留两路匹配、逐曲结果、人工整理保护和恢复导入信息。
+709 项逻辑、45 个 WebKit 场景、19 项原生模拟器测试通过；真实平台／真机 NOT_RUN。
+个人 mobile.28／服务器未更新，见 [LOCAL_METADATA_MATCH.md](LOCAL_METADATA_MATCH.md)。
+
 本地歌曲自动匹配已接入原生当前／下一首队列，复用原版歌词、封面和歌曲信息匹配策略。
 69 文件／640 项移动逻辑、70 项原本地库回归及 17 项原生模拟器用例通过；
 真实平台／真机 NOT_RUN，个人 mobile.28／服务器未更新，见 [LOCAL_AUTOMATIC_MATCH.md](LOCAL_AUTOMATIC_MATCH.md)。

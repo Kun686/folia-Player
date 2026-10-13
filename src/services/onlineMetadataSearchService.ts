@@ -44,7 +44,7 @@ const throwIfAborted = (signal?: AbortSignal) => {
 };
 
 // Stops waiting immediately when a provider client cannot receive AbortSignal directly.
-const waitForProvider = async <T>(request: Promise<T>, signal?: AbortSignal): Promise<T> => {
+export const waitForProvider = async <T>(request: Promise<T>, signal?: AbortSignal): Promise<T> => {
     if (!signal) return await request;
     throwIfAborted(signal);
     return await new Promise<T>((resolve, reject) => {
@@ -95,24 +95,25 @@ export async function searchOnlineMetadata(
 export async function findAutomaticOnlineMetadataCandidate(
     song: LocalSong,
     signal?: AbortSignal,
+    search: typeof searchOnlineMetadata = searchOnlineMetadata,
 ): Promise<OnlineMetadataCandidate | null> {
     const target = buildLocalSongMetadataSearchTarget(song);
     const query = buildLocalSongMetadataSearchQuery(song);
     let neteaseCandidates: OnlineMetadataCandidate[] = [];
     try {
-        neteaseCandidates = await searchOnlineMetadata('netease', query, target, { limit: 10, signal });
+        neteaseCandidates = await search('netease', query, target, { limit: 10, signal });
     } catch (error) {
         if ((error as Error).name === 'AbortError') throw error;
         console.warn('[LocalMusic] NetEase metadata search failed, falling back to QQ:', error);
     }
     if (neteaseCandidates[0]?.titleMatched) return neteaseCandidates[0];
     try {
-        const qqCandidates = await searchOnlineMetadata('qq', query, target, { limit: 10, signal });
+        const qqCandidates = await search('qq', query, target, { limit: 10, signal });
         if (qqCandidates[0]?.titleMatched) return qqCandidates[0];
     } catch (error) {
         if ((error as Error).name === 'AbortError') throw error;
         console.warn('[LocalMusic] QQ metadata search failed, falling back to KuGou:', error);
     }
-    const kugouCandidates = await searchOnlineMetadata('kugou', query, target, { limit: 10, signal });
+    const kugouCandidates = await search('kugou', query, target, { limit: 10, signal });
     return kugouCandidates[0]?.titleMatched ? kugouCandidates[0] : null;
 }

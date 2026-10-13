@@ -29,6 +29,7 @@ import { localFolderView, type FolderScope } from './localFolderBrowser';
 import { filterMobileLocalSongs } from './localLibraryGroups';
 import LocalFolderTools from './LocalFolderTools';
 import FolderImportStatus from './FolderImportStatus';
+import LocalMetadataManager from './LocalMetadataManager';
 import { useLocalBrowser } from './useLocalBrowser';
 import { useLocalPlaylists } from './useLocalPlaylists';
 import LocalPlaylistToolbar from './LocalPlaylistToolbar';
@@ -182,6 +183,11 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         queueBusy={queueBusy} queueError={queueError} add={(song, behavior) => void add(song, behavior)} actions={onlineActions}
         play={(tracks, index, close) => void queueWork(() => startCollection(tracks, index, () => { close(); setExpanded(true); }))} />
       {isLocal && !queueView && <FolderImportStatus folders={folders} />}
+      {isLocal && !queueView && local.snapshot && (localBrowser.section === 'songs' || (browsingFolders && folderView.root)) &&
+        <LocalMetadataManager key={browsingFolders ? folderView.root?.id + '/' + folderView.path : 'all'} snapshot={local.snapshot}
+          ids={(browsingFolders ? folderView.songs : local.songs).map(song => String(song.id))}
+          label={browsingFolders ? folderView.path || folderView.root!.name : t('mobile.local')}
+          providers={available.providers} light={light} changed={local.refresh} />}
       {browsingFolders && !queueView && <LocalFolderTools folders={folders} view={folderView} query={query}
         select={scope => { setFolderScope(scope); setQuery(''); }} />}
       {isLocal && !queueView && localBrowser.selected?.entityId && <button className="local-entity-edit"

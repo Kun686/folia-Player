@@ -60,7 +60,13 @@ extension FoliaNativePlugin {
     @objc func readLocalMatch(_ call: CAPPluginCall) { run(call) {
         guard let id = call.getString("id") else { throw MobileFailure("invalid-local-identity") }
         Task { @MainActor in
-            do { call.resolve(try await self.engine.local.readLocalMatch(id)) }
+            do {
+                let transport = call.getBool("online") == true ? try NativeLyricMatchTransport(gateway: self.engine.gateway) : nil
+                var snapshot = try await self.engine.local.readLocalMatch(id, includeCover: call.getBool("includeCover") ?? true)
+                try transport?.validate()
+                snapshot["sessionToken"] = transport?.sessionToken
+                call.resolve(snapshot)
+            }
             catch { call.reject((error as? MobileFailure)?.code ?? "local-library-unavailable") }
         }
     } }
@@ -70,9 +76,17 @@ extension FoliaNativePlugin {
         else { throw MobileFailure("invalid-local-match") }
         Task { @MainActor in
             do {
+                let expectedSession = call.getString("sessionToken")
+                let transport = expectedSession != nil ? try NativeLyricMatchTransport(gateway: self.engine.gateway) : nil
                 let song = try await self.engine.local.writeLocalMatch(id, token: token, document: document, source: call.getString("source"),
                     libraryRevision: revision, metadata: metadata, updateArtists: call.getBool("updateArtists") ?? false,
-                    updateAlbum: call.getBool("updateAlbum") ?? false, protectOrigins: call.getArray("protectOrigins", String.self) ?? [])
+                    updateAlbum: call.getBool("updateAlbum") ?? false, protectOrigins: call.getArray("protectOrigins", String.self) ?? [],
+                    contextToken: call.getString("contextToken"), validate: {
+                        if let transport {
+                            guard expectedSession == transport.sessionToken else { throw MobileFailure("lyric-session-changed") }
+                            try transport.validate()
+                        }
+                    })
                 self.engine.localMatchChanged(id, song: song)
                 self.notifyListeners("localCatalog", data: [:])
                 var cached = false
