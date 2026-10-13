@@ -23,7 +23,11 @@
 
 ## 本轮核对的集合与队列行为
 
-当前基线的原生整合结果见 [NATIVE_CORE_INTEGRATION.md](NATIVE_CORE_INTEGRATION.md)：
+移动网络旧响应修复见 [SESSION_RESPONSE_REVISION.md](SESSION_RESPONSE_REVISION.md)：凭据替换后拒绝旧响应，
+防止 QQ 旧 401／803 清除或覆盖新登录，以及两平台旧歌单继续显示。770 项移动逻辑、96 项 WebKit、
+类型检查与移动构建通过；原生、真实账号与真机本批 NOT_RUN。
+
+此前基线的原生整合结果见 [NATIVE_CORE_INTEGRATION.md](NATIVE_CORE_INTEGRATION.md)：
 独立 Release QA 的 iPhone 模拟器88项、iPad16项子集通过，资源一致性、真实PCM和生产首页启动通过。
 保留首轮87通过／1失败及暂停淡出测试修正；未更新个人 App 或服务器，不替代真实平台及真机验收。
 

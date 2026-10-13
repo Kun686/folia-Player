@@ -51,6 +51,60 @@ describe('mobile secure runtime', () => {
     await assertion;
     expect(native.cancelRequests).toHaveBeenCalled();
   });
+  it.each(['qq', 'netease'])('rejects a late %s response after its in-memory credential was replaced', async provider => {
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    await runtime.initializeRuntime(); const port = getMobileRuntime()!;
+    let complete!: (result: unknown) => void;
+    native.request.mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+    const response = port.fetch(`/mobile/${provider}/login/status`);
+    const assertion = expect(response).rejects.toMatchObject({ name: 'AbortError' });
+    port.write(provider, 'cookie', 'replacement-session');
+    complete({ status: 401, body: '{}', headers: {} });
+    await assertion; await runtime.flushSessions();
+    expect(port.read(provider, 'cookie')).toBe('replacement-session');
+  });
+  it.each([401, 803])('an old QQ response (%s) cannot clear or replace a newer login', async code => {
+    native.bootstrap.mockResolvedValue({ server: 'https://music.example.com', scope: 'original', sessions: { qq: { cookie: 'qqmusic_session=old' } } });
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    const { requestQq } = await import('../../../src/services/onlineMusic/qqTransport');
+    await runtime.initializeRuntime(); const port = getMobileRuntime()!;
+    let complete!: (result: unknown) => void;
+    native.request.mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+    const response = requestQq(code === 803 ? 'login_qr_check' : 'login_status', { key: 'old-qr' }).catch(error => error);
+    await vi.waitFor(() => expect(complete).toBeTypeOf('function'));
+    port.write('qq', 'cookie', 'qqmusic_session=new');
+    complete({ status: code === 401 ? 401 : 200, headers: {}, body: JSON.stringify({ code, cookie: 'qqmusic_session=late' }) });
+    await response; await runtime.flushSessions();
+    expect(port.read('qq', 'cookie')).toBe('qqmusic_session=new');
+    expect(native.saveSession.mock.calls.map(([args]) => args.values)).toEqual([{ cookie: 'qqmusic_session=new' }]);
+  });
+  it.each(['qq', 'netease'])('keeps valid %s responses when only another platform changes or the same cookie is saved', async provider => {
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    await runtime.initializeRuntime(); const port = getMobileRuntime()!;
+    let complete!: (result: unknown) => void;
+    native.request.mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+    const response = port.fetch(`/mobile/${provider}/login/status`);
+    port.write(provider, 'cookie', port.read(provider, 'cookie'));
+    port.write(provider === 'qq' ? 'netease' : 'qq', 'cookie', 'other-platform-session');
+    complete({ status: 200, body: '{"account":"current"}', headers: {} });
+    expect(await (await response).json()).toEqual({ account: 'current' });
+    await runtime.flushSessions();
+  });
+  it('does not revalidate an old reply when credentials change away and back', async () => {
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    await runtime.initializeRuntime(); const port = getMobileRuntime()!;
+    let complete!: (result: unknown) => void;
+    native.request.mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+    const response = port.fetch('/mobile/qq/user/playlist');
+    const assertion = expect(response).rejects.toMatchObject({ name: 'AbortError' });
+    port.write('qq', 'cookie', 'other-session'); port.write('qq', 'cookie', 'fixture');
+    complete({ status: 200, body: '{}', headers: {} });
+    await assertion; await runtime.flushSessions();
+  });
   it('still deletes credentials after a failed pending save', async () => {
     native.saveSession.mockRejectedValue(new Error('secure-storage'));
     const runtime = await import('../../../src/mobile/runtime');

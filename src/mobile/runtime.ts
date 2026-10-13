@@ -82,7 +82,7 @@ async function request(input: string, init: RequestInit = {}) {
   if (!['netease', 'qq', 'kugou'].includes(provider)) throw new Error('unsupported-mobile-route');
   if (clearing.has(provider)) throw new DOMException('Canceled', 'AbortError');
   const proxy = url.pathname === '/api/lyric-proxy';
-  const epoch = generation(provider), id = crypto.randomUUID();
+  const sessionCurrent = captureProviderSession(provider), id = crypto.randomUUID();
   const abort = () => { void native.cancelRequests({ ids: [id] }).catch(() => undefined); };
   init.signal?.throwIfAborted();
   pending.set(id, provider);
@@ -92,7 +92,8 @@ async function request(input: string, init: RequestInit = {}) {
       path: proxy ? url.searchParams.get('url') : url.pathname.replace('/mobile/' + provider, '') + url.search,
       method: init.method ?? 'GET', headers: Object.fromEntries(new Headers(init.headers)),
       ...(init.body ? { body: String(init.body) } : {}) } });
-    if (epoch !== generation(provider) || init.signal?.aborted) throw new DOMException('Canceled', 'AbortError');
+    // A new login can replace memory credentials before its Keychain save finishes.
+    if (!sessionCurrent() || init.signal?.aborted) throw new DOMException('Canceled', 'AbortError');
     return new Response(result.body, { status: result.status, headers: result.headers });
   } finally { pending.delete(id); init.signal?.removeEventListener('abort', abort); }
 }
