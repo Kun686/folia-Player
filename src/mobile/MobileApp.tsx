@@ -225,7 +225,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         onClick={() => void native.command({ action: playback.state.playing ? 'pause' : 'play' }).catch(() => setError(true))}>
         {playback.state.playing ? <Pause /> : <Play />}</button>
     </footer>
-    {settings && <SettingsSheet lyricPreference={lyricPreference} appearance={appearance} mediaCache={mediaCache} timer={sleepTimer} server={server} light={light} setLight={setLight}
+    {settings && <SettingsSheet folders={folders} lyricPreference={lyricPreference} appearance={appearance} mediaCache={mediaCache} timer={sleepTimer} server={server} light={light} setLight={setLight}
       saved={() => location.reload()} close={() => setSettings(false)} />}
     {login && <LoginSheet provider={provider} refresh={catalog.refresh} close={() => setLogin(false)} />}
     {onlineTarget && <OnlineCatalogSheet target={onlineTarget} busy={queueBusy} error={queueError} close={() => setOnlineTarget(null)}

@@ -51,6 +51,14 @@ describe('native folder scan rules', () => {
     expect(next.tracks[0].lyric).toBe('track.yrc');
     expect(next.tracks[0].sidecarSignature).toBe(first.tracks[0].sidecarSignature);
   });
+  it('keeps FIA first for every configured leading format and pairs the preferred translation', () => {
+    for (const format of ['lrc', 'vtt', 'ttml', 'qrc', 'yrc', 'krc']) {
+      const paths = ['track.wav', 'track.fia', 'track.lrc', `track.${format}`, 'track.t.lrc', 'track.t.vtt'];
+      const result = plan([...new Set(paths)], { lyricFormatOrder: [format, 'vtt', 'lrc'] });
+      expect(result.tracks[0].lyric).toBe('track.fia');
+      expect(result.tracks[0].translation).toBe(format === 'lrc' ? 'track.t.lrc' : 'track.t.vtt');
+    }
+  });
   it('detects sidecar changes/removal and root-local audio removal without changing audio signatures', () => {
     const paths = ['a/song.mp3', 'a/song.lrc', 'b/song.mp3', 'b/cover.jpg'];
     const first = plan(paths);

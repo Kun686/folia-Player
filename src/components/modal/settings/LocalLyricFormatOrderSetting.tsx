@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
-import { GripVertical, RefreshCw, RotateCcw } from 'lucide-react';
+import { ArrowDown, ArrowUp, GripVertical, RefreshCw, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { resyncAllFolders } from '../../../services/localMusicService';
@@ -13,6 +13,10 @@ import { DEFAULT_LOCAL_LYRIC_FORMAT_ORDER, isSameLocalLyricFormatOrder, type Loc
 
 type LocalLyricFormatOrderSettingProps = {
     getOptionStyle: (selected: boolean) => React.CSSProperties;
+    touchControls?: boolean;
+    // A custom scanner returns true only when the entire batch completes.
+    onResync?: () => Promise<boolean>;
+    resyncDisabled?: boolean;
 };
 
 type FormatRowProps = {
@@ -20,10 +24,11 @@ type FormatRowProps = {
     rank: number;
     style: React.CSSProperties;
     onDragEnd: () => void;
+    move?: { up?: () => void; down?: () => void };
 };
 
 // Drags only from the grip, so touch scrolling over the rest of the row still scrolls the settings panel.
-const FormatRow: React.FC<FormatRowProps> = ({ format, rank, style, onDragEnd }) => {
+const FormatRow: React.FC<FormatRowProps> = ({ format, rank, style, onDragEnd, move }) => {
     const { t } = useTranslation();
     const dragControls = useDragControls();
 
@@ -42,19 +47,22 @@ const FormatRow: React.FC<FormatRowProps> = ({ format, rank, style, onDragEnd })
             <span className="flex-1 font-mono text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
                 .{format}
             </span>
-            <div
+            {move ? <div className="flex gap-1">
+                <button type="button" disabled={!move.up} onClick={move.up} aria-label={t('options.localLyricFormatMoveUp', { format: `.${format}` })}><ArrowUp size={18} /></button>
+                <button type="button" disabled={!move.down} onClick={move.down} aria-label={t('options.localLyricFormatMoveDown', { format: `.${format}` })}><ArrowDown size={18} /></button>
+            </div> : <div
                 onPointerDown={event => dragControls.start(event)}
                 className="flex h-7 w-7 cursor-grab touch-none items-center justify-center rounded-lg transition-colors hover:bg-white/10 active:cursor-grabbing"
                 style={{ color: 'var(--text-primary)' }}
                 aria-label={t('options.localLyricFormatDragHandle', { format: `.${format}` })}
             >
                 <GripVertical size={14} className="opacity-60" />
-            </div>
+            </div>}
         </Reorder.Item>
     );
 };
 
-const LocalLyricFormatOrderSetting: React.FC<LocalLyricFormatOrderSettingProps> = ({ getOptionStyle }) => {
+const LocalLyricFormatOrderSetting: React.FC<LocalLyricFormatOrderSettingProps> = ({ getOptionStyle, touchControls, onResync, resyncDisabled }) => {
     const { t } = useTranslation();
     const { order, onOrderChange } = useLyricSettingsStore(useShallow(state => ({
         order: state.localLyricFormatOrder,
@@ -76,23 +84,34 @@ const LocalLyricFormatOrderSetting: React.FC<LocalLyricFormatOrderSettingProps> 
     // The order only applies on the next scan, so a change made here offers to rescan right away.
     const [needsResync, setNeedsResync] = useState(false);
     const [isResyncing, setIsResyncing] = useState(false);
+    const [saveFailed, setSaveFailed] = useState(false);
 
     const applyOrder = (next: LocalLyricFileFormat[]) => {
         if (isSameLocalLyricFormatOrder(next, useLyricSettingsStore.getState().localLyricFormatOrder)) {
             return;
         }
-        onOrderChange(next);
-        setNeedsResync(true);
+        try { onOrderChange(next); setSaveFailed(false); setNeedsResync(true); }
+        catch { updateDraftOrder(useLyricSettingsStore.getState().localLyricFormatOrder); setSaveFailed(true); }
     };
 
     const commitDraftOrder = () => applyOrder(draftOrderRef.current);
+    const moveFormat = (format: LocalLyricFileFormat, direction: number) => {
+        const next = [...useLyricSettingsStore.getState().localLyricFormatOrder], index = next.indexOf(format), target = index + direction;
+        if (index < 0 || target < 0 || target >= next.length) return;
+        next.splice(target, 0, next.splice(index, 1)[0]); applyOrder(next);
+    };
 
     // Folder scans broadcast LOCAL_MUSIC_UPDATED_EVENT themselves, so the library reloads without a callback here.
     const handleResync = async () => {
+        const scannedOrder = useLyricSettingsStore.getState().localLyricFormatOrder;
         setIsResyncing(true);
         try {
+            if (onResync) {
+                if (await onResync() && isSameLocalLyricFormatOrder(scannedOrder, useLyricSettingsStore.getState().localLyricFormatOrder)) setNeedsResync(false);
+                return;
+            }
             const importedSongs = await resyncAllFolders();
-            setNeedsResync(false);
+            if (isSameLocalLyricFormatOrder(scannedOrder, useLyricSettingsStore.getState().localLyricFormatOrder)) setNeedsResync(false);
             setStatusMessage({
                 type: importedSongs === null ? 'info' : 'success',
                 text: t(importedSongs === null ? 'options.localLyricFormatResyncNoFolders' : 'options.localLyricFormatResyncDone'),
@@ -106,7 +125,7 @@ const LocalLyricFormatOrderSetting: React.FC<LocalLyricFormatOrderSettingProps> 
     };
 
     return (
-        <div className="p-4 space-y-3 border-t select-none" style={{ borderColor: 'var(--border-primary, rgba(255,255,255,0.06))' }}>
+        <div role="region" aria-label={t('options.localLyricFormatOrder')} className="p-4 space-y-3 border-t select-none" style={{ borderColor: 'var(--border-primary, rgba(255,255,255,0.06))' }}>
             <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
                     <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
@@ -135,9 +154,12 @@ const LocalLyricFormatOrderSetting: React.FC<LocalLyricFormatOrderSettingProps> 
                         rank={index + 1}
                         style={getOptionStyle(false)}
                         onDragEnd={commitDraftOrder}
+                        move={touchControls ? { up: index > 0 ? () => moveFormat(format, -1) : undefined,
+                            down: index < draftOrder.length - 1 ? () => moveFormat(format, 1) : undefined } : undefined}
                     />
                 ))}
             </Reorder.Group>
+            {saveFailed && <p role="alert">{t('options.localLyricFormatSaveFailed')}</p>}
             {needsResync && (
                 <div className="flex items-center justify-between gap-4 rounded-xl border px-3 py-2" style={getOptionStyle(true)}>
                     <div className="text-[11px] opacity-70" style={{ color: 'var(--text-secondary)' }}>
@@ -146,7 +168,7 @@ const LocalLyricFormatOrderSetting: React.FC<LocalLyricFormatOrderSettingProps> 
                     <button
                         type="button"
                         onClick={() => void handleResync()}
-                        disabled={isResyncing}
+                        disabled={isResyncing || resyncDisabled}
                         className="flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors hover:bg-white/10 disabled:cursor-wait disabled:opacity-50"
                         style={{ color: 'var(--text-primary)' }}
                     >

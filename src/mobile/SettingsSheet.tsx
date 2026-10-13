@@ -13,9 +13,12 @@ import AISettingsSheet from './AISettingsSheet';
 import SyncSettingsSheet from './SyncSettingsSheet';
 import LocalLyricPreference, { type useLocalLyricPreference } from './LocalLyricPreference';
 import QueuePreference from './QueuePreference';
+import LocalLyricFormatSettings from './LocalLyricFormatSettings';
+import type { LocalFolders } from './useLocalFolders';
 
 // src/mobile/SettingsSheet.tsx
-export default function SettingsSheet({ appearance, mediaCache, timer, server, light, setLight, saved, close, lyricPreference }: {
+export default function SettingsSheet({ appearance, mediaCache, timer, server, light, setLight, saved, close, lyricPreference, folders }: {
+  folders: LocalFolders;
   lyricPreference: ReturnType<typeof useLocalLyricPreference>;
   appearance: MobileTheme;
   timer: ReturnType<typeof useNativeSleepTimer>;
@@ -30,6 +33,7 @@ export default function SettingsSheet({ appearance, mediaCache, timer, server, l
   const [sleep, setSleep] = useState(false);
   const [aiSettings, setAISettings] = useState(false);
   const [syncSettings, setSyncSettings] = useState(false);
+  const [lyricFormats, setLyricFormats] = useState(false);
   const save = async () => {
     setBusy(true); setError(false);
     try {
@@ -44,6 +48,7 @@ export default function SettingsSheet({ appearance, mediaCache, timer, server, l
   if (sleep) return <SleepTimerSheet timer={timer} light={light} theme={light ? appearance.theme.light : appearance.theme.dark} close={() => setSleep(false)} />;
   if (aiSettings) return <AISettingsSheet close={() => setAISettings(false)} />;
   if (syncSettings) return <SyncSettingsSheet close={() => setSyncSettings(false)} />;
+  if (lyricFormats) return <LocalLyricFormatSettings folders={folders} close={() => setLyricFormats(false)} />;
   return <div className="sheet-backdrop"><section className="sheet" role="dialog" aria-modal="true" aria-label={t('mobile.settings')}>
     <header><h2>{t('mobile.settings')}</h2><button onClick={close}>{t('mobile.close')}</button></header>
     <p>{t('mobile.optionalServer')}</p>
@@ -60,6 +65,7 @@ export default function SettingsSheet({ appearance, mediaCache, timer, server, l
     <MediaCacheControls cache={mediaCache} light={light} />
     <QueuePreference />
     <LocalLyricPreference status={lyricPreference} />
+    <button onClick={() => setLyricFormats(true)}>{t('options.localLyricFormatOrder')}</button>
     <button onClick={() => setSleep(true)}>{t('commandPalette.sleepTimerTitle')}</button>
     <button onClick={() => setAISettings(true)}>{t('mobile.ai.settings')}</button>
     <button onClick={() => setSyncSettings(true)}>{t('options.r2Sync')}</button>

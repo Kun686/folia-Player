@@ -36,13 +36,13 @@ export function useLocalFolders() {
       void listener?.then(handle => handle.remove()).catch(() => undefined);
     };
   }, [refresh, cancel]);
-  const run = async (work: (signal: AbortSignal) => Promise<void>, cancellable = true) => {
+  const run = async <T>(work: (signal: AbortSignal) => Promise<T>, cancellable = true) => {
     if (locked.current) return;
     locked.current = true; setBusy(true); setError(''); setResult(undefined); setProgress(undefined);
     setBatchProgress(undefined); setBatchResult(undefined);
     setCanCancel(cancellable);
     const current = new AbortController(); controller.current = current;
-    try { await work(current.signal); }
+    try { return await work(current.signal); }
     catch (cause) {
       if (active.current && !current.signal.aborted) setError(cause instanceof Error ? cause.message : 'folder-import-failed');
     } finally {
@@ -65,6 +65,7 @@ export function useLocalFolders() {
     const next = await rescanLocalFolders(native, useLyricSettingsStore.getState().localLyricFormatOrder, signal,
       value => { if (active.current) { setBatchProgress(value); setProgress(value.track); } });
     if (active.current) setBatchResult(next);
+    return next;
   });
   return { catalog, busy, canCancel, progress, result, batchProgress, batchResult, error, start, rescanAll, cancel, remove, refresh };
 }

@@ -32,6 +32,7 @@
 .typography-controls fieldset { min-width: 0; padding: 0; border: 0; }
 .typography-controls select { appearance: auto; height: 44px; min-height: 44px; width: 100%; }
 .mobile-preference select { height: 44px; font-size: 16px; }
+.mobile-format-settings { --text-primary: var(--text); --text-secondary: var(--muted); --border-primary: var(--border); }
 .typography-controls textarea { min-width: 0; }
 .typography-controls input[type=range] { width: 100%; min-height: 44px; touch-action: none; }
 .typography-controls .check-label { flex-direction: row; align-items: center; min-height: 44px; }
