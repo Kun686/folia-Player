@@ -9,6 +9,8 @@ const PATCHED = Symbol.for('folia.pixi821FilterPoolCompat');
 
 interface FilterSystemCompat {
     _globalFilterBindGroup: BindGroup;
+    _filterStackIndex: number;
+    _filterStack: Array<{ inputTexture: Texture | null; backTexture: Texture | null }>;
     init?: () => void;
     destroy: () => void;
     [PATCHED]?: boolean;
@@ -28,14 +30,23 @@ export const installPixiFilterPoolCompat = (pixi: PixiModule) => {
     if (prototype[PATCHED]) return;
     prototype[PATCHED] = true;
 
-    const groups = new Set<BindGroup>();
+    const systems = new Set<FilterSystemCompat>();
     const pool = pixi.TexturePool as unknown as TexturePoolCompat;
-    const unbindPassTextures = () => {
+    const unbindPassTextures = (textures: Texture[]) => {
         const source = pixi.Texture.EMPTY.source;
-        groups.forEach(group => {
+        const discarded = new Set(textures);
+        systems.forEach(system => {
+            const group = system._globalFilterBindGroup;
             group.setResource(source, 1);
             group.setResource(source.style, 2);
             group.setResource(source, 3);
+            // Pixi reuses these idle slots and reads their old input before assigning the next pass.
+            // Clear only discarded textures: pop() still needs to return the input after its backdrop.
+            for (let index = system._filterStackIndex; index < system._filterStack.length; index++) {
+                const frame = system._filterStack[index]!;
+                if (frame.inputTexture && discarded.has(frame.inputTexture)) frame.inputTexture = null;
+                if (frame.backTexture && discarded.has(frame.backTexture)) frame.backTexture = null;
+            }
         });
     };
 
@@ -43,11 +54,11 @@ export const installPixiFilterPoolCompat = (pixi: PixiModule) => {
     const init = prototype.init;
     prototype.init = function () {
         init?.call(this);
-        groups.add(this._globalFilterBindGroup);
+        systems.add(this);
     };
     const destroy = prototype.destroy;
     prototype.destroy = function () {
-        groups.delete(this._globalFilterBindGroup);
+        systems.delete(this);
         this._globalFilterBindGroup.destroy();
         destroy.call(this);
     };
@@ -55,14 +66,14 @@ export const installPixiFilterPoolCompat = (pixi: PixiModule) => {
     // Resize, renderer destruction and clear() all discard idle textures through this method.
     const dropTextures = pool._dropTextures;
     pool._dropTextures = function (textures, shouldDestroy) {
-        if (shouldDestroy && textures.length > 0) unbindPassTextures();
+        if (shouldDestroy && textures.length > 0) unbindPassTextures(textures);
         dropTextures.call(this, textures, shouldDestroy);
     };
     // A checked-out texture can outlive its bucket and be destroyed directly on return.
     const returnTexture = pool.returnTexture;
     pool.returnTexture = function (texture, resetStyle) {
         const key = this._poolKey[texture.uid];
-        if (key !== undefined && !this._buckets.has(key)) unbindPassTextures();
+        if (key !== undefined && !this._buckets.has(key)) unbindPassTextures([texture]);
         returnTexture.call(this, texture, resetStyle);
     };
 };

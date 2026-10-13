@@ -31,6 +31,14 @@ const expectUnbound = (group: pixi.BindGroup) => {
     expect(group.getResource(3)).toBe(pixi.Texture.EMPTY.source);
 };
 
+type FilterFrame = { inputTexture: pixi.Texture | null; backTexture: pixi.Texture | null };
+type FilterStack = {
+    _filterStackIndex: number;
+    _pushFilterData(): FilterFrame;
+    _popFilterData(): FilterFrame;
+    _findFilterResolution(root: number): number;
+};
+
 describe('Pixi 8.21.0 filter pool compatibility', () => {
     beforeAll(() => installPixiFilterPoolCompat(pixi));
     beforeEach(() => {
@@ -139,5 +147,64 @@ describe('Pixi 8.21.0 filter pool compatibility', () => {
         const otherPixi = { ...pixi, VERSION: '8.22.0', FilterSystem: OtherFilterSystem } as unknown as typeof pixi;
         installPixiFilterPoolCompat(otherPixi);
         expect(Object.getOwnPropertySymbols(OtherFilterSystem.prototype)).toEqual([]);
+    });
+
+    it.each([
+        ['resize', () => pixi.TexturePool.setScreenSize(SCREEN, 347, 229)],
+        ['resolution change', () => pixi.TexturePool.setScreenSize(SCREEN, 602, 402)],
+        ['renderer removal', () => pixi.TexturePool.removeScreen(SCREEN)],
+        ['pool clear', () => pixi.TexturePool.clear()],
+    ])('does not reuse a destroyed nested filter texture after %s', (_, prune) => {
+        const stack = createSystem().system as unknown as FilterStack;
+        const texture = pixi.TexturePool.getOptimalTexture({ width: 301, height: 201 });
+        stack._pushFilterData();
+        const frame = stack._pushFilterData();
+        frame.inputTexture = texture;
+        stack._popFilterData(); stack._popFilterData();
+        pixi.TexturePool.returnTexture(texture);
+        prune();
+
+        expect(texture.destroyed).toBe(true);
+        stack._pushFilterData(); stack._pushFilterData();
+        // Pixi reads the reused slot before assigning its new input texture on the next draw.
+        expect(() => stack._findFilterResolution(1.5)).not.toThrow();
+        expect(stack._findFilterResolution(1.5)).toBe(1.5);
+        expect(frame.inputTexture).toBeNull();
+    });
+
+    it('preserves checked-out parent textures when an idle nested frame is pruned', () => {
+        const stack = createSystem().system as unknown as FilterStack;
+        const parent = stack._pushFilterData(), child = stack._pushFilterData();
+        const live = pixi.TexturePool.getOptimalTexture({ width: 301, height: 201 });
+        const idle = pixi.TexturePool.getOptimalTexture({ width: 301, height: 201 });
+        parent.inputTexture = live; child.inputTexture = idle;
+        stack._popFilterData();
+        pixi.TexturePool.returnTexture(idle);
+        pixi.TexturePool.setScreenSize(SCREEN, 347, 229);
+
+        expect(parent.inputTexture).toBe(live);
+        expect(live.destroyed).toBe(false);
+        expect(child.inputTexture).toBeNull();
+        stack._popFilterData(); pixi.TexturePool.returnTexture(live);
+        expect(parent.inputTexture).toBeNull();
+    });
+
+    it('returning an orphaned backdrop keeps the input alive until its own return', () => {
+        const stack = createSystem().system as unknown as FilterStack;
+        const frame = stack._pushFilterData();
+        const input = pixi.TexturePool.getOptimalTexture({ width: 301, height: 201 });
+        const backdrop = pixi.TexturePool.getOptimalTexture({ width: 301, height: 201 });
+        frame.inputTexture = input; frame.backTexture = backdrop;
+        pixi.TexturePool.setScreenSize(SCREEN, 347, 229);
+        stack._popFilterData();
+        pixi.TexturePool.returnTexture(backdrop);
+
+        expect(frame.backTexture).toBeNull();
+        expect(frame.inputTexture).toBe(input);
+        expect(input.destroyed).toBe(false);
+        // This order mirrors FilterSystem.pop: backdrop first, then input.
+        pixi.TexturePool.returnTexture(frame.inputTexture!);
+        expect(frame.inputTexture).toBeNull();
+        expect(input.destroyed).toBe(true);
     });
 });

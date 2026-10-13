@@ -12,6 +12,7 @@ import { useVisualizerRuntime } from '../runtime';
 import VisualizerShell from '../VisualizerShell';
 import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { resolveSubtitleFontSizes } from '../subtitleFontSizes';
+import { useViewportSettle } from '../../../hooks/useViewportSettle';
 
 const CHAR_REF_LENGTH = 20;
 const LOG_OFFSET = 4;
@@ -560,6 +561,7 @@ const VisualizerTilt: React.FC<VisualizerTiltProps & { staticMode?: boolean; }> 
         tiltTuning = DEFAULT_TILT_TUNING,
     } = props;
     const { t } = useTranslation();
+    const { epoch: viewportEpoch } = useViewportSettle();
     const [visibleSegmentIndex, setVisibleSegmentIndex] = useState(-1);
 
     const {
@@ -573,10 +575,11 @@ const VisualizerTilt: React.FC<VisualizerTiltProps & { staticMode?: boolean; }> 
         getLineEndTime: getLineRenderEndTime,
     });
 
+    // Reuse the settled resize signal: pause/rotation must not keep a layout measured at the old width.
     const layout = useMemo<TiltLayout | null>(() => {
         if (!activeLine?.fullText) return null;
         return buildTiltLayout(activeLine.fullText, activeLine.startTime, tiltTuning, theme, lyricsFontScale);
-    }, [activeLine?.fullText, activeLine?.startTime, tiltTuning, theme, lyricsFontScale]);
+    }, [activeLine?.fullText, activeLine?.startTime, tiltTuning, theme, lyricsFontScale, viewportEpoch]);
 
     const segmentTimings = useMemo(() => {
         if (!activeLine || !layout) return null;
