@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+原模型 Automix 补齐独立模拟器跨进程离线恢复证据：恢复原队列／进度／设置，复用完整音频与拍点缓存，
+重新准备分轨并完成真实交接；零播放地址解析、零音频 HTTP 尝试。7个不同原生用例通过，
+本批仅测试／文档，个人 App／服务器未更新，真机与系统挂起仍待验，见 [AUTOMIX_RESTART.md](AUTOMIX_RESTART.md)。
+
 原版歌曲信息复制和官方歌曲页已提供移动触摸入口，共用桌面格式、元数据与现有原生剪贴板。
 219项逻辑／provider、48个 WebKit 场景及类型检查通过，QQ 沿用原版仅复制元数据的能力。
 个人 App／服务器未更新，实际系统剪贴板与外部跳转仍待验收，见 [SONG_INFORMATION.md](SONG_INFORMATION.md)。

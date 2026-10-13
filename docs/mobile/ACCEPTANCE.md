@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+原模型 Automix 的跨进程离线恢复通过独立模拟器验证：7个不同原生用例、8次执行，无失败或跳过。
+包含实际原分轨交接及循环下一首预加载；不代表系统强杀／WebView 挂起／真机／真实平台验收。
+个人 App／服务器未更新，见 [AUTOMIX_RESTART.md](AUTOMIX_RESTART.md)。
+
 歌曲信息触摸复制、错误恢复、跨来源隔离及显式页面链接通过219项逻辑／provider与48个 WebKit 场景。
 外部网页和剪贴板均为受控测试，真实跳转／原生剪贴板／真机 NOT_RUN；个人 App／服务器未更新，
 见 [SONG_INFORMATION.md](SONG_INFORMATION.md)。

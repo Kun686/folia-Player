@@ -4,7 +4,7 @@ import AVFoundation
 @testable import App
 
 // NativeOnlineAutomixTests.swift — original models and music through controlled HTTPS, native caches and real mixed output.
-private final class OnlineAutomixGateway: GatewayClient {
+final class OnlineAutomixGateway: GatewayClient {
     let sources: [String: URL]
     var resolves: [String] = []
     var offline = false
@@ -192,7 +192,7 @@ private final class OnlineAutomixGateway: GatewayClient {
     }
 
     // Observe the real render clock after moving to the original measured cue; never replace its plan or PCM.
-    private func onlineAutomixHandover(_ player: PlaybackEngine, audio: OutputMeasurement) async throws -> [String: Any] {
+    func onlineAutomixHandover(_ player: PlaybackEngine, audio: OutputMeasurement, loopingNext: Int? = nil) async throws -> [String: Any] {
         try await waitForStream({
             player.crossfade?.analysisDiagnostics["planKind"] as? String == "fade"
                 && player.crossfade?.analysisDiagnostics["planning"] as? Bool == false
@@ -219,6 +219,10 @@ private final class OnlineAutomixGateway: GatewayClient {
         XCTAssertTrue(sawStem, "A master-only fallback does not pass full Automix")
         XCTAssertTrue(finished); XCTAssertEqual(stopped, 0)
         XCTAssertFalse(samples.contains { $0["stemFailed"] as? Bool == true || $0["clockInvalid"] as? Bool == true })
+        if let loopingNext {
+            try await waitForStream { player.preparedStream?.index == loopingNext && (player.preparedStream?.entry.audio.bufferedDuration ?? 0) > 0.5 }
+        }
+        // Prefetch decodes silently outside the hardware graph; only the current song remains attached.
         XCTAssertEqual(player.streamOutput?.attachedCount, 1)
         let pcm = audio.read()
         XCTAssertGreaterThan(pcm.frames, 10000); XCTAssertGreaterThan(pcm.rms, 0.00001)
