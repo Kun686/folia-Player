@@ -7,6 +7,16 @@ import AVFoundation
 // VisualizerContainerTests.swift — actual packaged renderers and PCM; synthetic online identities, no retained GL objects.
 @MainActor extension NativeTests {
     func testPackagedVisualizerSettingsPreserveNativeOnlinePlayback() async throws {
+        try await checkPackagedVisualizers(["classic", "diorama", "lumiere", "sonnet"])
+    }
+
+    func testRemainingPackagedVisualizersPreserveNativeOnlinePlayback() async throws {
+        try await checkPackagedVisualizers(["cadenza", "cappella", "claddagh", "fume", "monet",
+                                            "partita", "pendolo", "still", "tempera", "tilt"])
+    }
+
+    // Reuses the same native output and page lifecycle for both mode groups, without a second playback fixture.
+    private func checkPackagedVisualizers(_ modes: [String]) async throws {
         #if !targetEnvironment(simulator)
         throw XCTSkip("Independent simulator container check only")
         #endif
@@ -88,13 +98,13 @@ import AVFoundation
             }
         }
         // Each checkpoint observes actual output while the real setting handlers mount/unmount the stage.
-        func checkpoint(_ phase: String, expectedCanvases: Bool) async throws {
+        func checkpoint(_ phase: String, mode: String, provider: String, settingsOpen: Bool) async throws {
             try jointProcessCheckpoint(phase, web: web)
             audio.reset(); let position = player.playbackPosition
             // Give the external system sampler time to capture each second restored phase independently.
             try await Task.sleep(for: .milliseconds(phase.hasSuffix("-1-restored") ? 3000 : 450))
             let pcm = audio.read(), advanced = player.playbackPosition - position
-            let state = try await jointJS(web, #"JSON.stringify({canvases:document.querySelectorAll('.lyric-stage canvas').length,settings:!!document.querySelector('.visual-settings'),mode:localStorage.getItem('visualizer_mode'),title:document.querySelector('.track-description h2')?.textContent,diagnostics:window.visualizerContainerQA})"#)
+            let state = try await jointJS(web, #"JSON.stringify({canvases:document.querySelectorAll('.lyric-stage canvas').length,settings:!!document.querySelector('.visual-settings'),mode:localStorage.getItem('visualizer_mode'),title:document.querySelector('.track-description h2')?.textContent,stageText:document.querySelector('.lyric-stage')?.textContent?.slice(0,250),diagnostics:window.visualizerContainerQA})"#)
             let bytes = try XCTUnwrap((state as? String)?.data(using: .utf8))
             let ui = try XCTUnwrap(try JSONSerialization.jsonObject(with: bytes) as? [String: Any])
             samples.append(["phase": phase, "positionAdvanced": advanced, "frames": pcm.frames, "rms": pcm.rms,
@@ -102,7 +112,10 @@ import AVFoundation
             XCTAssertTrue(player.outputIsPlaying, phase); XCTAssertGreaterThan(advanced, 0.1, phase)
             XCTAssertGreaterThan(pcm.frames, 1000, phase); XCTAssertGreaterThan(pcm.rms, 0.00001, phase)
             XCTAssertEqual(pcm.channels, 2, phase)
-            XCTAssertEqual((ui["canvases"] as? Int ?? 0) > 0, expectedCanvases, phase)
+            XCTAssertEqual((ui["canvases"] as? Int ?? 0) > 0, !settingsOpen && mode != "still", phase)
+            XCTAssertEqual(ui["settings"] as? Bool, settingsOpen, phase)
+            XCTAssertEqual(ui["mode"] as? String, mode, phase)
+            XCTAssertEqual(ui["title"] as? String, provider + " native visualizer", phase)
             print("VISUALIZER_CONTAINER \(phase) frames=\(pcm.frames) rms=\(pcm.rms) advanced=\(advanced)")
         }
         for (index, provider) in ["qq", "netease"].enumerated() {
@@ -110,7 +123,7 @@ import AVFoundation
                 player.select(index)
                 try await waitForStream({ player.outputIsPlaying && player.playbackPosition > 0.5 }, seconds: 10)
             }
-            for mode in ["classic", "diorama", "lumiere", "sonnet"] {
+            for mode in modes {
                 for cycle in 0..<2 {
                     _ = try await jointJS(web, "document.querySelector('.player-wake')?.click(); true")
                     try await jointUIReady(web, condition: "!document.querySelector('.player-heading')?.inert")
@@ -119,10 +132,16 @@ import AVFoundation
                     _ = try await jointJS(web, "document.querySelector('.player-options button').click(); true")
                     try await jointUIReady(web, condition: "!!document.querySelector('.visual-settings select') && !document.querySelector('.lyric-stage canvas')")
                     _ = try await jointJS(web, "(()=>{const s=document.querySelector('.visual-settings select');s.value='\(mode)';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()")
-                    try await checkpoint("\(provider)-\(mode)-\(cycle)-settings", expectedCanvases: false)
+                    try await checkpoint("\(provider)-\(mode)-\(cycle)-settings", mode: mode, provider: provider, settingsOpen: true)
                     _ = try await jointJS(web, "document.querySelector('.visual-settings > header button').click(); true")
-                    try await jointUIReady(web, condition: "!document.querySelector('.visual-settings') && document.querySelectorAll('.lyric-stage canvas').length >= \(mode == "classic" ? 2 : 3) && !document.querySelector('.empty-lyrics') && !document.querySelector('.lyric-notice')")
-                    try await checkpoint("\(provider)-\(mode)-\(cycle)-restored", expectedCanvases: true)
+                    // Still intentionally has no canvas; raster lyrics need their own canvas beyond the shared background.
+                    let raster = ["diorama", "fume", "lumiere", "sonnet", "tempera"].contains(mode)
+                    let rendering = mode == "still"
+                        ? "!!document.querySelector('.lyric-stage .visualizer-still') && !document.querySelector('.lyric-stage canvas')"
+                        : "document.querySelectorAll('.lyric-stage canvas').length >= \(raster ? 3 : 2)"
+                    let lyricsReady = raster ? "true" : "/晚|风|轻|窗|我们|星光/.test(document.querySelector('.lyric-stage')?.textContent ?? '')"
+                    try await jointUIReady(web, condition: "!document.querySelector('.visual-settings') && (\(rendering)) && (\(lyricsReady)) && !document.querySelector('.empty-lyrics') && !document.querySelector('.lyric-notice')")
+                    try await checkpoint("\(provider)-\(mode)-\(cycle)-restored", mode: mode, provider: provider, settingsOpen: false)
                     XCTAssertEqual(player.index, index); XCTAssertEqual(player.queue.count, 2); XCTAssertNil(player.error)
                     if cycle == 1 {
                         let config = WKSnapshotConfiguration(); config.afterScreenUpdates = true
@@ -138,6 +157,10 @@ import AVFoundation
         let report = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(report["errors"] as? [String], [])
         XCTAssertEqual(report["connectedContextLosses"] as? Int, 0)
+        let contextWarnings = (report["warnings"] as? [String] ?? []).filter {
+            $0.range(of: "too many.*context|context.*limit|context.*lost", options: [.regularExpression, .caseInsensitive]) != nil
+        }
+        XCTAssertEqual(contextWarnings, [])
         XCTAssertEqual(try NativeGatewayStore.shared.snapshot().scope, credentials.scope)
         XCTAssertEqual(gateway.resolved.filter { $0 == "container-qq" }.count, 1)
         XCTAssertTrue(gateway.resolved.contains("container-netease"))

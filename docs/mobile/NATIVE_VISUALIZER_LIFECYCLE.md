@@ -70,6 +70,64 @@ WebContent 末次占用仍高于首次（手机123.61→239.91MiB，平板135.02
 本次是原生容器的独立证据，不能据此改写那组报告。它没有复现对应的可见画布上下文丢失，
 但不同 WebKit 环境的差异与旧探针干扰仍需分开对照。
 
-剩余10个模式的同类原生检查、原生旋转／后台实际挂起、真实账号／CDN、物理设备、
+截至上述四模式批次，剩余10个模式的同类原生检查、原生旋转／后台实际挂起、真实账号／CDN、物理设备、
 长期帧率／内存／温升、歌词误差≤150ms与网易云30分钟锁屏仍待验收。
 本批不构成新个人安装包发布或完整移植验收。
+
+## 剩余10模式补验（2026-10-14）
+
+从源码 `7bf36fadd397a982893a236f121d4134b52ed0aa` 继续，只扩展上述原生测试，
+把模式列表作为同一测试辅助函数的参数；原来的四模式用例保留。
+新增 `testRemainingPackagedVisualizersPreserveNativeOnlinePlayback`，覆盖
+Cadenza、Cappella、Claddagh、Fume、Monet、Partita、Pendolo、Still、Tempera、Tilt。
+清单与 `src/types/visualizerModes.ts` 核对，连同前批覆盖14个内建模式。
+
+Still 按原设计无背景画布，检查其容器和歌词；Fume／Tempera 检查独立歌词画布；
+其余 DOM 模式同时等待歌词文字出现。每个阶段增加设置开关、当前模式和歌曲标题一致性断言，
+末尾检查上下文数量／丢失警告。没有给测试加入绘图 API 拦截或 GL 强引用。
+
+沿用同一个 Release／arm64 独立 Bundle ID、两台模拟器与系统版本；未改生产源码或重建前端资源。
+128 个资源摘要与前批构建一致，内嵌版本仍为 mobile.28、Web commit 仍为 `6ca10ef`。
+原生测试重新 build-for-testing 成功。QA 嵌套测试包改变后，重签名导致宿主二进制整体摘要变化，
+初次制包检查因此失败；修正该检查后的一次重试通过。逐 Mach-O section 摘要与前批一致，
+实际签名后两个二进制和266份原生／测试源码摘要另存 `package.json`，不冒充前批同一个测试包。
+
+| 检查 | iPhone 17 Pro 模拟器 | iPad Pro 11-inch M5 模拟器 |
+| --- | --- | --- |
+| 新增 XCTest | 1 PASS，0 FAIL／SKIPPED | 同一用例1 PASS，0 FAIL／SKIPPED |
+| 两平台身份／10模式／反复打开关闭设置 | 80阶段，通过 | 80阶段，通过 |
+| 每阶段真实 PCM | 至少19200帧、双声道，RMS≥0.12482 | 同样通过 |
+| 每阶段播放推进 | ≥0.44798秒 | ≥0.44798秒 |
+| 页面异常／警告／仍挂载画布上下文丢失 | 0／0／0 | 0／0／0 |
+| 外部进程采样 | 88次，20个必需恢复阶段全覆盖 | 88次，20个必需阶段全覆盖 |
+| 保存恢复截图 | 20张 | 20张 |
+
+本批只有**1个唯一新增 XCTest，在两台分别执行一次**，160个阶段不是160个独立用例。
+未重跑前批已经通过的四模式，也未第三次执行旧 WebKit 生命周期矩阵；旧失败证据保持原样。
+本批测试没有失败重试。歌曲仍是受控在线身份、生成音频和固定长句歌词，不能证明真实平台接口或实际歌曲观感。
+
+短时 footprint（MiB，三个进程不加总）：
+
+| 设备 | App min–max | WebContent min–max | GPU min–max |
+| --- | --- | --- | --- |
+| iPhone 模拟器 | 84.49–104.57 | 116.85–234.55 | 15.75–30.83 |
+| iPad 模拟器 | 86.25–94.08 | 119.27–239.39 | 18.50–38.42 |
+
+WebContent 首末分别117.36→226.64、122.63→234.80MiB，包含模式首次加载与纹理／字体缓存。
+没有持续相同负载的稳定段，不能判定泄漏，也不标为长期内存稳定。
+没有测量音频全程逐样本断流率、真实屏幕帧率或歌词≤150ms同步。
+
+已查看手机QQ身份全部10模式，以及平板网易云身份的Cappella／Monet／Tempera截图。
+歌词内容出现，但有两类画面问题待独立复核：
+
+- Cappella标题气泡、手机Monet装饰与展开控制栏重叠，需要对照控制器隐藏状态及桌面原版。
+- WKWebView快照左下有空白深色卡片，需要与模拟器整屏截图对照，区分实际合成问题和WKSnapshot结果。
+
+因此本批是播放与挂载恢复通过，**不是全部模式视觉验收通过**；未据截图直接修改原算法或已接受的控制器。
+
+证据目录 `.mobile-test-results/native-visualizer-remaining/`：`preflight.json`、`native-build.log`、
+`staging-correction.json`、`package.json`、`executed-test.swift`、`*-command.json`、`*.xcresult`、
+`*-summary.json`、`*-attachments/`、`*-processes/`、`metrics.json`、`visual-review.json`、`cleanup.json`。
+两个测试进程已结束，模拟器均Shutdown，所跟踪的App／WebContent／GPU／采样器PID已退出。
+原生旋转／真实系统挂起、真实账号／CDN、物理设备、长期性能及原有真机验收缺口仍为NOT_RUN；
+个人mobile.28和服务器均未更新。
