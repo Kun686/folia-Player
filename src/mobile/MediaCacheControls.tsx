@@ -18,7 +18,7 @@ export default function MediaCacheControls({ cache, light }: { cache: ReturnType
     try { await native.clearMediaCache(); } catch { setError(true); } finally { setBusy(false); }
   };
   return <>
-    {!cache.ready && cache.error && <button onClick={cache.retry}>{t('mobile.retry')}</button>}
+    {cache.canRetry && <button disabled={busy} onClick={cache.retry}>{t('mobile.retry')}</button>}
     <fieldset disabled={!cache.ready || busy} className="mobile-cache-controls">
     <MediaCacheSettingsSection cacheDirectory="" cacheDirectoryIsDefault cacheDirectoryStatus="idle"
       enableMediaCache={settings.enabled} isDaylight={light} isElectron={false} showLimit
