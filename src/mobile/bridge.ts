@@ -42,6 +42,8 @@ export interface NativeSleepTimerState { hours: number; minutes: number; enabled
 export type NativeSleepTimerEdit = Partial<Pick<NativeSleepTimerState, 'hours' | 'minutes' | 'enabled'>>;
 export type PlaybackEvent = Omit<PlaybackSnapshot, 'queue' | 'currentSong'> & Partial<Pick<PlaybackSnapshot, 'queue' | 'currentSong'>>;
 export interface FoliaNativePlugin {
+  getDisplaySleepSettings(): Promise<{ enabled: boolean }>;
+  setDisplaySleepSettings(options: { enabled: boolean }): Promise<{ enabled: boolean }>;
   chooseAudioRoute(options: { light: boolean; labels: { title: string; hint: string; close: string; fallback: string } }): Promise<void>;
   getLyricSettings(): Promise<NativeLyricSettings>;
   setLyricSettings(options: { settings: NativeLyricSettings }): Promise<NativeLyricSettings>;

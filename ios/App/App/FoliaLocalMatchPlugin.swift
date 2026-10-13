@@ -31,7 +31,7 @@ extension PlaybackEngine {
         }
         persist(); publish()
     }
-    func refreshLocalLibrary() async throws -> [String: Any] {
+    @MainActor func refreshLocalLibrary() async throws -> [String: Any] {
         localMetadataRequest += 1; let request = localMetadataRequest
         try await local.refreshTrackOrder()
         let snapshot = try await local.librarySnapshot()

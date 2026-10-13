@@ -9,7 +9,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = ["bootstrap", "configure", "health", "saveSession", "clearSession",
         "request", "cancelRequests", "startPersonalFM", "leavePersonalFM", "setQueue", "editQueue", "selectQueue", "command", "getState", "shareQR", "copyText", "shareLyricFile", "sharePlaylistFile",
         "localCatalog", "importAudio", "localDetails", "importLyrics", "pickLyricFile", "saveLocalLyrics", "readLocalLyrics", "selectLocalLyrics", "readLocalMatch", "writeLocalMatch", "readLocalLibrary", "editLocalLibrary", "removeLocal", "audioLevels",
-        "getAudioSettings", "setAudioSettings", "chooseAudioRoute", "getLyricSettings", "setLyricSettings", "getTransitionSettings", "setTransitionSettings", "getMediaCacheSettings", "setMediaCacheSettings",
+        "getAudioSettings", "setAudioSettings", "chooseAudioRoute", "getDisplaySleepSettings", "setDisplaySleepSettings", "getLyricSettings", "setLyricSettings", "getTransitionSettings", "setTransitionSettings", "getMediaCacheSettings", "setMediaCacheSettings",
         "mediaCacheState", "clearMediaCache", "songCover", "coverCacheState", "clearCoverCache",
         "readLyricCache", "writeLyricCache", "lyricCacheState", "clearLyricCache",
         "listExportLyrics", "readExportLyrics", "shareLyricArchive", "getSleepTimer", "setSleepTimer",
@@ -24,6 +24,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     var ai: NativeAIClient!
     var sync: NativeSyncClient!
     var models: PlaybackModels?
+    var displaySleep: NativeDisplaySleep?
     private let gateway = GatewayClient()
     var engine: PlaybackEngine!
     private var requests: [String: Task<Void, Never>] = [:]
@@ -32,6 +33,9 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
             self.ai = NativeAIClient()
             self.sync = NativeSyncClient()
             self.engine = PlaybackEngine(gateway: self.gateway, usesStereoOutput: true)
+            self.displaySleep = NativeDisplaySleep { [weak self] in
+                self?.engine?.intentToPlay == true && self?.engine?.outputIsPlaying == true
+            }
             self.models = try? PlaybackModels(engine: self.engine)
             self.models?.changed = { [weak self] in self?.notifyListeners("models", data: [:]) }
             self.models?.start()
@@ -39,7 +43,11 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
             self.engine.mediaCacheChanged = { [weak self] in self?.notifyListeners("mediaCache", data: [:]) }
             self.engine.lyricsChanged = { [weak self] song in self?.notifyListeners("lyrics", data: ["song": song]) }
             self.engine.localCatalogChanged = { [weak self] in self?.notifyListeners("localCatalog", data: [:]) }
-            self.engine.emit = { [weak self] state in self?.notifyListeners("playback", data: state) }
+            self.engine.emit = { [weak self] state in
+                // Playback callbacks can originate outside UIKit; read the latest state on the main actor.
+                Task { @MainActor [weak self] in self?.displaySleep?.refresh() }
+                self?.notifyListeners("playback", data: state)
+            }
             self.engine.sleepTimer.changed = { [weak self] in
                 guard let self else { return }
                 self.notifyListeners("sleepTimer", data: self.engine.sleepTimer.snapshot)

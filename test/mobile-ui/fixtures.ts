@@ -58,7 +58,7 @@ export const test = base.extend<{ nativeBridge: void }>({
     win.fixtureCommands = [];
     const emit = () => { state.revision++; subscriber?.({ ...state }); };
     win.fixtureEmitPlayback = (patch: Record<string, unknown>) => { Object.assign(state, patch); emit(); };
-    const methods = ['chooseAudioRoute', 'getLyricSettings', 'setLyricSettings', 'startPersonalFM', 'leavePersonalFM', 'getModels', 'downloadModel', 'cancelModel', 'removeModels', 'importModel', 'bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile', 'sharePlaylistFile',
+    const methods = ['getDisplaySleepSettings', 'setDisplaySleepSettings', 'chooseAudioRoute', 'getLyricSettings', 'setLyricSettings', 'startPersonalFM', 'leavePersonalFM', 'getModels', 'downloadModel', 'cancelModel', 'removeModels', 'importModel', 'bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile', 'sharePlaylistFile',
       'readLocalFolders', 'beginFolderImport', 'readFolderImport', 'prepareFolderImport', 'finishFolderImport', 'cancelFolderImport', 'removeLocalFolder',
       'readLocalLibrary', 'editLocalLibrary', 'localCatalog', 'importAudio', 'localDetails', 'readLocalLyrics', 'readLocalMatch', 'writeLocalMatch', 'selectLocalLyrics', 'importLyrics', 'pickLyricFile', 'saveLocalLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
       'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache', 'listExportLyrics', 'readExportLyrics', 'shareLyricArchive', 'getSleepTimer', 'setSleepTimer', 'getAISettings', 'setAISettings', 'aiRequest', 'cancelAIRequest', 'getSyncSettings', 'setSyncSettings', 'syncRequest', 'cancelSyncRequest'];
@@ -170,6 +170,15 @@ export const test = base.extend<{ nativeBridge: void }>({
         }
         if (method === 'clearMediaCache') {
           win.fixtureCache.songs = []; win.fixtureCache.count = 0; win.fixtureCache.bytes = 0; cacheSubscriber?.(); return {};
+        }
+        if (method === 'getDisplaySleepSettings') {
+          if (win.fixtureDisplaySleepLoadFailure) throw new Error('unavailable');
+          return JSON.parse(sessionStorage.getItem('fixture-display-sleep') || '{"enabled":false}');
+        }
+        if (method === 'setDisplaySleepSettings') {
+          if (win.fixtureDisplaySleepSaveFailure) throw new Error('unavailable');
+          sessionStorage.setItem('fixture-display-sleep', JSON.stringify(options));
+          return structuredClone(options);
         }
         if (method === 'getTransitionSettings') return structuredClone(win.fixtureTransition);
         if (method === 'getLyricSettings') {

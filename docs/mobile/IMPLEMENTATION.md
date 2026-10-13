@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+原版「播放时阻止休眠」已适配 iOS：默认关闭，开启后仅原生前台实际播放时保持唤醒，暂停／离开时释放。
+复用原设置与系统 API，修正本地曲库刷新后的线程发布问题；14 项逻辑、15 个 WebKit 场景及两种模拟器各 17 项原生测试通过。
+真机自动锁屏／温升 NOT_RUN，个人 mobile.28／服务器未更新，见 [DISPLAY_SLEEP.md](DISPLAY_SLEEP.md)。
+
 原版「播放设备」已适配为移动触摸入口与 Apple 系统输出选择器，沿用原音频设置和主题，不新增依赖。
 26 项逻辑、9 个 WebKit 场景，以及 iPhone／iPad 模拟器各 5 项原生测试通过。
 真实蓝牙／AirPlay 路由切换 NOT_RUN，个人 mobile.28／服务器未更新，见 [AUDIO_ROUTE.md](AUDIO_ROUTE.md)。

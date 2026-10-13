@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+「播放时阻止休眠」已接入原设置与 UIKit，默认关闭，原生管理前台播放及暂停／离开释放。
+14 项逻辑、15 个 WebKit 场景、iPhone／iPad 模拟器各 17 项原生测试通过，包含真实打包页面与 PCM 输出。
+真实锁屏／温升 NOT_RUN，个人 mobile.28／服务器未更新；首轮线程问题、失败与复测证据见 [DISPLAY_SLEEP.md](DISPLAY_SLEEP.md)。
+
 原版「播放设备」已接入移动音频设置与系统 AVRoutePickerView；26 项逻辑、9 个 WebKit 场景和两种模拟器各 5 项原生测试通过。
 覆盖面板生命周期、PCM 连续输出和明暗主题；模拟器未显示可选设备列表，真实蓝牙／AirPlay 切换 NOT_RUN。
 个人 mobile.28／服务器未更新，完整移植与 Automix 真机验收仍未完成，见 [AUDIO_ROUTE.md](AUDIO_ROUTE.md)。
