@@ -103,3 +103,39 @@ test('connection fields remain below the pinned settings header when the keyboar
   await viewport(page, initial.width, initial.height, initial.height);
   await expect(input).toHaveValue('https://fixture.invalid');
 });
+
+test('a 130px native keyboard viewport keeps the entire connection field and close button reachable', async ({ page }, info) => {
+  test.skip(info.project.name !== 'phone', 'Exact iPhone landscape keyboard dimensions; not a tablet duplicate.');
+  await page.goto('/mobile.html');
+  await page.locator('.brand').getByRole('button', { name: '服务器与外观', exact: true }).tap();
+  const dialog = page.getByRole('dialog', { name: '服务器与外观', exact: true });
+  const address = dialog.getByLabel('HTTPS 服务器地址', { exact: true });
+  await address.focus();
+  // Measured on iPhone 17 Pro / iOS 26.5 with the actual URL keyboard, not an estimated 240px viewport.
+  await viewport(page, 874, 402, 130);
+  const entireField = async (label: string) => {
+    await expect.poll(async () => {
+      const field = (await dialog.getByLabel(label, { exact: true }).boundingBox())!;
+      const body = (await dialog.locator('.sheet-body').boundingBox())!;
+      const header = (await dialog.locator(':scope > header').boundingBox())!;
+      return field.height >= 44 && field.y >= Math.max(body.y, header.y + header.height)
+        && field.y + field.height <= Math.min(body.y + body.height, 130);
+    }).toBe(true);
+  };
+  await entireField('HTTPS 服务器地址');
+  await address.fill('https://fixture.invalid');
+  await address.press('Tab');
+  await expect(dialog.getByLabel('访问凭据', { exact: true })).toBeFocused();
+  await entireField('访问凭据');
+  const close = dialog.getByRole('button', { name: '关闭', exact: true });
+  const closeBox = (await close.boundingBox())!;
+  expect(closeBox.height).toBeGreaterThanOrEqual(44);
+  expect(closeBox.y).toBeGreaterThanOrEqual(0);
+  expect(closeBox.y + closeBox.height).toBeLessThanOrEqual(130);
+  await viewport(page, 402, 874, 874);
+  await expect(page.locator('html')).not.toHaveAttribute('data-sheet-compact-viewport');
+  await expect(address).toHaveValue('https://fixture.invalid');
+  await expect.poll(async () => (await dialog.boundingBox())!.height).toBeGreaterThan(700);
+  await close.tap();
+  await expect(dialog).toHaveCount(0);
+});

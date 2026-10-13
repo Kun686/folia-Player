@@ -19,3 +19,7 @@
   .sheet.sheet-pinned > header { padding-block: 8px; }
 }
 :root[data-sheet-short-viewport] .sheet-pinned > header { padding-block: 8px; }
+/* Preserve touch target sizes when the native keyboard leaves less room than a header plus a field. */
+:root[data-sheet-compact-viewport] .sheet-backdrop { padding-top: max(4px, env(safe-area-inset-top)); padding-bottom: 4px; }
+:root[data-sheet-compact-viewport] .sheet-pinned > header { padding-block: 0; }
+:root[data-sheet-compact-viewport] .sheet-pinned > .sheet-body { padding-block: 4px; scroll-padding-block: 4px; }

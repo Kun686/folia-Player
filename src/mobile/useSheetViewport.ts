@@ -11,6 +11,7 @@ export function useSheetViewport() {
     const clear = () => {
       properties.forEach(property => root.style.removeProperty(property));
       root.removeAttribute('data-sheet-short-viewport');
+      root.removeAttribute('data-sheet-compact-viewport');
     };
     const update = () => {
       frame = 0;
@@ -21,6 +22,8 @@ export function useSheetViewport() {
         if (root.style.getPropertyValue(properties[index]) !== next) root.style.setProperty(properties[index], next);
       });
       root.toggleAttribute('data-sheet-short-viewport', viewport.height < 500);
+      // The landscape URL keyboard can leave only 130px: keep full-size fields by reducing chrome spacing.
+      root.toggleAttribute('data-sheet-compact-viewport', viewport.height < 200 && viewport.height < window.innerHeight);
       const focused = document.activeElement;
       if (!(focused instanceof HTMLElement) || !focused.matches('input,textarea,[contenteditable=true]')) return;
       const sheet = focused.closest('.sheet-body, .sheet');

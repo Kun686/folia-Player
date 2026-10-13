@@ -21,6 +21,11 @@
 和 1014 项视觉逻辑通过，
 1 项可选测量跳过，类型检查与移动资源构建通过。未改原动画算法、依赖或平台播放链；本批真机／真实账号 NOT_RUN。
 
+设置原生巡检后续见 [SETTINGS_NATIVE_KEYBOARD.md](SETTINGS_NATIVE_KEYBOARD.md)：修复实际 iPhone 横屏键盘
+仅留 130px 可视高度时的输入框裁切，保留触摸尺寸。34 项 WebKit 回归通过、2 项平板重复场景跳过，
+独立 Release QA 的 iPhone 模拟器键盘／旋转／子页返回已观察通过；iPad 原生键盘、真机和真实账号本批 NOT_RUN。
+未更新个人 mobile.28 或服务器。
+
 ## 本轮核对的集合与队列行为
 
 移动网络旧响应修复见 [SESSION_RESPONSE_REVISION.md](SESSION_RESPONSE_REVISION.md)：凭据替换后拒绝旧响应，
