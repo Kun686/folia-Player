@@ -28,6 +28,11 @@
 
 ## 本轮核对的集合与队列行为
 
+退出的原生整合补验见 [NATIVE_LOGOUT_INTEGRATION.md](NATIVE_LOGOUT_INTEGRATION.md)：生产 runtime 通过真实
+Capacitor／Keychain 和原生三类缓存，iPhone 新增 4 项及既有 6 项回归、iPad 相同 4 项全部通过，
+合计 10 个唯一用例。验证取消桥失败后仍清理该平台、保留另一平台并拒绝旧响应；本批只新增 QA 测试。
+网络与取消失败为受控注入，未执行完整 React 页面或真实平台／物理设备验收，个人 mobile.28 和服务器未更新。
+
 两平台退出清理见 [LOGOUT_CANCELLATION.md](LOGOUT_CANCELLATION.md)：取消请求失败时仍尝试原生凭据清理，
 等待已排队保存，防止旧凭据随后写回；错误仍进入原重试入口。772 项移动逻辑、69 项 WebKit 和类型检查通过。
 这是受控桥接故障验证，本批原生／Keychain 故障／真实账号／物理设备 NOT_RUN，个人 mobile.28 未更新。

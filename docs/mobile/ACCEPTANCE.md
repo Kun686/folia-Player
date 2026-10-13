@@ -3,6 +3,12 @@
 当前验收优先级为 QQ／网易云核心功能、特效动画、设置 UI，见 [CURRENT_SCOPE.md](CURRENT_SCOPE.md)。
 本地音乐、其他平台、同步、AI 和完整 Automix 扩展暂缓；历史自动测试不自动替代当前两平台真机验收。
 
+2026-10-14 退出原生整合：实际打包的生产 runtime 经真实 Capacitor／Keychain，验证两平台取消成功／失败、
+排队保存后清理、旧响应拒绝及账号／队列／音频／封面／歌词隔离。iPhone 新增 4 项及相关回归 6 项、
+iPad 相同 4 项均 PASS，无失败或跳过，共 10 个唯一用例。新增 QA 代码，不修改生产行为。
+完整 React 退出页面、本批真实账号／物理设备／长播 NOT_RUN，个人 mobile.28 和服务器未更新；
+见 [NATIVE_LOGOUT_INTEGRATION.md](NATIVE_LOGOUT_INTEGRATION.md)。
+
 2026-10-14 退出清理：请求取消桥失败不再跳过凭据删除；保留失败提示，排队保存后清理，另一平台不受影响。
 772 项移动逻辑、69 项 WebKit、类型检查 PASS，保留修复前两平台各一项失败证据。
 本批原生／Keychain 故障／真实账号／物理设备 NOT_RUN；个人 mobile.28 和服务器未更新，

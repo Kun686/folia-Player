@@ -59,3 +59,8 @@ iPad 原生键盘、物理设备和真实账号本批 NOT_RUN。见 [SETTINGS_NA
 2026-10-14 两平台退出清理：请求取消桥调用失败不再跳过凭据删除，等待排队保存后清理并保留错误重试。
 772 项移动逻辑、69 项 WebKit 回归和类型检查通过；本批原生／Keychain 故障／真实账号／物理设备 NOT_RUN，
 个人 mobile.28 未更新。见 [LOGOUT_CANCELLATION.md](LOGOUT_CANCELLATION.md)。
+
+2026-10-14 退出原生整合补验：生产 runtime 经真实 Capacitor／Keychain，验证两平台正常退出与取消桥失败，
+当前平台队列／音频／封面／歌词清理、另一平台保留和旧响应拒绝。iPhone 4 项加相关原生回归 6 项、
+iPad 相同 4 项全部通过，共 10 个唯一用例；见 [NATIVE_LOGOUT_INTEGRATION.md](NATIVE_LOGOUT_INTEGRATION.md)。
+本批只新增 QA 测试，不是完整 React 页面或真实账号验收；真机／长播 NOT_RUN，个人 mobile.28 和服务器未更新。

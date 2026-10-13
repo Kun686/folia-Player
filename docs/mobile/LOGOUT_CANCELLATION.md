@@ -58,6 +58,9 @@ npm run build:mobile
 
 ## 交付边界
 
+后续已补做 [原生退出整合验证](NATIVE_LOGOUT_INTEGRATION.md)：生产 runtime 经真实 Capacitor／Keychain，
+iPhone 4 项加相关原生回归 6 项、iPad 相同 4 项均通过。该结果另批记录，不改写下文原批次边界。
+
 本批原生容器、Keychain 故障注入、真实账号与物理设备 `NOT_RUN`。
 个人 App 仍为 mobile.28，服务器未更新。网易云 30 分钟锁屏、耳机／蓝牙／网络切换、
 歌词精度与长期动画性能等完整交付验收继续保留，不能由本次逻辑／界面回归替代。
