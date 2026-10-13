@@ -17,7 +17,7 @@ import VisualSettings from './VisualSettings';
 import AudioControls from './AudioControls';
 import PlayerChrome from './PlayerChrome';
 import PlayerFeedback from './PlayerFeedback';
-import { usePlaybackCommands } from './usePlaybackCommands';
+import type { usePlaybackCommands } from './usePlaybackCommands';
 import { usePlayerChrome } from './usePlayerChrome';
 import TransitionControls from './TransitionControls';
 import LyricTools from './LyricTools';
@@ -39,7 +39,8 @@ import { VideoLayerPlayback } from '../components/visualizer/videoLayer/VideoLay
 
 // src/mobile/PlayerPanel.tsx — original registry renderers consume the native clock and decoded audio.
 const MobileVisualizer = memo(VisualizerRenderer);
-export default function PlayerPanel({ appearance, state, time, visible, light, expanded, collapse, openQueue, captureSongGuard, songEpoch, likes, songLikeProviders }: {
+export default function PlayerPanel({ appearance, state, time, visible, light, expanded, collapse, openQueue, captureSongGuard, songEpoch, likes, songLikeProviders, commands }: {
+  commands: ReturnType<typeof usePlaybackCommands>;
   likes: MobileSongLikes; songLikeProviders: string[];
   songEpoch: number;
   appearance: MobileTheme;
@@ -80,7 +81,7 @@ export default function PlayerPanel({ appearance, state, time, visible, light, e
   const [line, setLine] = useState(-1);
   const lineRef = useRef(-1);
   const [error, setError] = useState(false);
-  const { send, error: commandError } = usePlaybackCommands(songEpoch);
+  const { send, error: commandError } = commands;
   const song = state.currentSong;
   const videoSongKey = JSON.stringify(song?.sourceRef);
   const videoPlayback = useMemo(() => ({ time, playing: state.playing, songKey: videoSongKey }), [time, state.playing, videoSongKey]);

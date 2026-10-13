@@ -53,6 +53,8 @@ import LoginSheet from './LoginSheet';
 import SettingsSheet from './SettingsSheet';
 import { useNativeSleepTimer } from './useNativeSleepTimer';
 import PlayerPanel from './PlayerPanel';
+import PlayerFeedback from './PlayerFeedback';
+import { usePlaybackCommands } from './usePlaybackCommands';
 import type { QueueAddBehavior, SongResult } from '../types';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { captureMobileQueueSessions, enqueueMobileSongs, editMobileQueue, playMobileSearchSong, type QueueAction } from './queueActions';
@@ -95,6 +97,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
     if (provider !== 'local' && provider !== 'cached' && provider !== 'navidrome' && available.providers.length && !providerEnabled) setProvider(available.providers[0]);
   }, [available.providers, providerEnabled, provider]);
   const playback = usePlayback();
+  const playbackCommands = usePlaybackCommands(playback.songEpoch);
   const appearance = useMobileTheme(playback.state.currentSong, playback.songEpoch, playback.captureSongGuard);
   const sleepTimer = useNativeSleepTimer();
   const catalog = useCatalog(isNavidrome ? '' : provider, !!server && isNative && providerEnabled);
@@ -249,6 +252,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         {catalog.logoutError && <button disabled={catalog.loggingOut} onClick={() => void catalog.logout()}>{t('mobile.retry')} · {t('mobile.logout')}</button>}
       </div>}
       {((!isLocal && !isCached && !isNavidrome && (catalog.error || available.error)) || error) && <p role="alert">{t('mobile.error')}</p>}
+      {!expanded && <PlayerFeedback state={playback.state} commandError={playbackCommands.error} otherError={false} className="library-playback-error" />}
       {isCached && mediaCache.error && <p role="alert">{t('mobile.cacheError')}</p>}
       {queueError && <p role="alert">{t('mobile.' + queueError)}</p>}
       {isLocal && local.error && <p role="alert">{t('mobile.importError')} {local.error}</p>}
@@ -271,6 +275,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       </>}
     </div>
     <PlayerPanel appearance={appearance} state={playback.state} time={playback.currentTime} visible={playback.visible} light={light} songEpoch={playback.songEpoch}
+      commands={playbackCommands}
       likes={likes} songLikeProviders={available.songLikeProviders}
       captureSongGuard={playback.captureSongGuard}
       expanded={expanded} collapse={() => setExpanded(false)} openQueue={() => { setQueueView(true); setExpanded(false); }} />
@@ -278,7 +283,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       <button className="mini-title" onClick={() => setExpanded(true)}><Music2 /><span><strong>{active?.name ?? 'Folia'}</strong>
         <small>{active?.artists.map(a => a.name).join(' / ') ?? 'Classic'}</small></span></button>
       <button disabled={!active && !playback.state.queue.length} aria-label={t(playback.state.playing ? 'mobile.pause' : 'mobile.play')}
-        onClick={() => void native.command({ action: playback.state.playing ? 'pause' : 'play' }).catch(() => setError(true))}>
+        onClick={() => playbackCommands.send({ action: playback.state.playing ? 'pause' : 'play' })}>
         {playback.state.playing ? <Pause /> : <Play />}</button>
     </footer>
     {settings && <SettingsSheet folders={folders} lyricPreference={lyricPreference} appearance={appearance} mediaCache={mediaCache} timer={sleepTimer} server={server} light={light} setLight={setLight}

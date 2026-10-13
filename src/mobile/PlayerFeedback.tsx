@@ -9,8 +9,8 @@ const keys: Record<string, keyof typeof playbackEn> = {
   network: 'network', 'network-timeout': 'network', 'rate-limited': 'rateLimited',
   unavailable: 'unavailable', 'audio-failed': 'audio', 'audio-session': 'audioSession', 'state-unavailable': 'state',
 };
-export default function PlayerFeedback({ state, commandError, otherError }: {
-  state: PlaybackSnapshot; commandError: boolean; otherError: boolean;
+export default function PlayerFeedback({ state, commandError, otherError, className = 'player-error' }: {
+  state: PlaybackSnapshot; commandError: boolean; otherError: boolean; className?: string;
 }) {
   const { t } = useTranslation();
   if (!state.error && !commandError && !otherError) return null;
@@ -18,5 +18,5 @@ export default function PlayerFeedback({ state, commandError, otherError }: {
   const provider = source?.kind === 'online' ? omni.getProviderLabel(source.providerId) : t('mobile.playback.platform');
   const key = state.error ? `mobile.playback.${Object.hasOwn(keys, state.error) ? keys[state.error] : 'failed'}`
     : commandError ? 'mobile.playback.command' : 'mobile.error';
-  return <p className="player-error" role="alert">{t(key, { provider })}</p>;
+  return <p className={className} role="alert">{t(key, { provider })}</p>;
 }
