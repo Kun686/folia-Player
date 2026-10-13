@@ -32,6 +32,7 @@ import AVFoundation
     }
     func close() {
         player.stop(); player.clearOutput(); player.crossfade?.cancelAnalysis()
+        client.scrobbling.invalidate()
         for url in urls { ProfileHTTPProtocol.remove(url) }
         storage.removePersistentDomain(forName: suite)
         try? FileManager.default.removeItem(at: root)

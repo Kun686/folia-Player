@@ -67,5 +67,5 @@ Playwright 使用既有 mobile-ui 配置；原生以 `build-for-testing` 后的�
 本批只提交开发源码与记录，不更新个人 mobile.28、签名或 `BUILD_RECORD.json`。
 需要回退时恢复本批前提交 `651c45f928504eeda4d607fde58883afc20db8ed` 后重新构建完整包。
 
-本批覆盖以上歌单／收藏触摸操作，不代表 Navidrome 全部功能或完整移植已验收；播放上报等原版能力仍需逐项核对。
+本批覆盖以上歌单／收藏触摸操作，不代表 Navidrome 全部功能或完整移植已验收；后续播放上报已完成受控验证，见 [NAVIDROME_SCROBBLE.md](NAVIDROME_SCROBBLE.md)。
 完整 Automix 的真机热保护、后台及长期稳定性验收继续等待设备条件恢复。

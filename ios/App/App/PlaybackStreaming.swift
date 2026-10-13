@@ -98,7 +98,7 @@ extension PlaybackEngine {
         entry.ended = { [weak self, weak entry] in
             guard let self, let entry, epoch == self.generation, self.stream === entry, self.intentToPlay else { return }
             if let song = self.currentSong { self.cachePlayedSong(song, entry: entry) }
-            self.listening.finishOccurrence()
+            self.finishListeningOccurrence(ended: true)
             self.failures = 0; self.move(1, automatic: true)
         }
         entry.failed = { [weak self, weak entry] in

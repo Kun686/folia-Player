@@ -3,6 +3,7 @@ import Foundation
 // PlaybackMediaCache.swift — cache lifetimes belong to decoders; completed playback keeps the original opt-in policy.
 extension PlaybackEngine {
     @MainActor func connectNavidrome(_ client: NativeNavidromeClient) {
+        if navidrome !== client { navidrome?.scrobbling.invalidate() }
         navidrome?.connectionChanged = nil
         navidrome = client
         client.connectionChanged = { [weak self] in self?.invalidateProvider("navidrome") }

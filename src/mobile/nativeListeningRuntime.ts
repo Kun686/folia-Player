@@ -3,6 +3,7 @@ import { PlaybackListenTracker } from '../utils/playbackListenTracker';
 import { resolveNeteaseListeningIdentity } from '../utils/playbackListeningIdentity';
 import type { SongResult } from '../types';
 import { createPlaybackReportLimiter, REPORT_TIMEOUT_MS } from '../utils/playbackReportLimiter';
+export { createNavidrome } from './nativeNavidromeScrobbleRuntime';
 
 // nativeListeningRuntime.ts — original accounting in JavaScriptCore; no network or WebView dependency.
 export const protocolVersion = 1;

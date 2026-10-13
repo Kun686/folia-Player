@@ -80,6 +80,18 @@ enum NativeNavidromeRequest {
     private static func signedURL(_ settings: NativeNavidromeSettings, operation: String, parameters: [String: String]) throws -> URL {
         try signedURL(settings, operation: operation, values: parameters.mapValues { [$0] })
     }
+    // Playback-only route, deliberately absent from both WebView read and mutation allowlists.
+    static func scrobble(settings: NativeNavidromeSettings, id: String, time: Double, submission: Bool) throws -> URLRequest {
+        try settings.validate()
+        guard settings.enabled, !settings.password.isEmpty else { throw MobileFailure("navidrome-not-configured") }
+        guard validMediaID(id), time.isFinite, time >= 0, time <= 8_640_000_000_000_000 else { throw MobileFailure("invalid-navidrome-request") }
+        let url = try signedURL(settings, operation: "scrobble", parameters: ["id": id,
+            "time": String(Int64(time.rounded(.down))), "submission": submission ? "true" : "false"])
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30)
+        request.httpMethod = "GET"; request.httpShouldHandleCookies = false
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        return request
+    }
     // Write routes retain repeated Subsonic parameters; no credential or endpoint overrides are accepted.
     static func mutation(settings: NativeNavidromeSettings, operation: String, parameters: [String: Any]) throws -> URLRequest {
         try settings.validate()

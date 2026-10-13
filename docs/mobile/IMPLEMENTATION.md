@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+Navidrome now-playing／播放记录已接入原生播放器，复用原位置阈值追踪器；暂停、循环、自然结束与 Automix 交接均由原生触发。
+797 项逻辑、60 项原生模拟器回归通过；修复账号切换时取消尚未释放请求槽位的竞争，无新依赖。
+个人 mobile.28 未更新，真实记录／真机／系统挂起 NOT_RUN，见 [NAVIDROME_SCROBBLE.md](NAVIDROME_SCROBBLE.md)。
+
 Navidrome 新建／重命名／删除歌单、加入／移除歌曲与收藏已接入曲库和播放器工具，复用原参数映射与既有原生传输，无新依赖。
 1,427 项逻辑、27 项 Navidrome WebKit 场景、21 项既有在线收藏回归及 35 项原生模拟器测试通过。
 写入结果不明时刷新核对，不自动重试；位置移除仍受 Subsonic 无条件写入的并发限制。

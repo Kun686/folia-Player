@@ -158,7 +158,7 @@ final class PlaybackEngine {
         guard queue.indices.contains(target) || (target == -1 && detachedSong != nil) else { return }
         playbackFade?.flush(); playbackFadeToken = nil
         listeningSeek = nil
-        if !refresh { listening.finishOccurrence() } else { listening.discontinuity() }
+        if !refresh { finishListeningOccurrence() } else { listening.discontinuity() }
         if usesStereoOutput { selectStream(target, refresh: refresh, position: position); return }
         guard let song = queue.indices.contains(target) ? queue[target] : (target == -1 ? detachedSong : nil) else { return }
         generation += 1; let epoch = generation
@@ -250,6 +250,7 @@ final class PlaybackEngine {
     }
     func invalidateProvider(_ provider: String) {
         if provider == "netease" { listening.invalidate(); personalFM.leave() }
+        if provider == "navidrome" { MainActor.assumeIsolated { navidrome?.scrobbling.invalidate() } }
         mediaCacheEpoch += 1
         let previous = mediaCachePurges[provider]
         mediaCachePurges[provider] = Task { [mediaCache, coverCache, lyricCache] in
@@ -304,11 +305,19 @@ final class PlaybackEngine {
     }
     var lyricsChanged: (([String: Any]) -> Void)?
     var localCatalogChanged: (() -> Void)?
+    func finishListeningOccurrence(ended: Bool = false) {
+        listening.finishOccurrence()
+        MainActor.assumeIsolated { navidrome?.scrobbling.finish(endPosition: ended ? playbackDuration : nil) }
+    }
     func publish() {
         crossfade?.updateLyrics()
         finishPlaybackFadeIn()
         listening.observe(song: currentSong, position: playbackPosition, duration: playbackDuration,
             playing: outputIsPlaying && stream?.seeking != true && listeningSeek == nil, quality: audioSettings.audioQuality)
+        MainActor.assumeIsolated {
+            navidrome?.scrobbling.observe(song: currentSong, position: playbackPosition, duration: playbackDuration,
+                playing: outputIsPlaying && stream?.seeking != true && listeningSeek == nil)
+        }
         revision += 1; updateNowPlaying()
         var event = snapshot()
         if !queueDirty { event.removeValue(forKey: "queue"); event.removeValue(forKey: "currentSong") }

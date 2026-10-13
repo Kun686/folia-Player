@@ -84,7 +84,7 @@ extension PlaybackEngine {
         observers.append(center.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: nil, queue: .main) { [weak self] note in
             guard let self, let item = note.object as? AVPlayerItem,
                   item === self.observedItem else { return }
-            self.listening.finishOccurrence()
+            self.finishListeningOccurrence(ended: true)
             self.failures = 0
             if self.prepared == nil { self.move(1, automatic: true) }
         })

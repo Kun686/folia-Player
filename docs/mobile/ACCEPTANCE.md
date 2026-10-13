@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+Navidrome 原生播放上报通过 797 项逻辑与 60 项原生模拟器回归，包含三首实际解码的短音频及网易云既有听歌记录回归。
+首轮账号切换的槽位释放竞争已修复并用相同选择器复测；个人 mobile.28 未更新，真实服务器记录／物理设备／系统挂起 NOT_RUN。
+完整移植与长期性能验收仍未完成，见 [NAVIDROME_SCROBBLE.md](NAVIDROME_SCROBBLE.md)。
+
 Navidrome 歌单编辑与收藏已完成受控验证：1,427 项逻辑、27 项 Navidrome WebKit 场景、21 项既有在线收藏回归及 35 项原生模拟器测试通过。
 涵盖未知写入结果、重复歌曲位置、账号变更取消和原生桥接；Subsonic 不支持条件写入，不能保证跨客户端的位置移除原子性。
 个人 mobile.28 未更新；真实服务器写入／物理设备／系统挂起 NOT_RUN，完整交付仍未完成，见 [NAVIDROME_EDITS.md](NAVIDROME_EDITS.md)。

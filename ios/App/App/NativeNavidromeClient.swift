@@ -11,6 +11,8 @@ import Foundation
     // Four cover downloads plus current/next lyrics; they cannot consume playback or browsing slots.
     private let resourceRequests = NativeJSONTasks(prefix: "navidrome", maximumActive: 6)
     private let mutations = NativeJSONTasks(prefix: "navidrome", maximumActive: 1)
+    private let reports = NativeJSONTasks(prefix: "navidrome", maximumActive: 1)
+    lazy var scrobbling = NativeNavidromeScrobbler(client: self)
     private(set) var revision = 0
     var connectionChanged: (() -> Void)?
     nonisolated static let maxResponseBytes = 8 * 1024 * 1024
@@ -32,6 +34,7 @@ import Foundation
         try write(next.record())
         // A failed Keychain write must preserve current requests and the last committed settings.
         revision += 1; requests.cancelAll(); playbackRequests.cancelAll(); resourceRequests.cancelAll(); mutations.cancelAll()
+        reports.cancelAll(); scrobbling.invalidate()
         if previous.scope != next.scope || previous.enabled != next.enabled { connectionChanged?() }
         return publicValues(next)
     }
@@ -72,6 +75,16 @@ import Foundation
             replayGain: NativeReplayGainInfo(remote["replayGain"]) ?? NativeReplayGainInfo(song["replayGain"]))
     }
     func cancel(_ id: String) { requests.cancel(id) }
+    func scrobble(song: [String: Any], expected: Int, time: Double, submission: Bool) async throws {
+        _ = try await reports.run(id: UUID().uuidString) { [self] in
+            _ = try validatePlayback(song, expected: expected)
+            guard let id = (song["sourceRef"] as? [String: Any])?["mediaId"] as? String else { throw MobileFailure("invalid-identity") }
+            let request = try NativeNavidromeRequest.scrobble(settings: NativeNavidromeSettings.read(read()), id: id, time: time, submission: submission)
+            let result = try await NativeJSONTransport.perform(request, configuration: configuration(), limit: Self.maxResponseBytes, timeout: 30, prefix: "navidrome")
+            _ = try validatePlayback(song, expected: expected)
+            return try NativeNavidromeRequest.response(result)
+        }
+    }
     func mutate(id: String, expected: Int, scope: String, operation: String, parameters: [String: Any]) async throws -> [String: Any] {
         try await mutations.run(id: id) { [self] in
             _ = try validateResource(scope, expected: expected)
