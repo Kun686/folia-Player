@@ -17,7 +17,7 @@ import AVFoundation
 
     // Reuses the same native output and page lifecycle for both mode groups, without a second playback fixture.
     func checkPackagedVisualizers(_ modes: [String],
-        afterRestore: (@MainActor (WKWebView, String) async throws -> Void)? = nil) async throws {
+        afterRestore: (@MainActor (WKWebView, String, PlaybackEngine, OutputMeasurement) async throws -> Void)? = nil) async throws {
         #if !targetEnvironment(simulator)
         throw XCTSkip("Independent simulator container check only")
         #endif
@@ -67,23 +67,7 @@ import AVFoundation
         _ = try await jointJS(web, "localStorage.clear(); localStorage.setItem('auto_use_best_lyric','false'); window.visualizerRetiredDocument = true; true")
         web.load(URLRequest(url: URL(string: "capacitor://localhost/mobile.html")!))
         try await jointUIReady(web, condition: "!window.visualizerRetiredDocument && !!document.querySelector('.mobile-app')")
-        _ = try await jointJS(web, #"""
-        (() => {
-          const report = window.visualizerContainerQA = {errors: [], warnings: [], connectedContextLosses: 0};
-          const add = (key, message) => { if (report[key].length < 100) report[key].push(String(message)); };
-          window.addEventListener('error', event => add('errors', event.message));
-          window.addEventListener('unhandledrejection', event => add('errors', event.reason));
-          for (const [level, key] of [['error','errors'], ['warn','warnings']]) {
-            const original = console[level].bind(console);
-            console[level] = (...args) => { add(key, args.map(String).join(' ')); original(...args); };
-          }
-          // Event observation keeps no canvas, context or program references and does not patch rendering APIs.
-          document.addEventListener('webglcontextlost', event => {
-            if (event.target?.isConnected) report.connectedContextLosses++;
-          }, true);
-          return true;
-        })()
-        """#)
+        try await installVisualizerDiagnostics(web)
         try player.setQueue(songs, at: 0)
         try await waitForStream({ player.outputIsPlaying && player.playbackPosition > 0.5 }, seconds: 10)
         let output = try XCTUnwrap(player.streamOutput), audio = OutputMeasurement()
@@ -149,7 +133,7 @@ import AVFoundation
                         let image = try await web.takeSnapshot(configuration: config)
                         let attachment = XCTAttachment(image: image); attachment.name = "\(provider)-\(mode)-restored"
                         attachment.lifetime = .keepAlways; add(attachment)
-                        try await afterRestore?(web, "\(provider)-\(mode)")
+                        try await afterRestore?(web, "\(provider)-\(mode)", player, audio)
                     }
                 }
             }
@@ -166,5 +150,26 @@ import AVFoundation
         XCTAssertEqual(try NativeGatewayStore.shared.snapshot().scope, credentials.scope)
         XCTAssertEqual(gateway.resolved.filter { $0 == "container-qq" }.count, 1)
         XCTAssertTrue(gateway.resolved.contains("container-netease"))
+    }
+
+    // Reattach scalar diagnostics after a real WebView document reload.
+    func installVisualizerDiagnostics(_ web: WKWebView) async throws {
+        _ = try await jointJS(web, #"""
+        (() => {
+          const report = window.visualizerContainerQA = {errors: [], warnings: [], connectedContextLosses: 0};
+          const add = (key, message) => { if (report[key].length < 100) report[key].push(String(message)); };
+          window.addEventListener('error', event => add('errors', event.message));
+          window.addEventListener('unhandledrejection', event => add('errors', event.reason));
+          for (const [level, key] of [['error','errors'], ['warn','warnings']]) {
+            const original = console[level].bind(console);
+            console[level] = (...args) => { add(key, args.map(String).join(' ')); original(...args); };
+          }
+          // Event observation keeps no canvas, context or program references and does not patch rendering APIs.
+          document.addEventListener('webglcontextlost', event => {
+            if (event.target?.isConnected) report.connectedContextLosses++;
+          }, true);
+          return true;
+        })()
+        """#)
     }
 }

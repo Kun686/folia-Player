@@ -5,7 +5,7 @@ import WebKit
 // OverlayCompositionTests.swift — compare native display capture and WKSnapshot at the same stable chrome state.
 @MainActor extension NativeTests {
     func testPackagedPlayerOverlayComposition() async throws {
-        try await checkPackagedVisualizers(["cappella", "monet"]) { web, label in
+        try await checkPackagedVisualizers(["cappella", "monet"]) { web, label, _, _ in
             // Keyboard focus legitimately keeps controls visible while the external sampler captures the screen.
             _ = try await self.jointJS(web, "document.querySelector('.primary-play').focus(); window.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab'})); true")
             try await self.jointUIReady(web, condition: "document.querySelector('.player-panel')?.dataset.controlsHidden === 'false'")
