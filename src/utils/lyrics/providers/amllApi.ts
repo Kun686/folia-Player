@@ -47,8 +47,10 @@ export interface AmllApiSearchPage {
 }
 
 // 同一平台传多个 ID 时官方按交集匹配，所以一次只查一个 ID
-export const buildAmllApiLyricsUrl = (platform: AmllDbPlatform, musicId: number | string): string => (
-    `${AMLL_API_BASE_URL}/v1/lyrics/get?${new URLSearchParams({ [PLATFORM_QUERY_KEYS[platform]]: String(musicId) })}`
+export const buildAmllApiLyricsUrl = (platform: AmllDbPlatform, musicId: number | string,
+    encodeQuery: (query: Record<string, string>) => string = query => new URLSearchParams(query).toString(),
+): string => (
+    `${AMLL_API_BASE_URL}/v1/lyrics/get?${encodeQuery({ [PLATFORM_QUERY_KEYS[platform]]: String(musicId) })}`
 );
 
 // q：按词匹配曲名、歌手、专辑和歌词正文，多个词之间取交集，不分大小写和顺序。

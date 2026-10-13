@@ -1,7 +1,7 @@
 import { Buffer } from 'buffer';
 import type { SongResult } from '../../types';
-import { qqLyricParams, qqLyricSong, qqRequestPayload, parseQQLyricText } from '../../utils/lyrics/providers/qqLyricProtocol';
-import { qrcDecryptBytes } from '../../utils/lyrics/providers/qrcDecrypt';
+import { qqLyricParams, qqLyricSong, qqRequestPayload } from '../../utils/lyrics/providers/qqLyricProtocol';
+import { parseNativeQQLyrics } from './nativeQqLyrics';
 import { getProcessedLyricPayload, prepareNeteaseLyrics, extractCloudLyricText } from '../../utils/lyrics/neteasePayload';
 import { parseLyricsByFormat } from '../../utils/lyrics/parserCore';
 import { onlineLyricResult } from '../../utils/lyrics/nativeCacheRuntime';
@@ -83,15 +83,5 @@ export function stepJSON(text: string, inflate: (base64: string) => string | nul
     } });
     if (responses.length !== offset + 1) fail();
     const raw = readResponse(responses[offset]);
-    if (raw.code !== 0 || raw.request?.code !== 0) fail('lyric-unavailable');
-    const data = raw.request.data;
-    if (!data?.lyric) return onlineLyricResult(null, input.full === true);
-    const decrypt = (value: unknown) => {
-        if (!value) return '';
-        if (typeof value !== 'string' || value.length > 2_000_000 || !/^(?:[a-fA-F0-9]{2})+$/.test(value)) fail();
-        const result = inflate(Buffer.from(qrcDecryptBytes(value as string)).toString('base64'));
-        if (typeof result !== 'string' || result.length > 2_000_000) fail();
-        return result;
-    };
-    return onlineLyricResult(parseQQLyricText(decrypt(data.lyric), decrypt(data.trans), decrypt(data.roma)), input.full === true);
+    return onlineLyricResult(parseNativeQQLyrics(raw, inflate), input.full === true);
 }

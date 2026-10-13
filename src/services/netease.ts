@@ -1,5 +1,5 @@
 import { requestNeteaseFm } from '../../shared/mobile/neteaseFm';
-import { normalizeSongResult, normalizeSongPrivilege, toHttps } from '../../shared/mobile/neteaseSong';
+import { mergeSongsWithPrivileges, normalizeSongResult, normalizeSongPrivilege, toHttps } from '../../shared/mobile/neteaseSong';
 import { getProcessedLyricPayload } from '../utils/lyrics/neteasePayload';
 import { getMobileRuntime, providerFetch } from './mobileRuntime';
 import { NeteaseUser, NeteasePlaylist, SongPrivilege, SongResult } from "../types";
@@ -198,41 +198,6 @@ const applyPrivilegeToSong = (song: SongResult, privilege?: SongPrivilege): Song
     ...song,
     privilege,
   };
-};
-
-const mergeSongsWithPrivileges = (songs: any, privileges: any): SongResult[] => {
-  const normalizedSongs = Array.isArray(songs)
-    ? songs.map((song: any) => normalizeSongResult(song))
-    : [];
-
-  if (!Array.isArray(privileges) || privileges.length === 0 || normalizedSongs.length === 0) {
-    return normalizedSongs;
-  }
-
-  const normalizedPrivileges = privileges.map((privilege: any) => normalizeSongPrivilege(privilege));
-  const privilegeById = new Map<number, SongPrivilege>();
-
-  normalizedPrivileges.forEach((privilege) => {
-    if (typeof privilege?.id === 'number') {
-      privilegeById.set(privilege.id, privilege);
-    }
-  });
-
-  return normalizedSongs.map((song, index) => {
-    const alignedPrivilege = normalizedPrivileges[index];
-    const privilege = alignedPrivilege?.id === song.id
-      ? alignedPrivilege
-      : privilegeById.get(Number(song.id)) ?? alignedPrivilege;
-
-    if (!privilege) {
-      return song;
-    }
-
-    return {
-      ...song,
-      privilege,
-    };
-  });
 };
 
 export const isSongMarkedUnavailable = (

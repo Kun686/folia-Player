@@ -69,3 +69,11 @@ await build({
     lib: { entry: 'src/mobile/nativePlaybackFadeRuntime.ts', name: 'FoliaPlaybackFade', formats: ['iife'], fileName: () => 'playback-fade.js' },
   },
 });
+
+await build({
+  configFile: false, root, publicDir: false, esbuild: { drop: ['console'] },
+  build: {
+    target: 'safari17', outDir: 'dist-mobile/native', emptyOutDir: false,
+    lib: { entry: 'src/services/onlineMusic/nativeLyricMatchRuntime.ts', name: 'FoliaLyricMatch', formats: ['iife'], fileName: () => 'lyric-match.js' },
+  },
+});

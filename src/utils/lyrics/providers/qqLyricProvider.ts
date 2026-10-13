@@ -10,7 +10,7 @@ import { SongResult } from '../../../types';
 import { qrcDecrypt } from './qrcDecrypt';
 import { qqRequestPayload, qqLyricParams, parseQQLyricText } from './qqLyricProtocol';
 import type { NeteaseChorusRange } from '../chorusEffects';
-import { getOriginalCoverUrl } from '../../coverUrl';
+import { qqLyricSearchParams, normalizeQQLyricSearch } from './qqLyricSearch';
 
 const isElectron = typeof window !== 'undefined' && (window as any).electron;
 
@@ -53,52 +53,11 @@ export async function searchQQLyrics(keyword: string, page = 1, pageSize = 20): 
   const safeKeyword = keyword.trim();
   if (!safeKeyword) return [];
 
-  const pagesize = pageSize;
-  const param = {
-    search_id: String(
-      Math.floor(
-        Math.random() * 100000000000000 + Date.now() % 86400000
-      )
-    ),
-    remoteplace: "search.android.keyboard",
-    query: safeKeyword.length > 60 ? safeKeyword.slice(0, 60) : safeKeyword,
-    search_type: 0, // 0 = SONG
-    num_per_page: pagesize,
-    page_num: page,
-    highlight: 0,
-    nqc_flag: 0,
-    page_id: 1,
-    grp: 1,
-  };
+  const param = qqLyricSearchParams(safeKeyword, page, pageSize);
 
   try {
     const data = await requestQQ("DoSearchForQQMusicLite", "music.search.SearchCgiService", param);
-    const songs = data?.body?.item_song || [];
-    
-    return songs.map((info: any) => {
-      const artists = (info.singer || []).map((s: any, idx: number) => ({
-        id: s.id || idx,
-        name: s.name || 'Unknown Artist',
-      }));
-      
-      const albumMid = info.album?.mid;
-      const picUrl = albumMid
-        ? getOriginalCoverUrl(`https://y.gtimg.cn/music/photo_new/T002R300x300M000${albumMid}.jpg?max_age=2592000`)
-        : undefined;
-
-      return {
-        id: Number(info.id || 0),
-        name: info.title || 'Unknown Song',
-        artists,
-        album: {
-          id: Number(info.album?.id || 0),
-          name: info.album?.name || 'Unknown Album',
-          coverUrl: picUrl,
-        },
-        durationMs: (info.interval || 0) * 1000,
-        qqMid: info.mid,
-      };
-    });
+    return normalizeQQLyricSearch(data);
   } catch (error) {
     // Native callers must distinguish a failed gateway/provider request from an empty search.
     if (getMobileRuntime()) throw error;

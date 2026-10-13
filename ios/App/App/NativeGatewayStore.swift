@@ -7,9 +7,12 @@ struct NativeGatewayRecord: Codable {
     var server = ""
     var token = ""
     var sessions: [String: [String: String]] = [:]
+    // Optional for older Keychain records. Unlike gateway scope, this changes on account replacement/logout.
+    var sessionGeneration: String?
     var publicValues: [String: Any] { ["server": server, "scope": scope, "sessions": sessions] }
     func validate() throws {
         guard version == 1, UUID(uuidString: scope) != nil,
+              sessionGeneration == nil || UUID(uuidString: sessionGeneration!) != nil,
               Set(sessions.keys).isSubset(of: Set(NativeGatewayStore.providers)),
               sessions.values.allSatisfy({ $0.count <= 16 && $0.values.allSatisfy({ $0.count <= 24000 }) }),
               token.isEmpty || NativeGatewayStore.validToken(token),
@@ -67,6 +70,7 @@ final class NativeGatewayStore {
         lock.lock(); defer { lock.unlock() }
         var record = try load()
         guard record.scope == expected else { throw MobileFailure("gateway-settings-changed") }
+        if record.sessions[provider] != values { record.sessionGeneration = UUID().uuidString }
         record.sessions[provider] = values
         try write(Self.key, record.dictionary())
         return record
@@ -77,6 +81,7 @@ final class NativeGatewayStore {
         var record = try load()
         guard record.scope == expected else { throw MobileFailure("gateway-settings-changed") }
         record.sessions.removeValue(forKey: provider)
+        record.sessionGeneration = UUID().uuidString
         try write(Self.key, record.dictionary())
     }
     // The consolidated copy is durable before any legacy item is deleted. Interrupted cleanup retries

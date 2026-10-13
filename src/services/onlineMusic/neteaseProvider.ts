@@ -1,3 +1,4 @@
+import { neteaseSearchPage, requireCatalogResponse } from './neteaseSearchProtocol';
 import { canonicalNeteaseSong } from '../../../shared/mobile/neteaseSong';
 import { buildNeteaseReportParams, requireNeteaseReportSuccess } from '../../../shared/mobile/neteaseReport';
 import { extractCloudLyricText } from '../../utils/lyrics/neteasePayload';
@@ -26,17 +27,6 @@ import { formatDiagnosticClock } from '../../utils/qrLoginDiagnosticReport';
 import { isConnectionResetMessage, isNetworkFailureMessage } from '../../../shared/networkErrorText.mjs';
 
 // src/services/onlineMusic/neteaseProvider.ts
-
-// Catalog errors must not become successful empty pages and poison collection caches.
-function requireCatalogResponse(response: any, validPayload: boolean): void {
-    const code = Number(response?.code);
-    if ([301, 401, 403].includes(code)) {
-        throw new OnlineProviderError('auth-required', 'NetEase catalog requires sign-in', 'netease');
-    }
-    if (code !== 200 || !validPayload) {
-        throw new OnlineProviderError('unavailable', 'NetEase catalog response is unavailable', 'netease');
-    }
-}
 
 export const toNeteaseId = (id: MediaId): number => {
     const numericId = Number(id);
@@ -272,14 +262,7 @@ export const neteaseProvider: OnlineMusicProvider = {
     search: {
         async searchSongs(query, limit, offset) {
             const response = await neteaseApi.cloudSearch(query, limit, offset);
-            const result = response?.result;
-            requireCatalogResponse(response, Array.isArray(result?.songs) || (result?.songs === undefined && result?.songCount === 0));
-            const items = (result.songs ?? []).map(normalizeNeteaseSong);
-            const count = result.songCount;
-            const total = count === undefined ? offset + items.length : Number(count);
-            requireCatalogResponse(response, (count === undefined || (typeof count === 'number' || typeof count === 'string') && String(count).trim() !== '')
-                && Number.isSafeInteger(total) && total >= items.length && total >= 0);
-            return { items, total, hasMore: offset + items.length < total, nextOffset: offset + items.length };
+            return neteaseSearchPage(response, offset, normalizeNeteaseSong);
         },
     },
     playback: {

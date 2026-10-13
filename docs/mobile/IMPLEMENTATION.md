@@ -1,8 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
-原版最佳歌词匹配已分离请求端口，现有前台与独立宿主可复用同一算法；87 个逻辑用例、30 个 WebKit
-场景及 Mac 裸 JavaScriptCore 四来源验证通过。原生后台请求／会话／缓存接线仍未完成，
-个人 App／服务器未更新，见 [LYRIC_MATCH_CORE.md](LYRIC_MATCH_CORE.md)。
+原版最佳歌词的独立原生宿主已接通四来源原始请求、实际期限／取消及全部平台会话隔离。
+328 项逻辑、30 项 WebKit、Mac 裸 JavaScriptCore 8 项及独立 iPad 模拟器 17 项通过。
+队列自动触发、偏好同步和自动结果缓存合并尚未接入；真实平台／真机 NOT_RUN，个人 App／服务器未更新，
+见 [LYRIC_MATCH_HOST.md](LYRIC_MATCH_HOST.md)，算法分离记录见 [LYRIC_MATCH_CORE.md](LYRIC_MATCH_CORE.md)。
 
 Automix 补齐主进程／WebContent／GPU 的独立模拟器联合测量：一个原生用例内三轮真实分轨交接通过，
 185 次有效阶段快照覆盖 15 个阶段。最高同次物理账本之和约 1.38GiB，清理后约 259／260／246MiB；
@@ -30,7 +31,7 @@ Automix 补齐主进程／WebContent／GPU 的独立模拟器联合测量：一�
 个人 mobile.28／服务器未更新，见 [ONLINE_AUTOMIX.md](ONLINE_AUTOMIX.md)。
 
 原版自动使用最佳歌词与首选来源已接入移动设置，保存／恢复、旧结果隔离和已选歌词保护通过
-56 项逻辑、30 个 WebKit 场景及类型检查。后台独立跨平台匹配仍未实现，个人 App／服务器未更新，
+56 项逻辑、30 个 WebKit 场景及类型检查。后台队列自动触发与缓存合并仍未接通，个人 App／服务器未更新，
 见 [ONLINE_LYRIC_PREFERENCE.md](ONLINE_LYRIC_PREFERENCE.md)。
 
 本地歌词文件格式排序已复用原组件接入移动设置，提供触摸排序／恢复默认与原生重扫入口。

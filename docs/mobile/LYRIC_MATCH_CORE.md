@@ -72,6 +72,9 @@ npm run test:mobile:ui -- online-lyric-preference.spec.ts amll-match.spec.ts
 
 ## 仍需实现的接线
 
+后续请求适配、Swift 宿主、期限／取消及会话隔离已完成独立验证，见 [LYRIC_MATCH_HOST.md](LYRIC_MATCH_HOST.md)。
+下面列出的队列、偏好和缓存接线仍待完成；本文其余结果保留为内核分离批次记录。
+
 原生后台下一步需要消费此内核并接通四来源请求适配、真实期限、当前／下一首任务取消、
 各平台会话隔离、设置同步，以及导入／手动选择／纯音乐 override 的权威性和缓存合并。
 WebView 停止期间必须有独立原生测试证明完整流程，之后仍需真实平台及设备验收。
