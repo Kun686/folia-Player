@@ -24,7 +24,9 @@ export function qqLyricSearchParams(safeKeyword: string, page: number, pageSize:
 }
 
 export function normalizeQQLyricSearch(data: any): SongResult[] {
-    const songs = data?.body?.item_song || [];
+    const songs = data?.body?.item_song;
+    // Only an explicit array distinguishes an empty page from a malformed reply.
+    if (!Array.isArray(songs)) throw new Error('QQ Music search returned no song list');
     
     return songs.map((info: any) => {
       const artists = (info.singer || []).map((s: any, idx: number) => ({

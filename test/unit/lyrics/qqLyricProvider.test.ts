@@ -81,6 +81,34 @@ describe('QQ lyric provider', () => {
         expect(searchRequestBody.request.method).toBe('DoSearchForQQMusicLite');
     });
 
+    it.each([
+        undefined, null, {}, { body: null }, { body: {} },
+        ...[null, false, 0, '', {}, 'not-a-list'].map(item_song => ({ body: { item_song } })),
+    ])('rejects malformed mobile search data instead of returning no songs: %j', async data => {
+        vi.spyOn(mobileRuntime, 'getMobileRuntime').mockReturnValue({
+            fetch: vi.fn(), read: () => null, write: () => undefined,
+        });
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+            code: 0, request: { code: 0, data },
+        }))));
+        const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        await expect(searchQQLyrics('test')).rejects.toThrow('QQ Music search returned no song list');
+        expect(log).not.toHaveBeenCalled();
+    });
+
+    it('preserves an explicit empty mobile search and the desktop malformed-response fallback', async () => {
+        const runtime = vi.spyOn(mobileRuntime, 'getMobileRuntime').mockReturnValue({
+            fetch: vi.fn(), read: () => null, write: () => undefined,
+        });
+        vi.stubGlobal('fetch', vi.fn()
+            .mockResolvedValueOnce(new Response(JSON.stringify({ code: 0, request: { code: 0, data: { body: { item_song: [] } } } })))
+            .mockResolvedValueOnce(new Response(JSON.stringify({ code: 0, request: { code: 0, data: {} } }))));
+        await expect(searchQQLyrics('test')).resolves.toEqual([]);
+        runtime.mockReturnValue(null);
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        await expect(searchQQLyrics('test')).resolves.toEqual([]);
+    });
+
     it('normalizes QQ search covers and duration for metadata matching', async () => {
         const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
             code: 0,
