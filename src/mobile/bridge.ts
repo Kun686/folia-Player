@@ -3,7 +3,7 @@ import type { NativeFolderCatalog, NativeFolderImportOptions, NativeFolderImport
 import type { NativeFolderLyricContents, NativeFolderLyricFiles } from './nativeFolderLyrics';
 import type { LocalMatchDocument, LocalMatchSnapshot } from '../types/localSongMatch';
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
-import type { SongResult, ReplayGainMode, LyricData, OnlineLyricsState, LocalLyricsPriority } from '../types';
+import type { SongResult, ReplayGainMode, LyricData, OnlineLyricsState, LocalLyricsPriority, LyricProviderSource } from '../types';
 import type { AudioEqualizerSettings } from '../utils/audioEqualizer';
 import type { NativeTransitionCue } from './nativeTransitionCue';
 import type { LocalLyricSnapshot } from '../utils/lyrics/localLyricSnapshot';
@@ -33,7 +33,11 @@ export interface NativeMediaCacheState {
 export interface GatewayBootstrap { server: string; scope: string; sessions: Record<string, Record<string, string>> }
 export interface NativeAudioSettings { playbackFadeEnabled?: boolean; neteaseScrobbleEnabled?: boolean; volume: number; isMuted: boolean; equalizer: AudioEqualizerSettings; replayGainMode: ReplayGainMode; audioQuality: AudioQualityPreference }
 export interface NativeTransitionSettings { enabled: boolean; mode: 'crossfade' | 'automix'; crossfadeMaxSec: number; performance: boolean }
-export interface NativeLyricSettings { localLyricsPriority: LocalLyricsPriority }
+export interface NativeLyricSettings {
+  localLyricsPriority: LocalLyricsPriority;
+  autoUseBestLyric?: boolean;
+  preferredAlternativeLyricSource?: LyricProviderSource;
+}
 export interface NativeSleepTimerState { hours: number; minutes: number; enabled: boolean; deadlineMs: number | null; revision: number }
 export type NativeSleepTimerEdit = Partial<Pick<NativeSleepTimerState, 'hours' | 'minutes' | 'enabled'>>;
 export type PlaybackEvent = Omit<PlaybackSnapshot, 'queue' | 'currentSong'> & Partial<Pick<PlaybackSnapshot, 'queue' | 'currentSong'>>;
@@ -74,8 +78,9 @@ export interface FoliaNativePlugin {
   addListener(name: 'localCatalog', listener: () => void): Promise<PluginListenerHandle>;
   readLocalLyrics(options: { id: string }): Promise<LocalLyricSnapshot>;
   selectLocalLyrics(options: { id: string; token: string; source: 'local' | 'embedded' | 'online' }): Promise<LocalLyricSnapshot>;
-  readLyricCache(options: { song: SongResult }): Promise<{ token: string; payload: { lyrics?: LyricData | null; state?: OnlineLyricsState | null } }>;
-  writeLyricCache(options: { song: SongResult; token: string; field: 'lyrics' | 'state'; value: LyricData | OnlineLyricsState | null }): Promise<void>;
+  readLyricCache(options: { song: SongResult }): Promise<{ token: string; selectionToken?: string; sessionToken?: string; payload: { lyrics?: LyricData | null; state?: OnlineLyricsState | null } }>;
+  writeLyricCache(options: { song: SongResult; token: string; selectionToken?: string; sessionToken?: string; field: 'lyrics' | 'state'; value: LyricData | OnlineLyricsState | null }): Promise<void>;
+  addListener(name: 'lyrics', listener: (event: { song: SongResult }) => void): Promise<PluginListenerHandle>;
   lyricCacheState(): Promise<{ bytes: number; count: number }>;
   clearLyricCache(): Promise<void>;
   songCover(options: { song: SongResult }): Promise<{ url?: string }>;

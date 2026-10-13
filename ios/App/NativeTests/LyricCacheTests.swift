@@ -244,4 +244,40 @@ import XCTest
         XCTAssertGreaterThanOrEqual(outgoing.position, 25.9); XCTAssertLessThan(outgoing.position, 26.8)
         XCTAssertEqual(offline.calls.count, 0)
     }
+    func testOrdinaryQueueSchedulesCurrentAndNextLyricsWithoutCrossfadeOrPreparedAudio() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = NativeLyricCache(root: root), local = LocalMediaLibrary(), offline = LyricFixtureGateway()
+        let songs = [song("netease", "42"), song("qq", "43")]
+        for (index, track) in songs.enumerated() {
+            let snapshot = try await cache.read(track)
+            try await cache.write(track, token: snapshot["token"] as! String, field: "lyrics",
+                value: ["lines": [["startTime": 0, "endTime": 4 + index, "fullText": "缓存", "words": []]]])
+        }
+        let suite = "folia.lyric-queue." + UUID().uuidString, storage = UserDefaults(suiteName: suite)!
+        defer { storage.removePersistentDomain(forName: suite) }
+        let engine = PlaybackEngine(gateway: offline, storage: storage, local: local, usesStereoOutput: true, lyricCache: cache)
+        engine.network.cancel()
+        defer { engine.stop(); engine.clearOutput() }
+        let lyrics = NativeLyrics(local: local, gateway: offline, cache: cache, session: { _ in [:] })
+        engine.crossfade = NativeCrossfade(owner: engine, lyrics: lyrics)
+        XCTAssertFalse(engine.crossfade!.enabled)
+        engine.queue = songs; engine.index = 0; engine.intentToPlay = true; engine.repeatMode = "one"
+        engine.publish()
+        try await waitForStream { lyrics.value(songs[0]) != nil }
+        XCTAssertNil(lyrics.value(songs[1]))
+        engine.repeatMode = "off"; engine.publish()
+        try await waitForStream { lyrics.value(songs[1]) != nil }
+        XCTAssertEqual(lyrics.value(songs[1])?.first?["endTime"] as? Double, 5)
+        engine.index = 1; engine.publish()
+        try await waitForStream { lyrics.value(songs[0]) == nil }
+        XCTAssertNotNil(lyrics.value(songs[1]))
+        _ = lyrics.setSettings(NativeLyricSettings(autoUseBestLyric: true, preferredAlternativeLyricSource: "qq"))
+        engine.index = 0; engine.publish()
+        try await waitForStream { lyrics.value(songs[0]) != nil && lyrics.value(songs[1]) != nil }
+        lyrics.invalidateProvider("kugou")
+        XCTAssertNil(lyrics.value(songs[0])); XCTAssertNil(lyrics.value(songs[1]))
+        XCTAssertEqual(offline.calls.count, 0)
+    }
+
 }

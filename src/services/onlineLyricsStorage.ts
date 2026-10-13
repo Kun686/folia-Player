@@ -6,5 +6,6 @@ export interface OnlineLyricsStorage {
   readState(): Promise<OnlineLyricsState | null>;
   writeLyrics(lyrics: LyricData | null): Promise<void>;
   writeState(state: OnlineLyricsState): Promise<void>;
+  writeAutomaticState?(state: OnlineLyricsState): Promise<void>;
   isCurrent(): boolean;
 }

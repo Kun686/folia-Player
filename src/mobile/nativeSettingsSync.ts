@@ -1,9 +1,10 @@
 // src/mobile/nativeSettingsSync.ts — serialize store edits and restore native state without feedback writes.
 export function connectNativeSettings<T>(port: {
   load: () => Promise<T>; save: (value: T) => Promise<T>; apply: (value: T) => void;
+  prepare?: (value: T) => { value: T; persist: boolean };
   subscribe: (changed: (value: T) => void) => () => void;
 }, report: (ready: boolean, error: boolean) => void) {
-  let disposed = false, writingStore = false, draining = false;
+  let disposed = false, writingStore = false, draining = false, loaded = false;
   let accepted: T | undefined, pending: T | undefined;
   let unsubscribe = () => {};
   const apply = (value: T) => {
@@ -12,7 +13,7 @@ export function connectNativeSettings<T>(port: {
   };
   // Coalesce edits while a bridge call is in flight. Old replies cannot undo a newer gesture.
   const drain = async () => {
-    if (draining) return;
+    if (draining || !loaded) return;
     draining = true;
     try {
       while (pending !== undefined && !disposed) {
@@ -26,13 +27,20 @@ export function connectNativeSettings<T>(port: {
       }
     } finally { draining = false; }
   };
+  unsubscribe = port.subscribe(value => {
+    if (writingStore || disposed) return;
+    pending = value; void drain();
+  });
   void port.load().then(value => {
     if (disposed) return;
-    accepted = value; apply(value); report(true, false);
-    unsubscribe = port.subscribe(value => {
-      if (writingStore) return;
-      pending = value; void drain();
-    });
-  }).catch(() => { if (!disposed) report(false, true); });
+    const prepared = port.prepare?.(value) ?? { value, persist: false };
+    accepted = prepared.value; loaded = true;
+    if (pending === undefined) {
+      apply(accepted);
+      if (prepared.persist) pending = accepted;
+    }
+    if (pending === undefined) report(true, false);
+    else void drain();
+  }).catch(() => { if (!disposed) { unsubscribe(); pending = undefined; report(false, true); } });
   return () => { disposed = true; unsubscribe(); };
 }

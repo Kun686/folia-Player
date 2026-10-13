@@ -33,6 +33,7 @@ export async function flushSessions() {
   if (persistenceErrors.size) throw persistenceErrors.values().next().value;
 }
 export async function cancelProvider(provider: string) {
+  lyricGeneration++; // Cross-source matching can depend on any platform account.
   generations.set(provider, generation(provider) + 1);
   const ids = [...pending].filter(([, owner]) => owner === provider).map(([id]) => id);
   if (ids.length) await native.cancelRequests({ ids });
@@ -125,7 +126,10 @@ export async function initializeRuntime() {
     read: (provider, key) => sessions[provider]?.[key] ?? null,
     write: (provider, key, value) => {
       if (configuring || clearing.has(provider)) throw new DOMException('Canceled', 'AbortError');
-      if ((sessions[provider]?.[key] ?? null) !== value) sessionRevisions.set(provider, (sessionRevisions.get(provider) ?? 0) + 1);
+      if ((sessions[provider]?.[key] ?? null) !== value) {
+        sessionRevisions.set(provider, (sessionRevisions.get(provider) ?? 0) + 1);
+        lyricGeneration++;
+      }
       sessions[provider] ??= {};
       if (value === null) delete sessions[provider][key]; else sessions[provider][key] = value;
       enqueueSave(provider);

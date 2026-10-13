@@ -157,4 +157,108 @@ private final class LyricPublicHTTP: URLProtocol, @unchecked Sendable {
         XCTAssertEqual((document["lines"] as? [[String: Any]])?.last?["endTime"] as? Double, 26)
         XCTAssertEqual(gateway.calls.count, 2)
     }
+    private func rawLyric(_ name: String) throws -> [String: Any] {
+        let url = try XCTUnwrap(Bundle(for: NativeTests.self).url(forResource: "OnlineLyricReference", withExtension: "json"))
+        let rows = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [[String: Any]])
+        let steps = try XCTUnwrap(rows.first(where: { $0["name"] as? String == name })?["steps"] as? [[String: Any]])
+        let fixture = try XCTUnwrap(steps.last?["input"] as? [String: Any])
+        return try XCTUnwrap((fixture["responses"] as? [[String: Any]])?.last)
+    }
+    private var track: [String: Any] {
+        ["id": 42, "name": "合成测试", "artists": [["id": 1, "name": "测试"]], "durationMs": 30000,
+         "album": ["id": 2, "name": "测试专辑"],
+         "sourceRef": ["kind": "online", "providerId": "netease", "mediaId": "42"]]
+    }
+    func testNativeOnlineQueueReturnsBaselineBeforeMatchingAndPersistsOriginalOverride() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = NativeLyricCache(root: root), gateway = try gateway(), song = track
+        let ncm = try rawLyric("netease-yrc"), qq = try rawLyric("qq-qrc")
+        var published = false, notified = false
+        gateway.handler = { request, _ in
+            if request["path"] as? String == "/lyric/new" { return ncm }
+            if request["path"] as? String == "/song/chorus" { return ["status": 200, "body": "{\"code\":200,\"chorus\":[]}"] }
+            XCTAssertTrue(published, "The baseline must be visible before any optional search.")
+            let body = try JSONSerialization.jsonObject(with: Data((request["body"] as! String).utf8)) as! [String: Any]
+            if (body["request"] as? [String: Any])?["method"] as? String == "GetPlayLyricInfo" { return qq }
+            return ["status": 200, "body": "{\"code\":0,\"request\":{\"code\":0,\"data\":{\"body\":{\"item_song\":[{\"id\":42,\"mid\":\"mid42\",\"title\":\"合成测试\",\"singer\":[{\"id\":1,\"name\":\"测试\"}],\"album\":{\"id\":2,\"name\":\"测试专辑\"},\"interval\":30}]}}}}"]
+        }
+        let result = try await NativeBestLyrics.load(song,
+            settings: NativeLyricSettings(autoUseBestLyric: true, preferredAlternativeLyricSource: "qq"),
+            cache: cache, gateway: gateway, baseline: { if $0 != nil { published = true } }, saved: { notified = true })
+        XCTAssertTrue(published); XCTAssertTrue(notified)
+        XCTAssertEqual(result?.last?["endTime"] as? Double, 26)
+        let restored = try await NativeLyricCache(root: root).read(song)
+        let payload = try XCTUnwrap(restored["payload"] as? [String: Any])
+        XCTAssertNotNil(payload["lyrics"])
+        XCTAssertEqual((payload["state"] as? [String: Any])?["matchedLyricsSource"] as? String, "qq")
+        XCTAssertEqual(gateway.calls.count, 4)
+    }
+    func testAutomaticCacheCommitRejectsManualSelectionsIncludingABAAndRetainsBaseline() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = NativeLyricCache(root: root), song = track
+        let snapshot = try await cache.read(song), token = snapshot["token"] as! String, selection = snapshot["selectionToken"] as! String
+        let words: [String: Any] = ["lines": [["startTime": 0, "endTime": 3, "fullText": "用户", "words": []]]]
+        let automatic: [String: Any] = ["lyricsSource": "online", "hasOnlineOverride": true, "onlineOverrideLyrics": words]
+        try await cache.write(song, token: token, field: "lyrics", value: words)
+        for manual: [String: Any] in [
+            ["lyricsSource": "imported", "importedLyrics": words],
+            ["lyricsSource": "online", "hasOnlineOverride": true, "matchedIsPureMusic": true, "onlineOverrideLyrics": NSNull()],
+            ["lyricsSource": "online"]
+        ] {
+            try await cache.write(song, token: token, field: "state", value: manual)
+            let before = try await cache.read(song)
+            await reject("lyric-cache-changed") {
+                try await cache.write(song, token: token, field: "state", value: automatic, selectionToken: selection)
+            }
+            let latest = try await cache.read(song)
+            XCTAssertNotEqual(latest["selectionToken"] as? String, selection)
+            let payload = latest["payload"] as! [String: Any]
+            XCTAssertEqual(NSDictionary(dictionary: payload), NSDictionary(dictionary: before["payload"] as! [String: Any]))
+            XCTAssertNotNil(payload["lyrics"])
+        }
+        let fresh = try await cache.read(song)
+        try await cache.write(song, token: token, field: "state", value: automatic, selectionToken: fresh["selectionToken"] as? String)
+        // A later automatic worker cannot displace the first accepted answer either.
+        let accepted = try await cache.read(song)
+        await reject("lyric-cache-changed") {
+            try await cache.write(song, token: token, field: "state", value: automatic, selectionToken: accepted["selectionToken"] as? String)
+        }
+        try await cache.clear()
+        await reject("lyric-cache-changed") {
+            try await cache.write(song, token: token, field: "state", value: automatic, selectionToken: fresh["selectionToken"] as? String)
+        }
+    }
+    func testAutomaticCacheCommitRevalidatesSessionAfterParsing() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = NativeLyricCache(root: root), song = track, gateway = try gateway()
+        let transport = try NativeLyricMatchTransport(gateway: gateway)
+        let snapshot = try await cache.read(song)
+        var calls = 0
+        await reject("lyric-session-changed") {
+            try await cache.write(song, token: snapshot["token"] as! String, field: "state",
+                value: ["lyricsSource": "online", "hasOnlineOverride": true],
+                selectionToken: snapshot["selectionToken"] as? String, validate: {
+                    calls += 1
+                    if calls == 2 { try gateway.credentials.clearSession("qq", expected: transport.record.scope) }
+                    try transport.validate()
+                })
+        }
+        XCTAssertEqual(calls, 2)
+        let result = try await cache.read(song)
+        XCTAssertTrue((result["payload"] as! [String: Any]).isEmpty)
+    }
+    func testOldLyricSettingsRetainMigrationMarkerAndNewPreferencesValidate() throws {
+        let old = try JSONDecoder().decode(NativeLyricSettings.self, from: Data("{\"localLyricsPriority\":\"online\"}".utf8))
+        XCTAssertNil(old.autoUseBestLyric); XCTAssertNil(old.preferredAlternativeLyricSource)
+        XCTAssertNil(old.dictionary["autoUseBestLyric"])
+        let settings = NativeLyricSettings(localLyricsPriority: "online", autoUseBestLyric: false, preferredAlternativeLyricSource: "amll")
+        try settings.validate()
+        let restored = try JSONDecoder().decode(NativeLyricSettings.self, from: JSONEncoder().encode(settings))
+        XCTAssertEqual(restored.autoUseBestLyric, false); XCTAssertEqual(restored.preferredAlternativeLyricSource, "amll")
+        XCTAssertThrowsError(try NativeLyricSettings(preferredAlternativeLyricSource: "invalid").validate())
+    }
+
 }

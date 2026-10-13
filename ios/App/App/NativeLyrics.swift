@@ -98,8 +98,10 @@ final class NativeLyrics {
     private var tasks: [String: (UUID, Task<Void, Never>)] = [:]
     private var values: [String: Value] = [:]
     private var localPriority = "local"
+    private var settings = NativeLyricSettings()
     private(set) var revision = 0
     var changed: (() -> Void)?
+    var cacheChanged: (([String: Any]) -> Void)?
     init(local: LocalMediaLibrary, parser: NativeLyricParser = NativeLyricParser(), gateway: GatewayClient = GatewayClient(), cache: NativeLyricCache? = nil,
          session: ((String) throws -> [String: Any])? = nil) {
         self.local = local; self.parser = parser; self.gateway = gateway; self.session = session; self.cache = cache
@@ -108,7 +110,10 @@ final class NativeLyrics {
     func value(_ song: [String: Any]) -> [[String: Any]]? {
         NativeProfileIdentity(song).flatMap { values[$0.key]?.lines }
     }
-    func cancel() { tasks.values.forEach { $0.1.cancel() }; tasks.removeAll(); wanted.removeAll() }
+    func cancel() {
+        for (id, task) in tasks { task.1.cancel(); values.removeValue(forKey: id) }
+        tasks.removeAll(); wanted.removeAll()
+    }
     func invalidate(_ id: String) {
         invalidateKey("local:" + id)
     }
@@ -118,7 +123,7 @@ final class NativeLyrics {
         revision += 1
     }
     func invalidateProvider(_ provider: String) {
-        for key in Set(values.keys).union(tasks.keys).union(wanted) where key.hasPrefix("online:" + provider + ":") {
+        for key in Set(values.keys).union(tasks.keys).union(wanted) where key.hasPrefix(settings.autoUseBestLyric == true ? "online:" : "online:" + provider + ":") {
             invalidateKey(key)
         }
     }
@@ -130,6 +135,16 @@ final class NativeLyrics {
         }
         return true
     }
+    func setSettings(_ value: NativeLyricSettings) -> Bool {
+        let localChanged = setLocalPriority(value.localLyricsPriority)
+        let onlineChanged = settings.autoUseBestLyric != value.autoUseBestLyric
+            || settings.preferredAlternativeLyricSource != value.preferredAlternativeLyricSource
+        settings = value
+        if onlineChanged {
+            for key in Set(values.keys).union(tasks.keys).union(wanted) where key.hasPrefix("online:") { invalidateKey(key) }
+        }
+        return localChanged || onlineChanged
+    }
     func update(_ songs: [[String: Any]]) {
         let identities = songs.prefix(2).compactMap(NativeProfileIdentity.init).filter { $0.localID != nil || ["netease", "qq"].contains($0.provider ?? "") }
         let ids = Set(identities.map(\.key))
@@ -140,7 +155,7 @@ final class NativeLyrics {
             guard let identity = identities.first(where: { $0.key == id }),
                   let song = songs.first(where: { NativeProfileIdentity($0)?.key == id }) else { continue }
             let stamp = UUID()
-            let priority = localPriority
+            let priority = localPriority, settings = settings
             let task = Task(priority: .utility) { @MainActor [weak self, local, parser, gateway, session, cache] in
                 let lines: [[String: Any]]?
                 do {
@@ -150,6 +165,19 @@ final class NativeLyrics {
                         if let data = try await parser.localSources(source, priority: priority) {
                             lines = try JSONSerialization.jsonObject(with: data) as? [[String: Any]]
                         } else { lines = nil }
+                    } else if session == nil, let cache {
+                        lines = try await NativeBestLyrics.load(song, settings: settings, cache: cache, gateway: gateway,
+                            baseline: { [weak self] lines in
+                                await MainActor.run {
+                                    guard let self, !Task.isCancelled, self.wanted.contains(id), self.tasks[id]?.0 == stamp else { return }
+                                    self.values[id] = Value(lines: lines); self.revision += 1; self.changed?()
+                                }
+                            }, saved: { [weak self] in
+                                await MainActor.run {
+                                    guard let self, !Task.isCancelled, self.tasks[id]?.0 == stamp else { return }
+                                    self.cacheChanged?(song)
+                                }
+                            })
                     } else {
                         let load: ([String: Any]) async throws -> [[String: Any]]? = { values in
                             if let cache { return try await cache.lines(song, session: values, gateway: gateway) }

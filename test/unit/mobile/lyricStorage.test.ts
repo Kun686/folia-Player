@@ -147,4 +147,23 @@ describe('original lyric loader with native storage', () => {
     expect(next.onLyrics).toHaveBeenLastCalledWith(lyrics);
     expect(mocks.write).not.toHaveBeenCalledWith(expect.objectContaining({ field: 'state' }));
   });
+  it('uses compare-and-swap only for automatic selections; explicit edits remain writable', async () => {
+    mocks.read.mockResolvedValue({ token: 'generation', selectionToken: 'choice-v1', sessionToken: 'sessions-v1', payload: {} });
+    const storage = await openNativeLyricsStorage(song, () => true);
+    await storage.writeAutomaticState!({ lyricsSource: 'online', hasOnlineOverride: true });
+    expect(mocks.write).toHaveBeenLastCalledWith({ song, token: 'generation', selectionToken: 'choice-v1', sessionToken: 'sessions-v1',
+      field: 'state', value: { lyricsSource: 'online', hasOnlineOverride: true } });
+    await storage.writeState({ lyricsSource: 'imported', importedLyrics: lyrics });
+    expect(mocks.write.mock.lastCall![0]).not.toHaveProperty('selectionToken');
+  });
+
+  it('revokes a rejected automatic snapshot instead of publishing its older baseline over a newer choice', async () => {
+    mocks.read.mockResolvedValue({ token: 'generation', selectionToken: 'old', sessionToken: 'old-session', payload: {} });
+    const storage = await openNativeLyricsStorage(song, () => true);
+    mocks.write.mockRejectedValue(new Error('lyric-cache-changed'));
+    await expect(storage.writeAutomaticState!({ lyricsSource: 'online' })).rejects.toThrow();
+    expect(storage.isCurrent()).toBe(false);
+    await expect(storage.writeLyrics(lyrics)).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
 });

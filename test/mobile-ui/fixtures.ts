@@ -20,6 +20,9 @@ export const test = base.extend<{ nativeBridge: void }>({
       sessionStorage.setItem('fixture-sleep', JSON.stringify(sleepTimer)); sleepSubscriber?.({ ...sleepTimer });
     };
     let cacheSubscriber: () => void;
+    const lyricSubscribers = new Map<string, (event: unknown) => void>();
+    let lyricCallback = 0;
+    win.fixtureEmitLyrics = (song: unknown) => lyricSubscribers.forEach(callback => callback({ song }));
     const modelSubscribers = new Map<string, () => void>();
     let modelCallback = 0;
     win.fixtureModels = { ready: true, revision: 1, analysisAvailable: true,
@@ -62,6 +65,10 @@ export const test = base.extend<{ nativeBridge: void }>({
     win.Capacitor = {
       PluginHeaders: [{ name: 'FoliaNative', methods: [...methods.map(name => ({ name, rtype: 'promise' })), { name: 'addListener' }, { name: 'removeListener' }] }],
       nativeCallback: (_plugin: string, method: string, options: any, cb: (state: unknown) => void) => {
+        if (method === 'addListener' && options.eventName === 'lyrics') {
+          const id = 'lyrics-' + ++lyricCallback; lyricSubscribers.set(id, cb); return id;
+        }
+        if (method === 'removeListener' && options.eventName === 'lyrics') lyricSubscribers.delete(options.callbackId);
         if (method === 'addListener' && options.eventName === 'models') {
           const id = 'models-' + ++modelCallback; modelSubscribers.set(id, cb as () => void); return id;
         }

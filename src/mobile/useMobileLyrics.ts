@@ -30,6 +30,18 @@ export function useMobileLyrics(song?: SongResult, editing = false) {
   const lyrics = useLyricDisplay(rawLyrics, song, segmentation.record);
   const wasEditing = useRef<string | undefined>(undefined);
   useEffect(() => {
+    let active = true;
+    const refresh = () => { if (active && !document.hidden && !editing) setVersion(value => value + 1); };
+    const subscription = native.addListener('lyrics', event => {
+      if (JSON.stringify(event.song.sourceRef) === key) refresh();
+    });
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      active = false; document.removeEventListener('visibilitychange', refresh);
+      void subscription.then(listener => listener.remove()).catch(() => undefined);
+    };
+  }, [key, editing]);
+  useEffect(() => {
     if (editing) wasEditing.current = key;
     const skipAutoMatch = wasEditing.current === key && key !== undefined;
     if (!editing) wasEditing.current = undefined;

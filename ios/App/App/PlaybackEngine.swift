@@ -300,7 +300,9 @@ final class PlaybackEngine {
          "audioProcessingAvailable": meter?.processingAvailable() ?? false,
          "audioEffects": meter?.effectState() ?? ["available": false, "pending": false, "error": ""]]
     }
+    var lyricsChanged: (([String: Any]) -> Void)?
     func publish() {
+        crossfade?.updateLyrics()
         finishPlaybackFadeIn()
         listening.observe(song: currentSong, position: playbackPosition, duration: playbackDuration,
             playing: outputIsPlaying && stream?.seeking != true && listeningSeek == nil, quality: audioSettings.audioQuality)

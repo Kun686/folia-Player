@@ -69,6 +69,7 @@ final class NativeCrossfade {
         self.lyrics = lyrics ?? NativeLyrics(local: owner.local, gateway: owner.gateway, cache: owner.lyricCache)
         self.profiles.changed = { [weak self] in self?.tick() }
         self.lyrics.changed = { [weak self] in self?.tick() }
+        self.lyrics.cacheChanged = { [weak owner] song in owner?.lyricsChanged?(song) }
         self.stems.changed = { [weak self] in self?.tick() }
     }
     deinit { work?.cancel(); release?.cancel(); balance.cancel(); preplay?.cancel(); fade?.tail?.dispose() }
@@ -152,8 +153,22 @@ final class NativeCrossfade {
         if !isFading { invalidatePlan(); tick() }
     }
 
+    func lyricSettingsChanged(_ settings: NativeLyricSettings) {
+        guard lyrics.setSettings(settings) else { return }
+        if !isFading { invalidatePlan() }
+        updateLyrics()
+    }
+    func updateLyrics() {
+        guard let owner, owner.intentToPlay, let current = owner.currentSong else { lyrics.update([]); return }
+        var songs = [current]
+        if let next = owner.nextIndex(automatic: true), owner.queue.indices.contains(next),
+           differentSongs(current, owner.queue[next]) { songs.append(owner.queue[next]) }
+        lyrics.update(songs)
+    }
+
     // Native media time decides readiness; the shared render clock decides when a scheduled fade is over.
     func tick() {
+        updateLyrics()
         guard let owner else { return }
         if let fade {
             guard fade.epoch == owner.generation else { cancel(gainGeneration: fade.gainGeneration); return }
@@ -199,7 +214,7 @@ final class NativeCrossfade {
             if let identity = NativeProfileIdentity(song) { sources[identity.key] = url }
         }
         if !clearingCache { profiles.update([currentSong, upcomingSong], sources: sources) }
-        lyrics.update([currentSong, upcomingSong])
+
         if mode == "automix", !clearingCache { stems.update(outgoing: currentSong, incoming: upcomingSong) }
         if Date().timeIntervalSince(pending.at) >= 120 {
             owner.discardPrepared(); owner.prefetch(); return

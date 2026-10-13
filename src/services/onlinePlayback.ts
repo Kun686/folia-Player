@@ -1,9 +1,10 @@
+import { automaticOnlineLyricSelection } from '../utils/onlineLyricsSelection';
 import { LyricData, OnlineLyricsState, ReplayGainInfo, SongResult } from '../types';
 import { saveToCache } from './db';
 import { PrefetchedSongData, isUrlValid, updatePrefetchedAudioUrl } from './prefetchService';
 import { isPureMusicLyricText } from '../utils/lyrics/pureMusic';
 import { migrateLyricDataRenderHints } from '../utils/lyrics/renderHints';
-import { loadOnlineLyricsState, markOnlineLyricsPureMusic, resolveOnlineLyrics, resolveOnlineLyricsPureMusic, saveOnlineLyricsState } from '../utils/onlineLyricsState';
+import { loadOnlineLyricsState, resolveOnlineLyrics, resolveOnlineLyricsPureMusic, saveOnlineLyricsState } from '../utils/onlineLyricsState';
 import { autoMatchBestLyric } from '../utils/lyrics/autoMatchBestLyric';
 import { createSafeObjectUrl } from '../utils/blobGuards';
 import type { AudioQualityPreference, MediaId } from '../types/onlineMusic';
@@ -228,32 +229,15 @@ export async function loadOnlineSongLyrics(
             });
             if (!isCurrent()) return;
             const ownProviderId = song.sourceRef?.kind === 'online' ? song.sourceRef.providerId : null;
-            if (bestMatch && 'lyrics' in bestMatch && bestMatch.source !== ownProviderId) {
-                const overrideState: OnlineLyricsState = {
-                    lyricsSource: 'online',
-                    matchedSongId: bestMatch.id,
-                    hasOnlineOverride: true,
-                    onlineOverrideLyrics: bestMatch.lyrics,
-                    matchedLyricsSource: bestMatch.source,
-                    matchedLyricsProviderPlatform: bestMatch.matchedLyricsProviderPlatform,
-                };
-                await persistState(overrideState);
+            const selection = automaticOnlineLyricSelection(onlineLyricsState, ownProviderId, bestMatch);
+            if (selection) {
+                await (storage?.writeAutomaticState ? storage.writeAutomaticState(selection) : persistState(selection));
                 if (!isCurrent()) return;
-                resolvedLyrics = bestMatch.lyrics;
-                finalState = overrideState;
-                onStateChange?.(overrideState);
-            } else if (bestMatch?.isPureMusic) {
-                // Checked against `true`, not with `in`: a MATCH object also carries
-                // `isPureMusic: false`, so `'isPureMusic' in bestMatch` was true for it too - and
-                // a best match from the track's own provider (which fails the branch above) then
-                // landed here and had its perfectly good lyrics thrown away as instrumental.
-                const pureMusic = markOnlineLyricsPureMusic(onlineLyricsState);
-                await persistState(pureMusic);
-                if (!isCurrent()) return;
-                resolvedLyrics = null;
-                finalState = pureMusic;
-                onStateChange?.(pureMusic);
+                resolvedLyrics = resolveOnlineLyrics(selection, parsedLyrics);
+                finalState = selection;
+                onStateChange?.(selection);
             }
+
         } catch (error) {
             console.warn('[OnlinePlayback] Failed to auto-match best lyric:', error);
         }

@@ -8,6 +8,7 @@ actor NativeLyricMatchJob {
         self.scriptURL = scriptURL
     }
     func run(_ input: [String: Any],
+             baseline: (([String: Any]) async throws -> Void)? = nil,
              request: @escaping ([String: Any]) async throws -> [String: Any]) async throws -> [String: Any]? {
         try Task.checkCancellation()
         let inputData = try JSONSerialization.data(withJSONObject: input)
@@ -39,6 +40,10 @@ actor NativeLyricMatchJob {
                   text.utf8.count <= 8_000_000,
                   let state = try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any],
                   let events = state["events"] as? [[String: Any]], events.count <= 128 else { throw MobileFailure("invalid-lyric-job") }
+            if let updates = state["updates"] as? [[String: Any]] {
+                guard updates.count <= 1 else { throw MobileFailure("invalid-lyric-job") }
+                for document in updates { try await baseline?(document) }
+            }
             if state["done"] as? Bool == true {
                 if state["error"] != nil { throw MobileFailure("lyric-match-failed") }
                 try Task.checkCancellation()

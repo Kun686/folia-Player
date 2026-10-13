@@ -3,10 +3,19 @@ import Foundation
 // PlaybackLyricSettings.swift — native preference keeps foreground and suspended-WebView lyric selection aligned.
 struct NativeLyricSettings: Codable {
     var localLyricsPriority = "local"
+    // Absence is a migration marker. Do not enable background searches before restoring the user's Web choices.
+    var autoUseBestLyric: Bool?
+    var preferredAlternativeLyricSource: String?
     func validate() throws {
-        guard ["local", "online"].contains(localLyricsPriority) else { throw MobileFailure("invalid-lyric-settings") }
+        guard ["local", "online"].contains(localLyricsPriority),
+              preferredAlternativeLyricSource == nil || ["qq", "netease", "kugou", "amll"].contains(preferredAlternativeLyricSource!) else { throw MobileFailure("invalid-lyric-settings") }
     }
-    var dictionary: [String: Any] { ["localLyricsPriority": localLyricsPriority] }
+    var dictionary: [String: Any] {
+        var result: [String: Any] = ["localLyricsPriority": localLyricsPriority]
+        if let autoUseBestLyric { result["autoUseBestLyric"] = autoUseBestLyric }
+        if let preferredAlternativeLyricSource { result["preferredAlternativeLyricSource"] = preferredAlternativeLyricSource }
+        return result
+    }
 }
 
 extension PlaybackEngine {
@@ -18,13 +27,13 @@ extension PlaybackEngine {
         let data = try JSONEncoder().encode(settings)
         lyricSettings = settings
         storage.set(data, forKey: "folia.lyrics")
-        crossfade?.localLyricsPriorityChanged(settings.localLyricsPriority)
+        crossfade?.lyricSettingsChanged(settings)
         return settings.dictionary
     }
     func restoreLyricSettings() {
         if let data = storage.data(forKey: "folia.lyrics"),
            let saved = try? JSONDecoder().decode(NativeLyricSettings.self, from: data),
            (try? saved.validate()) != nil { lyricSettings = saved }
-        crossfade?.localLyricsPriorityChanged(lyricSettings.localLyricsPriority)
+        crossfade?.lyricSettingsChanged(lyricSettings)
     }
 }

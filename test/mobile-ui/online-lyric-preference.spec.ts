@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect } from './fixtures';
+import { test, expect, clickPlayerTool } from './fixtures';
 
 // online-lyric-preference.spec.ts — real matcher/store over the existing controlled native transport and QRC sample.
 const settings = (page: Page) => page.getByRole('dialog', { name: '服务器与外观', exact: true });
@@ -184,4 +184,37 @@ test('online preference changes leave local lyric loading alone', async ({ page 
   await expect(source(page)).toHaveValue('amll');
   expect(await page.evaluate(() => (window as any).localLyricReads)).toBe(reads);
   expect(await page.evaluate(() => (window as any).fixtureCommands)).toEqual([]);
+});
+
+test('native cached upgrades refresh foreground lyrics and recover on return without platform requests', async ({ page }) => {
+  await page.getByRole('textbox', { name: '搜索歌曲' }).fill('测试');
+  await page.getByRole('button', { name: '搜索歌曲', exact: true }).tap();
+  await page.getByRole('button', { name: '播放 测试歌曲', exact: true }).tap();
+  await clickPlayerTool(page, '歌词与动效');
+  await page.getByLabel('歌词动画', { exact: true }).selectOption('still');
+  await page.locator('.visual-settings > header').getByRole('button', { name: '关闭', exact: true }).tap();
+  const lyric = (text: string) => page.locator('.lyric-stage').getByText(text, { exact: true });
+  await expect(lyric('测试歌词')).toBeVisible();
+  const requests = await page.evaluate(() => (window as any).fixtureLyricRequests || 0);
+  const update = async (text: string, hidden: boolean) => page.evaluate(async ({ text, hidden }) => {
+    const w = window as any, song = w.fixturePlayback.currentSong;
+    w.fixtureOfflineLyrics = true;
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => w.lyricHidden === true });
+    w.lyricHidden = hidden;
+    await w.Capacitor.nativePromise('FoliaNative', 'writeLyricCache', {
+      song, token: 'initial', field: 'state', value: { lyricsSource: 'online', hasOnlineOverride: true,
+        onlineOverrideLyrics: { lines: [{ startTime: 0, endTime: 180, fullText: text, words: [] }] } },
+    });
+    w.fixtureEmitLyrics(song);
+  }, { text, hidden });
+  await update('原生后台匹配结果', false);
+  await expect(lyric('原生后台匹配结果')).toBeVisible();
+  await update('再次返回后的歌词', true);
+  await expect(lyric('原生后台匹配结果')).toBeVisible();
+  await page.evaluate(() => {
+    (window as any).lyricHidden = false;
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(lyric('再次返回后的歌词')).toBeVisible();
+  expect(await page.evaluate(() => (window as any).fixtureLyricRequests || 0)).toBe(requests);
 });

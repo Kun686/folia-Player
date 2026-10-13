@@ -10,7 +10,9 @@ let stop: () => void = () => {};
 beforeEach(() => {
   vi.resetAllMocks();
   useLyricSettingsStore.getState().handleSetLocalLyricsPriority('local');
-  bridge.getLyricSettings.mockResolvedValue({ localLyricsPriority: 'online' });
+  useLyricSettingsStore.getState().handleToggleAutoUseBestLyric(true);
+  useLyricSettingsStore.getState().handleSetPreferredAlternativeLyricSource('qq');
+  bridge.getLyricSettings.mockResolvedValue({ localLyricsPriority: 'online', autoUseBestLyric: true, preferredAlternativeLyricSource: 'qq' });
   bridge.setLyricSettings.mockImplementation(async ({ settings }) => settings);
 });
 afterEach(() => stop());
@@ -32,7 +34,7 @@ describe('local lyric preference', () => {
     useLyricSettingsStore.getState().handleSetLocalLyricsPriority('local');
     useLyricSettingsStore.getState().handleSetLocalLyricsPriority('online');
     reject(new Error('unavailable')); await settle();
-    expect(bridge.setLyricSettings).toHaveBeenLastCalledWith({ settings: { localLyricsPriority: 'online' } });
+    expect(bridge.setLyricSettings).toHaveBeenLastCalledWith({ settings: { localLyricsPriority: 'online', autoUseBestLyric: true, preferredAlternativeLyricSource: 'qq' } });
     expect(bridge.setLyricSettings).toHaveBeenCalledTimes(2);
     expect(useLyricSettingsStore.getState().localLyricsPriority).toBe('online');
     expect(report).toHaveBeenLastCalledWith(true, false);
@@ -50,4 +52,35 @@ describe('local lyric preference', () => {
     useLyricSettingsStore.getState().handleSetLocalLyricsPriority('online'); await settle();
     expect(bridge.setLyricSettings).not.toHaveBeenCalled();
   });
+  it('migrates existing frontend preferences without replacing them with native defaults', async () => {
+    bridge.getLyricSettings.mockResolvedValue({ localLyricsPriority: 'online' });
+    useLyricSettingsStore.getState().handleToggleAutoUseBestLyric(false);
+    useLyricSettingsStore.getState().handleSetPreferredAlternativeLyricSource('amll');
+    stop = connectLyricSettings(vi.fn()); await settle();
+    expect(bridge.setLyricSettings).toHaveBeenCalledExactlyOnceWith({ settings: {
+      localLyricsPriority: 'online', autoUseBestLyric: false, preferredAlternativeLyricSource: 'amll',
+    } });
+  });
+  it('keeps an edit made during native initialization and persists all three settings', async () => {
+    let finish!: (value: unknown) => void;
+    bridge.getLyricSettings.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    stop = connectLyricSettings(vi.fn());
+    useLyricSettingsStore.getState().handleSetPreferredAlternativeLyricSource('netease');
+    finish({ localLyricsPriority: 'online', autoUseBestLyric: false, preferredAlternativeLyricSource: 'qq' });
+    await settle();
+    expect(bridge.setLyricSettings).toHaveBeenCalledExactlyOnceWith({ settings: {
+      localLyricsPriority: 'local', autoUseBestLyric: true, preferredAlternativeLyricSource: 'netease',
+    } });
+    expect(useLyricSettingsStore.getState().preferredAlternativeLyricSource).toBe('netease');
+  });
+  it('reports migration write failure and retries migration on the next connection', async () => {
+    bridge.getLyricSettings.mockResolvedValue({ localLyricsPriority: 'online' });
+    bridge.setLyricSettings.mockRejectedValueOnce(new Error('disk-full'));
+    const report = vi.fn(); stop = connectLyricSettings(report); await settle();
+    expect(report).toHaveBeenLastCalledWith(true, true);
+    stop(); stop = connectLyricSettings(report); await settle();
+    expect(bridge.setLyricSettings).toHaveBeenCalledTimes(2);
+    expect(report).toHaveBeenLastCalledWith(true, false);
+  });
+
 });

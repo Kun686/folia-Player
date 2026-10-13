@@ -200,4 +200,19 @@ describe('mobile secure runtime', () => {
     await expect(storage.writeLyrics(null)).rejects.toMatchObject({ name: 'AbortError' });
     expect(native.writeLyricCache).not.toHaveBeenCalled();
   });
+  it.each(['logout', 'replace'])('revokes QQ lyric snapshots after an unrelated NetEase account %s', async action => {
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    await runtime.initializeRuntime();
+    native.readLyricCache.mockResolvedValue({ token: 'old', payload: {} });
+    const port = getMobileRuntime()!, song = { sourceRef: { kind: 'online', providerId: 'qq', mediaId: '42' } } as any;
+    const storage = await port.lyrics!.open(song);
+    if (action === 'logout') await runtime.clearProvider('netease');
+    else port.write('netease', 'cookie', 'replacement-fixture');
+    expect(storage.isCurrent()).toBe(false);
+    await expect(storage.writeAutomaticState!({ lyricsSource: 'online' })).rejects.toMatchObject({ name: 'AbortError' });
+    expect(native.writeLyricCache).not.toHaveBeenCalled();
+    await runtime.flushSessions();
+  });
+
 });

@@ -1,3 +1,4 @@
+import { runOnlineLyricJob } from './nativeOnlineLyricJob';
 import { Buffer } from 'buffer';
 import { createAutoMatchBestLyric } from '../../utils/lyrics/autoMatchBestLyricCore';
 import type { AutoMatchBestLyricOptions, AutoMatchBestLyricResult } from '../../utils/lyrics/autoMatchBestLyricTypes';
@@ -28,18 +29,21 @@ export function createJobJSON(text: string, inflate: (base64: string) => string 
         options.providerCandidate.lyricsResult.lyrics = validateNativeLyricData(options.providerCandidate.lyricsResult.lyrics);
     }
     const requests = new NativeLyricRequests();
-    let done = false, error: string | undefined, result: AutoMatchBestLyricResult = null;
-    const finish = (value: AutoMatchBestLyricResult) => {
+    let done = false, error: string | undefined, result: unknown = null;
+    let updates: Record<string, unknown>[] = [];
+    const finish = (value: AutoMatchBestLyricResult | Awaited<ReturnType<typeof runOnlineLyricJob>>) => {
         if (done) return;
         if (value && 'lyrics' in value) value.lyrics = validateNativeLyricData(value.lyrics)!;
         result = value; done = true; requests.stop();
     };
-    createAutoMatchBestLyric(nativeLyricPorts(requests, inflate, sessions))(
-        input.title, input.artist, input.durationMs, options,
-    ).then(finish).catch(() => { if (!done) { error = 'lyric-match-failed'; done = true; requests.stop(); } });
+    const ports = nativeLyricPorts(requests, inflate, sessions);
+    const operation = input.song
+        ? runOnlineLyricJob({ ...input, options }, ports, document => { if (!done) updates.push(document); })
+        : createAutoMatchBestLyric(ports)(input.title, input.artist, input.durationMs, options);
+    operation.then(finish).catch(() => { if (!done) { error = 'lyric-match-failed'; done = true; requests.stop(); } });
     return {
         // The host drains after each reply; no polling, background JS timer or detached WebView is needed.
-        stateJSON() { return JSON.stringify({ done, error, result, events: requests.drain() }); },
+        stateJSON() { const pending = updates; updates = []; return JSON.stringify({ done, error, result, updates: pending, events: requests.drain() }); },
         replyJSON(reply: string) { requests.reply(reply); },
         cancel() { if (!done) { done = true; error = 'cancelled'; requests.stop(); } },
     };

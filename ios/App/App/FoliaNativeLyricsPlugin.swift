@@ -36,7 +36,13 @@ extension FoliaNativePlugin {
         guard let raw = call.getObject("song") else { throw MobileFailure("invalid-lyric-identity") }
         let song = try PlaybackEngine.sanitizedSong(raw)
         Task { @MainActor in
-            do { call.resolve(try await self.engine.lyricCache.read(song)) }
+            do {
+                let transport = try NativeLyricMatchTransport(gateway: self.engine.gateway)
+                var snapshot = try await self.engine.lyricCache.read(song)
+                try transport.validate()
+                snapshot["sessionToken"] = transport.sessionToken
+                call.resolve(snapshot)
+            }
             catch { call.reject((error as? MobileFailure)?.code ?? "lyric-cache-unavailable") }
         }
     } }
@@ -46,7 +52,16 @@ extension FoliaNativePlugin {
         let song = try PlaybackEngine.sanitizedSong(raw)
         Task { @MainActor in
             do {
-                try await self.engine.lyricCache.write(song, token: token, field: field, value: value)
+                let selection = call.getString("selectionToken")
+                let transport = try NativeLyricMatchTransport(gateway: self.engine.gateway)
+                let expectedSession = call.getString("sessionToken")
+                try await self.engine.lyricCache.write(song, token: token, field: field, value: value,
+                    selectionToken: selection, validate: {
+                        if selection != nil {
+                            guard expectedSession == transport.sessionToken else { throw MobileFailure("lyric-session-changed") }
+                            try transport.validate()
+                        }
+                    })
                 self.engine.crossfade?.songLyricsChanged(song)
                 call.resolve()
             } catch { call.reject((error as? MobileFailure)?.code ?? "lyric-cache-unavailable") }

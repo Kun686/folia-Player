@@ -23,19 +23,20 @@ actor NativeLyricCache {
     private func path(_ id: NativeProfileIdentity) -> URL {
         root.appendingPathComponent(id.provider!).appendingPathComponent(NativeProfileCache.digest(Data(("lyrics-v1|" + id.key).utf8)) + ".json")
     }
-    private func payload(_ id: NativeProfileIdentity) -> [String: Any] {
+    private func record(_ id: NativeProfileIdentity) -> [String: Any] {
         let url = path(id)
         guard let values = try? url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey, .isSymbolicLinkKey]),
               values.isRegularFile == true, values.isSymbolicLink != true, let bytes = values.fileSize, bytes <= 8_000_000,
               let data = try? Data(contentsOf: url), let record = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               record["version"] as? Int == 1, record["identity"] as? String == id.key,
-              let payload = record["payload"] as? [String: Any] else { return [:] }
-        return payload
+              record["payload"] is [String: Any] else { return [:] }
+        return record
     }
+    private func payload(_ id: NativeProfileIdentity) -> [String: Any] { record(id)["payload"] as? [String: Any] ?? [:] }
     func read(_ song: [String: Any]) async throws -> [String: Any] {
         try Task.checkCancellation()
         let id = try identity(song), epoch = token(id.provider!)
-        let raw = payload(id)
+        let saved = record(id), raw = saved["payload"] as? [String: Any] ?? [:]
         var result: [String: Any]
         do { result = try await parser.cacheDocument(raw) }
         catch {
@@ -54,10 +55,13 @@ actor NativeLyricCache {
             try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: path(id).path)
         }
         result["token"] = epoch
+        result["selectionToken"] = saved["selectionVersion"] as? String ?? "legacy"
         return result
     }
-    func write(_ song: [String: Any], token expected: String, field: String, value: Any, onlyIfMissing: Bool = false) async throws {
+    func write(_ song: [String: Any], token expected: String, field: String, value: Any, onlyIfMissing: Bool = false,
+               selectionToken expectedSelection: String? = nil, validate: () throws -> Void = {}) async throws {
         let id = try identity(song)
+        try validate()
         guard ["lyrics", "state"].contains(field), token(id.provider!) == expected else { throw MobileFailure("lyric-cache-changed") }
         let validated = try await parser.cacheDocument([field: value])
         try Task.checkCancellation()
@@ -65,11 +69,22 @@ actor NativeLyricCache {
             throw MobileFailure("lyric-cache-changed")
         }
         // Merge only after validation returns: a concurrent state edit must not be replaced by a late provider result.
-        var current = payload(id)
+        try validate()
+        let saved = record(id)
+        var current = saved["payload"] as? [String: Any] ?? [:]
+        let selectionVersion = saved["selectionVersion"] as? String ?? "legacy"
+        if let expectedSelection {
+            let state = current["state"] as? [String: Any] ?? [:]
+            guard field == "state", expectedSelection == selectionVersion,
+                  state["lyricsSource"] as? String != "imported", state["hasOnlineOverride"] as? Bool != true else {
+                throw MobileFailure("lyric-cache-changed")
+            }
+        }
         if onlyIfMissing && current.keys.contains(field) { return }
         current[field] = value
         let data = try JSONSerialization.data(withJSONObject: ["version": 1, "identity": id.key, "payload": current,
-            "song": NativeLyricExport.metadata(song)], options: .sortedKeys)
+            "song": NativeLyricExport.metadata(song),
+            "selectionVersion": field == "state" ? UUID().uuidString : selectionVersion], options: .sortedKeys)
         guard data.count <= 8_000_000 else { throw MobileFailure("lyrics-too-large") }
         let url = path(id)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true,

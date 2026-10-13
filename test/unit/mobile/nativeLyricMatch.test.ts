@@ -149,4 +149,37 @@ describe('native original lyric matcher', () => {
         expect(kugouSessionCookie({ cookie: 'token=old;userid=12;dfid=old', token: 'new' })).toBe('token=new;userid=12;dfid=old');
         for (const value of ['中文 空格&+~!*\'()', 'a/b?=é', '🎵']) expect(lyricQuery({ q: value })).toBe(new URLSearchParams({ q: value }).toString());
     });
+    it('publishes the provider baseline before a slow alternative finishes, preserving the full native document', async () => {
+        const song = { id: 42, name: input.title, artists: [{ id: 1, name: input.artist }], durationMs: 30000,
+            album: { id: 2, name: input.options.album }, sourceRef: { kind: 'online', providerId: 'netease', mediaId: '42' } };
+        const instance = job({ song, autoUseBestLyric: true });
+        let baseline: any, held: LyricEvent | undefined;
+        for (let step = 0; step < 20 && !held; step++) {
+            await flush();
+            const state = JSON.parse(instance.stateJSON());
+            baseline ??= state.updates?.[0];
+            for (const event of state.events as LyricEvent[]) if (event.kind === 'request') {
+                if (event.request.provider === 'lyrics') { held = event; continue; }
+                instance.replyJSON(JSON.stringify({ id: event.id, reply: event.request.path === '/lyric/new'
+                    ? rawFixture('netease-yrc') : json({ code: 200, chorus: [] }) }));
+            }
+        }
+        expect(baseline.payload.lyrics.lines.at(-1).endTime).toBe(26);
+        expect(baseline.lines.at(-1).endTime).toBe(26);
+        expect(JSON.parse(instance.stateJSON()).done).toBe(false);
+        expect(held?.kind).toBe('request');
+        instance.replyJSON(JSON.stringify({ id: held!.id, reply: qqSongs }));
+        const result = await drive(instance, () => rawFixture('qq-qrc'));
+        expect(result.result.state).toMatchObject({ lyricsSource: 'online', hasOnlineOverride: true, matchedLyricsSource: 'qq' });
+    });
+    it('does not search when automatic matching is disabled and preserves NetEase instrumental metadata', async () => {
+        const song = { id: 42, sourceRef: { kind: 'online', providerId: 'netease', mediaId: '42' } };
+        const result = await drive(job({ song, autoUseBestLyric: false }), request => {
+            expect(['/lyric/new', '/song/chorus']).toContain(request.path);
+            return request.path === '/lyric/new' ? rawFixture('netease-pure') : json({ code: 200, chorus: [] });
+        });
+        expect(result.result).toEqual({ state: null });
+        expect(result.calls).toHaveLength(2);
+    });
+
 });

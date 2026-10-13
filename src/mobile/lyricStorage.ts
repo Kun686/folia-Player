@@ -3,7 +3,9 @@ import type { OnlineLyricsStorage } from '../services/onlineLyricsStorage';
 import { native } from './bridge';
 
 // lyricStorage.ts — immutable read snapshot plus revocable native writes for one original loader invocation.
-export async function openNativeLyricsStorage(song: SongResult, isCurrent: () => boolean): Promise<OnlineLyricsStorage> {
+export async function openNativeLyricsStorage(song: SongResult, current: () => boolean): Promise<OnlineLyricsStorage> {
+  let valid = true;
+  const isCurrent = () => valid && current();
   const snapshot = await native.readLyricCache({ song });
   const check = () => { if (!isCurrent()) throw new DOMException('Canceled', 'AbortError'); };
   check();
@@ -19,6 +21,18 @@ export async function openNativeLyricsStorage(song: SongResult, isCurrent: () =>
     readState: async () => { check(); return snapshot.payload.state ?? null; },
     writeLyrics: value => write('lyrics', value),
     writeState: value => write('state', value),
+    writeAutomaticState: async value => {
+      check();
+      // Missing versions belong to older hosts: retain their existing foreground behavior.
+      try {
+        await native.writeLyricCache({ song, token: snapshot.token, field: 'state', value,
+          ...(snapshot.selectionToken ? { selectionToken: snapshot.selectionToken, sessionToken: snapshot.sessionToken } : {}) });
+        check();
+      } catch (error) {
+        valid = false; // A rejected automatic answer cannot subsequently republish its stale baseline.
+        throw error;
+      }
+    },
   };
 }
 type FoliaWrite = (field: 'lyrics' | 'state', value: Parameters<typeof native.writeLyricCache>[0]['value']) => Promise<void>;
