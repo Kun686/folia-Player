@@ -73,10 +73,16 @@ private final class DelayedQualityGateway: GatewayClient {
         XCTAssertFalse(tested.preparedStream?.entry === old); XCTAssertTrue(tested.outputIsPlaying)
         XCTAssertEqual(gateway.resolved, ["current", "next", "next"])
         XCTAssertEqual(gateway.qualities, ["standard", "standard", "lossless"])
-        try tested.command("pause"); let paused = tested.playbackPosition
+        try tested.command("pause")
+        XCTAssertFalse(tested.intentToPlay)
         settings.audioQuality = "high"; _ = try tested.setAudioSettings(settings.dictionary)
-        try await waitForStream { tested.preparedStream != nil }
+        XCTAssertFalse(tested.intentToPlay)
+        // Pause keeps decoding during the original fade drain; changing quality must not cancel its completion.
+        try await waitForStream { tested.preparedStream != nil && !tested.outputIsPlaying }
+        let paused = tested.playbackPosition
+        try await Task.sleep(nanoseconds: 200_000_000)
         XCTAssertTrue(tested.stream === current); XCTAssertFalse(tested.outputIsPlaying)
+        XCTAssertEqual(tested.generation, generation); XCTAssertFalse(tested.intentToPlay)
         XCTAssertEqual(tested.playbackPosition, paused, accuracy: 0.01)
         XCTAssertEqual(gateway.qualities.last, "high")
     }

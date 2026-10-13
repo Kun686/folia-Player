@@ -23,6 +23,10 @@
 
 ## 本轮核对的集合与队列行为
 
+当前基线的原生整合结果见 [NATIVE_CORE_INTEGRATION.md](NATIVE_CORE_INTEGRATION.md)：
+独立 Release QA 的 iPhone 模拟器88项、iPad16项子集通过，资源一致性、真实PCM和生产首页启动通过。
+保留首轮87通过／1失败及暂停淡出测试修正；未更新个人 App 或服务器，不替代真实平台及真机验收。
+
 QQ 歌单响应校验见 [PLAYLIST_RESPONSE.md](PLAYLIST_RESPONSE.md)：个人歌单、自建及公开歌单曲目缺少数组时抛出原错误类型，
 不再当作成功空页结束分页；真正空数组仍正常。网易云原实现保持不变，加入同场景回归；未新增依赖或修改服务。
 

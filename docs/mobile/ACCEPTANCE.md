@@ -3,6 +3,12 @@
 当前验收优先级为 QQ／网易云核心功能、特效动画、设置 UI，见 [CURRENT_SCOPE.md](CURRENT_SCOPE.md)。
 本地音乐、其他平台、同步、AI 和完整 Automix 扩展暂缓；历史自动测试不自动替代当前两平台真机验收。
 
+2026-10-14 原生整合：包含近期两平台、动效和设置修复的独立 Release QA 包，iPhone 模拟器88项、
+iPad模拟器16项关键子集 PASS；128个打包资源一致，真实PCM、原生设置恢复及生产首页启动通过。
+首轮87通过／1失败来自旧测试假设暂停立即完成，修正为等待原淡出后复测；生产逻辑未改变。
+手动设置触摸巡检受输入工具限制；实际键盘、真机旋转／动效性能和真实账号仍待验收，个人mobile.28未更新。
+见 [NATIVE_CORE_INTEGRATION.md](NATIVE_CORE_INTEGRATION.md)，不把两个模拟器的重叠测试累加为唯一覆盖数。
+
 2026-10-14 QQ 歌单响应：个人歌单、自建／公开歌单曲目缺少数组时不再被当作成功空页，沿用原失败提示及重试。
 267 项两平台 provider／transport／会话逻辑、138 项 WebKit（新增异常／空页 30 项及既有回归 108 项）、类型检查与移动构建 PASS。
 真实账号、原生容器和物理设备本批 NOT_RUN；个人 mobile.28 和服务器未更新，见 [PLAYLIST_RESPONSE.md](PLAYLIST_RESPONSE.md)。
