@@ -12,7 +12,7 @@ const knownErrors = new Set(['secure-storage', 'invalid-navidrome-request', 'inv
   'navidrome-auth-required', 'navidrome-settings-changed', 'navidrome-cancelled', 'navidrome-disabled',
   'navidrome-not-configured', 'navidrome-forbidden', 'navidrome-not-found', 'navidrome-token-auth-unsupported',
   'navidrome-invalid-response', 'navidrome-response-too-large', 'navidrome-redirect-refused', 'navidrome-timeout',
-  'navidrome-network', 'navidrome-random-failed', 'navidrome-request-limit']);
+  'navidrome-network', 'navidrome-https-endpoint-required', 'navidrome-random-failed', 'navidrome-request-limit']);
 export function safeNavidromeError(error: unknown): Error {
   const message = error instanceof Error ? error.message : (error as { message?: unknown } | null)?.message;
   return new Error(typeof message === 'string' && (knownErrors.has(message) || /^navidrome-(http-\d{3}|api-\d{1,3})$/.test(message))

@@ -1,3 +1,4 @@
+import { navidromeEn, navidromeZh } from './localeNavidrome';
 import { accountLibraryEn, accountLibraryZh, accountLibraryIn } from './localeAccountLibrary';
 import { syncEn, syncZh } from './localeSync';
 import { aiEn, aiZh } from './localeAI';
@@ -7,6 +8,7 @@ import { dailyEn, dailyZh, dailyIn } from './localeDaily';
 
 // src/mobile/locale.ts
 export const mobileEn = {
+  navidrome: navidromeEn,
   displaySleepHint: 'Keep the screen awake while Folia is in the foreground and playing. Pausing or leaving the app restores normal auto-lock; you can still lock the screen yourself.',
   audioRouteHint: 'Tap the AirPlay icon to choose an available audio output. Pair Bluetooth devices in system Settings first.',
   audioRouteFailed: 'Could not open the audio output picker. Close any system dialog and try again.',
@@ -109,6 +111,7 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  navidrome: navidromeZh,
   displaySleepHint: 'Folia 在前台播放时保持屏幕唤醒；暂停或离开 App 后恢复正常自动锁屏，仍可手动锁屏。',
   audioRouteHint: '轻点 AirPlay 图标选择可用的播放设备。蓝牙设备需先在系统设置中配对。',
   audioRouteFailed: '无法打开播放设备选择器，请关闭其他系统弹窗后重试。',
@@ -211,6 +214,7 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  navidrome: navidromeEn,
   displaySleepHint: 'Jaga layar tetap menyala saat Folia aktif di depan dan memutar musik. Jeda atau keluar dari aplikasi memulihkan kunci otomatis; layar tetap dapat dikunci secara manual.',
   audioRouteHint: 'Ketuk ikon AirPlay untuk memilih keluaran audio. Pasangkan perangkat Bluetooth di Pengaturan sistem terlebih dahulu.',
   audioRouteFailed: 'Pemilih keluaran audio tidak dapat dibuka. Tutup dialog sistem lain lalu coba lagi.',

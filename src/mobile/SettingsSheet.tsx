@@ -11,6 +11,7 @@ import SleepTimerSheet from './SleepTimerSheet';
 import type { useNativeSleepTimer } from './useNativeSleepTimer';
 import AISettingsSheet from './AISettingsSheet';
 import SyncSettingsSheet from './SyncSettingsSheet';
+import NavidromeSettingsSheet from './NavidromeSettingsSheet';
 import LocalLyricPreference, { type useLocalLyricPreference } from './LocalLyricPreference';
 import QueuePreference from './QueuePreference';
 import LocalLyricFormatSettings from './LocalLyricFormatSettings';
@@ -35,6 +36,7 @@ export default function SettingsSheet({ appearance, mediaCache, timer, server, l
   const [sleep, setSleep] = useState(false);
   const [aiSettings, setAISettings] = useState(false);
   const [syncSettings, setSyncSettings] = useState(false);
+  const [navidromeSettings, setNavidromeSettings] = useState(false);
   const [lyricFormats, setLyricFormats] = useState(false);
   const save = async () => {
     setBusy(true); setError(false);
@@ -49,6 +51,7 @@ export default function SettingsSheet({ appearance, mediaCache, timer, server, l
   if (batch) return <BatchLyricExportDialog light={light} theme={light ? appearance.theme.light : appearance.theme.dark} close={() => setBatch(false)} />;
   if (sleep) return <SleepTimerSheet timer={timer} light={light} theme={light ? appearance.theme.light : appearance.theme.dark} close={() => setSleep(false)} />;
   if (aiSettings) return <AISettingsSheet close={() => setAISettings(false)} />;
+  if (navidromeSettings) return <NavidromeSettingsSheet close={() => setNavidromeSettings(false)} />;
   if (syncSettings) return <SyncSettingsSheet close={() => setSyncSettings(false)} />;
   if (lyricFormats) return <LocalLyricFormatSettings folders={folders} close={() => setLyricFormats(false)} />;
   return <div className="sheet-backdrop"><section className="sheet" role="dialog" aria-modal="true" aria-label={t('mobile.settings')}>
@@ -72,6 +75,7 @@ export default function SettingsSheet({ appearance, mediaCache, timer, server, l
     <button onClick={() => setLyricFormats(true)}>{t('options.localLyricFormatOrder')}</button>
     <button onClick={() => setSleep(true)}>{t('commandPalette.sleepTimerTitle')}</button>
     <button onClick={() => setAISettings(true)}>{t('mobile.ai.settings')}</button>
+    <button onClick={() => setNavidromeSettings(true)}>{t('mobile.navidrome.settings')}</button>
     <button onClick={() => setSyncSettings(true)}>{t('options.r2Sync')}</button>
     <ResourceCacheControls />
     <ResourceCacheControls category="lyrics" />

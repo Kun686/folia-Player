@@ -26,7 +26,7 @@ for (const light of [false, true]) test(`rotation keeps playback, safe controls 
   await expect(page).toHaveTitle('Folia');
   if (light) {
     await page.getByRole('button', { name: '服务器与外观', exact: true }).click();
-    await page.getByRole('dialog').locator('select').selectOption('light');
+    await page.getByRole('dialog').getByLabel(/^主题/).selectOption('light');
     await page.getByRole('button', { name: '关闭', exact: true }).click();
   }
   await page.getByRole('button', { name: '导入音乐', exact: true }).click();

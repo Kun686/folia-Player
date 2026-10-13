@@ -16,7 +16,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         "readLocalFolders", "beginFolderImport", "readFolderImport", "prepareFolderImport", "finishFolderImport", "cancelFolderImport", "removeLocalFolder",
         "getAISettings", "setAISettings", "aiRequest", "cancelAIRequest",
         "getSyncSettings", "setSyncSettings", "syncRequest", "cancelSyncRequest",
-        "getNavidromeSettings", "setNavidromeSettings", "navidromeRequest", "cancelNavidromeRequest",
+        "navidromeArtwork", "getNavidromeSettings", "setNavidromeSettings", "navidromeRequest", "cancelNavidromeRequest",
         "readNavidromeLyrics",
         "getModels", "downloadModel", "cancelModel", "removeModels", "importModel"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
     let picker = LocalImportPicker()

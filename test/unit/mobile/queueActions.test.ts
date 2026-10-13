@@ -60,4 +60,11 @@ describe('mobile queue actions', () => {
     await expect(addMobileSongs([b], 'append')).rejects.toThrow('network');
     expect(native.editQueue).toHaveBeenCalledTimes(1);
   });
+  it('does not add an old account song if settings change while reading the native queue', async () => {
+    let valid = true;
+    native.getState.mockImplementation(async () => { valid = false; return state(); });
+    await expect(addMobileSongs([b], 'append', () => { if (!valid) throw Error('navidrome-settings-changed'); }))
+      .rejects.toThrow('navidrome-settings-changed');
+    expect(native.editQueue).not.toHaveBeenCalled();
+  });
 });

@@ -1,5 +1,5 @@
 import type { NavidromeConfig, SubsonicAlbum, SubsonicArtist, SubsonicPlaylist, SubsonicSong } from '../../../types/navidrome';
-import type { LibraryNavidromeHomeResource, LibraryNavidromeHomeSnapshot } from '../contracts/homeModel';
+import type { LibraryNavidromeHomeData, LibraryNavidromeHomeResource, LibraryNavidromeHomeSnapshot } from '../contracts/homeModel';
 import { EMPTY_NAVIDROME_HOME_DATA } from '../model/navidromeHomeModel';
 
 // src/library/core/services/navidromeHomeLibrary.ts
@@ -16,19 +16,19 @@ export const NAVIDROME_MAX_ALBUM_PAGES = 20;
 export const NAVIDROME_RECENT_ALBUM_LIMIT = 500;
 export const NAVIDROME_RANDOM_SONG_COUNT = 100;
 
-export type NavidromeHomeLibraryDeps = {
-    getConfig(): NavidromeConfig | null;
-    getAlbumList2(config: NavidromeConfig, type: 'alphabeticalByName' | 'newest' | 'recent', size: number, offset?: number): Promise<SubsonicAlbum[]>;
-    getPlaylists(config: NavidromeConfig): Promise<SubsonicPlaylist[]>;
-    getArtists(config: NavidromeConfig): Promise<SubsonicArtist[]>;
-    getRandomSongs(config: NavidromeConfig, size: number): Promise<SubsonicSong[]>;
-    getStarred2(config: NavidromeConfig): Promise<SubsonicSong[]>;
+export type NavidromeHomeLibraryDeps<Config = NavidromeConfig> = {
+    getConfig(): Config | null;
+    getAlbumList2(config: Config, type: 'alphabeticalByName' | 'newest' | 'recent', size: number, offset?: number): Promise<SubsonicAlbum[]>;
+    getPlaylists(config: Config): Promise<SubsonicPlaylist[]>;
+    getArtists(config: Config): Promise<SubsonicArtist[]>;
+    getRandomSongs(config: Config, size: number): Promise<SubsonicSong[]>;
+    getStarred2(config: Config): Promise<SubsonicSong[]>;
 };
 
 /** 读完全部字母序专辑：某一页不满一页就停；读取作废时不再请求后面的页。 */
-export const loadAllNavidromeAlbums = async (
-    deps: Pick<NavidromeHomeLibraryDeps, 'getAlbumList2'>,
-    config: NavidromeConfig,
+export const loadAllNavidromeAlbums = async <Config,>(
+    deps: Pick<NavidromeHomeLibraryDeps<Config>, 'getAlbumList2'>,
+    config: Config,
     isCurrent: () => boolean = () => true,
 ): Promise<SubsonicAlbum[]> => {
     const albums: SubsonicAlbum[] = [];
@@ -39,6 +39,21 @@ export const loadAllNavidromeAlbums = async (
     }
     return albums;
 };
+
+// Shared overview reads preserve original limits and ordering; mobile errors are handled by its touch surface.
+export async function loadNavidromeHomeData<Config>(
+    deps: Omit<NavidromeHomeLibraryDeps<Config>, 'getConfig'>, config: Config, isCurrent: () => boolean = () => true,
+): Promise<LibraryNavidromeHomeData> {
+    const albums = await loadAllNavidromeAlbums(deps, config, isCurrent);
+    if (!isCurrent()) return EMPTY_NAVIDROME_HOME_DATA;
+    const [recentlyAddedAlbums, recentlyPlayedAlbums, playlists, artists, randomSongs, favoriteSongs] = await Promise.all([
+        deps.getAlbumList2(config, 'newest', NAVIDROME_RECENT_ALBUM_LIMIT),
+        deps.getAlbumList2(config, 'recent', NAVIDROME_RECENT_ALBUM_LIMIT),
+        deps.getPlaylists(config), deps.getArtists(config),
+        deps.getRandomSongs(config, NAVIDROME_RANDOM_SONG_COUNT), deps.getStarred2(config),
+    ]);
+    return { albums, recentlyAddedAlbums, recentlyPlayedAlbums, playlists, artists, randomSongs, favoriteSongs };
+}
 
 export const createNavidromeHomeLibrary = (deps: NavidromeHomeLibraryDeps): LibraryNavidromeHomeResource => {
     let snapshot: LibraryNavidromeHomeSnapshot = { config: deps.getConfig(), isLoading: false, data: EMPTY_NAVIDROME_HOME_DATA };
@@ -83,29 +98,9 @@ export const createNavidromeHomeLibrary = (deps: NavidromeHomeLibraryDeps): Libr
         }
         commit({ ...snapshot, config, isLoading: true });
         try {
-            const albums = await loadAllNavidromeAlbums(deps, config, isCurrent);
+            const data = await loadNavidromeHomeData(deps, config, isCurrent);
             if (!isCurrent()) return;
-            const [
-                recentlyAddedAlbums,
-                recentlyPlayedAlbums,
-                playlists,
-                artists,
-                randomSongs,
-                favoriteSongs,
-            ] = await Promise.all([
-                deps.getAlbumList2(config, 'newest', NAVIDROME_RECENT_ALBUM_LIMIT),
-                deps.getAlbumList2(config, 'recent', NAVIDROME_RECENT_ALBUM_LIMIT),
-                deps.getPlaylists(config),
-                deps.getArtists(config),
-                deps.getRandomSongs(config, NAVIDROME_RANDOM_SONG_COUNT),
-                deps.getStarred2(config),
-            ]);
-            if (!isCurrent()) return;
-            commit({
-                config,
-                isLoading: false,
-                data: { albums, recentlyAddedAlbums, recentlyPlayedAlbums, playlists, artists, randomSongs, favoriteSongs },
-            });
+            commit({ config, isLoading: false, data });
         } catch (error) {
             if (!isCurrent()) return;
             console.error('[LibraryHome] Failed to load the Navidrome overview:', error);

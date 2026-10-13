@@ -2,6 +2,21 @@ import Capacitor
 
 // NativeNavidromeBridge.swift — read-only Subsonic calls from bundled app content; no raw URL or authentication override.
 extension FoliaNativePlugin {
+    @objc func navidromeArtwork(_ call: CAPPluginCall) { run(call) {
+        guard let id = call.getString("id"), let scope = call.getString("scope"), NativeNavidromeRequest.validMediaID(id) else {
+            throw MobileFailure("invalid-cover-identity")
+        }
+        let epoch = try self.navidrome.validateResource(scope)
+        Task { @MainActor in
+            do {
+                try await self.engine.mediaCachePurges["navidrome"]?.value
+                let data = try await self.engine.coverCache.navidromeArtwork(id, scope: scope, client: self.navidrome)
+                _ = try self.navidrome.validateResource(scope, expected: epoch)
+                call.resolve(data.map { ["url": "data:image/jpeg;base64," + $0.base64EncodedString()] } ?? [:])
+            } catch { call.reject((error as? MobileFailure)?.code ?? "cover-unavailable") }
+        }
+    } }
+
     @objc func readNavidromeLyrics(_ call: CAPPluginCall) { run(call) {
         guard let raw = call.getObject("song") else { throw MobileFailure("invalid-lyric-identity") }
         let song = try PlaybackEngine.sanitizedSong(raw)

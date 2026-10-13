@@ -43,6 +43,16 @@ import Foundation
         guard settings.enabled else { throw MobileFailure("navidrome-disabled") }
         return revision
     }
+    func validateResource(_ scope: String, expected: Int? = nil) throws -> Int {
+        let settings = try NativeNavidromeSettings.read(read())
+        guard !scope.isEmpty, scope == settings.scope, expected == nil || revision == expected else { throw MobileFailure("navidrome-settings-changed") }
+        guard settings.enabled else { throw MobileFailure("navidrome-disabled") }
+        return revision
+    }
+    func artworkURL(_ id: String, scope: String, expected: Int) throws -> URL {
+        _ = try validateResource(scope, expected: expected)
+        return try NativeNavidromeRequest.coverURL(NativeNavidromeSettings.read(read()), id: id)
+    }
     func audioSource(_ song: [String: Any]) async throws -> NativeAudioSource {
         let epoch = try validatePlayback(song), settings = try NativeNavidromeSettings.read(read())
         guard let ref = song["sourceRef"] as? [String: Any], let id = ref["mediaId"] as? String,

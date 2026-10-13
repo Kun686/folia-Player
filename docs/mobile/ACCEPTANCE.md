@@ -1,8 +1,12 @@
 # 真实服务与真机验收表
 
+Navidrome 设置、浏览、搜索与既有原生播放已接通：1,418 项逻辑、32 项 WebKit 及 31 项原生模拟器测试通过。
+旋转测试在 phone 项目覆盖 8 种尺寸和深浅主题，另 4 个重复实例按原规则跳过；真实服务／物理设备／系统挂起仍 NOT_RUN。
+个人 mobile.28 未更新；歌单编辑与收藏写入等尚未移植，完整交付仍未完成，见 [NAVIDROME_LIBRARY.md](NAVIDROME_LIBRARY.md)。
+
 Navidrome 封面和歌词已接入原生播放器，复用原解析器与缓存，支持已有歌词导入、来源切换和导出工具。
 1,451 项逻辑、9 项 WebKit 界面及 87 项原生模拟器回归通过；真实 Navidrome／真机／系统挂起仍 NOT_RUN。
-个人 mobile.28、界面布局、动效、音频算法和依赖版本保持不变；移动设置／浏览仍待装配，见 [NAVIDROME_RESOURCES.md](NAVIDROME_RESOURCES.md)。
+该资源阶段个人 mobile.28、界面布局、动效、音频算法和依赖版本保持不变；后续设置／浏览装配见上文，见 [NAVIDROME_RESOURCES.md](NAVIDROME_RESOURCES.md)。
 
 Navidrome 原生播放在受控 Subsonic 响应下完成三曲实际 PCM 输出、拖动／断网恢复、缓存／账号隔离和重定向保护。
 51 项原生模拟器与 1,443 项逻辑回归通过；该播放阶段未装配设置／浏览与封面／歌词，后续资源接入见上文；真实服务／物理设备／系统挂起 NOT_RUN。

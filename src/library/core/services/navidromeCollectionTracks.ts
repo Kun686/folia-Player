@@ -1,5 +1,5 @@
 import type { SongResult } from '../../../types';
-import type { SubsonicSong } from '../../../types/navidrome';
+import { readNavidromeCollection } from './navidromeCollectionRead';
 import type { NavidromeGridViewCollectionDescriptor } from '../contracts/collection';
 import { getNavidromeConfig, navidromeApi } from '../../../services/navidromeService';
 import { buildNavidromeQueue } from '../../../services/playbackAdapters';
@@ -23,25 +23,7 @@ export const resolveNavidromeGridViewTracks = async (
         return [];
     }
 
-    let subsonicSongs: SubsonicSong[] = [];
-
-    if (descriptor.type === 'album') {
-        const albumDetail = await navidromeApi.getAlbum(config, descriptor.id);
-        subsonicSongs = albumDetail?.song || [];
-    } else if (descriptor.type === 'playlist') {
-        const playlistDetail = await navidromeApi.getPlaylist(config, descriptor.id);
-        subsonicSongs = playlistDetail?.entry || [];
-    } else if (descriptor.type === 'artist') {
-        const artistDetail = await navidromeApi.getArtist(config, descriptor.id);
-        const albums = artistDetail?.album || [];
-        const albumResults = await Promise.all(albums.map(album => navidromeApi.getAlbum(config, album.id)));
-        subsonicSongs = albumResults.flatMap(album => album?.song || []);
-    } else if (descriptor.type === 'random') {
-        subsonicSongs = await navidromeApi.getRandomSongs(config, 100);
-    } else if (descriptor.type === 'favorites') {
-        subsonicSongs = await navidromeApi.getStarred2(config);
-    }
-
+    const subsonicSongs = await readNavidromeCollection(config, descriptor, navidromeApi);
     const navidromeSongs = subsonicSongs.map(song => navidromeApi.toNavidromeSong(config, song));
     return buildNavidromeQueue(navidromeSongs);
 };

@@ -1,7 +1,7 @@
 # Navidrome 封面与歌词移植
 
 本批把已接入的原生 Navidrome 队列连接到封面、歌词和原有歌词工具，不新增依赖。
-个人 App 保持 mobile.28；移动设置与曲库浏览入口仍待装配，完整移植尚未完成。
+该阶段个人 App 保持 mobile.28；后续移动设置与曲库浏览入口见 [NAVIDROME_LIBRARY.md](NAVIDROME_LIBRARY.md)，完整移植尚未完成。
 
 ## 实现
 

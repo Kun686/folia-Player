@@ -19,9 +19,9 @@ actor NativeCoverCache {
     deinit { jobs.values.forEach { $0.task.cancel() } }
 
     // NativeProfileIdentity includes provider and source variant, never an expiring URL.
-    private func path(_ identity: NativeProfileIdentity) -> URL {
-        root.appendingPathComponent(identity.provider!).appendingPathComponent(
-            NativeProfileCache.digest(Data(("cover-v2|" + identity.key).utf8)) + ".jpg")
+    private func path(_ key: String, provider: String) -> URL {
+        root.appendingPathComponent(provider).appendingPathComponent(
+            NativeProfileCache.digest(Data(("cover-v2|" + key).utf8)) + ".jpg")
     }
     private func cached(_ url: URL) -> Data? {
         guard let values = try? url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey, .isSymbolicLinkKey]),
@@ -44,27 +44,38 @@ actor NativeCoverCache {
         let scopedClient = identity.provider == "navidrome" ? navidrome : nil
         if identity.provider == "navidrome", scopedClient == nil { throw MobileFailure("navidrome-not-configured") }
         let connection = try await scopedClient?.validatePlayback(song)
-        let destination = path(identity)
+        return try await remoteCover(identity.key, provider: identity.provider!, allowNetwork: allowNetwork,
+            validate: { _ = try await scopedClient?.validatePlayback(song, expected: connection) },
+            resolve: {
+                if let scopedClient { return try await scopedClient.coverURL(song) }
+                guard let raw = (song["album"] as? [String: Any])?["coverUrl"] as? String, raw.count <= 4096 else { return nil }
+                return URL(string: raw)
+            })
+    }
+    func navidromeArtwork(_ id: String, scope: String, client: NativeNavidromeClient) async throws -> Data? {
+        let epoch = try await client.validateResource(scope)
+        let key = "navidrome-artwork:" + NativeProfileCache.digest(try JSONSerialization.data(withJSONObject: [scope, id]))
+        return try await remoteCover(key, provider: "navidrome", allowNetwork: true,
+            validate: { _ = try await client.validateResource(scope, expected: epoch) },
+            resolve: { try await client.artworkURL(id, scope: scope, expected: epoch) })
+    }
+    private func remoteCover(_ key: String, provider: String, allowNetwork: Bool,
+        validate: @escaping () async throws -> Void, resolve: @escaping () async throws -> URL?) async throws -> Data? {
+        try Task.checkCancellation()
+        try await validate()
+        let destination = path(key, provider: provider)
         if let data = cached(destination) {
-            _ = try await scopedClient?.validatePlayback(song, expected: connection)
+            try await validate()
             return data
         }
         guard allowNetwork else { return nil }
-        let key = identity.key, provider = identity.provider!, epoch = generations[identity.provider!, default: 0]
+        let epoch = generations[provider, default: 0]
         let job: Job
         if let existing = jobs[key] { job = existing }
         else {
             guard jobs.count < 4 else { throw MobileFailure("cover-busy") }
             let task = Task<Data?, Error> { [configuration] in
-                let url: URL
-                if let scopedClient {
-                    guard let source = try await scopedClient.coverURL(song) else { return nil }
-                    url = source
-                } else {
-                    guard let raw = (song["album"] as? [String: Any])?["coverUrl"] as? String, raw.count <= 4096,
-                          let source = URL(string: raw) else { return nil }
-                    url = source
-                }
+                guard let url = try await resolve() else { return nil }
                 _ = try NativeMediaTransport.request(url)
                 let download = try await NativeMediaDownload(configuration: configuration, maximumBytes: 8_000_000,
                                                               resourceTimeout: 30).read(url)
@@ -72,11 +83,11 @@ actor NativeCoverCache {
                 try Task.checkCancellation()
                 return try Self.thumbnail(Data(contentsOf: download.url))
             }
-            job = Job(token: UUID(), provider: identity.provider!, task: task); jobs[key] = job
+            job = Job(token: UUID(), provider: provider, task: task); jobs[key] = job
         }
         defer { if jobs[key]?.token == job.token { jobs.removeValue(forKey: key) } }
         let result = try await job.task.value
-        _ = try await scopedClient?.validatePlayback(song, expected: connection)
+        try await validate()
         // Clear/logout invalidates the shared job, even if a completed network reply is already queued.
         guard generations[provider, default: 0] == epoch else { throw CancellationError() }
         try Task.checkCancellation()

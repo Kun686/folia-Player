@@ -39,11 +39,13 @@ export async function editMobileQueue(state: PlaybackSnapshot, action: QueueActi
   return commit(state, songs);
 }
 
-export async function addMobileSongs(songs: SongResult[], behavior: QueueAddBehavior) {
+export async function addMobileSongs(songs: SongResult[], behavior: QueueAddBehavior, assertCurrent: () => void = () => {}) {
   // Add is identity-based and can safely rebase once if a remote control advances the queue.
   // Row actions never retry: their index belongs to the exact list the user touched.
   for (let attempt = 0; attempt < 2; attempt++) {
+    assertCurrent();
     const state = await native.getState();
+    assertCurrent();
     const result = applyQueueAddBehavior({ queue: state.queue, songs, currentSong: active(state), behavior });
     if (!result.changed) return;
     try { await commit(state, result.nextQueue); return; }

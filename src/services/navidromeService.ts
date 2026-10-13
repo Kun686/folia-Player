@@ -1,3 +1,4 @@
+import { createNavidromeSong } from './navidromeSong';
 import {
     NavidromeConfig,
     SubsonicResponse,
@@ -354,34 +355,6 @@ export const navidromeApi = Object.assign(createNavidromeReadApi<NavidromeConfig
             ? navidromeApi.getCoverArtUrl(config, coverArtId, 600)
             : undefined;
 
-        const displayArtists = [{ id: 0, name: song.artist }];
-        const displayAlbum = {
-            id: 0,
-            name: song.album,
-            coverUrl: coverArtUrl,
-        };
-
-        return {
-            // Use negative ID to avoid conflicts with Netease IDs
-            id: -Math.abs(parseInt(song.id.replace(/\D/g, ''), 10) || Date.now()),
-            name: song.title,
-            artists: displayArtists,
-            album: displayAlbum,
-            durationMs: song.duration * 1000, // Convert to milliseconds
-            isNavidrome: true,
-            sourceRef: { kind: 'navidrome', mediaId: song.id },
-            navidromeData: {
-                id: song.id,
-                streamUrl: navidromeApi.getStreamUrl(config, song.id),
-                coverArtUrl,
-                albumId: song.albumId,
-                artistId: song.artistId,
-                path: song.path,
-                bitRate: song.bitRate,
-                suffix: song.suffix,
-                starred: song.starred,
-                replayGain: song.replayGain,
-            },
-        };
+        return createNavidromeSong(song, navidromeApi.getStreamUrl(config, song.id), coverArtUrl);
     },
 });

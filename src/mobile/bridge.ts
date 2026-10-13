@@ -58,6 +58,7 @@ export interface FoliaNativePlugin {
   setSyncSettings(options: { revision: number; settings: NativeSyncSettingsEdit }): Promise<NativeSyncSettings>;
   syncRequest(options: { id: string; revision: number; operation: NativeSyncOperation; body?: string }): Promise<NativeSyncResponse>;
   cancelSyncRequest(options: { id: string }): Promise<void>;
+  navidromeArtwork(options: { id: string; scope: string }): Promise<{ url?: string }>;
   getNavidromeSettings(): Promise<NativeNavidromeSettings>;
   setNavidromeSettings(options: { revision: number; scope: string; settings: NativeNavidromeSettingsEdit }): Promise<NativeNavidromeSettings>;
   navidromeRequest(options: { id: string; revision: number; scope: string; operation: NativeNavidromeOperation; parameters: Record<string, string> }): Promise<NativeNavidromeResponse>;

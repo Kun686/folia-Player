@@ -46,6 +46,7 @@ import { useAppPreferences } from '../hooks/useAppPreferences';
 import { useThemeSettingsStore } from '../stores/useThemeSettingsStore';
 import { useMediaCache } from './useMediaCache';
 import SongList from './SongList';
+import NavidromeBrowser from './NavidromeBrowser';
 import LoginSheet from './LoginSheet';
 import SettingsSheet from './SettingsSheet';
 import { useNativeSleepTimer } from './useNativeSleepTimer';
@@ -67,6 +68,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const { t } = useTranslation();
   const server = initialServer;
   const [provider, setProvider] = useState(initialServer ? 'netease' : 'local');
+  const isNavidrome = provider === 'navidrome';
   const [query, setQuery] = useState('');
   const [settings, setSettings] = useState(false);
   const [entityId, setEntityId] = useState<string>();
@@ -88,12 +90,12 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const likes = useMemo(() => createMobileSongLikes(omni, captureProviderSession), []);
   const providerEnabled = available.providers.includes(provider);
   useEffect(() => {
-    if (provider !== 'local' && provider !== 'cached' && available.providers.length && !providerEnabled) setProvider(available.providers[0]);
+    if (provider !== 'local' && provider !== 'cached' && provider !== 'navidrome' && available.providers.length && !providerEnabled) setProvider(available.providers[0]);
   }, [available.providers, providerEnabled, provider]);
   const playback = usePlayback();
   const appearance = useMobileTheme(playback.state.currentSong, playback.songEpoch, playback.captureSongGuard);
   const sleepTimer = useNativeSleepTimer();
-  const catalog = useCatalog(provider, !!server && isNative && providerEnabled);
+  const catalog = useCatalog(isNavidrome ? '' : provider, !!server && isNative && providerEnabled);
   const replacement = useMobileSongReplacement(available.replacementProviders);
   const cancelReplacement = replacement.cancel;
   useEffect(() => { cancelReplacement(); }, [cancelReplacement, provider, queueView, onlineTarget, managedPlaylist, catalog.collection, catalog.searchQuery]);
@@ -117,7 +119,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const mediaCache = useMediaCache();
   const isCached = provider === 'cached';
   const isLocal = provider === 'local';
-  const searchingOnline = !isLocal && !isCached && !queueView && catalog.searchQuery !== null;
+  const searchingOnline = !isLocal && !isCached && !isNavidrome && !queueView && catalog.searchQuery !== null;
   const browsingFolders = isLocal && localBrowser.section === 'folders';
   const sortField = useLocalTrackSortStore(s => s.field), sortDirection = useLocalTrackSortStore(s => s.direction);
   const sortable = isLocal && !queueView && (localBrowser.section === 'songs' || (browsingFolders && Boolean(folderView.root)));
@@ -164,19 +166,27 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       <header className="brand"><div><small>FOLIA</small><h1>{t('mobile.library')}</h1></div>
         <button aria-label={t('mobile.settings')} onClick={() => setSettings(true)}><Settings /></button></header>
       <nav className="providers" aria-label="Music platform">
-        {[['local', t('mobile.local')], ['cached', t('options.mediaCache')], ['netease', '网易云'], ['qq', 'QQ 音乐'], ['kugou', '酷狗']].filter(([id]) => id !== 'kugou' || available.providers.includes(id)).map(([id, name]) =>
+        {[['local', t('mobile.local')], ['navidrome', 'Navidrome'], ['cached', t('options.mediaCache')], ['netease', '网易云'], ['qq', 'QQ 音乐'], ['kugou', '酷狗']].filter(([id]) => id !== 'kugou' || available.providers.includes(id)).map(([id, name]) =>
           <button key={id} disabled={catalog.loggingOut} aria-pressed={provider === id} onClick={() => { setProvider(id); setQueueView(false); setQuery(''); }}>{name}</button>)}
       </nav>
+      {isNavidrome && !queueView ? <NavidromeBrowser busy={queueBusy} queueError={queueError} queueCount={playback.state.queue.length}
+        showQueue={() => setQueueView(true)}
+        play={(tracks, index, current, search) => queueWork(async () => { current();
+          if (search) await playMobileSearchSong(tracks[index], () => { current(); return true; });
+          else await native.setQueue({ songs: tracks, index }); setExpanded(true); })}
+        add={(song, behavior, current) => queueWork(async () => { current(); await addMobileSongs([song], behavior ?? useAudioSettingsStore.getState().queueAddBehavior, current); })} /> : <>
+      {!isNavidrome && <>
       {isCached ? <div className="account-row"><span>{mediaCache.state?.count ?? 0} {t('mobile.tracks')}</span></div> : isLocal ? <div className="account-row"><span>{local.songs.length} {t('mobile.tracks')}</span>
         <button disabled={local.busy || folders.busy || !isNative} onClick={() => void local.importAudio()}>{t('mobile.importAudio')}</button></div> :
       <div className="account-row"><span>{catalog.user?.nickname ?? provider.toUpperCase()}</span>
         {catalog.user ? <button disabled={catalog.busy} onClick={() => void catalog.logout().catch(() => setError(true))}>{t('mobile.logout')}</button>
           : <button disabled={!providerEnabled || catalog.loggingOut} onClick={() => setLogin(true)}>{t('mobile.login')}</button>}</div>}
-      {!isLocal && !isCached && !providerEnabled && <p className="connection-hint">{t('mobile.connect')} <button onClick={() => setSettings(true)}>{t('mobile.settings')}</button></p>}
-      <form className="search" onSubmit={e => { e.preventDefault(); setQueueView(false); if (!isLocal && !isCached && query.trim()) void catalog.load({ query: query.trim() }); }}>
+      {!isLocal && !isCached && !isNavidrome && !providerEnabled && <p className="connection-hint">{t('mobile.connect')} <button onClick={() => setSettings(true)}>{t('mobile.settings')}</button></p>}
+      <form className="search" onSubmit={e => { e.preventDefault(); setQueueView(false); if (!isLocal && !isCached && !isNavidrome && query.trim()) void catalog.load({ query: query.trim() }); }}>
         <Search size={20} /><input aria-label={t('mobile.search')} placeholder={t('mobile.search')} value={query} onChange={e => setQuery(e.target.value)} />
-        <button disabled={(!isLocal && !isCached && !providerEnabled) || catalog.busy || !query.trim()}>{t('mobile.search')}</button>
+        <button disabled={(!isLocal && !isCached && !isNavidrome && !providerEnabled) || catalog.busy || !query.trim()}>{t('mobile.search')}</button>
       </form>
+      </>}
       <div className="section-heading"><h2>{queueView ? t('mobile.queue') : t(isCached ? 'options.mediaCache' : isLocal ? 'mobile.local' : catalog.collection?.type === 'cloud' ? 'mobile.accountCloud' : 'mobile.playlists')}</h2>
         <button aria-pressed={queueView} onClick={() => setQueueView(!queueView)}>{t('mobile.queue')} · {playback.state.queue.length}</button></div>
       {isLocal && !queueView && <LocalLibraryNav browser={localBrowser} clearQuery={() => setQuery('')} />}
@@ -213,9 +223,9 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         <button disabled={!localPlaylists.ready || localPlaylists.busy || !songs.some(song => song.sourceRef?.kind === 'local')}
           onClick={() => localPlaylists.create(songs)}>{t('localMusic.saveQueueAsPlaylist')}</button>
       </div>}
-      {!isLocal && !isCached && !queueView && catalog.collections.length > 0 && <div className="collections">{catalog.collections.map(collection =>
+      {!isLocal && !isCached && !isNavidrome && !queueView && catalog.collections.length > 0 && <div className="collections">{catalog.collections.map(collection =>
         <button key={mobileCollectionKey(collection)} onClick={() => void catalog.load({ collection })}><Music2 size={18} />{collection.name}</button>)}</div>}
-      {!isLocal && !isCached && !queueView && <div className="collection-actions">
+      {!isLocal && !isCached && !isNavidrome && !queueView && <div className="collection-actions">
         {catalog.collection && catalog.user && <OnlineCollectionSubscription
           key={mobileCollectionKey(catalog.collection) + ':' + String(catalog.user.id)} collection={catalog.collection}
           user={catalog.user} editor={playlistEditor} writable={available.subscriptionProviders.includes(provider)} />}
@@ -226,7 +236,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         {catalog.trackError && <button disabled={catalog.busy} onClick={() => void catalog.load()}>{t('mobile.retrySongs')}</button>}
         {catalog.logoutError && <button disabled={catalog.loggingOut} onClick={() => void catalog.logout()}>{t('mobile.retry')} · {t('mobile.logout')}</button>}
       </div>}
-      {((!isLocal && !isCached && (catalog.error || available.error)) || error) && <p role="alert">{t('mobile.error')}</p>}
+      {((!isLocal && !isCached && !isNavidrome && (catalog.error || available.error)) || error) && <p role="alert">{t('mobile.error')}</p>}
       {isCached && mediaCache.error && <p role="alert">{t('mobile.cacheError')}</p>}
       {queueError && <p role="alert">{t('mobile.' + queueError)}</p>}
       {isLocal && local.error && <p role="alert">{t('mobile.importError')} {local.error}</p>}
@@ -240,10 +250,11 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
           <LocalSongPlaylistActions song={song} controller={localPlaylists}
           selected={isLocal && !queueView ? localBrowser.selected : undefined} close={close} /></>}
         remove={isLocal && !queueView ? song => { if (window.confirm(t('mobile.confirmRemove', { name: song.name }))) void local.remove(song); } : undefined} />
-        : (browsingFolders && !queueView && !folderView.root) || (!isLocal && !isCached && !queueView && (catalog.busy || catalog.trackError))
+        : (browsingFolders && !queueView && !folderView.root) || (!isLocal && !isCached && !isNavidrome && !queueView && (catalog.busy || catalog.trackError))
           ? null : <div className="empty"><Music2 size={44} /><p>{t(queueView ? 'mobile.queueEmpty' : searchingOnline ? 'mobile.empty'
             : isLocal ? (local.songs.length ? 'mobile.empty' : 'mobile.localEmpty') : 'mobile.noSongs')}</p></div>}
-      {!isLocal && !isCached && catalog.more && !queueView && <button disabled={catalog.busy} onClick={() => void catalog.load()}>{t('mobile.more')}</button>}
+      {!isLocal && !isCached && !isNavidrome && catalog.more && !queueView && <button disabled={catalog.busy} onClick={() => void catalog.load()}>{t('mobile.more')}</button>}
+      </>}
     </div>
     <PlayerPanel appearance={appearance} state={playback.state} time={playback.currentTime} visible={playback.visible} light={light} songEpoch={playback.songEpoch}
       likes={likes} songLikeProviders={available.songLikeProviders}

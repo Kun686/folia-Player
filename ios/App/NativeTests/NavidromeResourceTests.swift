@@ -1,5 +1,7 @@
 import XCTest
 import UIKit
+import Capacitor
+import WebKit
 @testable import App
 
 // NavidromeResourceTests.swift — real JavaScriptCore, native requests and scoped caches without a server or account.
@@ -129,6 +131,86 @@ import UIKit
         do { _ = try await work.value; XCTFail("revoked cover") } catch {}
         let summary = await cache.summary(); XCTAssertEqual(summary["count"], 0)
         XCTAssertLessThan(art.stats.sent, image.bytes.count)
+    }
+    func testNavidromeCollectionArtworkCoalescesRestoresAndRejectsOldScope() async throws {
+        let fixture = try NavidromePlaybackFixture(gateway: FailingGateway()); defer { fixture.close() }
+        let image = try coverFixture(), art = fixture.route("getCoverArt", id: "album:one", body: image.bytes)
+        art.headers = ["Content-Type": "image/png"]
+        let root = fixture.root.appendingPathComponent("collection-covers")
+        let cache = NativeCoverCache(root: root, configuration: fixture.configuration)
+        let scope = try fixture.client.snapshot()["scope"] as! String
+        async let first = cache.navidromeArtwork("album:one", scope: scope, client: fixture.client)
+        async let second = cache.navidromeArtwork("album:one", scope: scope, client: fixture.client)
+        let values = try await [first, second]
+        XCTAssertEqual(values[0], values[1]); XCTAssertNotNil(UIImage(data: try XCTUnwrap(values[0])))
+        XCTAssertEqual(art.stats.requests, 1)
+        for url in fixture.urls { ProfileHTTPProtocol.remove(url) }
+        let restored = NativeCoverCache(root: root, configuration: fixture.configuration)
+        let hit = try await restored.navidromeArtwork("album:one", scope: scope, client: fixture.client)
+        XCTAssertEqual(hit, values[0]); XCTAssertEqual(art.stats.requests, 1)
+        try fixture.edit(["password": "changed"])
+        do { _ = try await restored.navidromeArtwork("album:one", scope: scope, client: fixture.client); XCTFail("stale account cache") }
+        catch { XCTAssertEqual((error as? MobileFailure)?.code, "navidrome-settings-changed") }
+    }
+    func testNavidromeCollectionArtworkBridgeReturnsOnlyImageAndRejectsStaleAccount() async throws {
+        guard Bundle.main.bundleIdentifier == "app.folia.validation.App" else { throw MobileFailure("qa-bundle-required") }
+        let host = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows).compactMap { $0.rootViewController as? CAPBridgeViewController }.first)
+        let web = try XCTUnwrap(host.webView)
+        try await waitForStream { !web.isLoading && web.url?.scheme == "capacitor" }
+        let plugin = try XCTUnwrap(host.bridge?.plugin(withName: "FoliaNative") as? FoliaNativePlugin)
+        try await waitForStream { plugin.navidrome != nil && plugin.engine != nil }
+        let originalClient = plugin.navidrome, originalEngine = plugin.engine
+        let fixture = try NavidromePlaybackFixture(gateway: FailingGateway())
+        defer { plugin.navidrome = originalClient; plugin.engine = originalEngine; fixture.close() }
+        plugin.navidrome = fixture.client; plugin.engine = fixture.player
+        let image = try coverFixture(), art = fixture.route("getCoverArt", id: "album", body: image.bytes)
+        art.headers = ["Content-Type": "image/png"]
+        let scope = try fixture.client.snapshot()["scope"] as! String
+        let result = try await web.callAsyncJavaScript("""
+            const invoke = options => Capacitor.nativePromise('FoliaNative', 'navidromeArtwork', options);
+            const image = await invoke({ id: 'album', scope });
+            let invalid = '', stale = '';
+            try { await invoke({ id: '', scope }); } catch(e) { invalid = e.message; }
+            try { await invoke({ id: 'album', scope: 'old-account' }); } catch(e) { stale = e.message; }
+            return { image, invalid, stale };
+            """, arguments: ["scope": scope], in: nil, contentWorld: .page)
+        let value = try XCTUnwrap(result as? [String: Any]), payload = try XCTUnwrap(value["image"] as? [String: Any])
+        XCTAssertEqual(Set(payload.keys), ["url"])
+        let uri = try XCTUnwrap(payload["url"] as? String)
+        XCTAssertTrue(uri.hasPrefix("data:image/jpeg;base64,")); XCTAssertFalse(uri.contains("https:"))
+        let bytes = try XCTUnwrap(Data(base64Encoded: String(uri.dropFirst("data:image/jpeg;base64,".count))))
+        XCTAssertNotNil(UIImage(data: bytes)); XCTAssertEqual(art.stats.requests, 1)
+        XCTAssertEqual(value["invalid"] as? String, "invalid-cover-identity")
+        XCTAssertEqual(value["stale"] as? String, "navidrome-settings-changed")
+    }
+    func testNavidromeCollectionArtworkRejectsRedirectWithoutContactingTarget() async throws {
+        let fixture = try NavidromePlaybackFixture(gateway: FailingGateway()); defer { fixture.close() }
+        let targetFixture = try coverFixture(), target = ProfileHTTPProtocol.add(targetFixture)
+        defer { ProfileHTTPProtocol.remove(target) }
+        let art = fixture.route("getCoverArt", id: "redirect", body: Data([1]))
+        art.redirect = target; art.completesDeclinedRedirect = true
+        let cache = NativeCoverCache(root: fixture.root.appendingPathComponent("collection-covers"), configuration: fixture.configuration)
+        let scope = try fixture.client.snapshot()["scope"] as! String
+        do { _ = try await cache.navidromeArtwork("redirect", scope: scope, client: fixture.client); XCTFail("signed redirect accepted") }
+        catch { XCTAssertEqual((error as? MobileFailure)?.code, "cache-redirect-unavailable") }
+        XCTAssertEqual(targetFixture.stats.requests, 0)
+        XCTAssertNil(art.stats.first?.value(forHTTPHeaderField: "Authorization"))
+        XCTAssertNil(art.stats.first?.value(forHTTPHeaderField: "Cookie"))
+    }
+    func testNavidromeCollectionArtworkClearAndDisableCannotPublishLateBytes() async throws {
+        let fixture = try NavidromePlaybackFixture(gateway: FailingGateway()); defer { fixture.close() }
+        for disable in [false, true] {
+            let image = try coverFixture(padding: 300_000), art = fixture.route("getCoverArt", id: "slow", body: image.bytes)
+            art.headers = ["Content-Type": "image/png"]; art.delay = 0.03
+            let cache = NativeCoverCache(root: fixture.root.appendingPathComponent("collection-covers"), configuration: fixture.configuration)
+            let scope = try fixture.client.snapshot()["scope"] as! String
+            let task = Task { try await cache.navidromeArtwork("slow", scope: scope, client: fixture.client) }
+            try await waitForStream { art.stats.sent > 0 }
+            if disable { try fixture.edit(["enabled": false]) } else { try await cache.clear(provider: "navidrome") }
+            do { _ = try await task.value; XCTFail("late artwork") } catch {}
+            let summary = await cache.summary(); XCTAssertEqual(summary["count"], 0)
+        }
     }
     func testNavidromeResourcesFeedNativeCurrentNextAndLockScreen() async throws {
         let gateway = FailingGateway(), fixture = try NavidromePlaybackFixture(gateway: gateway); defer { fixture.close() }
