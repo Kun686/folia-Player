@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+Navidrome 只读业务已提取为原版／移动端共用解析，移动连接提供有界排队、取消和旧会话隔离。
+补齐带服务器／账号 scope 的歌曲身份并修复队列数字 ID 冲突；1,451 项相关逻辑及 14 项原生模拟器测试通过。
+设置／浏览与原生播放尚未接入；个人 mobile.28／服务器未更新，见 [NAVIDROME_SHARED.md](NAVIDROME_SHARED.md)。
+
 原版 Navidrome 已补齐独立 Keychain 凭据与 17 个只读原生请求接口，复用现有传输层和系统认证算法，无新依赖。
 60 项原版逻辑、30 项原生模拟器回归及类型／构建检查通过；浏览与原生播放尚未接入，不算音源交付。
 个人 mobile.28／服务器未更新，真实服务／真机 NOT_RUN，见 [NAVIDROME_TRANSPORT.md](NAVIDROME_TRANSPORT.md)。

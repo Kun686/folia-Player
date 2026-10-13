@@ -52,6 +52,7 @@ export const getPlaybackSourceRef = (song: SongResult): PlaybackSourceRef => {
     if (isLocalPlaybackSong(song)) return { kind: 'local', mediaId: song.localRef.songId };
     if (isNavidromePlaybackSong(song)) {
         const carrier = resolveNavidromePlaybackCarrier(song);
+        if (carrier?.sourceRef?.kind === 'navidrome') return carrier.sourceRef;
         return { kind: 'navidrome', mediaId: String(carrier?.navidromeData.id || song.id) };
     }
     const isLegacyCloudSong = song.sourceType === 'cloud' || song.t === 1 || song.t === 2;
@@ -91,6 +92,10 @@ export const getPlaybackSongKey = (song: SongResult): string => {
     const sourceRef = getPlaybackSourceRef(song);
     if (sourceRef.kind === 'online') {
         return `online:${sourceRef.providerId}:${sourceRef.mediaId}`;
+    }
+    if (sourceRef.kind === 'navidrome' && sourceRef.scope) {
+        // Keep legacy desktop keys stable; a separate prefix cannot collide with a legacy media ID containing ':'.
+        return `navidrome-scoped:${JSON.stringify([sourceRef.scope, sourceRef.mediaId])}`;
     }
     return `${sourceRef.kind}:${sourceRef.mediaId}`;
 };

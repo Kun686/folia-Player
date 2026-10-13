@@ -3,6 +3,7 @@ import { NavidromeSong } from '../types/navidrome';
 import { buildLocalLibraryIndex } from '../utils/localLibraryIndex';
 import { getLocalCoverAssetUrl } from './localCoverAssetUrl';
 import { buildLocalSourceRevision, buildNavidromeSourceRevision } from './playbackRecovery/sourceRevision';
+import { isSamePlaybackSong } from '../utils/appPlaybackGuards';
 
 export { resolveLocalSongMetadata, applyLocalLibraryArtistDisplay, applyLocalLibraryEntityDisplay } from '../utils/localLibraryDisplay';
 export type { LocalLibraryDisplayCatalog, ResolvedLocalSongMetadata } from '../utils/localLibraryDisplay';
@@ -155,7 +156,9 @@ export function buildUnifiedNavidromeSong(
         isPureMusic: navidromeSong.lyricsSource === 'online' ? navidromeSong.matchedIsPureMusic : false,
         isNavidrome: true,
         navidromeData: navidromeSong,
-        sourceRef: { kind: 'navidrome', mediaId: navidromeSong.navidromeData.id },
+        sourceRef: navidromeSong.sourceRef?.kind === 'navidrome'
+            ? navidromeSong.sourceRef
+            : { kind: 'navidrome', mediaId: navidromeSong.navidromeData.id },
         matchedLyricsSource: options?.matchedLyricsSource,
         matchedLyricsProviderPlatform: options?.matchedLyricsProviderPlatform
     } as SongResult;
@@ -173,5 +176,5 @@ export function buildNavidromeQueue(queue: NavidromeSong[], currentSong?: SongRe
         return convertedQueue;
     }
 
-    return convertedQueue.map(song => song.id === currentSong.id ? currentSong : song);
+    return convertedQueue.map(song => isSamePlaybackSong(song, currentSong) ? currentSong : song);
 }

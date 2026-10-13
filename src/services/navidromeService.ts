@@ -3,33 +3,13 @@ import {
     SubsonicResponse,
     SubsonicAlbum,
     SubsonicSong,
-    AlbumList2Response,
-    AlbumResponse,
-    SongResponse,
-    PingResponse,
-    LyricsResponse,
-    Search3Response,
     NavidromeSong,
-    LyricsBySongIdResponse,
-    StructuredLyric,
-    PlaylistsResponse,
-    PlaylistResponse,
     CreatePlaylistResponse,
     SubsonicPlaylist,
-    RandomSongsResponse,
-    Starred2Response,
-    ArtistsIndexResponse,
-    ArtistResponse,
-    SubsonicArtist,
-    OpenSubsonicExtension,
-    OpenSubsonicExtensionsResponse,
-    UserResponse,
-    MusicFoldersResponse,
-    LicenseResponse,
-    NavidromeCapabilities,
     NavidromeServerProfile,
 } from '../types/navidrome';
 import md5 from 'blueimp-md5';
+import { createNavidromeReadApi } from './navidromeReadApi';
 
 // LocalStorage key for config
 const CONFIG_KEY = 'navidrome_config';
@@ -219,26 +199,6 @@ const fetchSubsonic = async <T>(
     return response.json();
 };
 
-const buildNavidromeCapabilities = (
-    extensions: OpenSubsonicExtension[],
-    openSubsonic: boolean
-): NavidromeCapabilities => {
-    const extensionVersions = extensions.reduce<Record<string, number[]>>((acc, extension) => {
-        acc[extension.name] = extension.versions || [];
-        return acc;
-    }, {});
-
-    return {
-        openSubsonic,
-        extensionVersions,
-        supportsApiKeyAuthentication: Boolean(extensionVersions.apiKeyAuthentication),
-        supportsFormPost: Boolean(extensionVersions.formPost),
-        supportsPlaybackReport: Boolean(extensionVersions.playbackReport),
-        supportsSongLyrics: Boolean(extensionVersions.songLyrics),
-        supportsTranscoding: Boolean(extensionVersions.transcoding),
-    };
-};
-
 export const refreshNavidromeServerProfile = async (config: NavidromeConfig): Promise<NavidromeServerProfile> => {
     const profile = await navidromeApi.getServerProfile(config);
     saveNavidromeServerProfile(profile);
@@ -246,154 +206,7 @@ export const refreshNavidromeServerProfile = async (config: NavidromeConfig): Pr
 };
 
 // API Methods
-export const navidromeApi = {
-    // Test connection
-    ping: async (config: NavidromeConfig): Promise<boolean> => {
-        try {
-            const res = await fetchSubsonic<PingResponse>(config, 'ping');
-            return res['subsonic-response'].status === 'ok';
-        } catch (e) {
-            console.error('[Navidrome] Ping failed:', e);
-            return false;
-        }
-    },
-
-    getOpenSubsonicExtensions: async (config: NavidromeConfig): Promise<OpenSubsonicExtension[]> => {
-        try {
-            const res = await fetchSubsonic<OpenSubsonicExtensionsResponse>(config, 'getOpenSubsonicExtensions');
-            if (res['subsonic-response'].status === 'ok') {
-                return res['subsonic-response'].openSubsonicExtensions || [];
-            }
-        } catch (e) {
-            console.warn('[Navidrome] getOpenSubsonicExtensions failed:', e);
-        }
-        return [];
-    },
-
-    getUser: async (config: NavidromeConfig) => {
-        try {
-            const res = await fetchSubsonic<UserResponse>(config, 'getUser', {
-                username: config.username,
-            });
-            if (res['subsonic-response'].status === 'ok') {
-                return res['subsonic-response'].user || null;
-            }
-        } catch (e) {
-            console.warn('[Navidrome] getUser failed:', e);
-        }
-        return null;
-    },
-
-    getMusicFolders: async (config: NavidromeConfig) => {
-        try {
-            const res = await fetchSubsonic<MusicFoldersResponse>(config, 'getMusicFolders');
-            if (res['subsonic-response'].status === 'ok') {
-                return res['subsonic-response'].musicFolders?.musicFolder || [];
-            }
-        } catch (e) {
-            console.warn('[Navidrome] getMusicFolders failed:', e);
-        }
-        return [];
-    },
-
-    getLicense: async (config: NavidromeConfig) => {
-        try {
-            const res = await fetchSubsonic<LicenseResponse>(config, 'getLicense');
-            if (res['subsonic-response'].status === 'ok') {
-                return res['subsonic-response'].license || null;
-            }
-        } catch (e) {
-            console.warn('[Navidrome] getLicense failed:', e);
-        }
-        return null;
-    },
-
-    getServerProfile: async (config: NavidromeConfig): Promise<NavidromeServerProfile> => {
-        const [pingResult, extensions, user, musicFolders, license] = await Promise.all([
-            fetchSubsonic<PingResponse>(config, 'ping').catch((error) => {
-                console.warn('[Navidrome] profile ping failed:', error);
-                return null;
-            }),
-            navidromeApi.getOpenSubsonicExtensions(config),
-            navidromeApi.getUser(config),
-            navidromeApi.getMusicFolders(config),
-            navidromeApi.getLicense(config),
-        ]);
-        const pingBody = pingResult?.['subsonic-response'];
-        const openSubsonic = Boolean(pingBody?.openSubsonic || extensions.length > 0);
-
-        return {
-            fetchedAt: Date.now(),
-            apiVersion: pingBody?.version,
-            serverType: pingBody?.type,
-            serverVersion: pingBody?.serverVersion,
-            openSubsonic,
-            openSubsonicExtensions: extensions,
-            capabilities: buildNavidromeCapabilities(extensions, openSubsonic),
-            user,
-            musicFolders,
-            license,
-        };
-    },
-
-    // Get album list
-    getAlbumList2: async (
-        config: NavidromeConfig,
-        type: 'alphabeticalByName' | 'alphabeticalByArtist' | 'newest' | 'recent' | 'frequent' | 'random' = 'alphabeticalByName',
-        size: number = 50,
-        offset: number = 0
-    ): Promise<SubsonicAlbum[]> => {
-        try {
-            const res = await fetchSubsonic<AlbumList2Response>(config, 'getAlbumList2', {
-                type,
-                size: size.toString(),
-                offset: offset.toString(),
-            });
-            if (res['subsonic-response'].status === 'ok') {
-                return res['subsonic-response'].albumList2?.album || [];
-            }
-        } catch (e) {
-            console.error('[Navidrome] getAlbumList2 failed:', e);
-        }
-        return [];
-    },
-
-    // Get album details with songs
-    getAlbum: async (config: NavidromeConfig, id: string): Promise<SubsonicAlbum | null> => {
-        try {
-            const res = await fetchSubsonic<AlbumResponse>(config, 'getAlbum', { id });
-            if (res['subsonic-response'].status === 'ok') {
-                return res['subsonic-response'].album;
-            }
-        } catch (e) {
-            console.error('[Navidrome] getAlbum failed:', e);
-        }
-        return null;
-    },
-
-    getPlaylists: async (config: NavidromeConfig): Promise<SubsonicPlaylist[]> => {
-        try {
-            const res = await fetchSubsonic<PlaylistsResponse>(config, 'getPlaylists');
-            if (res['subsonic-response'].status === 'ok') {
-                return res['subsonic-response'].playlists?.playlist || [];
-            }
-        } catch (e) {
-            console.error('[Navidrome] getPlaylists failed:', e);
-        }
-        return [];
-    },
-
-    getPlaylist: async (config: NavidromeConfig, id: string): Promise<SubsonicPlaylist | null> => {
-        try {
-            const res = await fetchSubsonic<PlaylistResponse>(config, 'getPlaylist', { id });
-            if (res['subsonic-response'].status === 'ok') {
-                return res['subsonic-response'].playlist;
-            }
-        } catch (e) {
-            console.error('[Navidrome] getPlaylist failed:', e);
-        }
-        return null;
-    },
+export const navidromeApi = Object.assign(createNavidromeReadApi<NavidromeConfig>(fetchSubsonic), {
 
     createPlaylist: async (
         config: NavidromeConfig,
@@ -453,32 +266,6 @@ export const navidromeApi = {
         return false;
     },
 
-    getRandomSongs: async (config: NavidromeConfig, size: number = 100): Promise<SubsonicSong[]> => {
-        try {
-            const res = await fetchSubsonic<RandomSongsResponse>(config, 'getRandomSongs', {
-                size: size.toString(),
-            });
-            if (res['subsonic-response'].status === 'ok') {
-                return res['subsonic-response'].randomSongs?.song || [];
-            }
-        } catch (e) {
-            console.error('[Navidrome] getRandomSongs failed:', e);
-        }
-        return [];
-    },
-
-    getStarred2: async (config: NavidromeConfig): Promise<SubsonicSong[]> => {
-        try {
-            const res = await fetchSubsonic<Starred2Response>(config, 'getStarred2');
-            if (res['subsonic-response'].status === 'ok') {
-                return res['subsonic-response'].starred2?.song || [];
-            }
-        } catch (e) {
-            console.error('[Navidrome] getStarred2 failed:', e);
-        }
-        return [];
-    },
-
     // Star a song on the Navidrome server
     star: async (config: NavidromeConfig, songId: string): Promise<boolean> => {
         try {
@@ -522,44 +309,6 @@ export const navidromeApi = {
         return false;
     },
 
-    getArtists: async (config: NavidromeConfig): Promise<SubsonicArtist[]> => {
-        try {
-            const res = await fetchSubsonic<ArtistsIndexResponse>(config, 'getArtists');
-            if (res['subsonic-response'].status === 'ok') {
-                const indexes = res['subsonic-response'].artists?.index || [];
-                return indexes.flatMap(index => index.artist || []);
-            }
-        } catch (e) {
-            console.error('[Navidrome] getArtists failed:', e);
-        }
-        return [];
-    },
-
-    getArtist: async (config: NavidromeConfig, id: string): Promise<(SubsonicArtist & { album?: SubsonicAlbum[]; }) | null> => {
-        try {
-            const res = await fetchSubsonic<ArtistResponse>(config, 'getArtist', { id });
-            if (res['subsonic-response'].status === 'ok') {
-                return res['subsonic-response'].artist;
-            }
-        } catch (e) {
-            console.error('[Navidrome] getArtist failed:', e);
-        }
-        return null;
-    },
-
-    // Fetches the full OpenSubsonic song payload, including ReplayGain when supported by the server.
-    getSong: async (config: NavidromeConfig, id: string): Promise<SubsonicSong | null> => {
-        try {
-            const res = await fetchSubsonic<SongResponse>(config, 'getSong', { id });
-            if (res['subsonic-response'].status === 'ok') {
-                return res['subsonic-response'].song || null;
-            }
-        } catch (e) {
-            console.warn('[Navidrome] getSong failed:', e);
-        }
-        return null;
-    },
-
     // Get streaming URL
     getStreamUrl: (config: NavidromeConfig, songId: string, format?: string): string => {
         const url = new URL(`${config.serverUrl}/rest/stream`);
@@ -592,69 +341,6 @@ export const navidromeApi = {
         }
 
         return url.toString();
-    },
-
-    // Get lyrics (from Navidrome)
-    getLyrics: async (
-        config: NavidromeConfig,
-        artist: string,
-        title: string
-    ): Promise<string | null> => {
-        try {
-            const res = await fetchSubsonic<LyricsResponse>(config, 'getLyrics', {
-                artist,
-                title,
-            });
-            if (res['subsonic-response'].status === 'ok' && res['subsonic-response'].lyrics?.value) {
-                return res['subsonic-response'].lyrics.value;
-            }
-        } catch (e) {
-            console.error('[Navidrome] getLyrics failed:', e);
-        }
-        return null;
-    },
-
-    // Get lyrics by song ID (OpenSubsonic)
-    getLyricsBySongId: async (
-        config: NavidromeConfig,
-        id: string
-    ): Promise<StructuredLyric[] | null> => {
-        try {
-            const res = await fetchSubsonic<LyricsBySongIdResponse>(config, 'getLyricsBySongId', {
-                id,
-                enhanced: true,
-            });
-            if (res['subsonic-response'].status === 'ok' && res['subsonic-response'].lyricsList?.structuredLyrics) {
-                return res['subsonic-response'].lyricsList.structuredLyrics;
-            }
-        } catch (e) {
-            console.error('[Navidrome] getLyricsBySongId failed:', e);
-        }
-        return null;
-    },
-
-    // Search
-    search: async (
-        config: NavidromeConfig,
-        query: string,
-        artistCount: number = 5,
-        albumCount: number = 10,
-        songCount: number = 20
-    ): Promise<Search3Response['searchResult3']> => {
-        try {
-            const res = await fetchSubsonic<Search3Response>(config, 'search3', {
-                query,
-                artistCount: artistCount.toString(),
-                albumCount: albumCount.toString(),
-                songCount: songCount.toString(),
-            });
-            if (res['subsonic-response'].status === 'ok') {
-                return res['subsonic-response'].searchResult3 || {};
-            }
-        } catch (e) {
-            console.error('[Navidrome] search failed:', e);
-        }
-        return {};
     },
 
     // Convert SubsonicSong to NavidromeSong (for playback)
@@ -698,4 +384,4 @@ export const navidromeApi = {
             },
         };
     },
-};
+});

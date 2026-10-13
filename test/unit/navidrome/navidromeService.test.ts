@@ -41,6 +41,13 @@ const stubIncrementingCrypto = () => {
 };
 
 describe('navidromeService P0 endpoints', () => {
+    it('uses the exported API methods when composing the server profile', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => okResponse(subsonicOk())));
+        const user = vi.spyOn(navidromeApi, 'getUser').mockResolvedValue({ username: 'override' });
+        const profile = await navidromeApi.getServerProfile(config);
+        expect(user).toHaveBeenCalledWith(config);
+        expect(profile.user?.username).toBe('override');
+    });
     beforeEach(() => {
         vi.stubGlobal('crypto', {
             getRandomValues: (array: Uint8Array) => {

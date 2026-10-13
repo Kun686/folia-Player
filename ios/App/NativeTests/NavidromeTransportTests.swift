@@ -248,4 +248,52 @@ import WebKit
         XCTAssertEqual(saved as NSDictionary, value["restored"] as? NSDictionary)
         XCTAssertEqual(try NativeNavidromeSettings.read(record).password, "generated bridge password")
     }
+    func testPackagedSharedConnectionQueuesReadsAndReplacesNativeSession() async throws {
+        guard Bundle.main.bundleIdentifier == "app.folia.validation.App" else { throw MobileFailure("qa-bundle-required") }
+        let host = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows).compactMap { $0.rootViewController as? CAPBridgeViewController }.first)
+        let web = try XCTUnwrap(host.webView)
+        try await waitFor { !web.isLoading && web.url?.scheme == "capacitor" }
+        let plugin = try XCTUnwrap(host.bridge?.plugin(withName: "FoliaNative") as? FoliaNativePlugin)
+        try await waitFor { plugin.navidrome != nil }
+        let original = plugin.navidrome, key = "test.navidrome.shared." + UUID().uuidString
+        defer { plugin.navidrome = original; try? SecureStore.remove(key) }
+        let scriptURL = try XCTUnwrap(Bundle.main.url(forResource: "navidrome-connection-qa", withExtension: "js", subdirectory: "public"),
+            "Run dev/mobile/build-navidrome-qa.mjs and stage its bundle in the independent QA app")
+        let body = "{\"subsonic-response\":{\"status\":\"ok\",\"version\":\"1.16.1\",\"playlists\":{\"playlist\":[{\"id\":\"playlist-1\",\"name\":\"Original\"}]},\"padding\":\"" + String(repeating: "x", count: 131072) + "\"}}"
+        let (sample, url) = fixture(body); sample.delay = 0.01
+        defer { ProfileHTTPProtocol.remove(url) }
+        plugin.navidrome = NativeNavidromeClient(read: { try SecureStore.read(key) }, write: { try SecureStore.write(key, $0) }, configuration: configuration)
+        _ = try await web.evaluateJavaScript(String(contentsOf: scriptURL, encoding: .utf8))
+        let result = try await web.callAsyncJavaScript("""
+            const invoke = (name, options = {}) => Capacitor.nativePromise('FoliaNative', name, options);
+            const start = await invoke('getNavidromeSettings');
+            const saved = await invoke('setNavidromeSettings', {...start, settings: {
+                baseURL, username:'qa', password:'generated first password', enabled:true
+            }});
+            const first = FoliaNavidromeQA.createMobileNavidromeConnection(saved);
+            const lists = await Promise.all(Array.from({length:10}, () => first.api.getPlaylists(first.settings)));
+            const oldIdentity = first.sourceRef('same-id');
+            const pending = Promise.allSettled(Array.from({length:8}, () => first.api.getPlaylists(first.settings)));
+            const changed = await invoke('setNavidromeSettings', {...saved, settings: {password:'generated second password'}});
+            first.dispose();
+            const second = FoliaNavidromeQA.createMobileNavidromeConnection(changed);
+            const refreshed = await Promise.all(Array.from({length:6}, () => second.api.getPlaylists(second.settings)));
+            const after = await pending;
+            const currentIdentity = second.sourceRef('same-id');
+            second.dispose();
+            return {saved, changed, count:lists.length, refreshed:refreshed.length,
+                originalShape:lists.every(list => list.length===1 && list[0].name==='Original'),
+                rejected:after.filter(item => item.status==='rejected').length, oldIdentity, currentIdentity};
+            """, arguments: ["baseURL": url.deletingLastPathComponent().deletingLastPathComponent().absoluteString], in: nil, contentWorld: .page)
+        let value = try XCTUnwrap(result as? [String: Any])
+        XCTAssertEqual(value["count"] as? Int, 10); XCTAssertEqual(value["refreshed"] as? Int, 6)
+        XCTAssertEqual(value["originalShape"] as? Bool, true); XCTAssertEqual(value["rejected"] as? Int, 8)
+        let old = try XCTUnwrap(value["oldIdentity"] as? [String: Any]), current = try XCTUnwrap(value["currentIdentity"] as? [String: Any])
+        XCTAssertEqual(old["mediaId"] as? String, current["mediaId"] as? String)
+        XCTAssertNotEqual(old["scope"] as? String, current["scope"] as? String)
+        XCTAssertFalse(String(data: try JSONSerialization.data(withJSONObject: value), encoding: .utf8)!.contains("generated"))
+        XCTAssertEqual(try NativeNavidromeSettings.read(SecureStore.read(key)).password, "generated second password")
+        XCTAssertGreaterThanOrEqual(sample.stats.requests, 16); XCTAssertLessThanOrEqual(sample.stats.requests, 18)
+    }
 }

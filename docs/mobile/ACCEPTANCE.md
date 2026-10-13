@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+Navidrome 共享解析、并发排队、会话取消与歌曲身份隔离通过 1,451 项逻辑和 14 项原生模拟器测试。
+新增原生用例实际运行打包 JS，经 Capacitor 连接 Keychain／URLSession；响应为受控样本。
+移动浏览／原生播放未交付，真实服务／真机 NOT_RUN，见 [NAVIDROME_SHARED.md](NAVIDROME_SHARED.md)。
+
 Navidrome 原生连接层已通过 60 项原版逻辑与 30 项原生模拟器测试，包含真实 Keychain、URLSession 和 Capacitor 桥接。
 仅完成凭据与只读请求，移动浏览／原生播放尚未接入；真实服务器和物理设备 NOT_RUN。
 个人 mobile.28／服务器未更新，见 [NAVIDROME_TRANSPORT.md](NAVIDROME_TRANSPORT.md)。
