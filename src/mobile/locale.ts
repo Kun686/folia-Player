@@ -7,6 +7,8 @@ import { dailyEn, dailyZh, dailyIn } from './localeDaily';
 
 // src/mobile/locale.ts
 export const mobileEn = {
+  replacementUnsupported: 'This music source or server does not support alternate version lookup yet.',
+  replacementUnavailable: 'No playable alternate version was found.',
   copySongInfo: 'Copy song info', openSongPage: 'Open official song page',
   lyricSettingsError: 'The lyric preference could not be saved or restored. Please retry.',
   listeningUnavailable: 'Listening reports are unavailable on this connection. Check the connection and music server version.',
@@ -104,6 +106,8 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  replacementUnsupported: '此音乐来源或服务器暂不支持查询其他版本。',
+  replacementUnavailable: '未找到可播放的其他版本。',
   copySongInfo: '复制歌曲信息', openSongPage: '打开官方歌曲页',
   lyricSettingsError: '歌词偏好未能保存或恢复，请重试。',
   listeningUnavailable: '当前连接暂不支持听歌打卡，请检查连接和音乐服务器版本。',
@@ -201,6 +205,8 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  replacementUnsupported: 'Sumber musik atau server ini belum mendukung pencarian versi alternatif.',
+  replacementUnavailable: 'Tidak ditemukan versi alternatif yang dapat diputar.',
   copySongInfo: 'Salin info lagu', openSongPage: 'Buka halaman lagu resmi',
   lyricSettingsError: 'Preferensi lirik tidak dapat disimpan atau dipulihkan. Silakan coba lagi.',
   listeningUnavailable: 'Laporan dengar tidak tersedia. Periksa koneksi dan versi server musik.',

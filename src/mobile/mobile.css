@@ -10,6 +10,8 @@
 .mobile-audio-dialog > div { padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
 .mobile-audio-dialog > div > div { max-height: 100%; overflow-y: auto; }
 .mobile-audio-dialog button { min-height: 44px; min-width: 44px; touch-action: manipulation; }
+.song-replacement-host { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; }
+.song-replacement-host > div > div { overflow-wrap: anywhere; }
 .mobile-audio-dialog input[type=range] { width: 44px; height: 128px; min-height: 128px; border: 0; padding: 0 18px; border-radius: 0; background-color: #ffffff1a; background-clip: content-box; touch-action: none; accent-color: inherit; }
 .mobile-audio-dialog[data-daylight=true] input[type=range] { background-color: #00000026; }
 .mobile-audio-dialog [data-audio-effects] input[type=range] { width: 100%; height: 44px; min-height: 44px; padding: 18px 0; }

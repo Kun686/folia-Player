@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+原版不可播放歌曲的其他版本确认已接入移动歌单、目录与每日推荐，共用原 Omni、弹窗和队列算法。
+140项逻辑、87个不同 WebKit 场景及类型检查通过；仅网易云按原能力开放查询，QQ／搜索维持原行为。
+个人 App／服务器未更新，真实平台与真机 NOT_RUN，见 [SONG_REPLACEMENT.md](SONG_REPLACEMENT.md)。
+
 原模型 Automix 补齐独立模拟器跨进程离线恢复证据：恢复原队列／进度／设置，复用完整音频与拍点缓存，
 重新准备分轨并完成真实交接；零播放地址解析、零音频 HTTP 尝试。7个不同原生用例通过，
 本批仅测试／文档，个人 App／服务器未更新，真机与系统挂起仍待验，见 [AUTOMIX_RESTART.md](AUTOMIX_RESTART.md)。

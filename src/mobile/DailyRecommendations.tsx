@@ -10,7 +10,8 @@ import SongList from './SongList';
 type DailyController = ReturnType<typeof createMobileDailyRecommendations>;
 interface Props {
   provider: string; enabled: boolean; signedIn: boolean; queueBusy: boolean; queueError: string;
-  play(songs: SongResult[], index: number): Promise<boolean>; add(song: SongResult, behavior?: QueueAddBehavior): void;
+  play(songs: SongResult[], index: number, started: () => void): void; add(song: SongResult, behavior?: QueueAddBehavior): void;
+  navigationChanged(): void;
   actions(song: SongResult, close: () => void): ReactNode;
 }
 function Sheet({ service, close, ...props }: Props & { service: DailyController; close(): void }) {
@@ -18,6 +19,7 @@ function Sheet({ service, close, ...props }: Props & { service: DailyController;
   const session = useMemo(() => service.createSession(props.provider), [service, props.provider]);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
   useEffect(() => { dialog.current?.showModal(); void session.start(); return () => session.dispose(); }, [session]);
+  useEffect(() => () => props.navigationChanged(), [props.navigationChanged]);
   const busy = state.busy || props.queueBusy || state.phase === 'loading' || state.resource?.status === 'loading';
   const failed = state.phase === 'error' || state.resource?.status === 'error' || state.error;
   const songs = state.resource?.tracks ?? [], date = state.mutation?.dailyDate ?? '';
@@ -39,7 +41,7 @@ function Sheet({ service, close, ...props }: Props & { service: DailyController;
     {state.mutation?.dailyLimitReached && <p role="status">{t('mobile.dailyLimit')}</p>}
     {state.phase === 'ready' && <div className="online-catalog-pane">
       {songs.length ? <SongList songs={songs} busy={busy || failed}
-        play={index => { void props.play(songs, index).then(ok => { if (ok) close(); }); }} add={props.add}
+        play={index => props.play(songs, index, close)} add={props.add}
         libraryActions={(song, dismiss) => <>{props.actions(song, () => { dismiss(); close(); })}
           {!date && <button disabled={busy || failed || !state.mutation?.capabilities.removeEntry.enabled}
             onClick={() => { if (window.confirm(t('mobile.dailyDislikeConfirm', { song: song.name }))) { dismiss(); void session.remove(song); } }}>{t('mobile.dailyDislike')}</button>}</>} />

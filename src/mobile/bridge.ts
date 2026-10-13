@@ -100,7 +100,7 @@ export interface FoliaNativePlugin {
   setTransitionSettings(options: { settings: NativeTransitionSettings }): Promise<NativeTransitionSettings>;
   bootstrap(): Promise<GatewayBootstrap>;
   configure(options: { server: string; token: string; scope: string }): Promise<GatewayBootstrap>;
-  health(): Promise<{ protocol: number; providers: string[]; playbackReportProviders?: string[]; songLikeProviders?: string[]; catalogProviders?: string[]; playlistEditProviders?: string[]; subscriptionProviders?: string[]; dailyProviders?: string[]; personalFmProviders?: string[]; recommendedCollectionProviders?: string[]; userAlbumProviders?: string[]; cloudProviders?: string[] }>;
+  health(): Promise<{ protocol: number; providers: string[]; playbackReportProviders?: string[]; songLikeProviders?: string[]; replacementProviders?: string[]; catalogProviders?: string[]; playlistEditProviders?: string[]; subscriptionProviders?: string[]; dailyProviders?: string[]; personalFmProviders?: string[]; recommendedCollectionProviders?: string[]; userAlbumProviders?: string[]; cloudProviders?: string[] }>;
   saveSession(options: { provider: string; values: Record<string, string>; scope: string }): Promise<void>;
   clearSession(options: { provider: string; scope: string }): Promise<void>;
   request(options: { id: string; scope: string; payload: Record<string, unknown> }): Promise<{ status: number; body: string; headers: Record<string, string> }>;

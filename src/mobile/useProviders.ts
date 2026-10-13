@@ -3,14 +3,15 @@ import { isNative, native } from './bridge';
 
 // src/mobile/useProviders.ts — capabilities are read from the configured server, never assumed.
 export function useProviders(server: string) {
-  const [state, setState] = useState<{ providers: string[]; songLikeProviders: string[]; catalogProviders: string[]; playlistEditProviders: string[]; subscriptionProviders: string[]; dailyProviders: string[]; personalFmProviders: string[]; recommendedCollectionProviders: string[]; userAlbumProviders: string[]; cloudProviders: string[]; error: boolean }>({ providers: [], songLikeProviders: [], catalogProviders: [], playlistEditProviders: [], subscriptionProviders: [], dailyProviders: [], personalFmProviders: [], recommendedCollectionProviders: [], userAlbumProviders: [], cloudProviders: [], error: false });
+  const [state, setState] = useState<{ providers: string[]; songLikeProviders: string[]; replacementProviders: string[]; catalogProviders: string[]; playlistEditProviders: string[]; subscriptionProviders: string[]; dailyProviders: string[]; personalFmProviders: string[]; recommendedCollectionProviders: string[]; userAlbumProviders: string[]; cloudProviders: string[]; error: boolean }>({ providers: [], songLikeProviders: [], replacementProviders: [], catalogProviders: [], playlistEditProviders: [], subscriptionProviders: [], dailyProviders: [], personalFmProviders: [], recommendedCollectionProviders: [], userAlbumProviders: [], cloudProviders: [], error: false });
   useEffect(() => {
     let current = true;
-    setState({ providers: [], songLikeProviders: [], catalogProviders: [], playlistEditProviders: [], subscriptionProviders: [], dailyProviders: [], personalFmProviders: [], recommendedCollectionProviders: [], userAlbumProviders: [], cloudProviders: [], error: false });
+    setState({ providers: [], songLikeProviders: [], replacementProviders: [], catalogProviders: [], playlistEditProviders: [], subscriptionProviders: [], dailyProviders: [], personalFmProviders: [], recommendedCollectionProviders: [], userAlbumProviders: [], cloudProviders: [], error: false });
     if (server && isNative) void native.health().then(result => {
       if (result.protocol !== 1 || !Array.isArray(result.providers)) throw new Error('invalid-capabilities');
       const providers = result.providers.filter(id => ['netease', 'qq', 'kugou'].includes(id));
       if (!providers.length) throw new Error('no-providers');
+      const replacementProviders = Array.isArray(result.replacementProviders) ? result.replacementProviders.filter(id => providers.includes(id) && id === 'netease') : [];
       const songLikeProviders = Array.isArray(result.songLikeProviders) ? result.songLikeProviders.filter(id => providers.includes(id)) : [];
       const catalogProviders = Array.isArray(result.catalogProviders) ? result.catalogProviders.filter(id => providers.includes(id) && ['netease', 'qq'].includes(id)) : [];
       const playlistEditProviders = Array.isArray(result.playlistEditProviders) ? result.playlistEditProviders.filter(id => providers.includes(id) && id === 'netease') : [];
@@ -20,8 +21,8 @@ export function useProviders(server: string) {
       const recommendedCollectionProviders = Array.isArray(result.recommendedCollectionProviders) ? result.recommendedCollectionProviders.filter(id => providers.includes(id) && id === 'netease') : [];
       const userAlbumProviders = Array.isArray(result.userAlbumProviders) ? result.userAlbumProviders.filter(id => catalogProviders.includes(id) && ['netease', 'qq'].includes(id)) : [];
       const cloudProviders = Array.isArray(result.cloudProviders) ? result.cloudProviders.filter(id => providers.includes(id) && id === 'netease') : [];
-      if (current) setState({ providers, songLikeProviders, catalogProviders, playlistEditProviders, subscriptionProviders, dailyProviders, personalFmProviders, recommendedCollectionProviders, userAlbumProviders, cloudProviders, error: false });
-    }).catch(() => { if (current) setState({ providers: [], songLikeProviders: [], catalogProviders: [], playlistEditProviders: [], subscriptionProviders: [], dailyProviders: [], personalFmProviders: [], recommendedCollectionProviders: [], userAlbumProviders: [], cloudProviders: [], error: true }); });
+      if (current) setState({ providers, songLikeProviders, replacementProviders, catalogProviders, playlistEditProviders, subscriptionProviders, dailyProviders, personalFmProviders, recommendedCollectionProviders, userAlbumProviders, cloudProviders, error: false });
+    }).catch(() => { if (current) setState({ providers: [], songLikeProviders: [], replacementProviders: [], catalogProviders: [], playlistEditProviders: [], subscriptionProviders: [], dailyProviders: [], personalFmProviders: [], recommendedCollectionProviders: [], userAlbumProviders: [], cloudProviders: [], error: true }); });
     return () => { current = false; };
   }, [server]);
   return state;

@@ -12,11 +12,12 @@ import type { MobilePlaylistEditor } from './mobilePlaylistEditor';
 import OnlineCollectionSubscription from './OnlineCollectionSubscription';
 
 // OnlineCatalogSheet.tsx — scoped navigation; dismissing or replacing a target rejects late resolution.
-export default function OnlineCatalogSheet({ target, play, add, busy, close, error: queueError, songActions, editor, subscriptionProviders }: {
+export default function OnlineCatalogSheet({ target, play, add, busy, close, error: queueError, songActions, editor, subscriptionProviders, navigationChanged }: {
   target: OnlineCatalogTarget; play(songs: SongResult[], index: number): void;
   add(song: SongResult, behavior?: QueueAddBehavior): void; busy: boolean; close(): void;
   error: string; songActions(song: SongResult): ReactNode;
   editor: MobilePlaylistEditor; subscriptionProviders: string[];
+  navigationChanged(): void;
 }) {
   const { t } = useTranslation(), dialog = useRef<HTMLDialogElement>(null);
   const [stack, setStack] = useState<OnlineCatalogTarget[]>([target]);
@@ -27,6 +28,7 @@ export default function OnlineCatalogSheet({ target, play, add, busy, close, err
   const error = result?.target === current && !result.collection;
   useEffect(() => { dialog.current?.showModal(); }, []);
   useEffect(() => { setStack([target]); }, [target]);
+  useEffect(() => { navigationChanged(); }, [current, navigationChanged]);
   useEffect(() => {
     let active = true;
     setResult(null);

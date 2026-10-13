@@ -52,6 +52,8 @@ import { initializeSyncCoordinator } from '../services/sync/syncCoordinator';
 import OnlineAccountLibrary from './OnlineAccountLibrary';
 import { useSheetViewport } from './useSheetViewport';
 import { useLocalLyricPreference } from './LocalLyricPreference';
+import { useMobileSongReplacement } from './useMobileSongReplacement';
+import SongReplacementDialog from './SongReplacementDialog';
 
 // src/mobile/MobileApp.tsx — library and full-window player share the original native playback state.
 export default function MobileApp({ initialServer }: { initialServer: string }) {
@@ -87,6 +89,9 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const appearance = useMobileTheme(playback.state.currentSong, playback.songEpoch, playback.captureSongGuard);
   const sleepTimer = useNativeSleepTimer();
   const catalog = useCatalog(provider, !!server && isNative && providerEnabled);
+  const replacement = useMobileSongReplacement(available.replacementProviders);
+  const cancelReplacement = replacement.cancel;
+  useEffect(() => { cancelReplacement(); }, [cancelReplacement, provider, queueView, onlineTarget, managedPlaylist, catalog.collection, catalog.searchQuery]);
   const catalogRef = useRef(catalog); catalogRef.current = catalog;
   const playlistEditor = useMemo(() => createMobilePlaylistEditor(omni, captureProviderSession, flushSessions, removeFromCache,
     collection => { void catalogRef.current.refreshCollection(collection); },
@@ -118,8 +123,14 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
     queueLock.current = true; setQueueBusy(true); setQueueError('');
     try { await work(); return true; }
     catch (cause) { setQueueError(cause instanceof Error && cause.message === 'queue-changed' ? 'queueChanged'
-      : cause instanceof Error && cause.message === 'queue-full' ? 'queueFull' : 'error'); return false; }
+      : cause instanceof Error && cause.message === 'queue-full' ? 'queueFull'
+      : cause instanceof Error && cause.message === 'replacement-unsupported' ? 'replacementUnsupported'
+      : cause instanceof Error && cause.message === 'song-unavailable' ? 'replacementUnavailable' : 'error'); return false; }
     finally { queueLock.current = false; setQueueBusy(false); }
+  };
+  const startCollection = async (tracks: SongResult[], index: number, started: () => void) => {
+    if (await replacement.offer(tracks, index, started)) return;
+    await flushSessions(); await native.setQueue({ songs: tracks, index }); started();
   };
   const play = async (index: number) => {
     const current = searchingOnline ? captureProviderSession(provider) : () => true;
@@ -127,7 +138,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       if (songs.some(song => song.sourceRef?.kind === 'online')) await flushSessions();
       if (queueView) await native.selectQueue({ index, queueRevision: playback.state.queueRevision });
       else if (searchingOnline) await playMobileSearchSong(songs[index], current);
-      else await native.setQueue({ songs, index });
+      else { await startCollection(songs, index, () => setExpanded(true)); return; }
       setExpanded(true);
     });
   };
@@ -167,8 +178,9 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
           else setOnlineTarget({ collection: { ...collection, source: 'online' } });
         }} />}
       <DailyRecommendations provider={queueView ? '' : provider} enabled={available.dailyProviders.includes(provider)} signedIn={!!catalog.user}
+        navigationChanged={cancelReplacement}
         queueBusy={queueBusy} queueError={queueError} add={(song, behavior) => void add(song, behavior)} actions={onlineActions}
-        play={(tracks, index) => queueWork(async () => { await flushSessions(); await native.setQueue({ songs: tracks, index }); setExpanded(true); })} />
+        play={(tracks, index, close) => void queueWork(() => startCollection(tracks, index, () => { close(); setExpanded(true); }))} />
       {isLocal && !queueView && <FolderImportStatus folders={folders} />}
       {browsingFolders && !queueView && <LocalFolderTools folders={folders} view={folderView} query={query}
         select={scope => { setFolderScope(scope); setQuery(''); }} />}
@@ -229,21 +241,22 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       saved={() => location.reload()} close={() => setSettings(false)} />}
     {login && <LoginSheet provider={provider} refresh={catalog.refresh} close={() => setLogin(false)} />}
     {onlineTarget && <OnlineCatalogSheet target={onlineTarget} busy={queueBusy} error={queueError} close={() => setOnlineTarget(null)}
+      navigationChanged={cancelReplacement}
       editor={playlistEditor} subscriptionProviders={available.subscriptionProviders}
-      play={(tracks, index) => void queueWork(async () => {
-        await flushSessions(); await native.setQueue({ songs: tracks, index }); setOnlineTarget(null); setExpanded(true);
-      })} add={(song, behavior) => void add(song, behavior)}
+      play={(tracks, index) => void queueWork(() => startCollection(tracks, index, () => { setOnlineTarget(null); setExpanded(true); }))}
+      add={(song, behavior) => void add(song, behavior)}
       songActions={song => <>{song.sourceRef?.kind === 'online' && <OnlineSongLike song={song} likes={likes}
         writable={available.songLikeProviders.includes(song.sourceRef.providerId)} />}{playlistAction(song)}</>} />}
     {playlistSong && <OnlinePlaylistPicker song={playlistSong} editor={playlistEditor} close={() => setPlaylistSong(null)} />}
     {managedPlaylist && <OnlinePlaylistManager collection={managedPlaylist} editor={playlistEditor} close={() => setManagedPlaylist(null)}
       queueBusy={queueBusy} queueError={queueError}
-      play={(tracks, index) => void queueWork(async () => {
-        await flushSessions(); await native.setQueue({ songs: tracks, index }); setManagedPlaylist(null); setExpanded(true);
-      })} add={(song, behavior) => void add(song, behavior)} />}
+      play={(tracks, index) => void queueWork(() => startCollection(tracks, index, () => { setManagedPlaylist(null); setExpanded(true); }))}
+      add={(song, behavior) => void add(song, behavior)} />}
     {entityId && local.snapshot && <LocalEntityDialog snapshot={local.snapshot} id={entityId} light={light}
       close={() => setEntityId(undefined)} selected={id => { localBrowser.select(id); void local.refresh(); }} />}
     {localPlaylists.request && <LocalPlaylistDialog controller={localPlaylists} request={localPlaylists.request} />}
     {localPlaylists.fileRequest && <LocalPlaylistFileDialog controller={localPlaylists} request={localPlaylists.fileRequest} songs={local.songs} />}
+    {replacement.pending && <SongReplacementDialog request={replacement.pending} light={light} close={replacement.cancel}
+      confirm={async () => { await queueWork(replacement.confirm); }} />}
   </main>;
 }

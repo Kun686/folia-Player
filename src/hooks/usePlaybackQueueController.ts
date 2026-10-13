@@ -24,6 +24,7 @@ import {
     resolveNavidromePlaybackCarrier,
 } from '../utils/appPlaybackGuards';
 import { applyQueueAddBehavior } from '../utils/queueAddBehavior';
+import { buildReplacementQueue } from '../utils/queueSongReplacement';
 import { shufflePlaybackQueue } from '../utils/queueBatchOperations';
 import { buildStagePlayerSnapshot, resolveStagePlayerQueueItemIndex } from '../utils/stagePlayerSnapshot';
 import type { LocalLibraryDisplayCatalog } from '../services/playbackAdapters';
@@ -327,34 +328,7 @@ export function usePlaybackQueueController({
         originalSong: SongResult,
         replacementSong: SongResult
     ) => {
-        const normalizedQueue = queue.length > 0 ? queue : [originalSong];
-        const replacedQueue = normalizedQueue.flatMap((queuedSong) => {
-            if (isLocalPlaybackSong(queuedSong) || isNavidromePlaybackSong(queuedSong)) {
-                return [queuedSong];
-            }
-
-            if (getPlaybackSongKey(queuedSong) === getPlaybackSongKey(originalSong)) {
-                return [replacementSong];
-            }
-
-            if (isSongUnavailable(queuedSong)) {
-                return [];
-            }
-
-            return [queuedSong];
-        });
-
-        if (replacedQueue.length === 0) {
-            return [replacementSong];
-        }
-
-        if (!replacedQueue.some(queuedSong => (
-            getPlaybackSongKey(queuedSong) === getPlaybackSongKey(replacementSong)
-        ))) {
-            replacedQueue.push(replacementSong);
-        }
-
-        return replacedQueue;
+        return buildReplacementQueue(queue, originalSong, replacementSong, isSongUnavailable);
     }, []);
 
     const handleMarkedUnavailableSong = useCallback(async (

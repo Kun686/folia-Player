@@ -4,6 +4,9 @@ import { getPlaybackSongKey } from '../utils/appPlaybackGuards';
 import { isSongUnavailable } from '../services/onlineMusic/songAvailability';
 import type { QueueAddBehavior, SongResult } from '../types';
 import { native, type PlaybackSnapshot } from './bridge';
+import { buildReplacementQueue } from '../utils/queueSongReplacement';
+import type { PreparedSongReplacement } from './mobileSongReplacement';
+import { flushSessions } from './runtime';
 
 // src/mobile/queueActions.ts — shared desktop transforms with an atomic native version check.
 export type QueueAction = { type: 'remove' | 'next' | 'end'; index: number } | { type: 'clear' } | { type: 'shuffle' };
@@ -65,6 +68,20 @@ export async function playMobileSearchSong(song: SongResult, current: () => bool
     check();
     index = state.queue.findIndex(candidate => getPlaybackSongKey(candidate) === key);
   }
+  if (index < 0) throw new Error('queue-changed');
+  await native.selectQueue({ index, queueRevision: state.queueRevision });
+}
+
+// Confirmation preserves any newer native queue/remote-control intent via both atomic queue revisions.
+export async function playMobileReplacement(request: PreparedSongReplacement) {
+  const check = () => { if (!request.current()) throw new Error('queue-changed'); };
+  check(); await flushSessions(); check();
+  let state = await native.getState(); check();
+  if (state.queueRevision !== request.queueRevision) throw new Error('queue-changed');
+  if (isSongUnavailable(request.replacementSong)) throw new Error('song-unavailable');
+  const songs = buildReplacementQueue(request.queue, request.originalSong, request.replacementSong, isSongUnavailable);
+  state = await commit(state, songs); check();
+  const index = state.queue.findIndex(song => getPlaybackSongKey(song) === getPlaybackSongKey(request.replacementSong));
   if (index < 0) throw new Error('queue-changed');
   await native.selectQueue({ index, queueRevision: state.queueRevision });
 }

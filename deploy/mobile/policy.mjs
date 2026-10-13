@@ -4,7 +4,7 @@ import { validateFmSelection } from '../../shared/mobile/neteaseFm.ts';
 export const routes = {
   netease: new Set(['/register/anonimous', '/login/qr/key', '/login/qr/create', '/login/qr/check',
     '/login/status', '/logout', '/user/account', '/user/detail', '/user/playlist', '/playlist/detail',
-    '/playlist/track/all', '/song/detail', '/song/url/v1', '/cloudsearch', '/search', '/lyric', '/lyric/new', '/cloud/lyric/get', '/song/chorus', '/likelist', '/like',
+    '/playlist/track/all', '/song/detail', '/song/copyright/rcmd', '/song/url/v1', '/cloudsearch', '/search', '/lyric', '/lyric/new', '/cloud/lyric/get', '/song/chorus', '/likelist', '/like',
     '/album', '/album/sublist', '/user/cloud', '/artist/detail', '/artist/songs', '/artist/album', '/playlist/tracks',
     '/album/detail/dynamic', '/playlist/detail/dynamic', '/album/sub', '/playlist/subscribe',
     '/personal_fm', '/personal/fm/mode', '/personalized', '/recommend/songs', '/recommend/songs/dislike', '/history/recommend/songs', '/history/recommend/songs/detail']),
@@ -45,6 +45,10 @@ export function authorizeTarget(input, bases, playbackReport = false) {
   if (!routes[provider].has(parsed.pathname) && !qqRead && !reportWrite) throw fault('unsupported', 404);
   const params = { ...Object.fromEntries(parsed.searchParams), ...(input.query ?? {}) };
   if (provider === 'netease') {
+    if (parsed.pathname === '/song/copyright/rcmd') {
+      if (!/^[1-9][0-9]{0,19}$/.test(String(params.songid ?? '')) ||
+          Object.keys(params).some(key => !['songid', 'cookie', 'timestamp'].includes(key))) throw fault('invalid-request');
+    }
     if (parsed.pathname === '/personalized') {
       if (!/^[1-9][0-9]*$/.test(String(params.limit ?? '')) || Number(params.limit) > 100 ||
           Object.keys(params).some(key => !['limit', 'cookie', 'timestamp'].includes(key))) throw fault('invalid-request');
