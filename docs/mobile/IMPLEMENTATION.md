@@ -1,5 +1,10 @@
 # Folia iPhone / iPad 实现与安装
 
+集合页已补齐原版“当前范围加入播放队列”，覆盖本地集合、在线歌单／专辑／热门歌曲、每日推荐及 Navidrome。
+复用原可用性、去重和加入位置规则；等待中退出账号取消旧入队，保留当前歌曲与播放状态，无新依赖。
+775 项逻辑、111 个 WebKit 场景及本地完整快照的 3 项复测通过；个人 mobile.28 未更新，本批原生／真机 NOT_RUN。
+见 [COLLECTION_QUEUE.md](COLLECTION_QUEUE.md)，当前源码与证据核对索引见 [PORT_STATUS.md](PORT_STATUS.md)。
+
 移动设置已补齐原界面语言入口，复用原状态、存储和翻译；修复「跟随系统」被旧检测缓存覆盖，并接通浏览器印尼语标识。
 976 项逻辑、33 个 WebKit 场景及最后 3 项触摸复测通过，类型和移动构建通过；原语言命令不变，无新依赖。
 个人 mobile.28 未更新，实际 iOS 系统语言／真机 NOT_RUN，见 [LANGUAGE_SETTINGS.md](LANGUAGE_SETTINGS.md)。

@@ -9,6 +9,7 @@ import { queueSearchEn, queueSearchZh, queueSearchId } from './localeQueueSearch
 
 // src/mobile/locale.ts
 export const mobileEn = {
+  collectionEnqueued: '{{count}} tracks added to the queue.', collectionQueueUnchanged: 'No tracks need to be added.',
   queueSearch: queueSearchEn,
   navidrome: navidromeEn,
   displaySleepHint: 'Keep the screen awake while Folia is in the foreground and playing. Pausing or leaving the app restores normal auto-lock; you can still lock the screen yourself.',
@@ -113,6 +114,7 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  collectionEnqueued: '已将 {{count}} 首歌曲加入播放队列', collectionQueueUnchanged: '没有需要加入队列的歌曲',
   queueSearch: queueSearchZh,
   navidrome: navidromeZh,
   displaySleepHint: 'Folia 在前台播放时保持屏幕唤醒；暂停或离开 App 后恢复正常自动锁屏，仍可手动锁屏。',
@@ -217,6 +219,7 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  collectionEnqueued: '{{count}} lagu dimasukkan ke antrean.', collectionQueueUnchanged: 'Tidak ada lagu yang perlu ditambahkan.',
   queueSearch: queueSearchId,
   navidrome: navidromeEn,
   displaySleepHint: 'Jaga layar tetap menyala saat Folia aktif di depan dan memutar musik. Jeda atau keluar dari aplikasi memulihkan kunci otomatis; layar tetap dapat dikunci secara manual.',

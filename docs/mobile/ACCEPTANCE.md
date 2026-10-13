@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+集合范围入队的 775 项逻辑、111 个 WebKit 场景和本地完整快照 3 项复测通过。
+覆盖当前范围、不可用项／重复项、默认位置、队列容量与账号取消；个人 mobile.28 未更新，本批原生／真机／真实服务 NOT_RUN。
+完整交付仍未完成；见 [COLLECTION_QUEUE.md](COLLECTION_QUEUE.md) 与 [PORT_STATUS.md](PORT_STATUS.md)。
+
 原界面语言设置已通过 976 项逻辑、33 个 WebKit 场景和最后 3 项旋转／触摸复测，类型检查与移动构建通过。
 保留旧语言缓存问题、旧回归定位歧义及其修复证据；个人 mobile.28 未更新，本批原生／实际系统语言／真机 NOT_RUN。
 完整交付和 Automix 长期验收仍未完成，见 [LANGUAGE_SETTINGS.md](LANGUAGE_SETTINGS.md)。

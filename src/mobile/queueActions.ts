@@ -6,7 +6,8 @@ import type { QueueAddBehavior, SongResult } from '../types';
 import { native, type PlaybackSnapshot } from './bridge';
 import { buildReplacementQueue } from '../utils/queueSongReplacement';
 import type { PreparedSongReplacement } from './mobileSongReplacement';
-import { flushSessions } from './runtime';
+import { captureProviderSession, flushSessions } from './runtime';
+import { derivePlayableTracks } from '../library/core/model/collectionView';
 import type { QueueBatchAction } from '../components/command-palette/queueQuery';
 
 // src/mobile/queueActions.ts — shared desktop transforms with an atomic native version check.
@@ -50,17 +51,34 @@ export async function editMobileQueue(state: PlaybackSnapshot, action: QueueActi
 }
 
 export async function addMobileSongs(songs: SongResult[], behavior: QueueAddBehavior, assertCurrent: () => void = () => {}) {
+  const queueable = derivePlayableTracks(songs, isSongUnavailable);
+  if (!queueable.length) return 0;
   // Add is identity-based and can safely rebase once if a remote control advances the queue.
   // Row actions never retry: their index belongs to the exact list the user touched.
   for (let attempt = 0; attempt < 2; attempt++) {
     assertCurrent();
     const state = await native.getState();
     assertCurrent();
-    const result = applyQueueAddBehavior({ queue: state.queue, songs, currentSong: active(state), behavior });
-    if (!result.changed) return;
-    try { await commit(state, result.nextQueue); return; }
+    const result = applyQueueAddBehavior({ queue: state.queue, songs: queueable, currentSong: active(state), behavior });
+    if (!result.changed) return result.affectedSongs.length;
+    try { await commit(state, result.nextQueue); return result.affectedSongs.length; }
     catch (error) { if (!(error instanceof Error) || error.message !== 'queue-changed' || attempt > 0) throw error; }
   }
+}
+
+// Capture every online session before flushing or reading the native queue. Mixed scopes keep their
+// original order, and a logout/settings change cannot enqueue an old account's songs after an await.
+export async function enqueueMobileSongs(songs: SongResult[], behavior: QueueAddBehavior, assertCurrent: () => void = () => {}) {
+  const providers = new Set(songs.flatMap(song => song.sourceRef?.kind === 'online' ? [song.sourceRef.providerId] : []));
+  const sessions = [...providers].map(captureProviderSession);
+  const check = () => {
+    assertCurrent();
+    if (sessions.some(current => !current())) throw new Error('queue-changed');
+  };
+  check();
+  if (providers.size) await flushSessions();
+  check();
+  return addMobileSongs(songs, behavior, check);
 }
 
 // Original search playback selects an existing identity or appends just the requested song.

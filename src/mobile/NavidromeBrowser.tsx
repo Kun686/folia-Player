@@ -17,9 +17,11 @@ import { createNavidromeArtwork, navidromeCoverId, navidromeCoverKey } from './n
 import { getNavidromeEditor } from './navidromeEditor';
 import NavidromePlaylistSheet, { type NavidromePlaylistTarget } from './NavidromePlaylistSheet';
 import NavidromeSongActions from './NavidromeSongActions';
+import CollectionQueueActions from './CollectionQueueActions';
 
 // NavidromeBrowser.tsx — touch navigation over original library models, with virtual rows and scoped queue actions.
 type Props = { play(songs: SongResult[], index: number, current: () => void, search: boolean): Promise<unknown>; add(song: SongResult, behavior: QueueAddBehavior | undefined, current: () => void): Promise<unknown>;
+  enqueue(songs: SongResult[], current: () => void): Promise<number | undefined>;
   busy: boolean; queueError: string; queueCount: number; showQueue(): void };
 type Card = LibraryHomeCard & { collectionType: 'album' | 'artist' | 'playlist' | 'random' | 'favorites' };
 function CardRow({ index, style, cards, select, artwork }: RowComponentProps<{ cards: Card[]; select(card: Card): void; artwork: ReturnType<typeof createNavidromeArtwork> }>) {
@@ -98,6 +100,8 @@ function Connected({ settings, ...props }: Props & { settings: NativeNavidromeSe
     {!!cards.length && <List className="song-list local-collections" style={{ minHeight: 180,
       flexGrow: state.songs.length ? 0 : 1, flexShrink: state.songs.length ? 0 : 1, flexBasis: state.songs.length ? 220 : 'auto' }}
       rowComponent={CardRow} rowCount={cards.length} rowHeight={76} rowProps={{ cards, select: open, artwork }} overscanCount={3} />}
+    {!!state.songs.length && state.view.kind !== 'search' && <CollectionQueueActions songs={state.songs} busy={props.busy || state.busy || edits.busy}
+      enqueue={songs => props.enqueue(songs, library.assertCurrent)} />}
     {!!state.songs.length && <SongList songs={state.songs} busy={props.busy}
       libraryActions={(song, close) => <NavidromeSongActions song={song} editor={editor} close={close} changed={changed}
         add={() => setTarget({ kind: 'add', song })} remove={editable && state.playlist ? () => {

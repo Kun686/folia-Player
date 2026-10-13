@@ -11,6 +11,7 @@ import { createArtistResourceDeps } from '../library/core/services/artistResourc
 import { createCollectionResource } from '../library/core/services/createCollectionResource';
 import { collectionKey } from '../library/core/model/collectionIdentity';
 import SongList from './SongList';
+import CollectionQueueActions, { type EnqueueCollection } from './CollectionQueueActions';
 
 // OnlineCatalogContent.tsx — original Library Core resources, presented through mobile virtual lists.
 export interface OnlineCatalogContentProps {
@@ -20,11 +21,13 @@ export interface OnlineCatalogContentProps {
   actions(song: SongResult, close: () => void): ReactNode;
   open(collection: OnlineGridViewCollectionDescriptor): void;
   busy: boolean;
+  enqueue: EnqueueCollection;
 }
 function Tracks({ songs, ...props }: OnlineCatalogContentProps & { songs: SongResult[] }) {
   const { t } = useTranslation();
-  return songs.length ? <SongList songs={songs} play={index => props.play(songs, index)} add={props.add}
-    busy={props.busy} libraryActions={props.actions} /> : <p>{t('mobile.empty')}</p>;
+  return songs.length ? <><CollectionQueueActions songs={songs} busy={props.busy} enqueue={props.enqueue} />
+    <SongList songs={songs} play={index => props.play(songs, index)} add={props.add}
+    busy={props.busy} libraryActions={props.actions} /></> : <p>{t('mobile.empty')}</p>;
 }
 function AlbumsRow({ index, style, albums, open, providerId }: RowComponentProps<{
   albums: LibraryArtistSnapshot['albums']; open: OnlineCatalogContentProps['open']; providerId: string;

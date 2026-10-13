@@ -47,6 +47,7 @@ import { useThemeSettingsStore } from '../stores/useThemeSettingsStore';
 import { useMediaCache } from './useMediaCache';
 import SongList from './SongList';
 import QueueBrowser from './QueueBrowser';
+import CollectionQueueActions from './CollectionQueueActions';
 import NavidromeBrowser from './NavidromeBrowser';
 import LoginSheet from './LoginSheet';
 import SettingsSheet from './SettingsSheet';
@@ -54,7 +55,7 @@ import { useNativeSleepTimer } from './useNativeSleepTimer';
 import PlayerPanel from './PlayerPanel';
 import type { QueueAddBehavior, SongResult } from '../types';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
-import { addMobileSongs, editMobileQueue, playMobileSearchSong, type QueueAction } from './queueActions';
+import { enqueueMobileSongs, editMobileQueue, playMobileSearchSong, type QueueAction } from './queueActions';
 import { initializeSyncCoordinator } from '../services/sync/syncCoordinator';
 import OnlineAccountLibrary from './OnlineAccountLibrary';
 import { useSheetViewport } from './useSheetViewport';
@@ -157,10 +158,12 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       setExpanded(true);
     });
   };
-  const add = (song: SongResult, behavior: QueueAddBehavior = useAudioSettingsStore.getState().queueAddBehavior) => queueWork(async () => {
-    if (song.sourceRef?.kind === 'online') await flushSessions();
-    await addMobileSongs([song], behavior);
-  });
+  const enqueue = async (tracks: SongResult[], behavior: QueueAddBehavior = useAudioSettingsStore.getState().queueAddBehavior, current: () => void = () => {}) => {
+    let count: number | undefined;
+    await queueWork(async () => { count = await enqueueMobileSongs(tracks, behavior, current); });
+    return count;
+  };
+  const add = (song: SongResult, behavior?: QueueAddBehavior) => enqueue([song], behavior);
   const edit = (action: QueueAction) => void queueWork(() => editMobileQueue(playback.state, action));
   const songActions = (song: SongResult, close: () => void) => <>{onlineActions(song, close)}
     <LocalSongPlaylistActions song={song} controller={localPlaylists}
@@ -178,7 +181,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         play={(tracks, index, current, search) => queueWork(async () => { current();
           if (search) await playMobileSearchSong(tracks[index], () => { current(); return true; });
           else await native.setQueue({ songs: tracks, index }); setExpanded(true); })}
-        add={(song, behavior, current) => queueWork(async () => { current(); await addMobileSongs([song], behavior ?? useAudioSettingsStore.getState().queueAddBehavior, current); })} /> : <>
+        add={(song, behavior, current) => enqueue([song], behavior, current)} enqueue={(tracks, current) => enqueue(tracks, undefined, current)} /> : <>
       {!isNavidrome && <>
       {isCached ? <div className="account-row"><span>{mediaCache.state?.count ?? 0} {t('mobile.tracks')}</span></div> : isLocal ? <div className="account-row"><span>{local.songs.length} {t('mobile.tracks')}</span>
         <button disabled={local.busy || folders.busy || !isNative} onClick={() => void local.importAudio()}>{t('mobile.importAudio')}</button></div> :
@@ -206,7 +209,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         }} />}
       <DailyRecommendations provider={queueView ? '' : provider} enabled={available.dailyProviders.includes(provider)} signedIn={!!catalog.user}
         navigationChanged={cancelReplacement}
-        queueBusy={queueBusy} queueError={queueError} add={(song, behavior) => void add(song, behavior)} actions={onlineActions}
+        queueBusy={queueBusy} queueError={queueError} add={(song, behavior) => void add(song, behavior)} enqueue={enqueue} actions={onlineActions}
         play={(tracks, index, close) => void queueWork(() => startCollection(tracks, index, () => { close(); setExpanded(true); }))} />
       {isLocal && !queueView && <FolderImportStatus folders={folders} />}
       {isLocal && !queueView && local.snapshot && (localBrowser.section === 'songs' || (browsingFolders && folderView.root)) &&
@@ -245,6 +248,8 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       {queueError && <p role="alert">{t('mobile.' + queueError)}</p>}
       {isLocal && local.error && <p role="alert">{t('mobile.importError')} {local.error}</p>}
       {(catalog.busy || catalog.accountBusy || local.busy) && <p role="status">{t('mobile.loading')}</p>}
+      {!queueView && songs.length > 0 && ((isLocal && !localBrowser.browsing) || (!isLocal && !isCached && !isNavidrome && catalog.collection)) &&
+        <CollectionQueueActions songs={songs} busy={queueBusy || localPlaylists.busy || (isLocal ? local.busy : catalog.busy)} enqueue={enqueue} />}
       {isLocal && !queueView && localBrowser.browsing ? <LocalCollections collections={localBrowser.collections}
         select={id => { localBrowser.select(id); setQuery(''); }} /> : queueView ? <QueueBrowser state={playback.state}
         busy={queueBusy || localPlaylists.busy} play={index => void play(index)} add={(song, behavior) => void add(song, behavior)} edit={edit} libraryActions={songActions} />
@@ -274,7 +279,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
     {settings && <SettingsSheet folders={folders} lyricPreference={lyricPreference} appearance={appearance} mediaCache={mediaCache} timer={sleepTimer} server={server} light={light} setLight={setLight}
       saved={() => location.reload()} close={() => setSettings(false)} />}
     {login && <LoginSheet provider={provider} refresh={catalog.refresh} close={() => setLogin(false)} />}
-    {onlineTarget && <OnlineCatalogSheet target={onlineTarget} busy={queueBusy} error={queueError} close={() => setOnlineTarget(null)}
+    {onlineTarget && <OnlineCatalogSheet target={onlineTarget} busy={queueBusy} error={queueError} close={() => setOnlineTarget(null)} enqueue={enqueue}
       navigationChanged={cancelReplacement}
       editor={playlistEditor} subscriptionProviders={available.subscriptionProviders}
       play={(tracks, index) => void queueWork(() => startCollection(tracks, index, () => { setOnlineTarget(null); setExpanded(true); }))}

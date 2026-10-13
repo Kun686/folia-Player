@@ -5,6 +5,7 @@ import { omni } from '../services/onlineMusic/omni';
 import { captureProviderSession, flushSessions } from './runtime';
 import { createMobileDailyRecommendations } from './mobileDailyRecommendations';
 import SongList from './SongList';
+import CollectionQueueActions, { type EnqueueCollection } from './CollectionQueueActions';
 
 // DailyRecommendations.tsx — a touch entry for the original daily collection, history and dislike replacement.
 type DailyController = ReturnType<typeof createMobileDailyRecommendations>;
@@ -13,6 +14,7 @@ interface Props {
   play(songs: SongResult[], index: number, started: () => void): void; add(song: SongResult, behavior?: QueueAddBehavior): void;
   navigationChanged(): void;
   actions(song: SongResult, close: () => void): ReactNode;
+  enqueue: EnqueueCollection;
 }
 function Sheet({ service, close, ...props }: Props & { service: DailyController; close(): void }) {
   const { t } = useTranslation(), dialog = useRef<HTMLDialogElement>(null);
@@ -40,6 +42,7 @@ function Sheet({ service, close, ...props }: Props & { service: DailyController;
     {props.queueError && <p role="alert">{t('mobile.' + props.queueError)}</p>}
     {state.mutation?.dailyLimitReached && <p role="status">{t('mobile.dailyLimit')}</p>}
     {state.phase === 'ready' && <div className="online-catalog-pane">
+      {songs.length > 0 && <CollectionQueueActions songs={songs} busy={busy || failed} enqueue={props.enqueue} />}
       {songs.length ? <SongList songs={songs} busy={busy || failed}
         play={index => props.play(songs, index, close)} add={props.add}
         libraryActions={(song, dismiss) => <>{props.actions(song, () => { dismiss(); close(); })}

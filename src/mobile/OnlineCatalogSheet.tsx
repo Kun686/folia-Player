@@ -10,14 +10,16 @@ import OnlineCatalogActions from './OnlineCatalogActions';
 import OnlineCatalogContent from './OnlineCatalogContent';
 import type { MobilePlaylistEditor } from './mobilePlaylistEditor';
 import OnlineCollectionSubscription from './OnlineCollectionSubscription';
+import type { EnqueueCollection } from './CollectionQueueActions';
 
 // OnlineCatalogSheet.tsx — scoped navigation; dismissing or replacing a target rejects late resolution.
-export default function OnlineCatalogSheet({ target, play, add, busy, close, error: queueError, songActions, editor, subscriptionProviders, navigationChanged }: {
+export default function OnlineCatalogSheet({ target, play, add, enqueue, busy, close, error: queueError, songActions, editor, subscriptionProviders, navigationChanged }: {
   target: OnlineCatalogTarget; play(songs: SongResult[], index: number): void;
   add(song: SongResult, behavior?: QueueAddBehavior): void; busy: boolean; close(): void;
   error: string; songActions(song: SongResult): ReactNode;
   editor: MobilePlaylistEditor; subscriptionProviders: string[];
   navigationChanged(): void;
+  enqueue: EnqueueCollection;
 }) {
   const { t } = useTranslation(), dialog = useRef<HTMLDialogElement>(null);
   const [stack, setStack] = useState<OnlineCatalogTarget[]>([target]);
@@ -52,7 +54,7 @@ export default function OnlineCatalogSheet({ target, play, add, busy, close, err
     {resolved && <OnlineCollectionSubscription key={'subscription:' + collectionKey(resolved)} collection={resolved} editor={editor}
       writable={subscriptionProviders.includes(resolved.providerId)} />}
     {error ? <p role="alert">{t('mobile.error')} <button onClick={() => setRetry(value => value + 1)}>{t('mobile.retry')}</button></p>
-      : resolved ? <OnlineCatalogContent key={collectionKey(resolved)} collection={resolved} play={play} add={add} busy={busy}
+      : resolved ? <OnlineCatalogContent key={collectionKey(resolved)} collection={resolved} play={play} add={add} enqueue={enqueue} busy={busy}
           open={collection => open({ collection })}
           actions={(song, dismiss) => <>{songActions(song)}<OnlineCatalogActions song={song} enabled
             open={next => { dismiss(); open(next); }} /></>} /> : <p role="status">{t('mobile.loading')}</p>}

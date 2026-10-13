@@ -37,6 +37,10 @@ h1, h2, p { margin: 0; } h1 { font-size: 34px; font-weight: 700; letter-spacing:
 .collections button { display: flex; gap: 8px; align-items: center; flex-shrink: 0; max-width: 240px; text-align: left; }
 .collection-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .collection-actions button { font-size: 13px; }
+.collection-queue-actions { margin-bottom: 12px; flex-shrink: 0; }
+.collection-queue-actions .collection-actions { align-items: center; justify-content: space-between; }
+.collection-queue-actions span, .collection-queue-actions p { font-size: 12px; line-height: 1.5; color: var(--muted); }
+.collection-queue-actions p { margin-top: 6px; }
 .collections svg { flex-shrink: 0; }
 .local-sections { display: flex; gap: 6px; margin-bottom: 12px; }
 .local-sections button { flex: 1; background: transparent; color: var(--muted); padding-inline: 8px; font-size: 13px; }
