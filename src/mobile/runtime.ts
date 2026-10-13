@@ -42,8 +42,9 @@ export async function clearProvider(provider: string) {
   if (configuring || clearing.has(provider)) throw new Error('gateway-settings-changed');
   const context = scoped();
   clearing.add(provider);
+  // Cancellation failure must not skip durable logout or let an already queued save restore it.
+  const [cancellation] = await Promise.allSettled([cancelProvider(provider)]);
   try {
-    await cancelProvider(provider);
     await persistence;
     await native.clearSession({ provider, ...context });
     sessions[provider] = {};
@@ -58,6 +59,7 @@ export async function clearProvider(provider: string) {
     }
     throw error;
   } finally { clearing.delete(provider); }
+  if (cancellation.status === 'rejected') throw cancellation.reason;
 }
 // Freeze outgoing session writes and retire old replies while native commits all credentials atomically.
 export async function configureGateway(server: string, token: string) {

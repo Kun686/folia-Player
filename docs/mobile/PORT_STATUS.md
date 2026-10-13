@@ -28,6 +28,10 @@
 
 ## 本轮核对的集合与队列行为
 
+两平台退出清理见 [LOGOUT_CANCELLATION.md](LOGOUT_CANCELLATION.md)：取消请求失败时仍尝试原生凭据清理，
+等待已排队保存，防止旧凭据随后写回；错误仍进入原重试入口。772 项移动逻辑、69 项 WebKit 和类型检查通过。
+这是受控桥接故障验证，本批原生／Keychain 故障／真实账号／物理设备 NOT_RUN，个人 mobile.28 未更新。
+
 移动网络旧响应修复见 [SESSION_RESPONSE_REVISION.md](SESSION_RESPONSE_REVISION.md)：凭据替换后拒绝旧响应，
 防止 QQ 旧 401／803 清除或覆盖新登录，以及两平台旧歌单继续显示。770 项移动逻辑、96 项 WebKit、
 类型检查与移动构建通过；原生、真实账号与真机本批 NOT_RUN。

@@ -3,6 +3,11 @@
 当前验收优先级为 QQ／网易云核心功能、特效动画、设置 UI，见 [CURRENT_SCOPE.md](CURRENT_SCOPE.md)。
 本地音乐、其他平台、同步、AI 和完整 Automix 扩展暂缓；历史自动测试不自动替代当前两平台真机验收。
 
+2026-10-14 退出清理：请求取消桥失败不再跳过凭据删除；保留失败提示，排队保存后清理，另一平台不受影响。
+772 项移动逻辑、69 项 WebKit、类型检查 PASS，保留修复前两平台各一项失败证据。
+本批原生／Keychain 故障／真实账号／物理设备 NOT_RUN；个人 mobile.28 和服务器未更新，
+见 [LOGOUT_CANCELLATION.md](LOGOUT_CANCELLATION.md)。
+
 2026-10-14 实际键盘巡检：iPhone 模拟器横屏 URL 键盘的可视高度实测 130px，发现并修复完整输入框被裁切。
 34 项 WebKit 回归 PASS、2 项平板重复场景 SKIPPED，类型检查与移动资源构建 PASS；
 独立 Release QA 的设置滚动／子页返回、实际软件键盘／旋转恢复已观察通过。

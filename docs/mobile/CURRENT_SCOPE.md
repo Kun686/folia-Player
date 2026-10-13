@@ -55,3 +55,7 @@ iPad模拟器16项关键子集均通过，128个打包资源一致，两端生�
 2026-10-14 后续已解除 iPhone 模拟器输入工具限制，复现并修复实际横屏键盘只留 130px 时的输入框裁切。
 34 项 WebKit 回归通过、2 项平板重复场景跳过；iPhone 模拟器键盘／旋转／返回已观察，
 iPad 原生键盘、物理设备和真实账号本批 NOT_RUN。见 [SETTINGS_NATIVE_KEYBOARD.md](SETTINGS_NATIVE_KEYBOARD.md)。
+
+2026-10-14 两平台退出清理：请求取消桥调用失败不再跳过凭据删除，等待排队保存后清理并保留错误重试。
+772 项移动逻辑、69 项 WebKit 回归和类型检查通过；本批原生／Keychain 故障／真实账号／物理设备 NOT_RUN，
+个人 mobile.28 未更新。见 [LOGOUT_CANCELLATION.md](LOGOUT_CANCELLATION.md)。

@@ -8,8 +8,7 @@ const native = vi.hoisted(() => ({
 }));
 vi.mock('../../../src/mobile/bridge', () => ({ native }));
 describe('mobile secure runtime', () => {
-  beforeEach(() => { vi.resetModules(); vi.clearAllMocks();
-    native.configure.mockReset();
+  beforeEach(() => { vi.resetModules(); vi.resetAllMocks();
     native.bootstrap.mockResolvedValue({ server: 'https://music.example.com', scope: 'original', sessions: { qq: { cookie: 'fixture' } } });
     native.saveSession.mockResolvedValue(undefined); native.clearSession.mockResolvedValue(undefined);
     native.cancelRequests.mockResolvedValue(undefined);
@@ -161,6 +160,41 @@ describe('mobile secure runtime', () => {
     native.request.mockResolvedValue({ status: 200, body: '{}', headers: {} });
     await port.fetch('/mobile/qq/search');
     expect(native.request.mock.calls.at(-1)?.[0].scope).toBe('next');
+  });
+  it.each(['qq', 'netease'])('still clears %s after cancellation fails, without a queued save restoring it', async provider => {
+    const other = provider === 'qq' ? 'netease' : 'qq';
+    const durable: Record<string, Record<string, string>> = {
+      qq: { cookie: 'synthetic-qq' }, netease: { cookie: 'synthetic-netease' },
+    };
+    native.bootstrap.mockImplementation(async () => ({ server: 'https://music.example.com', scope: 'original', sessions: structuredClone(durable) }));
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    await runtime.initializeRuntime(); const port = getMobileRuntime()!;
+    let finishRequest!: (value: unknown) => void, finishSave!: () => void;
+    native.request.mockImplementationOnce(() => new Promise(resolve => { finishRequest = resolve; }));
+    const response = port.fetch(`/mobile/${provider}/user/playlist`).catch(error => error);
+    native.cancelRequests.mockRejectedValue(new Error('cancel-bridge-failed'));
+    native.saveSession.mockImplementationOnce(async ({ provider, values }) => {
+      await new Promise<void>(resolve => { finishSave = resolve; }); durable[provider] = values;
+    });
+    native.clearSession.mockImplementationOnce(async ({ provider }) => { delete durable[provider]; });
+    port.write(provider, 'cookie', 'pending-save');
+    await vi.waitFor(() => expect(finishSave).toBeTypeOf('function'));
+    const intent = runtime.captureProviderSession(provider);
+    const logout = runtime.clearProvider(provider).catch(error => error);
+    await vi.waitFor(() => expect(native.cancelRequests).toHaveBeenCalledOnce());
+    expect(intent()).toBe(false); expect(native.clearSession).not.toHaveBeenCalled();
+    finishSave();
+    expect(await logout).toMatchObject({ message: 'cancel-bridge-failed' });
+    finishRequest({ status: 200, body: '{}', headers: {} });
+    expect(await response).toMatchObject({ name: 'AbortError' });
+    await runtime.flushSessions();
+    expect(native.clearSession).toHaveBeenCalledExactlyOnceWith({ provider, scope: 'original' });
+    expect(durable[provider]).toBeUndefined(); expect(port.read(provider, 'cookie')).toBeNull();
+    expect(durable[other]).toEqual({ cookie: 'synthetic-' + other });
+    expect(port.read(other, 'cookie')).toBe('synthetic-' + other);
+    native.request.mockResolvedValueOnce({ status: 200, body: '{}', headers: {} });
+    await expect(port.fetch(`/mobile/${other}/user/playlist`)).resolves.toBeInstanceOf(Response);
   });
   it('failed logout preserves memory and blocks writes or configuration until it settles', async () => {
     const runtime = await import('../../../src/mobile/runtime');
