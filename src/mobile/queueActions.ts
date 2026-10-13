@@ -66,17 +66,23 @@ export async function addMobileSongs(songs: SongResult[], behavior: QueueAddBeha
   }
 }
 
-// Capture every online session before flushing or reading the native queue. Mixed scopes keep their
-// original order, and a logout/settings change cannot enqueue an old account's songs after an await.
-export async function enqueueMobileSongs(songs: SongResult[], behavior: QueueAddBehavior, assertCurrent: () => void = () => {}) {
+// Capture every online session before an asynchronous queue action, including collection playback.
+// Mixed scopes are invalidated if any of their accounts changes while the action is pending.
+export function captureMobileQueueSessions(songs: SongResult[], assertCurrent: () => void = () => {}) {
   const providers = new Set(songs.flatMap(song => song.sourceRef?.kind === 'online' ? [song.sourceRef.providerId] : []));
   const sessions = [...providers].map(captureProviderSession);
-  const check = () => {
+  return () => {
     assertCurrent();
     if (sessions.some(current => !current())) throw new Error('queue-changed');
   };
+}
+
+// Capture every online session before flushing or reading the native queue. Mixed scopes keep their
+// original order, and a logout/settings change cannot enqueue an old account's songs after an await.
+export async function enqueueMobileSongs(songs: SongResult[], behavior: QueueAddBehavior, assertCurrent: () => void = () => {}) {
+  const check = captureMobileQueueSessions(songs, assertCurrent);
   check();
-  if (providers.size) await flushSessions();
+  if (songs.some(song => song.sourceRef?.kind === 'online')) await flushSessions();
   check();
   return addMobileSongs(songs, behavior, check);
 }

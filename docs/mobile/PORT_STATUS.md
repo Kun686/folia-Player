@@ -23,6 +23,10 @@
 
 ## 本轮核对的集合与队列行为
 
+歌单播放的账号时序修复见 [COLLECTION_PLAYBACK_SESSION.md](COLLECTION_PLAYBACK_SESSION.md)：
+点歌后若在等待凭据保存期间退出、切换平台或替换凭据，旧操作不再继续提交队列。
+复用已有会话代次校验，搜索／队列选曲保持原语义；受控测试与真机验收分别记录。
+
 | 原版行为／复用入口 | 移动入口 | 当前验证边界 |
 | --- | --- | --- |
 | 集合当前范围加入队列：`useCollectionActions.enqueueScope` → `port.enqueueAll(view.contextTracks)` | `CollectionQueueActions`；主曲库、在线目录、每日推荐、Navidrome | 本轮新增；逻辑／WebKit 结果见 [COLLECTION_QUEUE.md](COLLECTION_QUEUE.md) |
