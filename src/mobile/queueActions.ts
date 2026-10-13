@@ -7,16 +7,18 @@ import { native, type PlaybackSnapshot } from './bridge';
 import { buildReplacementQueue } from '../utils/queueSongReplacement';
 import type { PreparedSongReplacement } from './mobileSongReplacement';
 import { flushSessions } from './runtime';
+import type { QueueBatchAction } from '../components/command-palette/queueQuery';
 
 // src/mobile/queueActions.ts — shared desktop transforms with an atomic native version check.
-export type QueueAction = { type: 'remove' | 'next' | 'end'; index: number } | { type: 'clear' } | { type: 'shuffle' };
+export type QueueAction = { type: 'remove' | 'next' | 'end'; index: number } | { type: 'clear' } | { type: 'shuffle' }
+  | { type: 'batch'; operation: QueueBatchAction; indices: number[] };
 const active = (state: PlaybackSnapshot) => state.queue[state.index] ?? state.currentSong;
 
 async function commit(state: PlaybackSnapshot, songs: SongResult[]) {
   if (songs.length > 1000) throw new Error('queue-full');
   const song = active(state);
   // Reference identity retains a duplicate occurrence; shuffle intentionally deduplicates current.
-  let currentIndex = song ? songs.indexOf(song) : -1;
+  let currentIndex = song && state.index >= 0 ? songs.indexOf(song) : -1;
   if (currentIndex < 0 && song && state.index >= 0) {
     currentIndex = songs.findIndex(candidate => getPlaybackSongKey(candidate) === getPlaybackSongKey(song));
   }
@@ -25,6 +27,14 @@ async function commit(state: PlaybackSnapshot, songs: SongResult[]) {
 
 export async function editMobileQueue(state: PlaybackSnapshot, action: QueueAction) {
   const song = active(state);
+  if (action.type === 'batch') {
+    if (action.indices.some(index => !Number.isInteger(index) || index < 0 || index >= state.queue.length)) throw new Error('queue-changed');
+    const result = applyQueueBatchOperation({ queue: state.queue, targetIndices: action.indices,
+      currentSong: state.queue[state.index] ?? null, action: action.operation });
+    // Preserve the original batch rule: skip the current occurrence. A detached song is not a queue row.
+    if (!result.changed) return;
+    return commit(state, result.nextQueue);
+  }
   let songs: SongResult[];
   if (action.type === 'clear') songs = [];
   else if (action.type === 'shuffle') songs = shufflePlaybackQueue(state.queue, song);

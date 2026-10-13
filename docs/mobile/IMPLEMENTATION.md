@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+移动队列已接入原版索引搜索和按匹配项批量下一首／移到队尾／移除，保留当前出现、重复项和原队列顺序。
+769 项逻辑、72 个 WebKit 场景、类型与移动构建通过；修复 WebKit 搜索范围下拉框触摸高度，无新依赖。
+个人 mobile.28 未更新，本批原生／真机 NOT_RUN，见 [QUEUE_SEARCH.md](QUEUE_SEARCH.md)。
+
 Navidrome now-playing／播放记录已接入原生播放器，复用原位置阈值追踪器；暂停、循环、自然结束与 Automix 交接均由原生触发。
 797 项逻辑、60 项原生模拟器回归通过；修复账号切换时取消尚未释放请求槽位的竞争，无新依赖。
 个人 mobile.28 未更新，真实记录／真机／系统挂起 NOT_RUN，见 [NAVIDROME_SCROBBLE.md](NAVIDROME_SCROBBLE.md)。

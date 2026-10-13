@@ -46,6 +46,7 @@ import { useAppPreferences } from '../hooks/useAppPreferences';
 import { useThemeSettingsStore } from '../stores/useThemeSettingsStore';
 import { useMediaCache } from './useMediaCache';
 import SongList from './SongList';
+import QueueBrowser from './QueueBrowser';
 import NavidromeBrowser from './NavidromeBrowser';
 import LoginSheet from './LoginSheet';
 import SettingsSheet from './SettingsSheet';
@@ -161,6 +162,9 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
     await addMobileSongs([song], behavior);
   });
   const edit = (action: QueueAction) => void queueWork(() => editMobileQueue(playback.state, action));
+  const songActions = (song: SongResult, close: () => void) => <>{onlineActions(song, close)}
+    <LocalSongPlaylistActions song={song} controller={localPlaylists}
+      selected={isLocal && !queueView ? localBrowser.selected : undefined} close={close} /></>;
   return <main className={'mobile-app ' + (light ? 'daylight' : '')} data-layout="compact">
     <div className="library-panel" inert={expanded}>
       <header className="brand"><div><small>FOLIA</small><h1>{t('mobile.library')}</h1></div>
@@ -182,10 +186,10 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         {catalog.user ? <button disabled={catalog.busy} onClick={() => void catalog.logout().catch(() => setError(true))}>{t('mobile.logout')}</button>
           : <button disabled={!providerEnabled || catalog.loggingOut} onClick={() => setLogin(true)}>{t('mobile.login')}</button>}</div>}
       {!isLocal && !isCached && !isNavidrome && !providerEnabled && <p className="connection-hint">{t('mobile.connect')} <button onClick={() => setSettings(true)}>{t('mobile.settings')}</button></p>}
-      <form className="search" onSubmit={e => { e.preventDefault(); setQueueView(false); if (!isLocal && !isCached && !isNavidrome && query.trim()) void catalog.load({ query: query.trim() }); }}>
+      {!queueView && <form className="search" onSubmit={e => { e.preventDefault(); setQueueView(false); if (!isLocal && !isCached && !isNavidrome && query.trim()) void catalog.load({ query: query.trim() }); }}>
         <Search size={20} /><input aria-label={t('mobile.search')} placeholder={t('mobile.search')} value={query} onChange={e => setQuery(e.target.value)} />
         <button disabled={(!isLocal && !isCached && !isNavidrome && !providerEnabled) || catalog.busy || !query.trim()}>{t('mobile.search')}</button>
-      </form>
+      </form>}
       </>}
       <div className="section-heading"><h2>{queueView ? t('mobile.queue') : t(isCached ? 'options.mediaCache' : isLocal ? 'mobile.local' : catalog.collection?.type === 'cloud' ? 'mobile.accountCloud' : 'mobile.playlists')}</h2>
         <button aria-pressed={queueView} onClick={() => setQueueView(!queueView)}>{t('mobile.queue')} · {playback.state.queue.length}</button></div>
@@ -242,13 +246,13 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       {isLocal && local.error && <p role="alert">{t('mobile.importError')} {local.error}</p>}
       {(catalog.busy || catalog.accountBusy || local.busy) && <p role="status">{t('mobile.loading')}</p>}
       {isLocal && !queueView && localBrowser.browsing ? <LocalCollections collections={localBrowser.collections}
-        select={id => { localBrowser.select(id); setQuery(''); }} /> : songs.length ? <SongList songs={songs} play={index => void play(index)} add={(song, behavior) => void add(song, behavior)}
+        select={id => { localBrowser.select(id); setQuery(''); }} /> : queueView ? <QueueBrowser state={playback.state}
+        busy={queueBusy || localPlaylists.busy} play={index => void play(index)} add={(song, behavior) => void add(song, behavior)} edit={edit} libraryActions={songActions} />
+        : songs.length ? <SongList songs={songs} play={index => void play(index)} add={(song, behavior) => void add(song, behavior)}
         trackLabels={trackLabels}
         respectAvailability={searchingOnline}
-        busy={queueBusy || localPlaylists.busy} edit={queueView ? edit : undefined} currentIndex={queueView ? playback.state.index : undefined}
-        libraryActions={(song, close) => <>{onlineActions(song, close)}
-          <LocalSongPlaylistActions song={song} controller={localPlaylists}
-          selected={isLocal && !queueView ? localBrowser.selected : undefined} close={close} /></>}
+        busy={queueBusy || localPlaylists.busy}
+        libraryActions={songActions}
         remove={isLocal && !queueView ? song => { if (window.confirm(t('mobile.confirmRemove', { name: song.name }))) void local.remove(song); } : undefined} />
         : (browsingFolders && !queueView && !folderView.root) || (!isLocal && !isCached && !isNavidrome && !queueView && (catalog.busy || catalog.trackError))
           ? null : <div className="empty"><Music2 size={44} /><p>{t(queueView ? 'mobile.queueEmpty' : searchingOnline ? 'mobile.empty'

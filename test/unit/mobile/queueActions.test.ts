@@ -67,4 +67,37 @@ describe('mobile queue actions', () => {
       .rejects.toThrow('navidrome-settings-changed');
     expect(native.editQueue).not.toHaveBeenCalled();
   });
+  it.each(['next', 'end', 'remove'] as const)('batch %s keeps the exact current occurrence and original relative order', async operation => {
+    const duplicate = { ...a }, d = song('qq', '3');
+    const queue = [a, b, duplicate, c, d];
+    // Targets arrive in search-rank order, with a duplicate index and the current occurrence.
+    await editMobileQueue(state(queue, 2), { type: 'batch', operation, indices: [4, 2, 0, 4] });
+    const songs = operation === 'next' ? [b, duplicate, a, d, c]
+      : operation === 'end' ? [b, duplicate, c, a, d] : [b, duplicate, c];
+    expect(native.editQueue).toHaveBeenCalledExactlyOnceWith({ songs, currentIndex: 1, queueRevision: 4 });
+    expect(native.editQueue.mock.calls[0][0].songs[1]).toBe(duplicate);
+  });
+  it('batch can remove a queued duplicate while the same identity plays detached', async () => {
+    const snapshot = { ...state([b, { ...a }, c], -1), currentSong: a };
+    await editMobileQueue(snapshot, { type: 'batch', operation: 'remove', indices: [1] });
+    expect(native.editQueue).toHaveBeenCalledExactlyOnceWith({ songs: [b, c], currentIndex: -1, queueRevision: 4 });
+  });
+  it('a detached current song stays detached when a queued reference is moved', async () => {
+    await editMobileQueue({ ...state([a, b, c], -1), currentSong: a }, { type: 'batch', operation: 'end', indices: [0] });
+    expect(native.editQueue).toHaveBeenCalledExactlyOnceWith({ songs: [b, c, a], currentIndex: -1, queueRevision: 4 });
+  });
+  it.each([{ indices: [] }, { indices: [0] }, { indices: [2] }])('does not write an unchanged batch end operation ($indices)', async ({ indices }) => {
+    await editMobileQueue(state(), { type: 'batch', operation: 'end', indices });
+    expect(native.editQueue).not.toHaveBeenCalled();
+  });
+  it.each([-1, 3, 0.5, NaN, Infinity])('rejects a malformed batch index %s without writing', async index => {
+    await expect(editMobileQueue(state(), { type: 'batch', operation: 'remove', indices: [1, index] })).rejects.toThrow('queue-changed');
+    expect(native.editQueue).not.toHaveBeenCalled();
+  });
+  it('never retries batch positions against a newer native queue', async () => {
+    native.editQueue.mockRejectedValue(new Error('queue-changed'));
+    await expect(editMobileQueue(state(), { type: 'batch', operation: 'remove', indices: [1, 2] })).rejects.toThrow('queue-changed');
+    expect(native.editQueue).toHaveBeenCalledTimes(1);
+    expect(native.getState).not.toHaveBeenCalled();
+  });
 });
