@@ -91,7 +91,8 @@ final class NativeProfilePrefix: NSObject, URLSessionDataDelegate, @unchecked Se
                     newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
         lock.lock(); redirects += 1; let allowed = redirects <= 5 && continuation != nil; lock.unlock()
         // Rebuild instead of forwarding headers: neither credentials nor cookies may follow a CDN redirect.
-        if allowed, let url = request.url, let clean = try? Self.request(url) { completionHandler(clean) }
+        if allowed, NativeMediaTransport.allowsRedirects(task.originalRequest?.url),
+           let url = request.url, let clean = try? Self.request(url) { completionHandler(clean) }
         else { completionHandler(nil); finish(.failure(MobileFailure("profile-redirect-unavailable"))) }
     }
 }

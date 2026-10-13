@@ -36,6 +36,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
             self.sync = NativeSyncClient()
             self.navidrome = NativeNavidromeClient()
             self.engine = PlaybackEngine(gateway: self.gateway, usesStereoOutput: true)
+            self.engine.connectNavidrome(self.navidrome)
             self.displaySleep = NativeDisplaySleep { [weak self] in
                 self?.engine?.intentToPlay == true && self?.engine?.outputIsPlaying == true
             }
@@ -77,7 +78,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         // The single Keychain write above is the commit point. Failures preserve accounts and playback.
         if current.scope != previous.scope {
             self.engine.listening.invalidate()
-            if !self.engine.currentIsLocal { self.engine.stop() }
+            if self.engine.currentUsesGateway { self.engine.stop() }
             self.engine.discardPrepared()
             self.requests.values.forEach { $0.cancel() }; self.requests.removeAll()
             if current.server != previous.server {

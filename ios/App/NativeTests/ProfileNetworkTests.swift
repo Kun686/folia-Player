@@ -35,6 +35,13 @@ final class ProfileHTTPProtocol: URLProtocol, @unchecked Sendable {
     private let gate = NSLock()
     private var closed = false
     private var fixture: ProfileHTTPFixture?
+    private static func key(_ url: URL) -> String {
+        let id = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "id" }?.value
+        return url.host! + url.path + (id.map { "|id=" + $0 } ?? "")
+    }
+    static func add(_ fixture: ProfileHTTPFixture, at url: URL) {
+        lock.lock(); fixtures[key(url)] = fixture; lock.unlock()
+    }
     static func add(_ fixture: ProfileHTTPFixture, route: String? = nil, atOrigin: Bool = false) -> URL {
         // Keep each fixture isolated even when clients append a fixed protocol route.
         let key = "/" + UUID().uuidString + (route.map { "/" + $0 } ?? ".wav")
@@ -43,13 +50,15 @@ final class ProfileHTTPProtocol: URLProtocol, @unchecked Sendable {
         lock.lock(); fixtures[url.host! + url.path] = fixture; lock.unlock()
         return url
     }
-    static func remove(_ url: URL) { lock.lock(); fixtures.removeValue(forKey: url.host! + url.path); lock.unlock() }
+    static func remove(_ url: URL) { lock.lock(); fixtures.removeValue(forKey: key(url)); lock.unlock() }
     override class func canInit(with request: URLRequest) -> Bool {
         request.url?.host == "profile.invalid" || request.url?.host?.hasSuffix(".profile.invalid") == true
     }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
-        Self.lock.lock(); let found = Self.fixtures[request.url!.host! + request.url!.path]; Self.lock.unlock()
+        Self.lock.lock()
+        let found = Self.fixtures[Self.key(request.url!)] ?? Self.fixtures[request.url!.host! + request.url!.path]
+        Self.lock.unlock()
         guard let found else { client?.urlProtocol(self, didFailWithError: URLError(.fileDoesNotExist)); return }
         fixture = found; found.request(request)
         if let target = found.redirect {

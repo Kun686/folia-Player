@@ -3,6 +3,12 @@ import Foundation
 // NativeMediaTransport.swift — audio requests never inherit gateway/platform credentials or cookies.
 enum NativeMediaTransport {
     static let extensions = ["mp3", "m4a", "mp4", "aac", "flac", "wav", "aiff", "caf", "ogg", "audio"]
+    static func allowsRedirects(_ url: URL?) -> Bool {
+        // Subsonic authentication is in the query. Never copy a server redirect (even same-origin)
+        // into another request; configure the final HTTPS endpoint instead. CDN behavior is unchanged.
+        guard let url else { return false }
+        return !NativeNavidromeRequest.isSignedMediaURL(url)
+    }
     static func request(_ url: URL, range: String? = nil) throws -> URLRequest {
         guard url.scheme == "https", url.host != nil, url.user == nil, url.password == nil else { throw MobileFailure("invalid-audio-url") }
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)

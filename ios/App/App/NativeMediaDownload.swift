@@ -110,7 +110,8 @@ final class NativeMediaDownload: NSObject, URLSessionDownloadDelegate, @unchecke
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
         lock.lock(); redirects += 1; let active = redirects <= 5 && continuation != nil; lock.unlock()
-        if active, let url = request.url, let clean = try? NativeMediaTransport.request(url) { completionHandler(clean) }
+        if active, NativeMediaTransport.allowsRedirects(task.originalRequest?.url),
+           let url = request.url, let clean = try? NativeMediaTransport.request(url) { completionHandler(clean) }
         else { completionHandler(nil); finish(.failure(MobileFailure("cache-redirect-unavailable"))) }
     }
 }

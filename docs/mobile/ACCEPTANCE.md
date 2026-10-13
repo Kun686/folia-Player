@@ -1,8 +1,12 @@
 # 真实服务与真机验收表
 
+Navidrome 原生播放在受控 Subsonic 响应下完成三曲实际 PCM 输出、拖动／断网恢复、缓存／账号隔离和重定向保护。
+51 项原生模拟器与 1,443 项逻辑回归通过；设置／浏览与封面／歌词未装配，真实服务／物理设备／系统挂起 NOT_RUN。
+个人 mobile.28、真实账户和服务器未操作，完整移植仍未完成，见 [NAVIDROME_PLAYBACK.md](NAVIDROME_PLAYBACK.md)。
+
 Navidrome 共享解析、并发排队、会话取消与歌曲身份隔离通过 1,451 项逻辑和 14 项原生模拟器测试。
 新增原生用例实际运行打包 JS，经 Capacitor 连接 Keychain／URLSession；响应为受控样本。
-移动浏览／原生播放未交付，真实服务／真机 NOT_RUN，见 [NAVIDROME_SHARED.md](NAVIDROME_SHARED.md)。
+该批移动浏览／原生播放未交付，后续原生播放见上文；真实服务／真机 NOT_RUN，见 [NAVIDROME_SHARED.md](NAVIDROME_SHARED.md)。
 
 Navidrome 原生连接层已通过 60 项原版逻辑与 30 项原生模拟器测试，包含真实 Keychain、URLSession 和 Capacitor 桥接。
 仅完成凭据与只读请求，移动浏览／原生播放尚未接入；真实服务器和物理设备 NOT_RUN。

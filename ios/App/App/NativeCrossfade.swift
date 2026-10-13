@@ -321,6 +321,7 @@ final class NativeCrossfade {
         return a["kind"] as? String != b["kind"] as? String
             || a["providerId"] as? String != b["providerId"] as? String
             || a["mediaId"] as? String != b["mediaId"] as? String
+            || (a["kind"] as? String == "navidrome" && a["scope"] as? String != b["scope"] as? String)
     }
     private func pairedStems(_ from: [String: Any], _ to: [String: Any], plan: NativeTransitionPlan)
         -> (outgoing: NativeStemWindow, incoming: NativeStemWindow)? {

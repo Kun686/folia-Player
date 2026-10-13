@@ -55,9 +55,11 @@ final class NetworkingClient {
     init(configuration: URLSessionConfiguration = .networkingConfiguration,
          delegate: NetworkSessionDelegate = NetworkSessionDelegate(),
          networkQueue: DispatchQueue = DispatchQueue(label: "audio.streaming.session.network.queue"),
-         clientCertificateProvider: ClientCertificateProvider? = nil)
+         clientCertificateProvider: ClientCertificateProvider? = nil,
+         allowsNetworkRedirects: Bool = true)
     {
         delegate.clientCertificateProvider = clientCertificateProvider
+        delegate.allowsNetworkRedirects = allowsNetworkRedirects
         let delegateQueue = operationQueue(underlyingQueue: networkQueue)
         let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: delegateQueue)
         self.session = session

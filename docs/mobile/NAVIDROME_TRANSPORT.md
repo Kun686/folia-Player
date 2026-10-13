@@ -1,6 +1,7 @@
 # Navidrome 原生连接层
 
 2026-10-13。此批完成原版 Navidrome 的移动原生凭据与只读请求接口，**尚未交付移动 Navidrome 音源**。
+后续共享业务和原生播放分别见 [NAVIDROME_SHARED.md](NAVIDROME_SHARED.md)、[NAVIDROME_PLAYBACK.md](NAVIDROME_PLAYBACK.md)；本文保留本阶段证据。
 当前个人安装版本仍是 mobile.28。本批没有操作物理设备、真实账户、个人 App 或生产服务器。
 
 ## 复用与边界

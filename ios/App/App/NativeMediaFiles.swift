@@ -23,7 +23,7 @@ struct NativeMediaFiles {
         guard Self.validKey(key), let metaValues = try? meta.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey, .isSymbolicLinkKey]),
               metaValues.isRegularFile == true, metaValues.isSymbolicLink != true, (metaValues.fileSize ?? 65537) <= 65536,
               let data = try? Data(contentsOf: meta), let value = try? JSONDecoder().decode(Record.self, from: data),
-              value.version == 1, ["qq", "netease", "kugou"].contains(value.provider), UUID(uuidString: value.generation) != nil,
+              value.version == 1, ["qq", "netease", "kugou", "navidrome"].contains(value.provider), UUID(uuidString: value.generation) != nil,
               NativeMediaTransport.extensions.contains(value.fileExtension), value.bytes > 0, value.song.count <= 32768,
               let values = try? path(key, value).resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey, .isSymbolicLinkKey]),
               values.isRegularFile == true, values.isSymbolicLink != true, Int64(values.fileSize ?? 0) == value.bytes else { return nil }
@@ -48,7 +48,7 @@ struct NativeMediaFiles {
         try JSONEncoder().encode(record).write(to: directory.appendingPathComponent(key + ".json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
     func save(_ key: String, download: DownloadedMedia, provider: String, song: Data) throws {
-        guard Self.validKey(key), ["qq", "netease", "kugou"].contains(provider),
+        guard Self.validKey(key), ["qq", "netease", "kugou", "navidrome"].contains(provider),
               NativeMediaTransport.extensions.contains(download.fileExtension), download.bytes > 0, song.count <= 32768 else { throw MobileFailure("invalid-cache-identity") }
         let old = read(key)
         let record = Record(version: 1, provider: provider, generation: UUID().uuidString,

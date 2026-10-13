@@ -14,6 +14,13 @@ public typealias ClientCertificateProvider = (URLAuthenticationChallenge) -> URL
 final class NetworkSessionDelegate: NSObject, URLSessionDataDelegate {
     weak var taskProvider: StreamTaskProvider?
     var clientCertificateProvider: ClientCertificateProvider?
+    // Folia: native Subsonic URLs contain credentials; callers can prohibit forwarding them.
+    var allowsNetworkRedirects = true
+
+    func urlSession(_: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+        completionHandler(allowsNetworkRedirects ? request : nil)
+    }
 
     func stream(for task: URLSessionTask) -> NetworkDataStream? {
         guard let taskProvider = taskProvider else {

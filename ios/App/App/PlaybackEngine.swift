@@ -21,6 +21,7 @@ final class PlaybackEngine {
     var transitionSettings = NativeTransitionSettings()
     var lyricSettings = NativeLyricSettings()
     let gateway: GatewayClient
+    var navidrome: NativeNavidromeClient?
     let personalFM = NativePersonalFM()
     let listening: NativeListeningReporter
     let storage: UserDefaults
@@ -224,7 +225,8 @@ final class PlaybackEngine {
     func failed(_ cause: Error, epoch: Int) {
         guard epoch == generation else { return }
         let code = (cause as? MobileFailure)?.code ?? "network"
-        if ["auth-required", "gateway-auth-required", "rate-limited"].contains(code) {
+        if ["auth-required", "gateway-auth-required", "rate-limited", "navidrome-auth-required", "navidrome-forbidden",
+            "navidrome-settings-changed", "navidrome-disabled", "navidrome-not-configured", "navidrome-token-auth-unsupported"].contains(code) {
             if code == "gateway-auth-required" || (code == "auth-required" &&
                 (currentSong?["sourceRef"] as? [String: Any])?["providerId"] as? String == "netease") {
                 listening.authenticationFailed(code)
@@ -254,13 +256,16 @@ final class PlaybackEngine {
             _ = try? await previous?.value
             // One failed filesystem deletion must not prevent the other category from being invalidated.
             var failure: Error?
-            do { try await coverCache.clear(provider: provider) } catch { failure = error }
-            do { try await lyricCache.clear(provider: provider) } catch { failure = failure ?? error }
+            // Navidrome cover/lyric loading is not wired yet; their provider-only APIs must stay separate.
+            if provider != "navidrome" {
+                do { try await coverCache.clear(provider: provider) } catch { failure = error }
+                do { try await lyricCache.clear(provider: provider) } catch { failure = failure ?? error }
+            }
             do { try await mediaCache.clear(provider: provider) } catch { failure = failure ?? error }
             if let failure { throw failure }
         }
         crossfade?.invalidateProvider(provider)
-        removeSongs { ($0["sourceRef"] as? [String: Any])?["providerId"] as? String == provider }
+        removeSongs { NativeProfileIdentity($0)?.provider == provider }
     }
     func activate() throws {
         let session = AVAudioSession.sharedInstance()

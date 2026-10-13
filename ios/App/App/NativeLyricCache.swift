@@ -13,7 +13,7 @@ actor NativeLyricCache {
         self.parser = parser; self.limit = max(0, limit)
     }
     private func identity(_ song: [String: Any]) throws -> NativeProfileIdentity {
-        guard let id = NativeProfileIdentity(song), id.provider != nil else { throw MobileFailure("invalid-lyric-identity") }
+        guard let id = NativeProfileIdentity(song), ["qq", "netease", "kugou"].contains(id.provider ?? "") else { throw MobileFailure("invalid-lyric-identity") }
         return id
     }
     private func token(_ provider: String) -> String {

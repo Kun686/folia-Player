@@ -40,6 +40,8 @@ actor NativeCoverCache {
             try Task.checkCancellation()
             return try await local.cover(id)
         }
+        // This path accepts public provider artwork URLs only, never Subsonic credentials from JS.
+        guard identity.provider != "navidrome" else { return nil }
         let destination = path(identity)
         if let data = cached(destination) { return data }
         guard allowNetwork else { return nil }

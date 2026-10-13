@@ -3,6 +3,7 @@
 2026-10-13。在 [原生连接层](NAVIDROME_TRANSPORT.md) 上接入原版 JavaScript 业务解析。
 本批没有操作物理设备、真实账户、个人 mobile.28 或生产服务器；没有改变播放器 UI、动画或音效算法。
 **移动 Navidrome 的设置／浏览入口和原生播放尚未交付。**
+后续原生播放与账号撤销已在独立 QA 验证，见 [NAVIDROME_PLAYBACK.md](NAVIDROME_PLAYBACK.md)；本文保留本阶段证据。
 
 ## 复用与实现
 

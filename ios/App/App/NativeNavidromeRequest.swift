@@ -47,22 +47,42 @@ enum NativeNavidromeRequest {
                       let number = Int(value), (0...maximum).contains(number) else { throw MobileFailure("invalid-navidrome-request") }
             }
         }
-        let salt = try randomSalt()
-        var parts = URLComponents(string: settings.baseURL + "/rest/" + operation)!
-        parts.queryItems = [URLQueryItem(name: "u", value: settings.username),
-            URLQueryItem(name: "t", value: token(password: settings.password, salt: salt)),
-            URLQueryItem(name: "s", value: salt), URLQueryItem(name: "v", value: "1.16.1"),
-            URLQueryItem(name: "c", value: "Folia"), URLQueryItem(name: "f", value: "json")]
         var values = parameters
         if operation == "getUser" { values["username"] = settings.username }
-        parts.queryItems! += values.sorted(by: { $0.key < $1.key }).map { URLQueryItem(name: $0.key, value: $0.value) }
-        // Form-style servers treat a literal '+' as space; URLComponents leaves it unescaped by default.
-        parts.percentEncodedQuery = parts.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
-        guard let url = parts.url, url.absoluteString.utf8.count <= 32768 else { throw MobileFailure("invalid-navidrome-request") }
+        let url = try signedURL(settings, operation: operation, parameters: values)
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30)
         request.httpMethod = "GET"; request.httpShouldHandleCookies = false
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         return request
+    }
+    // Native-only media route: never accepted by the JavaScript read bridge.
+    static func streamURL(_ settings: NativeNavidromeSettings, id: String) throws -> URL {
+        try settings.validate()
+        guard settings.enabled else { throw MobileFailure("navidrome-disabled") }
+        guard validMediaID(id) else { throw MobileFailure("invalid-identity") }
+        // Preserve the original format omission: the server selects the playable representation.
+        return try signedURL(settings, operation: "stream", parameters: ["id": id])
+    }
+    static func validMediaID(_ id: String) -> Bool {
+        !id.isEmpty && id.utf8.count <= 4096 && !id.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
+    }
+    static func isSignedMediaURL(_ url: URL) -> Bool {
+        let names = Set(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.map(\.name) ?? [])
+        return ["stream", "getCoverArt"].contains(url.lastPathComponent)
+            && url.deletingLastPathComponent().lastPathComponent == "rest" && names.isSuperset(of: ["u", "t", "s"])
+    }
+    private static func signedURL(_ settings: NativeNavidromeSettings, operation: String, parameters: [String: String]) throws -> URL {
+        let salt = try randomSalt()
+        guard var parts = URLComponents(string: settings.baseURL + "/rest/" + operation) else { throw MobileFailure("invalid-navidrome-request") }
+        parts.queryItems = [URLQueryItem(name: "u", value: settings.username),
+            URLQueryItem(name: "t", value: token(password: settings.password, salt: salt)),
+            URLQueryItem(name: "s", value: salt), URLQueryItem(name: "v", value: "1.16.1"),
+            URLQueryItem(name: "c", value: "Folia"), URLQueryItem(name: "f", value: "json")]
+        parts.queryItems! += parameters.sorted(by: { $0.key < $1.key }).map { URLQueryItem(name: $0.key, value: $0.value) }
+        // Form-style servers treat a literal '+' as space; URLComponents leaves it unescaped by default.
+        parts.percentEncodedQuery = parts.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+        guard let url = parts.url, url.absoluteString.utf8.count <= 32768 else { throw MobileFailure("invalid-navidrome-request") }
+        return url
     }
     static func response(_ result: [String: Any]) throws -> [String: Any] {
         guard let status = result["status"] as? Int else { throw MobileFailure("navidrome-invalid-response") }

@@ -3,12 +3,18 @@ import AVFoundation
 // PlaybackQueue.swift — native identity queue and cancellable preloads advance without JavaScript.
 extension PlaybackEngine {
     static func sanitizedSong(_ song: [String: Any]) throws -> [String: Any] {
-        guard let raw = song["sourceRef"] as? [String: Any], let id = raw["mediaId"] as? String,
-              !id.isEmpty, id.count <= 128, id.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) != nil else {
+        guard let raw = song["sourceRef"] as? [String: Any], let id = raw["mediaId"] as? String else {
+            throw MobileFailure("invalid-identity")
+        }
+        let isNavidrome = raw["kind"] as? String == "navidrome"
+        guard isNavidrome ? NativeNavidromeRequest.validMediaID(id)
+            : (!id.isEmpty && id.count <= 128 && id.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) != nil) else {
             throw MobileFailure("invalid-identity")
         }
         var ref: [String: Any]
-        if raw["kind"] as? String == "local", LocalMediaLibrary.validID(id) {
+        if isNavidrome, let scope = raw["scope"] as? String, UUID(uuidString: scope) != nil {
+            ref = ["kind": "navidrome", "mediaId": id, "scope": scope]
+        } else if raw["kind"] as? String == "local", LocalMediaLibrary.validID(id) {
             ref = ["kind": "local", "mediaId": id]
         } else if raw["kind"] as? String == "online", let provider = raw["providerId"] as? String,
                   ["netease", "qq", "kugou"].contains(provider) {
@@ -24,7 +30,7 @@ extension PlaybackEngine {
             }
         } else { throw MobileFailure("invalid-identity") }
         var album = song["album"] as? [String: Any] ?? [:]
-        if let pic = album["coverUrl"] as? String, pic.count < 4096, URL(string: pic)?.scheme == "https" {
+        if !isNavidrome, let pic = album["coverUrl"] as? String, pic.count < 4096, URL(string: pic)?.scheme == "https" {
             album = ["id": String(describing: album["id"] ?? ""), "name": String((album["name"] as? String ?? "").prefix(512)), "coverUrl": pic]
         } else {
             album = ["id": String(describing: album["id"] ?? ""), "name": String((album["name"] as? String ?? "").prefix(512))]
@@ -40,6 +46,8 @@ extension PlaybackEngine {
     }
 
     func resolve(_ song: [String: Any]) async throws -> URL {
+        // Signed Subsonic streams require the redirect-controlled stereo decoder used by the app.
+        if (song["sourceRef"] as? [String: Any])?["kind"] as? String == "navidrome" { throw MobileFailure("navidrome-stereo-required") }
         if let ref = song["sourceRef"] as? [String: Any], ref["kind"] as? String == "local", let id = ref["mediaId"] as? String {
             do { return try await local.resolve(id) } catch { throw MobileFailure("local-file-missing") }
         }
@@ -47,6 +55,9 @@ extension PlaybackEngine {
     }
     var currentIsLocal: Bool {
         (currentSong?["sourceRef"] as? [String: Any])?["kind"] as? String == "local"
+    }
+    var currentUsesGateway: Bool {
+        (currentSong?["sourceRef"] as? [String: Any])?["kind"] as? String == "online"
     }
     // Removing another provider must not interrupt a local track or an unrelated account.
     func removeSongs(where matches: ([String: Any]) -> Bool) {

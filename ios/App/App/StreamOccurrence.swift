@@ -52,13 +52,14 @@ final class StreamOccurrence: AudioPlayerDelegate {
         self.node = node; self.unit = unit; self.output = output; self.allowsTempo = allowsTempo
         let isolated = NativeMediaTransport.streamingConfiguration(networkConfiguration)
         self.networkConfiguration = isolated
-        audio = Self.makeDecoder(external: output != nil, configuration: isolated)
+        audio = Self.makeDecoder(external: output != nil, configuration: isolated, url: url)
         if output == nil { audio.attach(node: node) }
         audio.delegate = self
     }
-    private static func makeDecoder(external: Bool, configuration: URLSessionConfiguration?) -> AudioPlayer {
+    private static func makeDecoder(external: Bool, configuration: URLSessionConfiguration?, url: URL) -> AudioPlayer {
         AudioPlayer(configuration: AudioPlayerConfiguration(flushQueueOnSeek: false, enableLogs: false),
-                    automaticallyStartsOutput: false, externallyRendered: external, networkConfiguration: configuration)
+                    automaticallyStartsOutput: false, externallyRendered: external, networkConfiguration: configuration,
+                    allowsNetworkRedirects: NativeMediaTransport.allowsRedirects(url))
     }
 
     @MainActor static func prepare(url: URL, position: Double = 0, output: StreamMixOutput? = nil,
@@ -177,7 +178,7 @@ final class StreamOccurrence: AudioPlayerDelegate {
             // stop() retires its source asynchronously. Reusing that player immediately could let
             // the old stop clear a newly queued song; a distinct decoder isolates the new intent.
             audio.delegate = nil; audio.stop()
-            audio = Self.makeDecoder(external: true, configuration: networkConfiguration)
+            audio = Self.makeDecoder(external: true, configuration: networkConfiguration, url: sourceURL)
             audio.delegate = self; audio.play(url: sourceURL); started = false; reloadingDecoder = true
         }
         else { audio.resume() }

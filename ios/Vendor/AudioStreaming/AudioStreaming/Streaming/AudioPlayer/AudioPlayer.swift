@@ -188,7 +188,8 @@ open class AudioPlayer {
                 clientCertificateProvider: ClientCertificateProvider? = nil,
                 automaticallyStartsOutput: Bool = true,
                 externallyRendered: Bool = false,
-                networkConfiguration: URLSessionConfiguration? = nil) {
+                networkConfiguration: URLSessionConfiguration? = nil,
+                allowsNetworkRedirects: Bool = true) {
         // Folia: an external mixer explicitly starts consumption; no per-deck hardware is created.
         self.externallyRendered = externallyRendered
         self.automaticallyStartsOutput = automaticallyStartsOutput && !externallyRendered
@@ -205,7 +206,8 @@ open class AudioPlayer {
         entryProvider = AudioEntryProvider(
             // Folia: explicit session configuration supports scoped transports; nil retains the upstream policy.
             networkingClient: NetworkingClient(configuration: networkConfiguration ?? .networkingConfiguration,
-                                               clientCertificateProvider: clientCertificateProvider),
+                                               clientCertificateProvider: clientCertificateProvider,
+                                               allowsNetworkRedirects: allowsNetworkRedirects),
             underlyingQueue: sourceQueue,
             outputAudioFormat: outputAudioFormat
         )

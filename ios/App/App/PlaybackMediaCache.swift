@@ -2,41 +2,63 @@ import Foundation
 
 // PlaybackMediaCache.swift — cache lifetimes belong to decoders; completed playback keeps the original opt-in policy.
 extension PlaybackEngine {
+    @MainActor func connectNavidrome(_ client: NativeNavidromeClient) {
+        navidrome?.connectionChanged = nil
+        navidrome = client
+        client.connectionChanged = { [weak self] in self?.invalidateProvider("navidrome") }
+    }
+    @MainActor private func validateNavidrome(_ song: [String: Any], expected: Int? = nil) throws -> Int? {
+        guard (song["sourceRef"] as? [String: Any])?["kind"] as? String == "navidrome" else { return nil }
+        guard let navidrome else { throw MobileFailure("navidrome-not-configured") }
+        return try navidrome.validatePlayback(song, expected: expected)
+    }
     @MainActor func prepareMedia(_ song: [String: Any], refresh: Bool = false, position: Double = 0,
                                  output: StreamMixOutput) async throws -> StreamOccurrence {
-        let quality = audioSettings.audioQuality
+        let epoch = try validateNavidrome(song)
         let identity = NativeProfileIdentity(song)
         if let provider = identity?.provider { try await mediaCachePurges[provider]?.value }
         try Task.checkCancellation()
+        _ = try validateNavidrome(song, expected: epoch)
         if let identity, identity.provider != nil {
             if refresh { try? await mediaCache.remove(identity) }
             else if let hit = try? await mediaCache.cached(identity, touch: true) {
                 do {
                     let entry = try await prepareSource(NativeAudioSource(url: hit.url, replayGain: hit.replayGain ?? NativeReplayGainInfo(song["replayGain"])),
-                                                        position: position, output: output)
+                                                        song: song, epoch: epoch, position: position, output: output)
                     entry.cachedMedia = hit
                     return entry
                 } catch {
                     try Task.checkCancellation()
+                    _ = try validateNavidrome(song, expected: epoch)
                     // Corruption is evicted before the normal one-time remote recovery path.
                     try? await mediaCache.remove(identity)
                 }
             }
         }
         try Task.checkCancellation()
+        _ = try validateNavidrome(song, expected: epoch)
         let source: NativeAudioSource
         if let ref = song["sourceRef"] as? [String: Any], ref["kind"] as? String == "local", let id = ref["mediaId"] as? String {
             source = try await local.audioSource(id)
-        } else { source = try await gateway.resolve(song, quality: quality) }
+        } else if epoch != nil, let navidrome { source = try await navidrome.audioSource(song) }
+        else { source = try await gateway.resolve(song, quality: audioSettings.audioQuality) }
         try Task.checkCancellation()
-        return try await prepareSource(source, position: position, output: output)
+        return try await prepareSource(source, song: song, epoch: epoch, position: position, output: output)
     }
-    @MainActor private func prepareSource(_ source: NativeAudioSource, position: Double, output: StreamMixOutput) async throws -> StreamOccurrence {
+    @MainActor private func prepareSource(_ source: NativeAudioSource, song: [String: Any], epoch: Int?, position: Double, output: StreamMixOutput) async throws -> StreamOccurrence {
+        _ = try validateNavidrome(song, expected: epoch)
         let levels: NativeReplayGainLevels
         if let info = source.replayGain { levels = try await audioRules.replayGain(info) }
         else { levels = .neutral }
-        return try await StreamOccurrence.prepare(url: source.url, position: position, output: output,
+        try Task.checkCancellation()
+        _ = try validateNavidrome(song, expected: epoch)
+        let entry = try await StreamOccurrence.prepare(url: source.url, position: position, output: output,
             networkConfiguration: mediaNetworkConfiguration, allowsTempo: true, replayGain: source.replayGain, replayGainLevels: levels)
+        do {
+            try Task.checkCancellation()
+            _ = try validateNavidrome(song, expected: epoch)
+            return entry
+        } catch { entry.dispose(); throw error }
     }
     // Call only after checking the playback generation. Persist numeric metadata, never the signed URL.
     func retainReplayGain(_ entry: StreamOccurrence, for song: [String: Any], at target: Int) {
@@ -60,6 +82,7 @@ extension PlaybackEngine {
         let epoch = mediaCacheEpoch
         Task { @MainActor [weak self, mediaCache] in
             guard self?.mediaCacheEpoch == epoch else { return }
+            do { _ = try self?.validateNavidrome(song) } catch { return }
             // Cache failure is reported separately and must never interrupt the next song.
             _ = try? await mediaCache.store(identity, song: song, source: source)
         }

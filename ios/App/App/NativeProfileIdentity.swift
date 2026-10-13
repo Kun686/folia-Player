@@ -11,7 +11,9 @@ struct NativeProfileIdentity {
               let id = ref["mediaId"] as? String else { return nil }
         if ref["kind"] as? String == "local" { key = "local:" + id; localID = id; provider = nil }
         else {
-            guard let provider = ref["providerId"] as? String,
+            // Retain the existing remote-cache namespace and invalidation machinery, while the
+            // hashed reference keeps Navidrome distinct from Omni and includes its Keychain scope.
+            guard let provider = ref["kind"] as? String == "navidrome" ? "navidrome" : ref["providerId"] as? String,
                   let bytes = try? JSONSerialization.data(withJSONObject: ref, options: .sortedKeys) else { return nil }
             key = "online:" + provider + ":standard:" + NativeProfileCache.digest(bytes)
             localID = nil; self.provider = provider
