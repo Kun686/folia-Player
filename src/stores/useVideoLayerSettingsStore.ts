@@ -115,22 +115,22 @@ export const useVideoLayerSettingsStore = create<VideoLayerSettingsState>((set, 
         localFileStatus: 'none',
         canPersistLocalFile: canPersistVideoLayerFile(),
         setVideoLayerEnabled: (enabled) => {
-            set({ videoLayerEnabled: enabled });
             setStoredBoolean(VIDEO_LAYER_ENABLED_KEY, enabled);
+            set({ videoLayerEnabled: enabled });
         },
         setVideoLayerUrl: (url) => {
             const normalized = url.trim();
-            set({ videoLayerUrl: normalized });
             persistString(VIDEO_LAYER_URL_KEY, normalized);
+            set({ videoLayerUrl: normalized });
         },
         setVideoLayerOpacity: (opacity) => {
             const normalized = clampVideoLayerOpacity(opacity);
-            set({ videoLayerOpacity: normalized });
             persistString(VIDEO_LAYER_OPACITY_KEY, String(normalized));
+            set({ videoLayerOpacity: normalized });
         },
         setVideoLayerFit: (fit) => {
-            set({ videoLayerFit: fit });
             persistString(VIDEO_LAYER_FIT_KEY, fit);
+            set({ videoLayerFit: fit });
         },
         pickLocalFile: async () => {
             const picked = await pickVideoLayerFile();
@@ -146,8 +146,8 @@ export const useVideoLayerSettingsStore = create<VideoLayerSettingsState>((set, 
         clearLocalFile: async () => {
             fileRevision += 1;
             restoreStarted = true;
-            dropFile();
             await clearVideoLayerFileHandle();
+            dropFile();
         },
         restoreLocalFile: () => loadStoredFile(false),
         regrantLocalFile: () => loadStoredFile(true),

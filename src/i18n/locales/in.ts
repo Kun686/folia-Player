@@ -2441,6 +2441,7 @@ export default {
     "videoLayerRegrant": "Izinkan akses lagi",
     "videoLayerClearFile": "Hapus video lokal",
     "videoLayerPickFailed": "Tidak dapat membuka video",
+    "videoLayerSettingsFailed": "Pengaturan video tidak dapat disimpan. Coba lagi.",
     "videoLayerUrl": "URL video",
     "videoLayerUrlDesc": "Dipakai saat tidak ada video lokal yang dipilih.",
     "videoLayerOpacity": "Opasitas",

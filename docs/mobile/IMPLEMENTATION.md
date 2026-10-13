@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+原版静音视频层已接入移动设置与原生播放时钟，复用原组件、参数和本地文件／URL 规则。
+687 项逻辑、24 项 WebKit 与 1 项打包后 iOS 模拟器用例通过；3 项外部字体回归跳过，桌面 Chromium UI 因缺运行文件未执行。
+真机／长期性能 NOT_RUN，个人 mobile.28／服务器未更新，见 [VIDEO_LAYER.md](VIDEO_LAYER.md)。
+
 本地 Ogg／Vorbis 已复用批准的解码库接入导入，保留原文件并生成可拖动的 PCM 副本，标签／歌词沿用原版解析。
 1380 项逻辑、25 项原生模拟器测试与移动／原生构建通过；有额外存储成本，单副本限制 1 GiB。
 实际 Files／真机／大文件性能 NOT_RUN，个人 mobile.28／服务器未更新，见 [LOCAL_VORBIS.md](LOCAL_VORBIS.md)。

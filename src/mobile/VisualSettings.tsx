@@ -16,6 +16,7 @@ import ThemeGenerationControls from './ThemeGenerationControls';
 import type { MobileThemeGeneration } from './useMobileThemeGeneration';
 import AISettingsSheet from './AISettingsSheet';
 import MotionReductionSettingsSection from '../components/modal/settings/MotionReductionSettingsSection';
+import VideoLayerSettingsSection from '../components/modal/settings/VideoLayerSettingsSection';
 
 // src/mobile/VisualSettings.tsx — expose existing registry/settings and desktop persistence.
 export default function VisualSettings({ light, close, appearance, visible, themeSource, generation }: {
@@ -54,6 +55,11 @@ export default function VisualSettings({ light, close, appearance, visible, them
     <details className="mobile-motion-settings"><summary>{t('options.reduceMotionSection')}</summary>
       <MotionReductionSettingsSection theme={theme} surfaceIds={['transitionOverlay', 'monetBackground', 'uiMicroMotion']}
         settingsCardClass="border-[var(--border)]" settingsDividerClass="border-[var(--border)]" toggleOffBackgroundClass="bg-[var(--raised)]" />
+    </details>
+    <details className="mobile-video-settings"><summary>{t('options.videoLayerEnabled')}</summary>
+      <VideoLayerSettingsSection theme={theme} onBusyChange={setUploading}
+        settingsCardClass="border-[var(--border)]" settingsDividerClass="border-[var(--border)]" toggleOffBackgroundClass="bg-[var(--raised)]"
+        getAccentOptionStyle={active => ({ color: 'var(--text)', background: active ? 'var(--raised)' : 'transparent', borderColor: active ? theme.accentColor : 'var(--border)' })} />
     </details>
     <AppearanceTransfer appearance={appearance} />
     <SongThemeControls appearance={appearance} />

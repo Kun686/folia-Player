@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { FolderOpen, KeyRound, X } from 'lucide-react';
@@ -10,6 +10,7 @@ import {
     type VideoLayerFit,
 } from '../../../stores/useVideoLayerSettingsStore';
 import { setStatusMessage } from '../../../stores/useStatusMessageStore';
+import TouchRange from '../../shared/TouchRange';
 
 // src/components/modal/settings/VideoLayerSettingsSection.tsx
 // Settings for the built-in video layer behind the lyrics. Reads the store directly, the way
@@ -22,6 +23,7 @@ type VideoLayerSettingsSectionProps = {
     toggleOffBackgroundClass: string;
     getAccentOptionStyle: (active: boolean) => React.CSSProperties;
     theme?: Theme;
+    onBusyChange?: (busy: boolean) => void;
 };
 
 const FIT_OPTIONS: Array<[VideoLayerFit, string]> = [
@@ -35,6 +37,7 @@ const VideoLayerSettingsSection: React.FC<VideoLayerSettingsSectionProps> = ({
     toggleOffBackgroundClass,
     getAccentOptionStyle,
     theme,
+    onBusyChange,
 }) => {
     const { t } = useTranslation();
     const settings = useVideoLayerSettingsStore(useShallow(state => ({
@@ -57,6 +60,11 @@ const VideoLayerSettingsSection: React.FC<VideoLayerSettingsSectionProps> = ({
     })));
     // The URL commits on blur/Enter, so a half-typed address never reaches the <video>.
     const [urlDraft, setUrlDraft] = useState(settings.url);
+    const [error, setError] = useState(false), [busy, setBusy] = useState(false);
+    const fileBusy = useRef(false);
+    const commit = (action: () => void) => {
+        try { action(); setError(false); } catch { setError(true); }
+    };
 
     useEffect(() => {
         ensureVideoLayerFileRestored();
@@ -66,19 +74,22 @@ const VideoLayerSettingsSection: React.FC<VideoLayerSettingsSectionProps> = ({
         setUrlDraft(settings.url);
     }, [settings.url]);
 
-    const handlePick = async () => {
+    const changeFile = async (action: () => Promise<unknown>) => {
+        if (fileBusy.current) return;
+        fileBusy.current = true; setBusy(true); onBusyChange?.(true);
         try {
-            await actions.pickLocalFile();
-        } catch (error) {
-            console.error('[VideoLayer] Failed to pick a video:', error);
+            await action(); setError(false);
+        } catch {
+            setError(true);
             setStatusMessage({ type: 'error', text: t('options.videoLayerPickFailed') });
-        }
+        } finally { fileBusy.current = false; setBusy(false); onBusyChange?.(false); }
     };
 
     const hasLocalFile = settings.localFileStatus !== 'none';
 
     return (
-        <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
+        <fieldset disabled={busy} className={`min-w-0 p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
+            {error && <p role="alert">{t('options.videoLayerSettingsFailed')}</p>}
             <div className="flex items-center justify-between gap-4">
                 <div className="space-y-1 min-w-0">
                     <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
@@ -89,7 +100,7 @@ const VideoLayerSettingsSection: React.FC<VideoLayerSettingsSectionProps> = ({
                     </div>
                 </div>
                 <button
-                    onClick={() => actions.setEnabled(!settings.enabled)}
+                    onClick={() => commit(() => actions.setEnabled(!settings.enabled))}
                     className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${!settings.enabled ? toggleOffBackgroundClass : ''}`}
                     style={{ backgroundColor: settings.enabled ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
                     aria-pressed={settings.enabled}
@@ -109,7 +120,7 @@ const VideoLayerSettingsSection: React.FC<VideoLayerSettingsSectionProps> = ({
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                     <button
                         type="button"
-                        onClick={() => void handlePick()}
+                        onClick={() => void changeFile(actions.pickLocalFile)}
                         className="px-3 py-1.5 rounded-lg text-xs border transition-all flex items-center gap-1.5"
                         style={getAccentOptionStyle(false)}
                     >
@@ -119,7 +130,7 @@ const VideoLayerSettingsSection: React.FC<VideoLayerSettingsSectionProps> = ({
                     {settings.localFileStatus === 'needs-permission' && (
                         <button
                             type="button"
-                            onClick={() => void actions.regrantLocalFile()}
+                            onClick={() => void changeFile(actions.regrantLocalFile)}
                             className="px-3 py-1.5 rounded-lg text-xs border transition-all flex items-center gap-1.5"
                             style={getAccentOptionStyle(true)}
                         >
@@ -134,7 +145,7 @@ const VideoLayerSettingsSection: React.FC<VideoLayerSettingsSectionProps> = ({
                             </span>
                             <button
                                 type="button"
-                                onClick={() => void actions.clearLocalFile()}
+                                onClick={() => void changeFile(actions.clearLocalFile)}
                                 className="rounded p-0.5 opacity-60 hover:opacity-100"
                                 aria-label={t('options.videoLayerClearFile')}
                                 title={t('options.videoLayerClearFile')}
@@ -155,12 +166,13 @@ const VideoLayerSettingsSection: React.FC<VideoLayerSettingsSectionProps> = ({
                 </div>
                 <input
                     type="url"
+                    aria-label={t('options.videoLayerUrl')}
                     value={urlDraft}
                     placeholder="https://example.com/loop.mp4"
                     onChange={event => setUrlDraft(event.target.value)}
-                    onBlur={() => actions.setUrl(urlDraft)}
+                    onBlur={() => commit(() => actions.setUrl(urlDraft))}
                     onKeyDown={(event) => {
-                        if (event.key === 'Enter') actions.setUrl(urlDraft);
+                        if (event.key === 'Enter') { event.preventDefault(); commit(() => actions.setUrl(urlDraft)); }
                     }}
                     className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-xs focus:outline-none focus:border-white/30 transition-colors font-mono"
                     style={{ color: 'var(--text-primary)' }}
@@ -177,13 +189,12 @@ const VideoLayerSettingsSection: React.FC<VideoLayerSettingsSectionProps> = ({
                             {Math.round(settings.opacity * 100)}%
                         </span>
                     </div>
-                    <input
-                        type="range"
+                    <TouchRange
                         min={VIDEO_LAYER_OPACITY_BOUNDS.min}
                         max={VIDEO_LAYER_OPACITY_BOUNDS.max}
                         step={0.05}
                         value={settings.opacity}
-                        onChange={event => actions.setOpacity(Number(event.currentTarget.value))}
+                        onChange={event => { const value = Number(event.currentTarget.value); commit(() => actions.setOpacity(value)); }}
                         className="w-full accent-current"
                         style={{ accentColor: theme?.accentColor }}
                         aria-label={t('options.videoLayerOpacity')}
@@ -199,7 +210,8 @@ const VideoLayerSettingsSection: React.FC<VideoLayerSettingsSectionProps> = ({
                             <button
                                 key={value}
                                 type="button"
-                                onClick={() => actions.setFit(value)}
+                                onClick={() => commit(() => actions.setFit(value))}
+                                aria-pressed={settings.fit === value}
                                 className="flex flex-col items-center gap-2 p-3 rounded-lg border transition-all"
                                 style={getAccentOptionStyle(settings.fit === value)}
                             >
@@ -215,7 +227,7 @@ const VideoLayerSettingsSection: React.FC<VideoLayerSettingsSectionProps> = ({
             <div className="text-xs opacity-50" style={{ color: 'var(--text-secondary)' }}>
                 {t('options.videoLayerNotInExport')}
             </div>
-        </div>
+        </fieldset>
     );
 };
 

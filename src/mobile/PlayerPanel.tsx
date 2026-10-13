@@ -32,6 +32,7 @@ import { useMobileThemeGeneration } from './useMobileThemeGeneration';
 import OnlineSongLike from './OnlineSongLike';
 import type { MobileSongLikes } from './mobileSongLikes';
 import SongInfoActions from './SongInfoActions';
+import { VideoLayerPlayback } from '../components/visualizer/videoLayer/VideoLayerPlayback';
 
 // src/mobile/PlayerPanel.tsx — original registry renderers consume the native clock and decoded audio.
 const MobileVisualizer = memo(VisualizerRenderer);
@@ -77,6 +78,8 @@ export default function PlayerPanel({ appearance, state, time, visible, light, e
   const lineRef = useRef(-1);
   const [error, setError] = useState(false);
   const song = state.currentSong;
+  const videoSongKey = JSON.stringify(song?.sourceRef);
+  const videoPlayback = useMemo(() => ({ time, playing: state.playing, songKey: videoSongKey }), [time, state.playing, videoSongKey]);
   const { lyricTime, offsetMs, setOffsetMs, toPlaybackTime } = useLyricClock(song, time);
   const seekLyrics = useCallback((position: number) => {
     void native.command({ action: 'seek', position: toPlaybackTime(position) }).catch(() => setError(true));
@@ -114,13 +117,13 @@ export default function PlayerPanel({ appearance, state, time, visible, light, e
   return <section className={'player-panel ' + (expanded ? 'expanded' : '')} aria-label={t('mobile.play')}
     data-controls-hidden={hidden} {...focusProps}>
     <div className="lyric-stage" {...stageTapProps}>
-      {song && rendering ? <MobileVisualizer mode={mode} currentTime={lyricTime} lines={lyrics?.lines ?? NO_LYRIC_LINES} currentLineIndex={line}
+      {song && rendering ? <VideoLayerPlayback.Provider value={videoPlayback}><MobileVisualizer mode={mode} currentTime={lyricTime} lines={lyrics?.lines ?? NO_LYRIC_LINES} currentLineIndex={line}
         constrainLyricsToStage isPlayerChromeHidden={hidden} visualizerOpacity={visualizerOpacity}
         theme={visualizerTheme} subtitleTheme={visualizerSubtitleTheme} {...typography} {...audio} isDaylight={light}
         paused={!state.playing} songTitle={song.name}  songArtist={song.artists.map(a => a.name).join(' / ')}
         songAlbum={song.album.name} coverUrl={cover} seed={JSON.stringify(song.sourceRef)}
         onLyricLineSeek={seekLyrics}
-        background={background} visualizerTunings={visualizerTunings} staticMode={staticMode} {...assets} />
+        background={background} visualizerTunings={visualizerTunings} staticMode={staticMode} {...assets} /></VideoLayerPlayback.Provider>
         : <div className="empty-lyrics"><span>Folia</span><p>{song ? t('mobile.noLyrics') : t('mobile.noSongs')}</p></div>}
       <TransitionOverlays visible={visible} stageVisible={rendering} song={song} cover={cover} light={light}
         theme={light ? appearance.theme.light : appearance.theme.dark} />

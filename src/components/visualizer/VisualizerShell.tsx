@@ -198,7 +198,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
 
             {/* The built-in video layer follows the same rule as stage layers and stays out of the OBS
                 sources, which cannot open the main window's local file handle. */}
-            {showStageLayers && isMainAppSurface && <VideoLayer paused={resolvedPaused} />}
+            {showStageLayers && <VideoLayer paused={resolvedPaused} />}
 
             {/* Folium stage layers exist on the real player page only, never in previews. */}
             {showStageLayers && (

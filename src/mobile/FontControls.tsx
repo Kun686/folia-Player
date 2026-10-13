@@ -6,7 +6,7 @@ import { selectTypographySettingsSnapshot, useTypographySettingsStore } from '..
 import FontFallbackStackControl from '../components/visualizer/FontFallbackStackControl';
 import { FONT_WEIGHT_STEP, MAX_FONT_WEIGHT, MIN_FONT_WEIGHT } from '../utils/fontStacks';
 import { FONT_STYLE_OPTIONS } from '../utils/typographyControls';
-import TouchRange from './TouchRange';
+import TouchRange from '../components/shared/TouchRange';
 
 // FontControls.tsx — native touch inputs for the original font store and uploaded-font service.
 export default function FontControls({ theme, subtitle = false, onUploading }: { theme: Theme; subtitle?: boolean; onUploading?(busy: boolean): void }) {

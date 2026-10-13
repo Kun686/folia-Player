@@ -2579,6 +2579,7 @@ export default {
     "videoLayerRegrant": "重新授权访问",
     "videoLayerClearFile": "清除本地视频",
     "videoLayerPickFailed": "无法打开该视频",
+    "videoLayerSettingsFailed": "视频设置未能保存，请重试。",
     "videoLayerUrl": "视频 URL",
     "videoLayerUrlDesc": "未选择本地视频时使用。",
     "videoLayerOpacity": "不透明度",

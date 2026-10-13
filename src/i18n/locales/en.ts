@@ -2577,6 +2577,7 @@ export default {
     "videoLayerRegrant": "Allow access again",
     "videoLayerClearFile": "Clear local video",
     "videoLayerPickFailed": "Could not open the video",
+    "videoLayerSettingsFailed": "Video settings could not be saved. Please try again.",
     "videoLayerUrl": "Video URL",
     "videoLayerUrlDesc": "Used when no local video is chosen.",
     "videoLayerOpacity": "Opacity",

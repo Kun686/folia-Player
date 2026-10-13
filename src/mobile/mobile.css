@@ -190,3 +190,6 @@
 .personal-fm-sheet::backdrop { background: #000a; }
 .online-catalog-sheet p { margin-block: 8px; overflow-wrap: anywhere; }
 @media (max-height: 450px) { .online-catalog-sheet[open] { padding: 8px 12px; } .online-catalog-sheet > header { margin-bottom: 4px; } }
+.mobile-video-settings button { min-height: 44px; min-width: 44px; touch-action: manipulation; }
+.mobile-video-settings input[type=range] { width: 100%; min-height: 44px; touch-action: none; }
+.mobile-video-settings fieldset { min-width: 0; }

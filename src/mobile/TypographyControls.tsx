@@ -5,7 +5,7 @@ import { selectTypographySettingsSnapshot, useTypographySettingsStore } from '..
 import { useVisualizerSettingsStore } from '../stores/useVisualizerSettingsStore';
 import { LYRICS_FONT_SIZE_AUTO_NOTICE_KEYS } from '../utils/typographyControls';
 import FontControls from './FontControls';
-import TouchRange from './TouchRange';
+import TouchRange from '../components/shared/TouchRange';
 
 // TypographyControls.tsx — original global lyric/subtitle settings, with no alternate persistence.
 export default function TypographyControls({ theme, onUploading }: { theme: Theme; onUploading(busy: boolean): void }) {

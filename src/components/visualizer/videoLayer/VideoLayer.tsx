@@ -1,9 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useContext, useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { PlayerState } from '../../../types';
 import { currentTime } from '../../../stores/motionSignals';
 import { selectDisplayPlayerState, selectDisplaySong, usePlaybackStore } from '../../../stores/usePlaybackStore';
 import { ensureVideoLayerFileRestored, useVideoLayerSettingsStore } from '../../../stores/useVideoLayerSettingsStore';
+import { VideoLayerPlayback } from './VideoLayerPlayback';
+import { isMainAppSurface } from '../../../utils/appSurface';
 
 // src/components/visualizer/videoLayer/VideoLayer.tsx
 // Built-in muted video behind the lyrics (above the background, under the lyrics). The video follows
@@ -22,6 +24,10 @@ interface VideoLayerProps {
 }
 
 const VideoLayer: React.FC<VideoLayerProps> = ({ paused }) => {
+    const playback = useContext(VideoLayerPlayback);
+    const clock = playback?.time ?? currentTime;
+    const alternatePlayer = playback !== null;
+    const playbackRef = useRef(playback); playbackRef.current = playback;
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const pausedRef = useRef(paused);
     pausedRef.current = paused;
@@ -33,24 +39,26 @@ const VideoLayer: React.FC<VideoLayerProps> = ({ paused }) => {
         localFileUrl: state.localFileUrl,
     })));
     const source = localFileUrl ?? (url || null);
-    const active = enabled && Boolean(source);
+    const active = enabled && Boolean(source) && (isMainAppSurface || alternatePlayer);
+    const isPlaying = () => playbackRef.current?.playing ?? (selectDisplayPlayerState(usePlaybackStore.getState()) === PlayerState.PLAYING);
 
     useEffect(() => {
-        ensureVideoLayerFileRestored();
-    }, []);
+        if (isMainAppSurface || alternatePlayer) ensureVideoLayerFileRestored();
+    }, [alternatePlayer]);
 
     useEffect(() => {
         const video = videoRef.current;
         if (!active || !video) return;
+        // Effect replay and reactivation must restore the resource released by cleanup.
+        if (video.getAttribute('src') !== source) video.setAttribute('src', source!);
 
         const align = () => {
             if (!Number.isFinite(video.duration) || video.duration <= 0 || video.seeking) return;
-            const target = currentTime.get() % video.duration;
+            const target = Math.max(0, clock.get()) % video.duration;
             if (Math.abs(video.currentTime - target) > DRIFT_TOLERANCE_SEC) video.currentTime = target;
         };
         const followState = () => {
-            const playing = selectDisplayPlayerState(usePlaybackStore.getState()) === PlayerState.PLAYING;
-            if (playing && !pausedRef.current) void video.play().catch(() => {});
+            if (isPlaying() && !pausedRef.current) void video.play().catch(() => {});
             else video.pause();
         };
         const onMetadata = () => {
@@ -59,14 +67,15 @@ const VideoLayer: React.FC<VideoLayerProps> = ({ paused }) => {
         };
 
         video.addEventListener('loadedmetadata', onMetadata);
+        video.addEventListener('seeked', align);
         if (video.readyState >= HTMLMediaElement.HAVE_METADATA) onMetadata();
 
-        const unsubscribeStore = usePlaybackStore.subscribe((state, previous) => {
+        const unsubscribeStore = alternatePlayer ? () => {} : usePlaybackStore.subscribe((state, previous) => {
             if (selectDisplayPlayerState(state) !== selectDisplayPlayerState(previous)) followState();
             if (selectDisplaySong(state) !== selectDisplaySong(previous)) align();
         });
-        let lastClock = currentTime.get();
-        const unsubscribeClock = currentTime.on('change', (value) => {
+        let lastClock = clock.get();
+        const unsubscribeClock = clock.on('change', (value) => {
             if (Math.abs(value - lastClock) > CLOCK_JUMP_SEC) align();
             lastClock = value;
         });
@@ -77,9 +86,12 @@ const VideoLayer: React.FC<VideoLayerProps> = ({ paused }) => {
             unsubscribeClock();
             unsubscribeStore();
             video.removeEventListener('loadedmetadata', onMetadata);
+            video.removeEventListener('seeked', align);
             video.pause();
+            video.removeAttribute('src');
+            video.load();
         };
-    }, [active, source]);
+    }, [active, source, clock, alternatePlayer]);
 
     // The shell's pause flag changes without touching the source; only play/pause needs to follow.
     useEffect(() => {
@@ -87,10 +99,17 @@ const VideoLayer: React.FC<VideoLayerProps> = ({ paused }) => {
         if (!active || !video) return;
         if (paused) {
             video.pause();
-        } else if (selectDisplayPlayerState(usePlaybackStore.getState()) === PlayerState.PLAYING) {
+        } else if (isPlaying()) {
             void video.play().catch(() => {});
+        } else video.pause();
+    }, [active, paused, playback?.playing]);
+
+    useEffect(() => {
+        const video = videoRef.current;
+        if (active && video && Number.isFinite(video.duration) && video.duration > 0 && !video.seeking) {
+            video.currentTime = Math.max(0, clock.get()) % video.duration;
         }
-    }, [active, paused]);
+    }, [active, clock, playback?.songKey]);
 
     if (!active || !source) return null;
 
