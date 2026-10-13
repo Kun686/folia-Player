@@ -3,10 +3,11 @@ import type { LyricData, SongResult } from '../../../src/types';
 import type { OnlineLyricsStorage } from '../../../src/services/onlineLyricsStorage';
 
 // lyricStorage.test.ts — original orchestration, native persistence and old-request isolation are tested together.
-const mocks = vi.hoisted(() => ({ getLyrics: vi.fn(), match: vi.fn(), read: vi.fn(), write: vi.fn(), save: vi.fn() }));
+const mocks = vi.hoisted(() => ({ getLyrics: vi.fn(), match: vi.fn(), read: vi.fn(), write: vi.fn(), save: vi.fn(),
+  settings: { autoUseBestLyric: true, preferredAlternativeLyricSource: 'qq' } }));
 vi.mock('../../../src/services/onlineMusic/omni', () => ({ omni: { getLyrics: mocks.getLyrics } }));
 vi.mock('../../../src/utils/lyrics/autoMatchBestLyric', () => ({ autoMatchBestLyric: mocks.match }));
-vi.mock('../../../src/stores/useLyricSettingsStore', () => ({ useLyricSettingsStore: { getState: () => ({ autoUseBestLyric: true }) } }));
+vi.mock('../../../src/stores/useLyricSettingsStore', () => ({ useLyricSettingsStore: { getState: () => mocks.settings } }));
 vi.mock('../../../src/services/prefetchService', () => ({ isUrlValid: vi.fn(), updatePrefetchedAudioUrl: vi.fn() }));
 vi.mock('../../../src/services/db', () => ({ getFromCache: vi.fn(), getFromCacheWithMigration: vi.fn(), saveToCache: mocks.save }));
 vi.mock('../../../src/mobile/bridge', () => ({ native: { readLyricCache: mocks.read, writeLyricCache: mocks.write } }));
@@ -19,6 +20,7 @@ const lyrics: LyricData = { lines: [{ startTime: 1, endTime: 10, fullText: '缓�
 const callbacks = () => ({ isCurrent: () => true, onLyrics: vi.fn(), onDone: vi.fn() });
 describe('original lyric loader with native storage', () => {
   beforeEach(() => {
+    mocks.settings = { autoUseBestLyric: true, preferredAlternativeLyricSource: 'qq' };
     vi.clearAllMocks(); mocks.read.mockResolvedValue({ token: 'generation', payload: {} });
     mocks.write.mockResolvedValue(undefined); mocks.match.mockResolvedValue(null);
     mocks.getLyrics.mockResolvedValue({ lyrics, isPureMusic: false, chorusRanges: [] });
@@ -100,5 +102,49 @@ describe('original lyric loader with native storage', () => {
     await vi.waitFor(() => expect(mocks.getLyrics).toHaveBeenCalled());
     active = false; finish({ lyrics, isPureMusic: false }); await task;
     expect(cb.onLyrics).not.toHaveBeenCalled(); expect(mocks.write).not.toHaveBeenCalled();
+  });
+  it.each(['qq', 'netease', 'amll', 'kugou'])('passes the saved %s preference to the original matcher', async source => {
+    mocks.settings.preferredAlternativeLyricSource = source;
+    await loadOnlineSongLyrics(song, null, undefined, callbacks(), await openNativeLyricsStorage(song, () => true));
+    expect(mocks.match).toHaveBeenCalledWith('Test', '', 10000, expect.objectContaining({
+      preferredSource: source, providerCandidate: expect.objectContaining({ providerId: 'netease', song }),
+    }));
+  });
+  it.each([true, false])('uses saved lyrics or provider lyrics without matching when disabled (cached=%s)', async cached => {
+    mocks.settings.autoUseBestLyric = false;
+    mocks.read.mockResolvedValue({ token: 'generation', payload: cached ? { lyrics } : {} });
+    const cb = callbacks();
+    await loadOnlineSongLyrics(song, null, undefined, cb, await openNativeLyricsStorage(song, () => true));
+    expect(cb.onLyrics).toHaveBeenLastCalledWith(lyrics);
+    expect(mocks.match).not.toHaveBeenCalled();
+    expect(mocks.getLyrics).toHaveBeenCalledTimes(cached ? 0 : 1);
+  });
+  it.each([true, false])('preserves saved automatic overrides after preferences change (enabled=%s)', async enabled => {
+    const state = { lyricsSource: 'online', hasOnlineOverride: true, matchedLyricsSource: 'qq',
+      matchedSongId: 'previous-match', onlineOverrideLyrics: lyrics };
+    mocks.read.mockResolvedValue({ token: 'generation', payload: { state } });
+    mocks.settings = { autoUseBestLyric: enabled, preferredAlternativeLyricSource: 'amll' };
+    const cb = callbacks();
+    await loadOnlineSongLyrics(song, null, undefined, cb, await openNativeLyricsStorage(song, () => true));
+    expect(cb.onLyrics).toHaveBeenLastCalledWith(lyrics);
+    expect(mocks.getLyrics).not.toHaveBeenCalled(); expect(mocks.match).not.toHaveBeenCalled();
+    expect(mocks.write).not.toHaveBeenCalled();
+  });
+  it('does not persist or display an old preference match after a newer load has finished', async () => {
+    let current = true, finish!: (value: unknown) => void;
+    mocks.match.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const old = callbacks(); old.isCurrent = () => current;
+    const task = loadOnlineSongLyrics(song, null, undefined, old, await openNativeLyricsStorage(song, () => true));
+    await vi.waitFor(() => expect(mocks.match).toHaveBeenCalled());
+    current = false; mocks.settings.autoUseBestLyric = false;
+    const next = callbacks();
+    await loadOnlineSongLyrics(song, null, undefined, next, await openNativeLyricsStorage(song, () => true));
+    const published = old.onLyrics.mock.calls.length, writes = mocks.write.mock.calls.length;
+    finish({ lyrics: { lines: [{ ...lyrics.lines[0], fullText: '旧偏好结果' }] }, source: 'qq', id: 'old' });
+    await task;
+    expect(old.onLyrics).toHaveBeenCalledTimes(published);
+    expect(mocks.write).toHaveBeenCalledTimes(writes);
+    expect(next.onLyrics).toHaveBeenLastCalledWith(lyrics);
+    expect(mocks.write).not.toHaveBeenCalledWith(expect.objectContaining({ field: 'state' }));
   });
 });

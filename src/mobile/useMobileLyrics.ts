@@ -19,7 +19,11 @@ export function useMobileLyrics(song?: SongResult, editing = false) {
   const [version, setVersion] = useState(0);
   const key = JSON.stringify(song?.sourceRef);
   const priority = useLyricSettingsStore(s => s.localLyricsPriority);
-  const sourceKey = JSON.stringify([key, song?.sourceRef?.kind === 'local' ? priority : null]);
+  const autoUseBestLyric = useLyricSettingsStore(s => s.autoUseBestLyric);
+  const preferredSource = useLyricSettingsStore(s => s.preferredAlternativeLyricSource);
+  const online = song?.sourceRef?.kind === 'online';
+  const sourceKey = JSON.stringify([key, song?.sourceRef?.kind === 'local' ? priority : null,
+    online ? [autoUseBestLyric, preferredSource] : null]);
   const requestKey = JSON.stringify([sourceKey, version, editing]);
   const rawLyrics = loaded?.key === sourceKey ? loaded?.lyrics ?? null : null;
   const segmentation = useMobileSegmentation(song);
@@ -30,27 +34,33 @@ export function useMobileLyrics(song?: SongResult, editing = false) {
     const skipAutoMatch = wasEditing.current === key && key !== undefined;
     if (!editing) wasEditing.current = undefined;
     let active = true;
-    const setLyrics = (value: LyricData | null) => { if (active) setLoaded({ key: sourceKey, lyrics: value }); };
+    // Reject an old preference's result even before React runs the next effect cleanup.
+    const isCurrent = () => {
+      const settings = useLyricSettingsStore.getState();
+      return active && (!online || (settings.autoUseBestLyric === autoUseBestLyric
+        && settings.preferredAlternativeLyricSource === preferredSource));
+    };
+    const setLyrics = (value: LyricData | null) => { if (isCurrent()) setLoaded({ key: sourceKey, lyrics: value }); };
     if (!editing) setLyrics(null);
     setError(false);
     const load = async () => {
       if (!song) return;
       if (song.sourceRef?.kind === 'local') {
         const detail = await native.readLocalLyrics({ id: song.sourceRef.mediaId });
-        if (!active) return;
+        if (!isCurrent()) return;
         const result = await resolveLocalSongLyrics(localLyricsFromSnapshot(detail), priority);
-        if (active) setLyrics(result.lyrics);
+        if (isCurrent()) setLyrics(result.lyrics);
       } else {
         const storage = await getMobileRuntime()?.lyrics?.open(song);
-        if (!active) return;
+        if (!isCurrent()) return;
         await loadOnlineSongLyrics(song, null, undefined, {
-          isCurrent: () => active,
-          onLyrics: value => { if (active) setLyrics(value); },
+          isCurrent,
+          onLyrics: setLyrics,
           onDone: () => undefined,
         }, storage, { skipAutoMatch, readOnly: editing });
       }
     };
-    void load().catch(() => { if (active) setError(true); }).finally(() => { if (active) setFinished(requestKey); });
+    void load().catch(() => { if (isCurrent()) setError(true); }).finally(() => { if (isCurrent()) setFinished(requestKey); });
     return () => { active = false; };
   }, [sourceKey, version, editing]);
   return { lyrics, rawLyrics, cover, coverLoading, loading: !!song && finished !== requestKey, error, segmentation, refresh: () => setVersion(v => v + 1) };

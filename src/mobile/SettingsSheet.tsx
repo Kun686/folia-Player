@@ -14,6 +14,7 @@ import SyncSettingsSheet from './SyncSettingsSheet';
 import LocalLyricPreference, { type useLocalLyricPreference } from './LocalLyricPreference';
 import QueuePreference from './QueuePreference';
 import LocalLyricFormatSettings from './LocalLyricFormatSettings';
+import OnlineLyricPreference from './OnlineLyricPreference';
 import type { LocalFolders } from './useLocalFolders';
 
 // src/mobile/SettingsSheet.tsx
@@ -64,6 +65,7 @@ export default function SettingsSheet({ appearance, mediaCache, timer, server, l
     </select></label>
     <MediaCacheControls cache={mediaCache} light={light} />
     <QueuePreference />
+    <OnlineLyricPreference />
     <LocalLyricPreference status={lyricPreference} />
     <button onClick={() => setLyricFormats(true)}>{t('options.localLyricFormatOrder')}</button>
     <button onClick={() => setSleep(true)}>{t('commandPalette.sleepTimerTitle')}</button>

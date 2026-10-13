@@ -1,5 +1,9 @@
 # Folia iPhone / iPad 实现与安装
 
+原版自动使用最佳歌词与首选来源已接入移动设置，保存／恢复、旧结果隔离和已选歌词保护通过
+56 项逻辑、30 个 WebKit 场景及类型检查。后台独立跨平台匹配仍未实现，个人 App／服务器未更新，
+见 [ONLINE_LYRIC_PREFERENCE.md](ONLINE_LYRIC_PREFERENCE.md)。
+
 本地歌词文件格式排序已复用原组件接入移动设置，提供触摸排序／恢复默认与原生重扫入口。
 28 项逻辑、27 个 WebKit 场景及类型检查通过，覆盖保存失败、取消和扫描中再次修改的边界。
 个人 App／服务器未更新，实际目录及真机验收仍待完成，见 [LYRIC_FORMAT_ORDER.md](LYRIC_FORMAT_ORDER.md)。

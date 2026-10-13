@@ -32,8 +32,8 @@ export const test = base.extend<{ nativeBridge: void }>({
     const catalogSubscriber = () => catalogSubscribers.forEach(callback => callback());
     win.fixtureCache = { settings: { enabled: false, limitGB: 5 }, count: 0, bytes: 0, pending: 0, revision: 0, error: null, songs: [] };
     win.fixtureCovers = { bytes: 1048576, count: 1 };
-    // This fixture selects provider lyrics; optional cross-provider matching has separate logical coverage.
-    localStorage.setItem('auto_use_best_lyric', 'false');
+    // Start with provider lyrics; preserve a test's saved preference across navigation.
+    if (localStorage.getItem('auto_use_best_lyric') === null) localStorage.setItem('auto_use_best_lyric', 'false');
     let lyricToken = 'initial';
     let lyricCache = JSON.parse(sessionStorage.getItem('fixture-lyric-cache') || '{}');
     let cookie = false;

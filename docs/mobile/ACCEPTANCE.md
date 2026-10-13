@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+在线歌词偏好通过 56 项逻辑、30 个 WebKit 场景及类型检查，覆盖两平台已选来源保护、
+真实匹配器与受控 QQ 样本、切换偏好时的旧结果隔离。本批原生容器／真实平台／真机 NOT_RUN；
+后台独立跨平台匹配仍未实现，个人 App／服务器未更新，见 [ONLINE_LYRIC_PREFERENCE.md](ONLINE_LYRIC_PREFERENCE.md)。
+
 歌词格式排序、持久化与重扫设置通过 28 项逻辑、27 个 WebKit 场景及类型检查。
 测试涵盖原批次协议及取消／失败边界，受控桥不代表实际目录授权、文件覆盖或真机验收。
 个人 App／服务器未更新，本批原生容器和真机 NOT_RUN，见 [LYRIC_FORMAT_ORDER.md](LYRIC_FORMAT_ORDER.md)。
