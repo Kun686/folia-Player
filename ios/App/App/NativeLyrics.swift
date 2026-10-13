@@ -38,6 +38,13 @@ actor NativeLyricParser {
         guard let text = String(data: result, encoding: .utf8) else { throw MobileFailure("invalid-local-match") }
         return text
     }
+    func localAutomatic(_ snapshot: [String: Any], settings: NativeLyricSettings, decision: [String: Any]? = nil) throws -> [String: Any]? {
+        var request: [String: Any] = ["version": 1, "snapshot": snapshot, "settings": settings.dictionary]
+        if let decision { request["decision"] = decision }
+        let result = try call(decision == nil ? "localAutomaticInputJSON" : "localAutomaticResultJSON",
+            input: JSONSerialization.data(withJSONObject: request), limit: 3_000_000, inputLimit: 37_000_000)
+        return try JSONSerialization.jsonObject(with: result, options: .fragmentsAllowed) as? [String: Any]
+    }
     func onlineStep(_ input: Data) throws -> Data { try call("stepJSON", input: input, limit: 3_000_000) }
     func localSources(_ snapshot: [String: Any], priority: String = "local") throws -> Data? {
         let input = try JSONSerialization.data(withJSONObject: ["version": 1, "snapshot": snapshot, "priority": priority])
@@ -93,6 +100,7 @@ final class NativeLyrics {
     private let parser: NativeLyricParser
     private let gateway: GatewayClient
     private let cache: NativeLyricCache?
+    private let coverCache: NativeCoverCache?
     private let session: ((String) throws -> [String: Any])?
     private var wanted: Set<String> = []
     private var tasks: [String: (UUID, Task<Void, Never>)] = [:]
@@ -103,11 +111,12 @@ final class NativeLyrics {
     private(set) var revision = 0
     var changed: (() -> Void)?
     var cacheChanged: (([String: Any]) -> Void)?
+    var localMatched: ((String, [String: Any]) -> Void)?
     // Only explicit choices briefly hold new Automix planning; audio and optional matching continue.
     var awaitingSelection: Bool { !selections.isDisjoint(with: wanted) }
     init(local: LocalMediaLibrary, parser: NativeLyricParser = NativeLyricParser(), gateway: GatewayClient = GatewayClient(), cache: NativeLyricCache? = nil,
-         session: ((String) throws -> [String: Any])? = nil) {
-        self.local = local; self.parser = parser; self.gateway = gateway; self.session = session; self.cache = cache
+         session: ((String) throws -> [String: Any])? = nil, coverCache: NativeCoverCache? = nil) {
+        self.local = local; self.parser = parser; self.gateway = gateway; self.session = session; self.cache = cache; self.coverCache = coverCache
     }
     deinit { tasks.values.forEach { $0.1.cancel() } }
     func value(_ song: [String: Any]) -> [[String: Any]]? {
@@ -130,7 +139,7 @@ final class NativeLyrics {
         revision += 1
     }
     func invalidateProvider(_ provider: String) {
-        for key in Set(values.keys).union(tasks.keys).union(wanted) where key.hasPrefix(settings.autoUseBestLyric == true ? "online:" : "online:" + provider + ":") {
+        for key in Set(values.keys).union(tasks.keys).union(wanted) where key.hasPrefix("local:") || key.hasPrefix(settings.autoUseBestLyric == true ? "online:" : "online:" + provider + ":") {
             invalidateKey(key)
         }
     }
@@ -148,7 +157,7 @@ final class NativeLyrics {
             || settings.preferredAlternativeLyricSource != value.preferredAlternativeLyricSource
         settings = value
         if onlineChanged {
-            for key in Set(values.keys).union(tasks.keys).union(wanted) where key.hasPrefix("online:") { invalidateKey(key) }
+            for key in Set(values.keys).union(tasks.keys).union(wanted) { invalidateKey(key) }
         }
         return localChanged || onlineChanged
     }
@@ -163,15 +172,31 @@ final class NativeLyrics {
                   let song = songs.first(where: { NativeProfileIdentity($0)?.key == id }) else { continue }
             let stamp = UUID()
             let priority = localPriority, settings = settings
-            let task = Task(priority: .utility) { @MainActor [weak self, local, parser, gateway, session, cache] in
+            let task = Task(priority: .utility) { @MainActor [weak self, local, parser, gateway, session, cache, coverCache] in
                 let lines: [[String: Any]]?
                 do {
                     if let localID = identity.localID {
                         let source = try await local.readLyricSources(localID)
                         try Task.checkCancellation()
+                        var initial: [[String: Any]]?
                         if let data = try await parser.localSources(source, priority: priority) {
-                            lines = try JSONSerialization.jsonObject(with: data) as? [[String: Any]]
-                        } else { lines = nil }
+                            initial = try JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+                        }
+                        if let self, self.wanted.contains(id), self.tasks[id]?.0 == stamp {
+                            self.values[id] = Value(lines: initial); self.selections.remove(id)
+                            self.revision += 1; self.changed?()
+                        }
+                        if session == nil, settings.autoUseBestLyric != nil, settings.preferredAlternativeLyricSource != nil {
+                            lines = await NativeLocalAutomaticMatch.load(localID, local: local, parser: parser, gateway: gateway,
+                                settings: settings, baseline: initial, coverCache: coverCache, saved: { [weak self] updated, matched in
+                                    await MainActor.run {
+                                        guard let self, !Task.isCancelled, self.wanted.contains(id), self.tasks[id]?.0 == stamp else { return }
+                                        self.values[id] = Value(lines: matched); self.revision += 1; self.changed?()
+                                        self.localMatched?(localID, updated)
+                                        self.cacheChanged?(song)
+                                    }
+                                })
+                        } else { lines = initial }
                     } else if session == nil, let cache {
                         lines = try await NativeBestLyrics.load(song, settings: settings, cache: cache, gateway: gateway,
                             baseline: { [weak self] lines in

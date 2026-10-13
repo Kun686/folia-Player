@@ -1,43 +1,22 @@
 import type { LocalSongMatchTarget } from '../types/localSongMatch';
-import type { LocalSong, LyricProviderSource, SongResult } from '../types';
-import type { LocalSongMetadataSource } from '../types/localLibrary';
-import { getOnlineMusicProvider } from './onlineMusic/providerRegistry';
+import type { LocalSong, SongResult, LyricProviderSource } from '../types';
 import { getProviderSongMetadata } from './onlineMusic/songMetadata';
+import { getOnlineMusicProvider } from './onlineMusic/providerRegistry';
 import { searchQQLyrics } from '../utils/lyrics/providers/qqLyricProvider';
-import { calculateMatchScoreDetails } from '../utils/lyrics/matchScore';
 import { buildLyricSearchQuery } from '../utils/lyrics/searchQuery';
-import {
-    getMatchResultAlbumId,
-    getMatchResultAlbumName,
-    getMatchResultArtistEntities,
-    getMatchResultCoverUrl,
-} from '../utils/lyrics/matchResult';
+
+
+import { normalizeOnlineMetadataCandidate as normalizeCandidate, normalizeLyricMatchMetadataCandidate as normalizeLyricCandidate, type OnlineMetadataSource, type OnlineMetadataSearchTarget, type OnlineMetadataCandidate } from '../utils/onlineMetadataCandidate';
+export type { OnlineMetadataSource, OnlineMetadataSearchTarget, OnlineMetadataCandidate } from '../utils/onlineMetadataCandidate';
 
 // src/services/onlineMetadataSearchService.ts
 // Searches song metadata without invoking any lyric provider or lyric download path.
 
-export type OnlineMetadataSource = LocalSongMetadataSource;
-
-export interface OnlineMetadataSearchTarget {
-    title: string;
-    artist: string;
-    album?: string;
-    durationMs: number;
-}
-
-export interface OnlineMetadataCandidate {
-    source: OnlineMetadataSource;
-    songId: number | string;
-    title: string;
-    artists: Array<{ id?: number | string; name: string }>;
-    album?: { id?: number | string; name: string };
-    coverUrl?: string;
-    durationMs: number;
-    score: number;
-    titleMatched: boolean;
-    durationMatched: boolean | null;
-    raw: SongResult;
-}
+// Desktop callers retain provider-specific legacy metadata normalization.
+export const normalizeOnlineMetadataCandidate = (source: OnlineMetadataSource, result: SongResult, target: OnlineMetadataSearchTarget) =>
+    normalizeCandidate(source, result, target, getProviderSongMetadata);
+export const normalizeLyricMatchMetadataCandidate = (source: LyricProviderSource, result: SongResult, target: OnlineMetadataSearchTarget) =>
+    normalizeLyricCandidate(source, result, target, getProviderSongMetadata);
 
 const stripAudioExtension = (fileName: string) => fileName.replace(/\.(mp3|flac|m4a|wav|ogg|opus|aac)$/i, '');
 
@@ -55,44 +34,6 @@ export const buildLocalSongMetadataSearchTarget = (song: LocalSongMatchTarget): 
 export const buildLocalSongMetadataSearchQuery = (song: LocalSong): string => {
     const target = buildLocalSongMetadataSearchTarget(song);
     return buildLyricSearchQuery(target.title, target.artist, target.album);
-};
-
-export const normalizeOnlineMetadataCandidate = (
-    source: OnlineMetadataSource,
-    result: SongResult,
-    target: OnlineMetadataSearchTarget,
-): OnlineMetadataCandidate => {
-    const details = calculateMatchScoreDetails(target, result);
-    const albumName = getMatchResultAlbumName(result).trim();
-    const albumId = getMatchResultAlbumId(result);
-    return {
-        source,
-        songId: source === 'qq' && result.qqMid
-            ? result.qqMid
-            : source === 'kugou' && result.kgHash
-                ? result.kgHash
-                : result.id,
-        title: result.name || '',
-        artists: getMatchResultArtistEntities(result),
-        album: albumName ? { id: albumId, name: albumName } : undefined,
-        coverUrl: getMatchResultCoverUrl(result, source) || undefined,
-        durationMs: getProviderSongMetadata(result, source).durationMs,
-        score: details.score,
-        titleMatched: details.titleMatched,
-        durationMatched: details.durationMatched,
-        raw: result,
-    };
-};
-
-export const normalizeLyricMatchMetadataCandidate = (
-    lyricSource: LyricProviderSource,
-    result: SongResult,
-    target: OnlineMetadataSearchTarget,
-): OnlineMetadataCandidate => {
-    const source: OnlineMetadataSource = lyricSource === 'amll'
-        ? result.amllDbPlatform === 'qq' ? 'qq' : 'netease'
-        : lyricSource;
-    return normalizeOnlineMetadataCandidate(source, result, target);
 };
 
 const throwIfAborted = (signal?: AbortSignal) => {

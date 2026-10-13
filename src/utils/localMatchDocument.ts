@@ -1,19 +1,12 @@
-import type { LocalMatchDocument, LocalMatchSnapshot, LocalSongMatchTarget } from '../types/localSongMatch';
+import type { LocalMatchDocument, LocalMatchSnapshot } from '../types/localSongMatch';
 import type { ApplyLocalSongMatchSelectionInput } from './localSongMatchSelection';
 import { buildLocalSongMatchPatch } from './localSongMatchSelection';
 import { applyMatchedSongFields } from './localMatchedMetadata';
-import { buildImportedMetadataSnapshot } from './localSongMetadata';
 import { cleanLocalLibraryName } from './localLibraryNames';
-import { localLyricsFromSnapshot } from './lyrics/localLyricSnapshot';
+import { localMatchTarget } from './localMatchTarget';
+export { localMatchTarget } from './localMatchTarget';
 
 // localMatchDocument.ts — native single-song storage of the original match selection and canonical metadata semantics.
-export function localMatchTarget(snapshot: LocalMatchSnapshot): LocalSongMatchTarget {
-  const imported = buildImportedMetadataSnapshot({ fileName: snapshot.fileName, fallbackTitle: snapshot.base.name,
-    embeddedArtists: snapshot.base.artists.map(x => x.name), fallbackAlbum: snapshot.base.album?.name });
-  return { id: String(snapshot.base.id), fileName: snapshot.fileName, duration: snapshot.base.durationMs ?? 0,
-    title: snapshot.document?.title ?? imported.title, titleOrigin: snapshot.document?.titleOrigin ?? 'import',
-    importedMetadata: imported, ...snapshot.document, ...localLyricsFromSnapshot(snapshot.lyrics) };
-}
 export function buildLocalMatchDocument(snapshot: LocalMatchSnapshot, input: ApplyLocalSongMatchSelectionInput) {
   const song = localMatchTarget(snapshot);
   if (input.songId !== song.id) throw new Error('invalid-local-identity');

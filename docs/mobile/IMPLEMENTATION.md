@@ -1,9 +1,12 @@
 # Folia iPhone / iPad 实现与安装
 
-原版最佳歌词的独立原生宿主已接通四来源原始请求、实际期限／取消及全部平台会话隔离。
-328 项逻辑、30 项 WebKit、Mac 裸 JavaScriptCore 8 项及独立 iPad 模拟器 17 项通过。
-队列自动触发、偏好同步和自动结果缓存合并尚未接入；真实平台／真机 NOT_RUN，个人 App／服务器未更新，
-见 [LYRIC_MATCH_HOST.md](LYRIC_MATCH_HOST.md)，算法分离记录见 [LYRIC_MATCH_CORE.md](LYRIC_MATCH_CORE.md)。
+本地歌曲自动匹配已接入原生当前／下一首队列，复用原版歌词、封面和歌曲信息匹配策略。
+69 文件／640 项移动逻辑、70 项原本地库回归及 17 项原生模拟器用例通过；
+真实平台／真机 NOT_RUN，个人 mobile.28／服务器未更新，见 [LOCAL_AUTOMATIC_MATCH.md](LOCAL_AUTOMATIC_MATCH.md)。
+
+原版最佳歌词的在线队列自动触发、偏好同步和自动结果缓存合并已接入，
+见 [LYRIC_QUEUE_INTEGRATION.md](LYRIC_QUEUE_INTEGRATION.md)。四来源宿主与算法分离的前序证据分别见
+[LYRIC_MATCH_HOST.md](LYRIC_MATCH_HOST.md)、[LYRIC_MATCH_CORE.md](LYRIC_MATCH_CORE.md)。
 
 Automix 补齐主进程／WebContent／GPU 的独立模拟器联合测量：一个原生用例内三轮真实分轨交接通过，
 185 次有效阶段快照覆盖 15 个阶段。最高同次物理账本之和约 1.38GiB，清理后约 259／260／246MiB；

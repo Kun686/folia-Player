@@ -12,6 +12,7 @@ export { parseJSON, sourcesJSON, protocolVersion } from '../../utils/lyrics/nati
 export { embeddedTagsJSON } from '../../utils/lyrics/nativeEmbeddedRuntime';
 export { flacTags } from '../../utils/lyrics/nativeFlacRuntime';
 export { localMatchJSON } from '../../utils/lyrics/nativeLocalMatchRuntime';
+export { localAutomaticInputJSON, localAutomaticResultJSON } from './nativeLocalAutomaticMatch';
 export { cacheJSON } from '../../utils/lyrics/nativeCacheRuntime';
 function fail(code = 'invalid-lyric-response'): never { throw new Error(code); }
 type Reply = { status: number; body: string };

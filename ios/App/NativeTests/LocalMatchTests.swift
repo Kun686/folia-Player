@@ -19,10 +19,13 @@ import AVFoundation
         _ = try await local.importLyrics(file, for: id)
         let source = try await local.readLyricSources(id)
         _ = try await local.writeLocalMatch(id, token: XCTUnwrap(source["token"] as? String), document: matchDocument(), source: nil)
-        let storage = UserDefaults(suiteName: UUID().uuidString)!
+        let suite = "folia.local-priority." + UUID().uuidString, storage = UserDefaults(suiteName: suite)!
+        defer { storage.removePersistentDomain(forName: suite) }
         let player = PlaybackEngine(gateway: FailingGateway(), storage: storage, local: local)
         let lyrics = NativeLyrics(local: local)
         player.network.cancel(); player.crossfade = NativeCrossfade(owner: player, lyrics: lyrics)
+        // The coordinator follows the player's current/next queue and clears work when playback is not requested.
+        player.queue = [song]; player.index = 0; player.intentToPlay = true
         defer { lyrics.cancel(); player.stop(); player.clearOutput() }
         lyrics.update([song])
         try await waitForStream { lyrics.value(song)?.first?["fullText"] as? String == "Imported lyric" }

@@ -66,10 +66,14 @@ final class NativeCrossfade {
         self.stems = stems ?? NativeTrackStems(local: owner.local, mediaCache: owner.mediaCache,
             profilesIdle: { [weak profiles] in profiles?.hasPending != true },
             providerBarrier: { [weak owner] in owner?.mediaCachePurges[$0] })
-        self.lyrics = lyrics ?? NativeLyrics(local: owner.local, gateway: owner.gateway, cache: owner.lyricCache)
+        self.lyrics = lyrics ?? NativeLyrics(local: owner.local, gateway: owner.gateway, cache: owner.lyricCache, coverCache: owner.coverCache)
         self.profiles.changed = { [weak self] in self?.tick() }
         self.lyrics.changed = { [weak self] in self?.tick() }
         self.lyrics.cacheChanged = { [weak owner] song in owner?.lyricsChanged?(song) }
+        self.lyrics.localMatched = { [weak owner] id, song in
+            owner?.localMatchChanged(id, song: song, automatic: true)
+            owner?.localCatalogChanged?()
+        }
         self.stems.changed = { [weak self] in self?.tick() }
     }
     deinit { work?.cancel(); release?.cancel(); balance.cancel(); preplay?.cancel(); fade?.tail?.dispose() }

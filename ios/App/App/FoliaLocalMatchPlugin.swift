@@ -2,11 +2,11 @@ import Capacitor
 
 // FoliaLocalMatchPlugin.swift — publish metadata after atomic storage without replacing playback occurrences.
 extension PlaybackEngine {
-    func localMatchChanged(_ id: String, song: [String: Any]) {
+    func localMatchChanged(_ id: String, song: [String: Any], automatic: Bool = false) {
         let matches: ([String: Any]) -> Bool = { NativeProfileIdentity($0)?.localID == id }
         if queue.contains(where: matches) { queue = queue.map { matches($0) ? song : $0 } }
         if let detachedSong, matches(detachedSong) { self.detachedSong = song; queueDirty = true }
-        crossfade?.localLyricsChanged(id)
+        if !automatic { crossfade?.localLyricsChanged(id) }
         if let currentSong, matches(currentSong) { artwork.update(nil) }
         localMetadata[id] = song
         localMetadataRequest += 1

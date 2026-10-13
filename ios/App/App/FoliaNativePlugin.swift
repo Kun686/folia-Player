@@ -38,6 +38,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
             self.folders = FolderImportBridge(plugin: self)
             self.engine.mediaCacheChanged = { [weak self] in self?.notifyListeners("mediaCache", data: [:]) }
             self.engine.lyricsChanged = { [weak self] song in self?.notifyListeners("lyrics", data: ["song": song]) }
+            self.engine.localCatalogChanged = { [weak self] in self?.notifyListeners("localCatalog", data: [:]) }
             self.engine.emit = { [weak self] state in self?.notifyListeners("playback", data: state) }
             self.engine.sleepTimer.changed = { [weak self] in
                 guard let self else { return }

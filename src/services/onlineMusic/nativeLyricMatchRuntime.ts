@@ -1,4 +1,6 @@
 import { runOnlineLyricJob } from './nativeOnlineLyricJob';
+import { runLocalAutomaticJob } from './nativeLocalAutomaticJob';
+import type { LocalAutomaticDecision } from './nativeLocalAutomaticMatch';
 import { Buffer } from 'buffer';
 import { createAutoMatchBestLyric } from '../../utils/lyrics/autoMatchBestLyricCore';
 import type { AutoMatchBestLyricOptions, AutoMatchBestLyricResult } from '../../utils/lyrics/autoMatchBestLyricTypes';
@@ -31,13 +33,13 @@ export function createJobJSON(text: string, inflate: (base64: string) => string 
     const requests = new NativeLyricRequests();
     let done = false, error: string | undefined, result: unknown = null;
     let updates: Record<string, unknown>[] = [];
-    const finish = (value: AutoMatchBestLyricResult | Awaited<ReturnType<typeof runOnlineLyricJob>>) => {
+    const finish = (value: AutoMatchBestLyricResult | Awaited<ReturnType<typeof runOnlineLyricJob>> | LocalAutomaticDecision) => {
         if (done) return;
         if (value && 'lyrics' in value) value.lyrics = validateNativeLyricData(value.lyrics)!;
         result = value; done = true; requests.stop();
     };
     const ports = nativeLyricPorts(requests, inflate, sessions);
-    const operation = input.song
+    const operation = input.localMatch ? runLocalAutomaticJob(input.localMatch, ports) : input.song
         ? runOnlineLyricJob({ ...input, options }, ports, document => { if (!done) updates.push(document); })
         : createAutoMatchBestLyric(ports)(input.title, input.artist, input.durationMs, options);
     operation.then(finish).catch(() => { if (!done) { error = 'lyric-match-failed'; done = true; requests.stop(); } });

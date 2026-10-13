@@ -36,7 +36,7 @@ extension LocalMediaLibrary {
             "sourceRef": ["kind": "online", "providerId": provider,
                 "mediaId": NativeProfileCache.digest(Data(("local-cover|" + id + "|" + cover).utf8))]]
     }
-    func readLocalMatch(_ id: String) async throws -> [String: Any] {
+    func readLocalMatch(_ id: String, includeCover: Bool = true) async throws -> [String: Any] {
         _ = try await readLyricSources(id)
         let record = try lyricSource(id) ?? LyricSource(content: "", fileName: nil)
         let lyrics = lyricSnapshot(record, id: id), base = try importedSong(id)
@@ -46,12 +46,17 @@ extension LocalMediaLibrary {
         let library = try librarySnapshot()
         result["libraryRevision"] = library["revision"]
         result["assignment"] = (library["assignments"] as? [[String: Any]])?.first { $0["songId"] as? String == id }
-        if let data = try cover(id) { result["embeddedCover"] = "data:image/jpeg;base64," + data.base64EncodedString() }
+        result["display"] = (library["songs"] as? [[String: Any]])?.first { $0["id"] as? String == id }
+        if let data = try cover(id) {
+            result["hasLocalCover"] = true
+            if includeCover { result["embeddedCover"] = "data:image/jpeg;base64," + data.base64EncodedString() }
+        }
         return result
     }
     func writeLocalMatch(_ id: String, token: String, document: [String: Any], source: String?,
                          libraryRevision: String? = nil, metadata: String = "online", updateArtists: Bool = true,
-                         updateAlbum: Bool = true, protectOrigins: [String] = []) async throws -> [String: Any] {
+                         updateAlbum: Bool = true, protectOrigins: [String] = [], validate: () throws -> Void = {}) async throws -> [String: Any] {
+        try validate()
         guard source == nil || ["local", "embedded", "online"].contains(source!) else { throw MobileFailure("invalid-lyrics-source") }
         guard ["keep", "online", "imported"].contains(metadata),
               protectOrigins.allSatisfy({ ["import", "auto-match", "manual-match", "manual", "split"].contains($0) })
@@ -60,6 +65,7 @@ extension LocalMediaLibrary {
         guard lyricToken(id) == token else { throw MobileFailure("local-lyrics-changed") }
         let text = try await lyricImportParser.localMatchDocument(document)
         try Task.checkCancellation()
+        try validate()
         _ = try resolve(id)
         guard lyricToken(id) == token else { throw MobileFailure("local-lyrics-changed") }
         var record = try lyricSource(id) ?? LyricSource(content: "", fileName: nil)
@@ -95,6 +101,7 @@ extension LocalMediaLibrary {
         guard let song = (projected["songs"] as? [[String: Any]])?.first(where: { $0["id"] as? String == id })
         else { throw MobileFailure("invalid-local-identity") }
         try Task.checkCancellation()
+        try validate()
         try writeLyricSources(record, id: id)
         lyricEditTokens[id] = UUID().uuidString
         return song

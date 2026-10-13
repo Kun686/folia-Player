@@ -4,28 +4,24 @@ import { LocalSong, LyricData, LocalLibrarySnapshot, LocalLibrarySnapshotFile, L
 import { saveLocalSong, saveLocalSongs, deleteLocalSong as dbDeleteLocalSong, deleteLocalSongs as dbDeleteLocalSongs, saveDirHandles, getDirHandles, deleteDirHandle, getLocalSongs, getLocalLibrarySnapshot, saveLocalLibrarySnapshot, deleteLocalLibrarySnapshot } from './db';
 import { getLocalPlaylists, saveLocalPlaylists } from './localPlaylistService';
 import { parseEmbeddedMetadataAsync, type EmbeddedMetadataResult } from '../utils/localMetadataWorkerClient';
+import { matchLocalLyrics, localAutomaticInput } from './localAutomaticMatch';
+import { getProviderSongMetadata } from './onlineMusic/songMetadata';
+import { omni } from './onlineMusic/omni';
 import { autoMatchBestLyric } from '../utils/lyrics/autoMatchBestLyric';
-import { normalizeLyricMatchText } from '../utils/lyrics/matchScore';
 import { createSafeObjectUrl } from '../utils/blobGuards';
 import { repairFlacMetadata } from '../utils/flacMetadataRepair';
 import { resolveExplicitFileTimedLyricFormat, type ExplicitFileTimedLyricFormat } from '../utils/lyrics/formatDetection';
 import { applyMatchedMetadata } from './localLibraryCatalogService';
-import { buildLyricSearchQuery } from '../utils/lyrics/searchQuery';
-import { buildLocalSongLyricMatchContext, shouldRefreshLocalSongLyricsFromMetadata } from '../utils/lyrics/localSongMatchContext';
 import { buildImportedMetadataSnapshot } from '../utils/localSongMetadata';
 import { getLocalLibraryCatalogSnapshot } from './localLibraryEntityRepository';
 import { resolveLocalSongMetadata } from './playbackAdapters';
 import { removeCachedCover } from './coverCache';
-import { getOnlineMusicProvider } from './onlineMusic/providerRegistry';
-import { getProviderSongMetadata } from './onlineMusic/songMetadata';
-import { normalizeLyricMatchMetadataCandidate } from './onlineMetadataSearchService';
 import {
     prepareLocalCoverBlob,
     stageLocalCoverAsset,
     type PreparedLocalCoverBlob,
 } from './localCoverAssetService';
 import { hasLocalCoverBinary } from './localCoverBinaryStore';
-import { hasLocalSongCover } from '../utils/localSongCover';
 import { createFoliaIgnoreMatcher, isIgnoredByFoliaMatchers, type FoliaIgnoreMatcher } from '../utils/foliaIgnore';
 import { getLocalLibraryAvailability } from './localLibraryAvailability';
 import { useLyricSettingsStore } from '../stores/useLyricSettingsStore';
@@ -1253,197 +1249,23 @@ async function importFolderContents(dirHandle: FileSystemDirectoryHandle, expect
     }
 }
 
-// Helper function to normalize title for comparison
-function normalizeTitle(title: string): string {
-    return normalizeLyricMatchText(title).replace(/\s+/g, '');
-}
-
-// Helper function to check if two titles match
-function isTitleMatch(localTitle: string, searchTitle: string): boolean {
-    const normalizedLocal = normalizeTitle(localTitle);
-    const normalizedSearch = normalizeTitle(searchTitle);
-
-    // Check for exact match first
-    if (normalizedLocal === normalizedSearch) {
-        return true;
-    }
-
-    // Check if either title contains the other (for fuzzy matching)
-    // This helps when local file is "Title-Artist" but search result is just "Title"
-    if (normalizedLocal.includes(normalizedSearch) || normalizedSearch.includes(normalizedLocal)) {
-        // Additional check: the shorter one should be at least 50% of the longer one
-        // to avoid matching "a" with "abc"
-        const minLength = Math.min(normalizedLocal.length, normalizedSearch.length);
-        const maxLength = Math.max(normalizedLocal.length, normalizedSearch.length);
-        if (minLength / maxLength >= 0.5) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 // Match lyrics for a local song using search API, respecting the configured local/online priority.
 export async function matchLyrics(song: LocalSong): Promise<LyricData | null> {
-    if (song.matchedIsPureMusic && !shouldRefreshLocalSongLyricsFromMetadata(song)) {
-        return null;
-    }
     try {
         const catalog = await getLocalLibraryCatalogSnapshot();
         const resolvedMetadata = resolveLocalSongMetadata(song.id, catalog);
-        const matchContext = buildLocalSongLyricMatchContext(song, {
-            artistNames: resolvedMetadata.artists.map(artist => artist.name),
-            albumName: resolvedMetadata.album?.name,
-        });
-        const searchQuery = buildLyricSearchQuery(matchContext.title, matchContext.artist, matchContext.album);
-        const hasLocalOrEmbeddedLyrics = Boolean(
-            (song.hasLocalLyrics && song.localLyricsContent)
-            || (song.hasEmbeddedLyrics && song.embeddedLyricsContent)
-        );
-  const settingsLyricSettings = useLyricSettingsStore.getState();
-        const onlineFirst = settingsLyricSettings.localLyricsPriority === 'online';
-
-        console.log(`[LocalMusic] Searching lyrics for: "${searchQuery}"`);
-
-        // A selected GridView metadata identity is authoritative and must not be replaced by lyric fallback metadata.
-        if (!hasLocalOrEmbeddedLyrics || onlineFirst) {
-            const shouldUseBestLyric = settingsLyricSettings.autoUseBestLyric;
-            if (shouldUseBestLyric || matchContext.metadataCandidate) {
-                const bestMatch = await autoMatchBestLyric(
-                    matchContext.title,
-                    matchContext.artist,
-                    matchContext.durationMs,
-                    {
-                        album: matchContext.album,
-                        preferredSource: shouldUseBestLyric ? settingsLyricSettings.preferredAlternativeLyricSource : undefined,
-                        metadataCandidate: matchContext.metadataCandidate,
-                        exactMatchOnly: Boolean(matchContext.metadataCandidate && !shouldUseBestLyric),
-                    },
-                );
-
-                if (bestMatch && 'isPureMusic' in bestMatch) {
-                    song.matchedIsPureMusic = true;
-                    song.matchedLyrics = undefined;
-                    song.matchedLyricsSongId = bestMatch.id ?? matchContext.metadataCandidate?.songId;
-                    song.matchedLyricsSource = bestMatch.source ?? matchContext.metadataCandidate?.source;
-                    await applyMatchedMetadata(song.id, {}, { lyricsOnly: true, songPatch: song });
-                    return null;
-                }
-
-                if (bestMatch && 'lyrics' in bestMatch) {
-                    song.matchedLyricsSongId = bestMatch.id;
-                    song.matchedLyricsSource = bestMatch.source;
-                    song.matchedLyricsProviderPlatform = bestMatch.matchedLyricsProviderPlatform;
-                    song.matchedLyrics = bestMatch.lyrics;
-                    song.matchedIsPureMusic = false;
-
-                    if (matchContext.metadataCandidate) {
-                        await applyMatchedMetadata(song.id, {}, { lyricsOnly: true, songPatch: song });
-                        return bestMatch.lyrics;
-                    }
-
-                    const matchedMetadata = normalizeLyricMatchMetadataCandidate(
-                        bestMatch.source,
-                        bestMatch.song,
-                        {
-                            title: matchContext.title,
-                            artist: matchContext.artist,
-                            album: matchContext.album,
-                            durationMs: matchContext.durationMs,
-                        },
-                    );
-                    const coverUrl = matchedMetadata.coverUrl;
-                    await applyMatchedMetadata(song.id, {
-                        source: matchedMetadata.source,
-                        songId: matchedMetadata.songId,
-                        title: matchedMetadata.title,
-                        artists: matchedMetadata.artists,
-                        album: matchedMetadata.album,
-                        coverUrl,
-                    }, {
-                        songPatch: {
-                            ...song,
-                            useOnlineCover: Boolean(coverUrl && !hasLocalSongCover(song)),
-                        },
-                        protectOrigins: ['manual', 'manual-match', 'split'],
-                    });
-                    return bestMatch.lyrics;
-                }
-            }
-        } else if (matchContext.metadataCandidate) {
-            return null;
-        }
-
-        // Search on Netease
-        const searchPage = await getOnlineMusicProvider('netease')?.search?.searchSongs(searchQuery, 50, 0);
-
-        if (!searchPage?.items?.length) {
-            console.warn(`[LocalMusic] No search results for: "${searchQuery}"`);
-            return null;
-        }
-
-        // Try to find a song with matching title
-        const localTitle = matchContext.title;
-        const matchedSong = searchPage.items.find(candidate => isTitleMatch(localTitle, candidate.name));
-
-        // If no exact title match found, return null to trigger manual selection
-        if (!matchedSong) {
-            console.log(`[LocalMusic] No exact title match found for: "${localTitle}". Manual selection required.`);
-            return null;
-        }
-
-        const matchedMetadata = getProviderSongMetadata(matchedSong, 'netease');
-        console.log(`[LocalMusic] Found exact title match: ${matchedSong.name} by ${matchedMetadata.artists.map(artist => artist.name).join(', ')}`);
-
-        // Preserve local and embedded lyrics when the configured priority keeps them first.
-        if (!onlineFirst && ((song.hasLocalLyrics && song.localLyricsContent) || (song.hasEmbeddedLyrics && song.embeddedLyricsContent))) {
-            console.log(`[LocalMusic] Local/embedded lyrics exist, skipping online lyrics fetch. Only fetching cover/metadata.`);
-
-            // Only update metadata and cover, preserve local lyrics
-            const coverUrl = matchedMetadata.coverUrl;
-            await applyMatchedMetadata(song.id, {
-                source: 'netease',
-                songId: matchedSong.id,
-                title: matchedSong.name,
-                artists: matchedMetadata.artists,
-                album: matchedMetadata.album,
-                coverUrl: coverUrl?.replace('http:', 'https:'),
-            }, {
-                songPatch: { ...song, useOnlineCover: Boolean(coverUrl && !hasLocalSongCover(song)) },
-                protectOrigins: ['manual', 'manual-match', 'split'],
+        return await matchLocalLyrics(localAutomaticInput(song,
+            { artistNames: resolvedMetadata.artists.map(artist => artist.name), albumName: resolvedMetadata.album?.name },
+            useLyricSettingsStore.getState()), {
+                match: autoMatchBestLyric,
+                metadata: getProviderSongMetadata,
+                search: (query, limit, offset) => omni.searchProviderSongs('netease', query, { limit, offset }),
+                lyrics: candidate => omni.getLyrics(candidate),
+                save: async (metadata, options) => {
+                    Object.assign(song, options.songPatch);
+                    await applyMatchedMetadata(song.id, metadata, { ...options, songPatch: song });
+                },
             });
-
-            // Return null to indicate no NEW lyrics were fetched (local lyrics are used)
-            return null;
-        }
-
-        // Fetch lyrics (only when NO local lyrics)
-        const processed = await getOnlineMusicProvider('netease')?.lyrics?.getLyrics(matchedSong);
-        if (!processed) return null;
-
-        song.matchedLyricsSongId = matchedSong.id;
-        song.matchedLyricsSource = 'netease';
-        song.matchedLyrics = processed.lyrics || undefined;
-        song.matchedIsPureMusic = processed.isPureMusic;
-
-        if (matchContext.metadataCandidate) {
-            await applyMatchedMetadata(song.id, {}, { lyricsOnly: true, songPatch: song });
-            return processed.lyrics;
-        }
-
-        const coverUrl = matchedMetadata.coverUrl;
-        await applyMatchedMetadata(song.id, {
-            source: 'netease',
-            songId: matchedSong.id,
-            title: matchedSong.name,
-            artists: matchedMetadata.artists,
-            album: matchedMetadata.album,
-            coverUrl: coverUrl?.replace('http:', 'https:'),
-        }, {
-            songPatch: { ...song, useOnlineCover: Boolean(coverUrl && !hasLocalSongCover(song)) },
-            protectOrigins: ['manual', 'manual-match', 'split'],
-        });
-        return processed.lyrics;
     } catch (error) {
         console.error('[LocalMusic] Failed to match lyrics:', error);
         return null;

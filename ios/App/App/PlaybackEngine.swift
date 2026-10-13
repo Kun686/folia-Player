@@ -301,6 +301,7 @@ final class PlaybackEngine {
          "audioEffects": meter?.effectState() ?? ["available": false, "pending": false, "error": ""]]
     }
     var lyricsChanged: (([String: Any]) -> Void)?
+    var localCatalogChanged: (() -> Void)?
     func publish() {
         crossfade?.updateLyrics()
         finishPlaybackFadeIn()
