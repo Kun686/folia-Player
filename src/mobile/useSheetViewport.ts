@@ -23,7 +23,7 @@ export function useSheetViewport() {
       root.toggleAttribute('data-sheet-short-viewport', viewport.height < 500);
       const focused = document.activeElement;
       if (!(focused instanceof HTMLElement) || !focused.matches('input,textarea,[contenteditable=true]')) return;
-      const sheet = focused.closest('.sheet');
+      const sheet = focused.closest('.sheet-body, .sheet');
       if (!sheet) return;
       const rect = focused.getBoundingClientRect(), bounds = sheet.getBoundingClientRect();
       if (rect.top < Math.max(bounds.top, viewport.offsetTop) || rect.bottom > Math.min(bounds.bottom, viewport.offsetTop + viewport.height)) {

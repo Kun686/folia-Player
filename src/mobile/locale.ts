@@ -9,6 +9,7 @@ import { queueSearchEn, queueSearchZh, queueSearchId } from './localeQueueSearch
 
 // src/mobile/locale.ts
 export const mobileEn = {
+  settingsGroups: { appearance: 'Appearance & language', playback: 'Playback', lyrics: 'Online lyrics', connection: 'Music service connection', cache: 'Playback cache', other: 'Other settings' },
   collectionEnqueued: '{{count}} tracks added to the queue.', collectionQueueUnchanged: 'No tracks need to be added.',
   queueSearch: queueSearchEn,
   navidrome: navidromeEn,
@@ -114,6 +115,7 @@ export const mobileEn = {
   position: 'Playback position', back: 'Back to library', empty: 'No results', saved: 'Connection saved',
 };
 export const mobileZh: typeof mobileEn = {
+  settingsGroups: { appearance: '外观与语言', playback: '播放', lyrics: '在线歌词', connection: '音乐服务连接', cache: '播放缓存', other: '其他设置' },
   collectionEnqueued: '已将 {{count}} 首歌曲加入播放队列', collectionQueueUnchanged: '没有需要加入队列的歌曲',
   queueSearch: queueSearchZh,
   navidrome: navidromeZh,
@@ -219,6 +221,7 @@ export const mobileZh: typeof mobileEn = {
   position: '播放进度', back: '返回音乐库', empty: '暂无结果', saved: '连接已保存',
 };
 export const mobileIn: typeof mobileEn = {
+  settingsGroups: { appearance: 'Tampilan & bahasa', playback: 'Pemutaran', lyrics: 'Lirik online', connection: 'Koneksi layanan musik', cache: 'Cache pemutaran', other: 'Pengaturan lainnya' },
   collectionEnqueued: '{{count}} lagu dimasukkan ke antrean.', collectionQueueUnchanged: 'Tidak ada lagu yang perlu ditambahkan.',
   queueSearch: queueSearchId,
   navidrome: navidromeEn,

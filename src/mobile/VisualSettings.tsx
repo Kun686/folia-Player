@@ -17,12 +17,14 @@ import type { MobileThemeGeneration } from './useMobileThemeGeneration';
 import AISettingsSheet from './AISettingsSheet';
 import MotionReductionSettingsSection from '../components/modal/settings/MotionReductionSettingsSection';
 import VideoLayerSettingsSection from '../components/modal/settings/VideoLayerSettingsSection';
+import { useSheetScroll } from './useSheetScroll';
 
 // src/mobile/VisualSettings.tsx — expose existing registry/settings and desktop persistence.
 export default function VisualSettings({ light, close, appearance, visible, themeSource, generation }: {
   light: boolean; close: () => void; appearance: MobileTheme; visible: boolean; themeSource: MobileThemeSource; generation: MobileThemeGeneration;
 }) {
   const { t } = useTranslation();
+  const scrollBody = useSheetScroll();
   const [uploading, setUploading] = useState(false);
   const [themeEditor, setThemeEditor] = useState(false);
   const [aiSettings, setAISettings] = useState(false);
@@ -37,8 +39,9 @@ export default function VisualSettings({ light, close, appearance, visible, them
   const theme = light ? appearance.theme.light : appearance.theme.dark;
   if (themeEditor) return <MobileThemeEditor appearance={appearance} light={light} visible={visible} source={themeSource} close={() => setThemeEditor(false)} />;
   if (aiSettings) return <AISettingsSheet close={() => setAISettings(false)} />;
-  return <div className="sheet-backdrop"><section className="sheet visual-settings" role="dialog" aria-modal="true" aria-label={t('mobile.visuals')}>
+  return <div className="sheet-backdrop"><section className="sheet sheet-pinned visual-settings" role="dialog" aria-modal="true" aria-label={t('mobile.visuals')}>
     <header><h2>{t('mobile.visuals')}</h2><button disabled={uploading} onClick={close}>{t('mobile.close')}</button></header>
+    <div className="sheet-body" ref={scrollBody}>
     <fieldset className="visual-settings-content" disabled={uploading}>
     <label>{t('mobile.visualizer')}<select aria-label={t('mobile.visualizer')} value={s.visualizerMode} onChange={e => {
       if (hasVisualizerMode(e.target.value)) s.handleSetVisualizerMode(e.target.value, { notify: false });
@@ -100,5 +103,6 @@ export default function VisualSettings({ light, close, appearance, visible, them
       })}
     </Suspense></details>
     </fieldset>
+    </div>
   </section></div>;
 }

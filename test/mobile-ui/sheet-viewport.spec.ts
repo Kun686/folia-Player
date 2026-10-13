@@ -76,3 +76,30 @@ test('lyric paste remains reachable in a short visual viewport without resizing 
   await expect(box).toBeFocused();
   expect(await player.boundingBox()).toEqual(initial);
 });
+
+test('connection fields remain below the pinned settings header when the keyboard rotates', async ({ page }) => {
+  await page.goto('/mobile.html');
+  await page.locator('.brand').getByRole('button', { name: '服务器与外观', exact: true }).tap();
+  const dialog = page.getByRole('dialog', { name: '服务器与外观', exact: true });
+  const input = dialog.getByLabel('HTTPS 服务器地址', { exact: true });
+  const initial = page.viewportSize()!;
+  await viewport(page, initial.width, initial.height, 340);
+  await input.focus();
+  await visibleField(page, 'HTTPS 服务器地址', 340);
+  await viewport(page, initial.height, initial.width, 240);
+  await expect.poll(async () => {
+    const box = (await input.boundingBox())!;
+    const header = (await dialog.locator(':scope > header').boundingBox())!;
+    return box.y >= header.y + header.height && box.y + box.height <= 224;
+  }).toBe(true);
+  await input.fill('https://fixture.invalid');
+  await input.press('Tab');
+  await expect(dialog.getByLabel('访问凭据', { exact: true })).toBeFocused();
+  await expect.poll(async () => {
+    const box = (await dialog.getByLabel('访问凭据', { exact: true }).boundingBox())!;
+    const header = (await dialog.locator(':scope > header').boundingBox())!;
+    return box.y >= header.y + header.height && box.y + box.height <= 224;
+  }).toBe(true);
+  await viewport(page, initial.width, initial.height, initial.height);
+  await expect(input).toHaveValue('https://fixture.invalid');
+});

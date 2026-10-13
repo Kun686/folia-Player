@@ -19,6 +19,7 @@ import OnlineLyricPreference from './OnlineLyricPreference';
 import type { LocalFolders } from './useLocalFolders';
 import DisplaySleepPreference from './DisplaySleepPreference';
 import LanguagePreference from './LanguagePreference';
+import { useSheetScroll } from './useSheetScroll';
 
 // src/mobile/SettingsSheet.tsx
 export default function SettingsSheet({ appearance, mediaCache, timer, server, light, setLight, saved, close, lyricPreference, folders }: {
@@ -29,6 +30,7 @@ export default function SettingsSheet({ appearance, mediaCache, timer, server, l
   mediaCache: ReturnType<typeof useMediaCache>; server: string; light: boolean; setLight: (value: boolean) => void; saved: (server: string) => void; close: () => void;
 }) {
   const { t } = useTranslation();
+  const scrollBody = useSheetScroll();
   const [address, setAddress] = useState(server);
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState(false);
@@ -55,8 +57,29 @@ export default function SettingsSheet({ appearance, mediaCache, timer, server, l
   if (navidromeSettings) return <NavidromeSettingsSheet close={() => setNavidromeSettings(false)} />;
   if (syncSettings) return <SyncSettingsSheet close={() => setSyncSettings(false)} />;
   if (lyricFormats) return <LocalLyricFormatSettings folders={folders} close={() => setLyricFormats(false)} />;
-  return <div className="sheet-backdrop"><section className="sheet" role="dialog" aria-modal="true" aria-label={t('mobile.settings')}>
+  return <div className="sheet-backdrop"><section className="sheet sheet-pinned settings-sheet" role="dialog" aria-modal="true" aria-label={t('mobile.settings')}>
     <header><h2>{t('mobile.settings')}</h2><button onClick={close}>{t('mobile.close')}</button></header>
+    <div className="sheet-body" ref={scrollBody}>
+    <section className="settings-group" aria-labelledby="settings-appearance">
+      <h3 id="settings-appearance">{t('mobile.settingsGroups.appearance')}</h3>
+      <LanguagePreference />
+      <label className="mobile-preference">{t('mobile.theme')}<select value={light ? 'light' : 'dark'} onChange={e => setLight(e.target.value === 'light')}>
+        <option value="dark">{t('mobile.dark')}</option><option value="light">{t('mobile.light')}</option>
+      </select></label>
+    </section>
+    <section className="settings-group" aria-labelledby="settings-playback">
+      <h3 id="settings-playback">{t('mobile.settingsGroups.playback')}</h3>
+      <QueuePreference />
+      <DisplaySleepPreference />
+      <button className="settings-link" onClick={() => setSleep(true)}>{t('commandPalette.sleepTimerTitle')}</button>
+    </section>
+    <section className="settings-group" aria-labelledby="settings-lyrics">
+      <h3 id="settings-lyrics">{t('mobile.settingsGroups.lyrics')}</h3>
+      <OnlineLyricPreference />
+      <button className="settings-link" onClick={() => setBatch(true)}>{t('lyricExport.settingsEntry')}</button>
+    </section>
+    <section className="settings-group" aria-labelledby="settings-connection">
+    <h3 id="settings-connection">{t('mobile.settingsGroups.connection')}</h3>
     <p>{t('mobile.optionalServer')}</p>
     <form onSubmit={e => { e.preventDefault(); void save(); }}>
       <label>{t('mobile.server')}<input type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" required value={address} onChange={e => setAddress(e.target.value)} placeholder="https://music.example.com" /></label>
@@ -65,23 +88,22 @@ export default function SettingsSheet({ appearance, mediaCache, timer, server, l
     </form>
     {!isNative && <p>{t('mobile.nativeOnly')}</p>}
     {error && <p role="alert">{t('mobile.error')}</p>}
-    <LanguagePreference />
-    <label className="mobile-preference">{t('mobile.theme')}<select value={light ? 'light' : 'dark'} onChange={e => setLight(e.target.value === 'light')}>
-      <option value="dark">{t('mobile.dark')}</option><option value="light">{t('mobile.light')}</option>
-    </select></label>
+    </section>
+    <section className="settings-group" aria-labelledby="settings-cache">
+    <h3 id="settings-cache">{t('mobile.settingsGroups.cache')}</h3>
     <MediaCacheControls cache={mediaCache} light={light} />
-    <QueuePreference />
-    <DisplaySleepPreference />
-    <OnlineLyricPreference />
-    <LocalLyricPreference status={lyricPreference} />
-    <button onClick={() => setLyricFormats(true)}>{t('options.localLyricFormatOrder')}</button>
-    <button onClick={() => setSleep(true)}>{t('commandPalette.sleepTimerTitle')}</button>
-    <button onClick={() => setAISettings(true)}>{t('mobile.ai.settings')}</button>
-    <button onClick={() => setNavidromeSettings(true)}>{t('mobile.navidrome.settings')}</button>
-    <button onClick={() => setSyncSettings(true)}>{t('options.r2Sync')}</button>
     <ResourceCacheControls />
     <ResourceCacheControls category="lyrics" />
-    <button onClick={() => setBatch(true)}>{t('lyricExport.settingsEntry')}</button>
+    </section>
+    <section className="settings-group" aria-labelledby="settings-other">
+    <h3 id="settings-other">{t('mobile.settingsGroups.other')}</h3>
+    <LocalLyricPreference status={lyricPreference} />
+    <button className="settings-link" onClick={() => setLyricFormats(true)}>{t('options.localLyricFormatOrder')}</button>
+    <button className="settings-link" onClick={() => setAISettings(true)}>{t('mobile.ai.settings')}</button>
+    <button className="settings-link" onClick={() => setNavidromeSettings(true)}>{t('mobile.navidrome.settings')}</button>
+    <button className="settings-link" onClick={() => setSyncSettings(true)}>{t('options.r2Sync')}</button>
+    </section>
     <p className="muted">{t('mobile.limited')}</p>
+    </div>
   </section></div>;
 }

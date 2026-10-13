@@ -52,11 +52,11 @@ export default function PlayerChrome({ state, cover, hidden, reveal, collapse, o
         <button onClick={openQueue} aria-label={t('mobile.queue')}><ListMusic /></button>
       </div>
     </motion.div>
-    <dialog ref={dialog} className="player-tools sheet" aria-label={t('mobile.playerTools')}
+    <dialog ref={dialog} className="player-tools sheet sheet-pinned" aria-label={t('mobile.playerTools')}
       onCancel={event => { event.preventDefault(); setToolsOpen(false); }} onClose={() => setToolsOpen(false)}
       onClick={event => { if (event.target === event.currentTarget) setToolsOpen(false); }}>
       <header><h2>{t('mobile.playerTools')}</h2><button autoFocus onClick={() => setToolsOpen(false)}>{t('mobile.close')}</button></header>
-      {children}
+      <div className="sheet-body">{children}</div>
     </dialog>
   </>;
 }
