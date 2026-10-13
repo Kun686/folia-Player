@@ -57,6 +57,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
                 guard let self else { return }
                 self.notifyListeners("sleepTimer", data: self.engine.sleepTimer.snapshot)
             }
+            self.engine.prepareLaunchPlayback()
         }
     }
     func run(_ call: CAPPluginCall, _ work: @escaping @MainActor () throws -> Void) {

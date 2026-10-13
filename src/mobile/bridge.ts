@@ -33,7 +33,7 @@ export interface NativeMediaCacheState {
   revision: number; error: string | null; songs: SongResult[];
 }
 export interface GatewayBootstrap { server: string; scope: string; sessions: Record<string, Record<string, string>> }
-export interface NativeAudioSettings { playbackFadeEnabled?: boolean; neteaseScrobbleEnabled?: boolean; volume: number; isMuted: boolean; equalizer: AudioEqualizerSettings; replayGainMode: ReplayGainMode; audioQuality: AudioQualityPreference }
+export interface NativeAudioSettings { autoPlayOnLaunch?: boolean; playbackFadeEnabled?: boolean; neteaseScrobbleEnabled?: boolean; volume: number; isMuted: boolean; equalizer: AudioEqualizerSettings; replayGainMode: ReplayGainMode; audioQuality: AudioQualityPreference }
 export interface NativeTransitionSettings { enabled: boolean; mode: 'crossfade' | 'automix'; crossfadeMaxSec: number; performance: boolean }
 export interface NativeLyricSettings {
   localLyricsPriority: LocalLyricsPriority;

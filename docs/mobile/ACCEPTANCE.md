@@ -1,5 +1,12 @@
 # 真实服务与真机验收表
 
+当前验收优先级为 QQ／网易云核心功能、特效动画、设置 UI，见 [CURRENT_SCOPE.md](CURRENT_SCOPE.md)。
+本地音乐、其他平台、同步、AI 和完整 Automix 扩展暂缓；历史自动测试不自动替代当前两平台真机验收。
+
+本轮可选启动续播与核心回归：763 项移动逻辑、171 个唯一 WebKit 场景、41 项原生模拟器测试通过。
+保留首轮失败及样本／定位器修正记录，见 [LAUNCH_PLAYBACK.md](LAUNCH_PLAYBACK.md)。
+个人 mobile.28、真实账号和服务器未操作；新版两平台真机、设置 UI 美化与长期动画性能仍待验收。
+
 集合范围入队的 775 项逻辑、111 个 WebKit 场景和本地完整快照 3 项复测通过。
 覆盖当前范围、不可用项／重复项、默认位置、队列容量与账号取消；个人 mobile.28 未更新，本批原生／真机／真实服务 NOT_RUN。
 完整交付仍未完成；见 [COLLECTION_QUEUE.md](COLLECTION_QUEUE.md) 与 [PORT_STATUS.md](PORT_STATUS.md)。

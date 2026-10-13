@@ -11,6 +11,27 @@ const settings = () => ({ volume: 0.6, isMuted: true, equalizer: structuredClone
 const settle = async () => { await new Promise(resolve => setTimeout(resolve, 0)); };
 beforeEach(() => { vi.resetAllMocks(); bridge.getAudioSettings.mockResolvedValue(settings()); });
 describe('native audio settings synchronization', () => {
+  it('restores launch default-off, persists the original action and rolls rejected changes back', async () => {
+    useAudioSettingsStore.getState().handleToggleAutoPlayOnLaunch(true);
+    const report = vi.fn(), disconnect = connectAudioSettings(report); await settle();
+    expect(useAudioSettingsStore.getState().autoPlayOnLaunch).toBe(false);
+    expect(bridge.setAudioSettings).not.toHaveBeenCalled();
+    bridge.setAudioSettings.mockImplementation(async ({ settings }) => settings);
+    useAudioSettingsStore.getState().handleToggleAutoPlayOnLaunch(true); await settle();
+    expect(bridge.setAudioSettings).toHaveBeenLastCalledWith({ settings: expect.objectContaining({ autoPlayOnLaunch: true }) });
+    bridge.setAudioSettings.mockRejectedValue(new Error('rejected'));
+    useAudioSettingsStore.getState().handleToggleAutoPlayOnLaunch(false); await settle();
+    expect(useAudioSettingsStore.getState().autoPlayOnLaunch).toBe(true);
+    expect(report).toHaveBeenLastCalledWith(true, true);
+    expect(bridge.setAudioSettings).toHaveBeenCalledTimes(2); disconnect();
+  });
+  it('restores native launch preference over stale web storage without feedback writes', async () => {
+    useAudioSettingsStore.getState().handleToggleAutoPlayOnLaunch(false);
+    bridge.getAudioSettings.mockResolvedValue({ ...settings(), autoPlayOnLaunch: true });
+    const disconnect = connectAudioSettings(vi.fn()); await settle();
+    expect(useAudioSettingsStore.getState().autoPlayOnLaunch).toBe(true);
+    expect(bridge.setAudioSettings).not.toHaveBeenCalled(); disconnect();
+  });
   it('restores the original fade default and saves/rolls back the original command action', async () => {
     const disconnect = connectAudioSettings(vi.fn()); await settle();
     expect(useAudioSettingsStore.getState().playbackFadeEnabled).toBe(true);

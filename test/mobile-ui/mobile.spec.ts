@@ -180,7 +180,7 @@ test('original ReplayGain control restores, applies touch selections and rolls b
   await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
   const controls = page.locator('.replay-gain-controls');
   await openPlayerTools(page);
-  await page.locator('.replay-gain-disclosure summary').click();
+  await page.locator('.replay-gain-disclosure summary').filter({ hasText: /^音频增益$/ }).click();
   await expect(controls.getByText('T -6.0 dB / A -3.0 dB')).toBeVisible();
   await expect(controls.getByRole('button', { name: '单曲', exact: true })).toHaveAttribute('aria-pressed', 'true');
   const album = controls.getByRole('button', { name: '专辑', exact: true });
@@ -270,6 +270,18 @@ test('unsupported audio effects are explained without losing the selected origin
 });
 
 test('settings and unavailable server error are visible', async ({ page }) => {
+  await page.addInitScript(() => {
+    const win = window as any, original = win.Capacitor.nativePromise;
+    const stored = () => JSON.parse(sessionStorage.getItem('fixture-settings-gateway') || 'null');
+    win.Capacitor.nativePromise = async (plugin: string, method: string, options: any) => {
+      if (method === 'bootstrap' && stored()) return stored();
+      if (method === 'configure') {
+        const state = { server: options.server, scope: 'settings-fixture-scope', sessions: {} };
+        sessionStorage.setItem('fixture-settings-gateway', JSON.stringify(state)); return state;
+      }
+      return original(plugin, method, options);
+    };
+  });
   await page.goto('/mobile.html');
   await page.locator('.brand').getByRole('button', { name: '服务器与外观' }).click();
   await page.getByLabel('HTTPS 服务器地址').fill('https://music.example.com');
@@ -444,6 +456,8 @@ test('online lyric cache survives reload and offline refresh, then clears indepe
   await expect.poll(() => page.evaluate(() => sessionStorage.getItem('fixture-lyric-cache'))).toContain('测试歌词');
   await page.addInitScript(() => {
     (window as any).fixtureOfflineLyrics = true;
+    // Native settings are authoritative after migration, including on WebView reload.
+    (window as any).fixtureLyricSettings.autoUseBestLyric = true;
     localStorage.setItem('auto_use_best_lyric', 'true');
   });
   await page.reload(); await play();

@@ -38,7 +38,8 @@ struct NativeAudioSettings: Codable {
     var audioQuality = "standard"
     var playbackFadeEnabled = true
     var neteaseScrobbleEnabled = false
-    private enum CodingKeys: String, CodingKey { case volume, isMuted, equalizer, replayGainMode, audioQuality, neteaseScrobbleEnabled, playbackFadeEnabled }
+    var autoPlayOnLaunch = false
+    private enum CodingKeys: String, CodingKey { case volume, isMuted, equalizer, replayGainMode, audioQuality, neteaseScrobbleEnabled, playbackFadeEnabled, autoPlayOnLaunch }
     init() {}
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -48,6 +49,7 @@ struct NativeAudioSettings: Codable {
         replayGainMode = try values.decodeIfPresent(String.self, forKey: .replayGainMode) ?? "off"
         playbackFadeEnabled = try values.decodeIfPresent(Bool.self, forKey: .playbackFadeEnabled) ?? true
         neteaseScrobbleEnabled = try values.decodeIfPresent(Bool.self, forKey: .neteaseScrobbleEnabled) ?? false
+        autoPlayOnLaunch = try values.decodeIfPresent(Bool.self, forKey: .autoPlayOnLaunch) ?? false
         audioQuality = try values.decodeIfPresent(String.self, forKey: .audioQuality) ?? "standard"
     }
     func validate() throws {
@@ -72,6 +74,7 @@ extension PlaybackEngine {
         let qualityChanged = audioSettings.audioQuality != settings.audioQuality
         listening.setEnabled(settings.neteaseScrobbleEnabled)
         audioSettings = settings
+        if !settings.autoPlayOnLaunch { launchResume = .finished }
         storage.set(data, forKey: "folia.audio")
         applyAudioSettings()
         if qualityChanged { refreshPreparedQuality() }

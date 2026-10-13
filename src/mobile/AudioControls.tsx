@@ -23,9 +23,11 @@ export default function AudioControls({ light, theme, unavailable, effects, repl
   const { t } = useTranslation();
   const [status, setStatus] = useState({ ready: false, error: false });
   const [attempt, setAttempt] = useState(0);
+  const [launchError, setLaunchError] = useState(false);
   const replayGainMode = usePlaybackStore(s => s.replayGainMode);
   const setReplayGainMode = usePlaybackStore(s => s.setReplayGainMode);
   const audio = useAudioSettingsStore(useShallow(s => ({
+    autoPlayOnLaunch: s.autoPlayOnLaunch, toggleAutoPlayOnLaunch: s.handleToggleAutoPlayOnLaunch,
     playbackFadeEnabled: s.playbackFadeEnabled, togglePlaybackFade: s.handleTogglePlaybackFade,
     volume: s.volume, isMuted: s.isMuted, enabled: s.audioEqualizerSettings.enabled,
     audioQuality: s.audioQuality, setAudioQuality: s.setAudioQuality,
@@ -35,7 +37,7 @@ export default function AudioControls({ light, theme, unavailable, effects, repl
   useEffect(() => connectAudioSettings((ready, error) => setStatus({ ready, error })), [attempt]);
   const effectMessage = !audio.effectsRequested ? undefined : effects?.error === 'unsupported-effect-format'
     ? t('mobile.effectsFormatUnavailable') : effects?.error ? t('mobile.effectsFailed') : effects?.pending ? t('mobile.effectsPreparing') : undefined;
-  const message = status.error ? t('mobile.audioSettingsError') : audio.enabled && unavailable ? t('mobile.equalizerUnavailable') : effectMessage;
+  const message = status.error || launchError ? t('mobile.audioSettingsError') : audio.enabled && unavailable ? t('mobile.equalizerUnavailable') : effectMessage;
   return <div className="audio-controls">
     <div className="volume-controls">
       <button disabled={!status.ready} onClick={audio.handleToggleMute} aria-pressed={audio.isMuted} aria-label={t('commandPalette.commands.playback-mute.title')}>
@@ -69,6 +71,12 @@ export default function AudioControls({ light, theme, unavailable, effects, repl
       disabled={!status.ready} aria-describedby="playback-fade-hint"
       onChange={event => audio.togglePlaybackFade(event.target.checked)} />{t('options.playbackFade')}</label>
     <p className="quality-hint" id="playback-fade-hint">{t('options.playbackFadeDesc')}</p>
+    <label className="playback-fade-toggle launch-playback-preference"><input type="checkbox" checked={audio.autoPlayOnLaunch}
+      disabled={!status.ready} aria-describedby="launch-playback-hint" onChange={event => {
+        try { audio.toggleAutoPlayOnLaunch(event.target.checked); setLaunchError(false); }
+        catch { setLaunchError(true); }
+      }} />{t('options.autoPlayOnLaunch')}</label>
+    <p className="quality-hint" id="launch-playback-hint">{t('options.autoPlayOnLaunchDesc')}</p>
     <ListeningControl saved={status.ready} state={listening} />
     {message && <p role="alert">{message}</p>}
     {!status.ready && status.error && <button onClick={() => setAttempt(a => a + 1)}>{t('mobile.retry')}</button>}

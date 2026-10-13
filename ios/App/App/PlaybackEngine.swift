@@ -67,13 +67,18 @@ final class PlaybackEngine {
     var lastSave = Date.distantPast
     var resumeAfterInterruption = false
     var restoredPosition: Double = 0
+    var launchResume = PlaybackLaunchState.idle
+    var launchLibraryReady = false
+    let launchIsActive: () -> Bool
     var localMetadata: [String: [String: Any]] = [:]
     var localMetadataRequest = 0
     var libraryRefreshTask: Task<Void, Never>?
 
     init(gateway: GatewayClient, storage: UserDefaults = .standard, local: LocalMediaLibrary = LocalMediaLibrary(),
          usesStereoOutput: Bool = false, mediaNetworkConfiguration: URLSessionConfiguration? = nil, mediaCache: NativeMediaCache? = nil,
-         coverCache: NativeCoverCache? = nil, lyricCache: NativeLyricCache = NativeLyricCache(), sleepTimer: NativeSleepTimer? = nil) {
+         coverCache: NativeCoverCache? = nil, lyricCache: NativeLyricCache = NativeLyricCache(), sleepTimer: NativeSleepTimer? = nil,
+         launchIsActive: @escaping () -> Bool = { UIApplication.shared.applicationState == .active }) {
+        self.launchIsActive = launchIsActive
         self.usesStereoOutput = usesStereoOutput
         self.mediaNetworkConfiguration = mediaNetworkConfiguration?.copy() as? URLSessionConfiguration
         let cacheSettings = storage.data(forKey: "folia.media-cache").flatMap { try? JSONDecoder().decode(NativeMediaCacheSettings.self, from: $0) } ?? NativeMediaCacheSettings()
@@ -94,6 +99,8 @@ final class PlaybackEngine {
         libraryRefreshTask = Task { @MainActor [weak self] in
             guard let self else { return }
             _ = try? await self.refreshLocalLibrary()
+            self.launchLibraryReady = true
+            self.resumeLaunchPlaybackIfReady()
         }
         restoreAudioSettings()
         listening.changed = { [weak self] in self?.publish() }
@@ -156,6 +163,7 @@ final class PlaybackEngine {
     // Every new playback intent invalidates previous resolves and preloads.
     func select(_ target: Int, refresh: Bool = false, position: Double = 0) {
         guard queue.indices.contains(target) || (target == -1 && detachedSong != nil) else { return }
+        launchResume = .finished
         playbackFade?.flush(); playbackFadeToken = nil
         listeningSeek = nil
         if !refresh { finishListeningOccurrence() } else { listening.discontinuity() }
@@ -239,6 +247,7 @@ final class PlaybackEngine {
         if let next = nextIndex() { select(next) }
     }
     func stop(_ code: String? = nil) {
+        launchResume = .finished
         // A stopped AVPlayer seek can no longer clear its marker through the old generation callback.
         listeningSeek = nil
         personalFM.cancelPending()
@@ -343,7 +352,7 @@ final class PlaybackEngine {
         if let song = saved["currentSong"] as? [String: Any] { detachedSong = try? Self.sanitizedSong(song) }
         if !["off", "all", "one"].contains(repeatMode) { repeatMode = "off" }
         if !queue.isEmpty { personalFM.restore(saved["personalFM"]) }
-        // Restore paused; no network traffic or unexpected audio until the user presses play.
+        // Restore paused. The native host separately honors the explicit launch preference once ready.
     }
     deinit {
         personalFM.cancelPending()

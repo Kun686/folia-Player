@@ -7,7 +7,7 @@ const region = (page: Page) => settings(page).getByRole('region', { name: '自�
 const toggle = (page: Page) => region(page).getByRole('button', { name: '自动使用最佳歌词', exact: true });
 const source = (page: Page) => region(page).getByRole('combobox', { name: '歌词匹配优先级', exact: true });
 const cache = (page: Page) => page.evaluate(() => Object.values(JSON.parse(sessionStorage.getItem('fixture-lyric-cache') || '{}')) as any[]);
-async function open(page: Page) { await page.getByRole('button', { name: '服务器与外观', exact: true }).tap(); }
+async function open(page: Page) { await page.locator('.brand').getByRole('button', { name: '服务器与外观', exact: true }).tap(); }
 async function seedSong(page: Page, providerId: 'netease' | 'qq' = 'netease') {
   // A native playback snapshot keeps the library visible while exercising the mounted lyric loader.
   await page.evaluate(providerId => {

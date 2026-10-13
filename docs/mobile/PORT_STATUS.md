@@ -1,9 +1,16 @@
 <!-- PORT_STATUS.md — current source entry points and evidence boundaries, not release acceptance. -->
 # 移植功能核对索引
 
+当前按 [CURRENT_SCOPE.md](CURRENT_SCOPE.md) 执行：完成启动续播后，依次收敛 QQ／网易云核心功能、
+特效动画、设置 UI。本地音乐及其他功能暂缓；下表中本地、Navidrome、同步、AI、完整 Automix 的记录仅作历史索引。
+
 2026-10-13。本表用于把现有源码、分批测试记录与个人安装包分开查看；不是原版所有功能已经等价的声明。
 个人 App 仍为 mobile.28。本轮仅核对源码和执行受控自动测试，没有连接物理设备或部署服务器。
 完整移植与完整 Automix 的最终验收仍未完成。下表的“已接入”只表示代码存在并装配，不代表真机通过。
+
+原版可选启动续播已接入：默认关闭，原生恢复一次，用户／系统取消优先。
+763 项移动逻辑、171 个唯一 WebKit 场景（含两平台核心回归）、41 项原生模拟器测试通过。
+真实平台冷启动与真机 NOT_RUN；见 [LAUNCH_PLAYBACK.md](LAUNCH_PLAYBACK.md)。
 
 ## 本轮核对的集合与队列行为
 

@@ -6,6 +6,7 @@ import Network
 // PlaybackSystem.swift — lock-screen, interruption, route and foreground reconciliation.
 extension PlaybackEngine {
     func command(_ action: String, position: Double? = nil, mode: String? = nil) throws {
+        launchResume = .finished
         sleepTimer.reconcile()
         switch action {
         case "play":
@@ -96,6 +97,7 @@ extension PlaybackEngine {
         observers.append(center.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
             guard let self, let type = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt else { return }
             if type == AVAudioSession.InterruptionType.began.rawValue {
+                self.launchResume = .finished
                 self.resumeAfterInterruption = self.intentToPlay
                 self.intentToPlay = false; self.pauseOutput(); self.publish()
             } else {
@@ -110,6 +112,7 @@ extension PlaybackEngine {
         observers.append(center.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] note in
             if (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt) == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue {
                 guard let self else { return }
+                self.launchResume = .finished
                 self.personalFM.cancelPending(); self.intentToPlay = false
                 self.resumeAfterInterruption = false; self.networkResume = nil
                 self.pauseOutput(); self.persist(); self.publish()
@@ -120,6 +123,7 @@ extension PlaybackEngine {
             self?.crossfade?.resourcePressure(ProcessInfo.processInfo.thermalState.rawValue >= ProcessInfo.ThermalState.serious.rawValue)
             self?.listening.retryUnavailable()
             self?.sleepTimer.reconcile(); self?.publish()
+            Task { @MainActor [weak self] in self?.resumeLaunchPlaybackIfReady() }
         })
         let remote = MPRemoteCommandCenter.shared()
         for (command, action) in [(remote.playCommand, "play"), (remote.pauseCommand, "pause"),
