@@ -190,7 +190,10 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       <div className="account-row"><span>{catalog.user?.nickname ?? provider.toUpperCase()}</span>
         {catalog.user ? <button disabled={catalog.busy} onClick={() => void catalog.logout().catch(() => setError(true))}>{t('mobile.logout')}</button>
           : <button disabled={!providerEnabled || catalog.loggingOut} onClick={() => setLogin(true)}>{t('mobile.login')}</button>}</div>}
-      {!isLocal && !isCached && !isNavidrome && !providerEnabled && <p className="connection-hint">{t('mobile.connect')} <button onClick={() => setSettings(true)}>{t('mobile.settings')}</button></p>}
+      {!isLocal && !isCached && !isNavidrome && !providerEnabled && <p className="connection-hint">
+        {available.error || available.busy
+          ? <button disabled={available.busy} onClick={() => available.retry()}>{t(available.busy ? 'mobile.loading' : 'mobile.retry')}</button>
+          : t('mobile.connect')} <button onClick={() => setSettings(true)}>{t('mobile.settings')}</button></p>}
       {!queueView && <form className="search" onSubmit={e => { e.preventDefault(); setQueueView(false); if (!isLocal && !isCached && !isNavidrome && query.trim()) void catalog.load({ query: query.trim() }); }}>
         <Search size={20} /><input aria-label={t('mobile.search')} placeholder={t('mobile.search')} value={query} onChange={e => setQuery(e.target.value)} />
         <button disabled={(!isLocal && !isCached && !isNavidrome && !providerEnabled) || catalog.busy || !query.trim()}>{t('mobile.search')}</button>

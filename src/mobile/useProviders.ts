@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useReducer, useState } from 'react';
 import { isNative, native } from './bridge';
 
 // src/mobile/useProviders.ts — capabilities are read from the configured server, never assumed.
 export function useProviders(server: string) {
+  const [attempt, retry] = useReducer(value => value + 1, 0);
+  const [busy, setBusy] = useState(false);
   const [state, setState] = useState<{ providers: string[]; songLikeProviders: string[]; replacementProviders: string[]; catalogProviders: string[]; playlistEditProviders: string[]; subscriptionProviders: string[]; dailyProviders: string[]; personalFmProviders: string[]; recommendedCollectionProviders: string[]; userAlbumProviders: string[]; cloudProviders: string[]; error: boolean }>({ providers: [], songLikeProviders: [], replacementProviders: [], catalogProviders: [], playlistEditProviders: [], subscriptionProviders: [], dailyProviders: [], personalFmProviders: [], recommendedCollectionProviders: [], userAlbumProviders: [], cloudProviders: [], error: false });
   useEffect(() => {
     let current = true;
+    setBusy(Boolean(server && isNative));
     setState({ providers: [], songLikeProviders: [], replacementProviders: [], catalogProviders: [], playlistEditProviders: [], subscriptionProviders: [], dailyProviders: [], personalFmProviders: [], recommendedCollectionProviders: [], userAlbumProviders: [], cloudProviders: [], error: false });
     if (server && isNative) void native.health().then(result => {
       if (result.protocol !== 1 || !Array.isArray(result.providers)) throw new Error('invalid-capabilities');
@@ -22,8 +25,20 @@ export function useProviders(server: string) {
       const userAlbumProviders = Array.isArray(result.userAlbumProviders) ? result.userAlbumProviders.filter(id => catalogProviders.includes(id) && ['netease', 'qq'].includes(id)) : [];
       const cloudProviders = Array.isArray(result.cloudProviders) ? result.cloudProviders.filter(id => providers.includes(id) && id === 'netease') : [];
       if (current) setState({ providers, songLikeProviders, replacementProviders, catalogProviders, playlistEditProviders, subscriptionProviders, dailyProviders, personalFmProviders, recommendedCollectionProviders, userAlbumProviders, cloudProviders, error: false });
-    }).catch(() => { if (current) setState({ providers: [], songLikeProviders: [], replacementProviders: [], catalogProviders: [], playlistEditProviders: [], subscriptionProviders: [], dailyProviders: [], personalFmProviders: [], recommendedCollectionProviders: [], userAlbumProviders: [], cloudProviders: [], error: true }); });
+    }).catch(() => { if (current) setState({ providers: [], songLikeProviders: [], replacementProviders: [], catalogProviders: [], playlistEditProviders: [], subscriptionProviders: [], dailyProviders: [], personalFmProviders: [], recommendedCollectionProviders: [], userAlbumProviders: [], cloudProviders: [], error: true }); })
+      .finally(() => { if (current) setBusy(false); });
     return () => { current = false; };
-  }, [server]);
-  return state;
+  }, [server, attempt]);
+  useEffect(() => {
+    if (!state.error || busy) return;
+    // A failed launch check can recover on return or reconnect without resetting saved accounts.
+    const restore = () => { if (!document.hidden) retry(); };
+    window.addEventListener('online', restore);
+    document.addEventListener('visibilitychange', restore);
+    return () => {
+      window.removeEventListener('online', restore);
+      document.removeEventListener('visibilitychange', restore);
+    };
+  }, [state.error, busy]);
+  return { ...state, busy, retry };
 }
