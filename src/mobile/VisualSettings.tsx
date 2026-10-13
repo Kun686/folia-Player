@@ -15,6 +15,7 @@ import SongThemeControls from './SongThemeControls';
 import ThemeGenerationControls from './ThemeGenerationControls';
 import type { MobileThemeGeneration } from './useMobileThemeGeneration';
 import AISettingsSheet from './AISettingsSheet';
+import MotionReductionSettingsSection from '../components/modal/settings/MotionReductionSettingsSection';
 
 // src/mobile/VisualSettings.tsx — expose existing registry/settings and desktop persistence.
 export default function VisualSettings({ light, close, appearance, visible, themeSource, generation }: {
@@ -50,6 +51,10 @@ export default function VisualSettings({ light, close, appearance, visible, them
       <option value={60}>60 FPS</option><option value={90}>90 FPS</option><option value={120}>120 FPS</option><option value="off">{t('mobile.systemRate')}</option>
     </select></label>
     <label className="check-label"><input type="checkbox" checked={staticMode} onChange={e => useThemeSettingsStore.getState().handleToggleStaticMode(e.target.checked)} />{t('mobile.staticMode')}</label>
+    <details className="mobile-motion-settings"><summary>{t('options.reduceMotionSection')}</summary>
+      <MotionReductionSettingsSection theme={theme} surfaceIds={['transitionOverlay', 'monetBackground', 'uiMicroMotion']}
+        settingsCardClass="border-[var(--border)]" settingsDividerClass="border-[var(--border)]" toggleOffBackgroundClass="bg-[var(--raised)]" />
+    </details>
     <AppearanceTransfer appearance={appearance} />
     <SongThemeControls appearance={appearance} />
     <ThemeGenerationControls appearance={appearance} generation={generation} configure={() => setAISettings(true)} />

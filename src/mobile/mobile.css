@@ -27,6 +27,8 @@
 .visual-settings input[type=range] { touch-action: pan-y; }
 .visual-settings-content > details, .appearance-transfer { margin-block: 20px; }
 .visual-settings summary { cursor: pointer; min-height: 44px; padding-block: 12px; }
+.mobile-motion-settings button { display: flex; align-items: center; min-height: 44px; min-width: 48px; touch-action: manipulation; }
+[data-reduce-motion~="uiMicroMotion"] .mobile-motion-settings button, [data-reduce-motion~="uiMicroMotion"] .mobile-motion-settings button > div { transition: none; }
 .appearance-transfer textarea { width: 100%; background: var(--raised); border-radius: 8px; padding: 12px; overflow-wrap: anywhere; }
 .typography-controls details { margin-block: 20px; }
 .typography-controls fieldset { min-width: 0; padding: 0; border: 0; }

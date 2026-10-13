@@ -21,4 +21,4 @@
 .local-folders button { min-height: 44px; min-width: 44px; touch-action: manipulation; transition: opacity 100ms ease-out; }
 .local-folders button:active { opacity: .65; }
 .local-folders button:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
-@media (prefers-reduced-motion: reduce) { .local-folders button { transition: none; } }
+[data-reduce-motion~="uiMicroMotion"] .local-folders button { transition: none; }

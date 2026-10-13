@@ -86,6 +86,20 @@ describe('motion settings store', () => {
         expect(localStorage.getItem('reduce_motion_transitionOverlay')).toBe('false');
     });
 
+    it.each(['surface', 'system'] as const)('retains the last accepted %s choice after a failed write', kind => {
+        const before = useMotionSettingsStore.getState();
+        const write = vi.spyOn(localStorage, 'setItem').mockImplementationOnce(() => { throw Error('storage-full'); });
+        const toggle = () => kind === 'surface'
+            ? useMotionSettingsStore.getState().handleToggleReducedMotionSurface('uiMicroMotion', true)
+            : useMotionSettingsStore.getState().handleToggleFollowSystemReducedMotion(true);
+        expect(toggle).toThrow('storage-full');
+        expect(useMotionSettingsStore.getState()).toEqual(before);
+        write.mockRestore();
+        toggle();
+        expect(kind === 'surface' ? readReducedMotion('uiMicroMotion')
+            : useMotionSettingsStore.getState().followSystemReducedMotion).toBe(true);
+    });
+
     it('keeps a surface reduced when the system preference is also on', () => {
         useMotionSettingsStore.getState().handleToggleReducedMotionSurface('lattice', true);
         useMotionSettingsStore.setState({ followSystemReducedMotion: true, systemPrefersReducedMotion: true });

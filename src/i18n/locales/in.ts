@@ -1666,6 +1666,7 @@ export default {
     "memoryByProcess": "Per proses",
     "memorySeriesUnavailable": "Tidak dilaporkan di platform ini",
     "reduceMotionSection": "Kurangi gerakan",
+    "reduceMotionSaveError": "Preferensi gerakan tidak dapat disimpan. Silakan coba lagi.",
     "reduceMotionSectionDesc": "Folia memutar animasi penuh secara bawaan dan tidak lagi mengikuti pengaturan animasi sistem dengan sendirinya. Turunkan permukaan mana pun yang ingin Anda buat lebih tenang.",
     "reduceMotionFollowSystem": "Ikuti pengaturan sistem",
     "reduceMotionFollowSystemDesc": "Biarkan pengaturan animasi sistem operasi mengurangi gerakan di mana saja, seperti perilaku versi sebelumnya.",

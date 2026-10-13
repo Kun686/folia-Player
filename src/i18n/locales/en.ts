@@ -1676,6 +1676,7 @@ export default {
     "memoryByProcess": "By process",
     "memorySeriesUnavailable": "Not reported on this platform",
     "reduceMotionSection": "Reduce motion",
+    "reduceMotionSaveError": "Could not save motion preferences. Please try again.",
     "reduceMotionSectionDesc": "Folia plays its full animation by default and no longer follows the system animation setting on its own. Turn down whichever surface you want quieter.",
     "reduceMotionFollowSystem": "Follow system setting",
     "reduceMotionFollowSystemDesc": "Let the operating system's animation setting reduce motion everywhere, the way earlier versions always did.",

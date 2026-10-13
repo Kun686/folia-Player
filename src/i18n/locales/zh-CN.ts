@@ -1675,6 +1675,7 @@ export default {
     "memoryByProcess": "分进程",
     "memorySeriesUnavailable": "当前系统不提供这个数据",
     "reduceMotionSection": "降低动态效果",
+    "reduceMotionSaveError": "动效偏好未能保存，请重试。",
     "reduceMotionSectionDesc": "Folia 默认播放完整动画，不再自行跟随系统的动画设置。想让哪一处安静下来，就在下面关掉它。",
     "reduceMotionFollowSystem": "跟随系统设置",
     "reduceMotionFollowSystemDesc": "让系统的动画设置重新决定全部动效，也就是旧版本一直以来的行为。",

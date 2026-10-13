@@ -1,9 +1,10 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { ChevronDown, ListMusic, MoreHorizontal, Music2, Pause, Play, Repeat, SkipBack, SkipForward } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatTime } from '../utils/appPlaybackHelpers';
 import type { PlaybackSnapshot } from './bridge';
+import { useReducedMotionFor } from '../hooks/useReducedMotionFor';
 
 // PlayerChrome.tsx — floating transport over the original full-window visualizer; tools keep their existing components.
 export default function PlayerChrome({ state, cover, hidden, reveal, collapse, openQueue, command, toolsOpen, setToolsOpen, children }: {
@@ -11,7 +12,7 @@ export default function PlayerChrome({ state, cover, hidden, reveal, collapse, o
   command(action: 'play' | 'pause' | 'next' | 'previous' | 'seek' | 'repeat', position?: number, mode?: string): void;
   toolsOpen: boolean; setToolsOpen(open: boolean): void; children: ReactNode;
 }) {
-  const { t } = useTranslation(), reducedMotion = useReducedMotion();
+  const { t } = useTranslation(), reducedMotion = useReducedMotionFor('uiMicroMotion');
   const dialog = useRef<HTMLDialogElement>(null);
   const song = state.currentSong;
   useEffect(() => {

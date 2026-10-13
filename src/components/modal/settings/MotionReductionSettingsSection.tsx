@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Theme } from '../../../types';
 import {
@@ -18,6 +18,7 @@ type MotionReductionSettingsSectionProps = {
     settingsDividerClass: string;
     toggleOffBackgroundClass: string;
     theme?: Theme;
+    surfaceIds?: readonly MotionSurfaceId[];
 };
 
 /** 每个面对应的文案 key，顺序即面板里的展示顺序。 */
@@ -35,6 +36,7 @@ const MotionReductionSettingsSection: React.FC<MotionReductionSettingsSectionPro
     settingsDividerClass,
     toggleOffBackgroundClass,
     theme,
+    surfaceIds = MOTION_SURFACE_IDS,
 }) => {
     const { t } = useTranslation();
     const surfaces = useMotionSettingsStore(state => state.reducedMotionSurfaces);
@@ -42,6 +44,7 @@ const MotionReductionSettingsSection: React.FC<MotionReductionSettingsSectionPro
     const systemPrefers = useMotionSettingsStore(state => state.systemPrefersReducedMotion);
     const toggleSurface = useMotionSettingsStore(state => state.handleToggleReducedMotionSurface);
     const toggleFollowSystem = useMotionSettingsStore(state => state.handleToggleFollowSystemReducedMotion);
+    const [saveError, setSaveError] = useState(false);
 
     const renderToggleRow = (
         label: string,
@@ -64,7 +67,10 @@ const MotionReductionSettingsSection: React.FC<MotionReductionSettingsSectionPro
             </div>
             <button
                 type="button"
-                onClick={() => onChange(!active)}
+                onClick={() => {
+                    try { onChange(!active); setSaveError(false); }
+                    catch { setSaveError(true); }
+                }}
                 className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${!active ? toggleOffBackgroundClass : ''}`}
                 style={{ backgroundColor: active ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
                 aria-pressed={active}
@@ -97,7 +103,7 @@ const MotionReductionSettingsSection: React.FC<MotionReductionSettingsSectionPro
             </div>
 
             <div className={`border-t pt-4 space-y-4 ${settingsDividerClass}`}>
-                {MOTION_SURFACE_IDS.map(surface => (
+                {surfaceIds.map(surface => (
                     <React.Fragment key={surface}>
                         {renderToggleRow(
                             t(SURFACE_LABEL_KEYS[surface].label),
@@ -109,6 +115,7 @@ const MotionReductionSettingsSection: React.FC<MotionReductionSettingsSectionPro
                     </React.Fragment>
                 ))}
             </div>
+            {saveError && <p role="alert">{t('options.reduceMotionSaveError')}</p>}
         </div>
     );
 };

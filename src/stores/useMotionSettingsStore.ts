@@ -86,12 +86,12 @@ export const useMotionSettingsStore = create<MotionSettingsState>(set => ({
     systemPrefersReducedMotion: readSystemPreference(),
 
     handleToggleReducedMotionSurface: (surface, enabled) => {
-        set(state => ({ reducedMotionSurfaces: { ...state.reducedMotionSurfaces, [surface]: enabled } }));
         setStoredBoolean(SURFACE_STORAGE_KEYS[surface], enabled);
+        set(state => ({ reducedMotionSurfaces: { ...state.reducedMotionSurfaces, [surface]: enabled } }));
     },
     handleToggleFollowSystemReducedMotion: (enabled) => {
-        set({ followSystemReducedMotion: enabled });
         setStoredBoolean(FOLLOW_SYSTEM_KEY, enabled);
+        set({ followSystemReducedMotion: enabled });
     },
     setSystemPrefersReducedMotion: (matches) => set({ systemPrefersReducedMotion: matches }),
 }));

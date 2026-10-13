@@ -69,6 +69,7 @@ test('rotation does not reveal hidden transport or change the native queue; queu
 
 test('reduced motion fades without shrinking and keyboard focus keeps controls available', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => localStorage.setItem('reduce_motion_follow_system', 'true'));
   // Real time is required here: WebKit's compositor opacity animation does not follow the JS fake clock.
   await start(page, false);
   const panel = page.locator('.player-panel');

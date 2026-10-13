@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+原版动效偏好通过42项逻辑、33个 WebKit 场景与类型检查，覆盖触摸、旋转、重载、失败恢复及实际动画行为。
+桥接使用受控数据，原生容器／真实系统事件／真机 NOT_RUN；个人 App／服务器未更新，
+见 [MOTION_PREFERENCES.md](MOTION_PREFERENCES.md)。
+
 受控在线原模型 Automix、同进程离线队列重播、缓存退出隔离和流式凭据清理通过11项原生模拟器测试及构建。
 传输使用 URLProtocol，不代表真实 QQ／网易云或 CDN；真机、系统挂起、温升及人工听感仍 NOT_RUN。
 个人 mobile.28／服务器未更新，公开完整能力继续关闭，见 [ONLINE_AUTOMIX.md](ONLINE_AUTOMIX.md)。
