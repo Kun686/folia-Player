@@ -1,6 +1,7 @@
 import type { SongResult } from '../types';
 import type { OnlineLyricsStorage } from '../services/onlineLyricsStorage';
 import { omni } from '../services/onlineMusic/omni';
+import { native } from './bridge';
 import { importOnlineLyricSelection, parseImportedOnlineLyrics, selectOnlineLyricSource } from '../utils/onlineLyricEdits';
 import { readLyricFile } from '../utils/lyrics/lyricFileDecoding';
 import { hasRenderableLyrics } from '../utils/lyrics/validity';
@@ -30,7 +31,9 @@ export async function switchMobileOnlineLyrics(storage: OnlineLyricsStorage, sou
 export async function resetMobileOnlineLyrics(storage: OnlineLyricsStorage, song: SongResult) {
   // Restore the owning provider first; if it is unavailable, retain the user's saved selections.
   await storage.readState();
-  const result = await omni.getLyrics(song);
+  const result = song.sourceRef?.kind === 'navidrome'
+    ? { lyrics: (await native.readNavidromeLyrics({ song, refresh: true })).payload.lyrics ?? null }
+    : await omni.getLyrics(song);
   await storage.writeLyrics(result.lyrics);
   await storage.writeState({ lyricsSource: 'online' });
 }

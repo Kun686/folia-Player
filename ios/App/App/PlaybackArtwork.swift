@@ -12,6 +12,7 @@ final class PlaybackArtwork {
     private var requestedNetwork = false
     private(set) var image: MPMediaItemArtwork?
     var changed: (() -> Void)?
+    var navidrome: (@MainActor ([String: Any], Bool) async throws -> Data?)?
     init(cache: NativeCoverCache, local: LocalMediaLibrary) { self.cache = cache; self.local = local }
     deinit { task?.cancel() }
     func update(_ song: [String: Any]?, allowNetwork: Bool = true) {
@@ -22,7 +23,10 @@ final class PlaybackArtwork {
         key = identity; image = nil; task?.cancel(); task = nil
         guard identity != nil, let song else { return }
         task = Task { @MainActor [weak self, cache, local] in
-            let data = try? await cache.cover(song, local: local, allowNetwork: allowNetwork)
+            let data: Data?
+            if NativeProfileIdentity(song)?.provider == "navidrome" {
+                data = try? await self?.navidrome?(song, allowNetwork)
+            } else { data = try? await cache.cover(song, local: local, allowNetwork: allowNetwork) }
             guard let self, !Task.isCancelled, self.generation == epoch else { return }
             self.task = nil
             if let data, let image = UIImage(data: data) {

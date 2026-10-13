@@ -73,6 +73,14 @@ describe('mobile current lyric export', () => {
         const document = JSON.parse(io.share.mock.lastCall![0].content);
         expect(document.source).toBe('imported'); expect(document.lyrics.lines[0].fullText).toBe('用户导入');
     });
+    it('exports scoped Navidrome lyrics through the same offline serializer', async () => {
+        const scoped: SongResult = { ...song('qq'), sourceRef: { kind: 'navidrome', scope: '11111111-1111-4111-8111-111111111111', mediaId: 'track' } };
+        await exportMobileSongLyrics(scoped, 'fia', () => true);
+        expect(io.cache).toHaveBeenCalledWith({ song: scoped });
+        const document = JSON.parse(io.share.mock.lastCall![0].content);
+        expect(document.lyrics.lines[1].fullText).toBe('第一句歌词');
+        expect(io.desktop).not.toHaveBeenCalled(); expect(io.local).not.toHaveBeenCalled();
+    });
     it('uses the original enhanced LRC with translation and romanization', async () => {
         await exportMobileSongLyrics(song('qq'), 'lrc', () => true);
         const file = io.share.mock.lastCall![0];

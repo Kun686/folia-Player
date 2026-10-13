@@ -80,6 +80,21 @@ actor NativeLyricParser {
         else { throw MobileFailure("invalid-lyric-cache") }
         return result
     }
+    func navidromeStep(_ input: [String: Any]) throws -> [String: Any] {
+        try Task.checkCancellation()
+        let data = try JSONSerialization.data(withJSONObject: input)
+        guard data.count <= 8_000_000 else { throw MobileFailure("lyrics-too-large") }
+        let context = try lyricContext()
+        var result: String?
+        let done: @convention(block) (String) -> Void = { result = $0 }
+        context.exception = nil
+        context.objectForKeyedSubscript("FoliaLocalLyrics")?.invokeMethod("navidromeStepJSON", withArguments: [String(decoding: data, as: UTF8.self), done])
+        try Task.checkCancellation()
+        guard context.exception == nil, let result, result.utf8.count <= 3_000_000,
+              let fields = try JSONSerialization.jsonObject(with: Data(result.utf8)) as? [String: Any], fields["error"] == nil
+        else { self.context = nil; throw MobileFailure("invalid-navidrome-lyrics") }
+        return fields
+    }
 
     private func lyricContext() throws -> JSContext {
         if context == nil {
@@ -132,6 +147,7 @@ final class NativeLyrics {
     private(set) var revision = 0
     var changed: (() -> Void)?
     var cacheChanged: (([String: Any]) -> Void)?
+    var navidrome: (@MainActor ([String: Any]) async throws -> [String: Any])?
     var localMatched: ((String, [String: Any]) -> Void)?
     // Only explicit choices briefly hold new Automix planning; audio and optional matching continue.
     var awaitingSelection: Bool { !selections.isDisjoint(with: wanted) }
@@ -160,7 +176,9 @@ final class NativeLyrics {
         revision += 1
     }
     func invalidateProvider(_ provider: String) {
-        for key in Set(values.keys).union(tasks.keys).union(wanted) where key.hasPrefix("local:") || key.hasPrefix(settings.autoUseBestLyric == true ? "online:" : "online:" + provider + ":") {
+        for key in Set(values.keys).union(tasks.keys).union(wanted) where provider == "navidrome"
+            ? key.hasPrefix("online:navidrome:")
+            : key.hasPrefix("local:") || key.hasPrefix(settings.autoUseBestLyric == true ? "online:" : "online:" + provider + ":") {
             invalidateKey(key)
         }
     }
@@ -183,7 +201,7 @@ final class NativeLyrics {
         return localChanged || onlineChanged
     }
     func update(_ songs: [[String: Any]]) {
-        let identities = songs.prefix(2).compactMap(NativeProfileIdentity.init).filter { $0.localID != nil || ["netease", "qq"].contains($0.provider ?? "") }
+        let identities = songs.prefix(2).compactMap(NativeProfileIdentity.init).filter { $0.localID != nil || ["netease", "qq", "navidrome"].contains($0.provider ?? "") }
         let ids = Set(identities.map(\.key))
         guard ids != wanted else { return }
         for id in Array(tasks.keys) where !ids.contains(id) { tasks.removeValue(forKey: id)?.1.cancel() }
@@ -218,6 +236,9 @@ final class NativeLyrics {
                                     }
                                 })
                         } else { lines = initial }
+                    } else if identity.provider == "navidrome" {
+                        guard let load = self?.navidrome else { throw MobileFailure("navidrome-not-configured") }
+                        lines = try await load(song)["lines"] as? [[String: Any]]
                     } else if session == nil, let cache {
                         lines = try await NativeBestLyrics.load(song, settings: settings, cache: cache, gateway: gateway,
                             baseline: { [weak self] lines in

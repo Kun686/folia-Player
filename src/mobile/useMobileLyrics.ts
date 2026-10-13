@@ -9,6 +9,7 @@ import { useMobileCoverState } from './useMobileCover';
 import { useLyricDisplay } from './useLyricDisplay';
 import { useMobileSegmentation } from './useMobileSegmentation';
 import { useLyricSettingsStore } from '../stores/useLyricSettingsStore';
+import { resolveOnlineLyrics } from '../utils/onlineLyricsSelection';
 
 // src/mobile/useMobileLyrics.ts — reuse the original local parser and online Omni pipeline.
 export function useMobileLyrics(song?: SongResult, editing = false) {
@@ -62,6 +63,9 @@ export function useMobileLyrics(song?: SongResult, editing = false) {
         if (!isCurrent()) return;
         const result = await resolveLocalSongLyrics(localLyricsFromSnapshot(detail), priority);
         if (isCurrent()) setLyrics(result.lyrics);
+      } else if (song.sourceRef?.kind === 'navidrome') {
+        const snapshot = editing ? await native.readLyricCache({ song }) : await native.readNavidromeLyrics({ song });
+        if (isCurrent()) setLyrics(resolveOnlineLyrics(snapshot.payload.state, snapshot.payload.lyrics));
       } else {
         const storage = await getMobileRuntime()?.lyrics?.open(song);
         if (!isCurrent()) return;

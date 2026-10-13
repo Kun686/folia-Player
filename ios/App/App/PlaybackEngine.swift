@@ -256,11 +256,8 @@ final class PlaybackEngine {
             _ = try? await previous?.value
             // One failed filesystem deletion must not prevent the other category from being invalidated.
             var failure: Error?
-            // Navidrome cover/lyric loading is not wired yet; their provider-only APIs must stay separate.
-            if provider != "navidrome" {
-                do { try await coverCache.clear(provider: provider) } catch { failure = error }
-                do { try await lyricCache.clear(provider: provider) } catch { failure = failure ?? error }
-            }
+            do { try await coverCache.clear(provider: provider) } catch { failure = error }
+            do { try await lyricCache.clear(provider: provider) } catch { failure = failure ?? error }
             do { try await mediaCache.clear(provider: provider) } catch { failure = failure ?? error }
             if let failure { throw failure }
         }

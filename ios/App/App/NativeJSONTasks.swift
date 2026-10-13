@@ -3,9 +3,10 @@ import Foundation
 // NativeJSONTasks.swift — exact-ID cancellation and bounded concurrency shared by independent AI and sync request owners.
 @MainActor final class NativeJSONTasks {
     private let prefix: String
+    private let maximumActive: Int
     private var requests: [String: Task<[String: Any], Error>] = [:]
     private var earlyCancellations: [String] = []
-    init(prefix: String) { self.prefix = prefix }
+    init(prefix: String, maximumActive: Int = 2) { self.prefix = prefix; self.maximumActive = max(1, min(16, maximumActive)) }
     deinit { requests.values.forEach { $0.cancel() } }
     func cancelAll() { requests.values.forEach { $0.cancel() } }
     func cancel(_ id: String) {
@@ -22,7 +23,7 @@ import Foundation
             earlyCancellations.remove(at: index); throw MobileFailure(prefix + "-cancelled")
         }
         guard !Task.isCancelled else { throw MobileFailure(prefix + "-cancelled") }
-        guard !id.isEmpty, id.utf8.count <= 128, requests[id] == nil, requests.count < 2 else {
+        guard !id.isEmpty, id.utf8.count <= 128, requests[id] == nil, requests.count < maximumActive else {
             throw MobileFailure("invalid-" + prefix + "-request")
         }
         let task = Task { @MainActor in try Task.checkCancellation(); return try await work() }

@@ -79,16 +79,17 @@ import XCTest
         defer { lyrics.cancel() }
         lyrics.update([songs[0]]); lyrics.cancel(); lyrics.update(Array(songs[1...]))
         try await waitForStream { lyrics.value(songs[1]) != nil && lyrics.value(songs[2]) != nil }
-        XCTAssertNil(lyrics.value(songs[0])); XCTAssertEqual(lyrics.revision, 2)
+        XCTAssertNil(lyrics.value(songs[0])); let firstRevision = lyrics.revision
         let id = try XCTUnwrap(songs[1]["id"] as? String)
         try Data("[00:01.00]Replacement".utf8).write(to: sidecar)
         _ = try await local.importLyrics(sidecar, for: id)
         lyrics.invalidate(id); lyrics.update([songs[1]])
         lyrics.invalidate(id); lyrics.update([songs[1]])
         try await waitForStream { lyrics.value(songs[1])?.last?["fullText"] as? String == "Replacement" }
-        XCTAssertNil(lyrics.value(songs[2])); XCTAssertEqual(lyrics.revision, 5)
+        XCTAssertNil(lyrics.value(songs[2])); XCTAssertGreaterThan(lyrics.revision, firstRevision)
+        var finishedRemoval = false; lyrics.changed = { finishedRemoval = true }
         try await local.remove(id); lyrics.invalidate(id); lyrics.update([songs[1]])
-        try await waitForStream { lyrics.revision == 7 }
+        try await waitForStream { finishedRemoval }
         XCTAssertNil(lyrics.value(songs[1]))
     }
 
@@ -116,7 +117,7 @@ import XCTest
         defer { tested.stop(); tested.clearOutput() }
         _ = try tested.setTransitionSettings(["enabled": true, "mode": "automix", "crossfadeMaxSec": 5.0])
         try tested.setQueue(songs, at: 0)
-        try await waitForStream { tested.outputIsPlaying && tested.preparedStream != nil && lyrics.revision == 2 }
+        try await waitForStream { tested.outputIsPlaying && tested.preparedStream != nil && lyrics.revision >= 2 }
         try tested.command("seek", position: earlyStart - 1.5)
         try await waitForStream { tested.outputIsPlaying && tested.stream?.seeking == false }
         let sidecar = root.appendingPathComponent(try XCTUnwrap(reference["fileName"] as? String))

@@ -3,7 +3,7 @@ import AVFoundation
 @testable import App
 
 // NavidromePlaybackTests.swift — scoped native decoding and queue lifetimes against controlled Subsonic responses.
-@MainActor private final class NavidromePlaybackFixture {
+@MainActor final class NavidromePlaybackFixture {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     let base = URL(string: "https://" + UUID().uuidString.lowercased() + ".profile.invalid/tenant")!
     let suite = "folia.navidrome-playback." + UUID().uuidString
@@ -25,7 +25,9 @@ import AVFoundation
         _ = try client.configure(["baseURL": base.absoluteString, "username": "qa+用户", "password": "generated private password",
                                   "enabled": true], expected: 0, scope: "")
         player = PlaybackEngine(gateway: gateway, storage: storage, usesStereoOutput: true,
-            mediaNetworkConfiguration: configuration, mediaCache: cache)
+            mediaNetworkConfiguration: configuration, mediaCache: cache,
+            coverCache: NativeCoverCache(root: root.appendingPathComponent("covers"), configuration: configuration),
+            lyricCache: NativeLyricCache(root: root.appendingPathComponent("lyrics")))
         player.network.cancel(); player.connectNavidrome(client)
     }
     func close() {
@@ -43,7 +45,7 @@ import AVFoundation
     }
     @discardableResult func route(_ operation: String, id: String, body: Data, status: Int = 200) -> ProfileHTTPFixture {
         var parts = URLComponents(url: base.appendingPathComponent("rest/" + operation), resolvingAgainstBaseURL: false)!
-        parts.queryItems = [URLQueryItem(name: "id", value: id)]
+        if !id.isEmpty { parts.queryItems = [URLQueryItem(name: "id", value: id)] }
         let url = parts.url!, fixture = ProfileHTTPFixture(body)
         fixture.status = status
         if operation != "stream" { fixture.headers = ["Content-Type": "application/json"] }
@@ -203,6 +205,7 @@ import AVFoundation
 
     func testNavidromeAuthenticationStopsBeforeTryingOtherTracks() async throws {
         let gateway = FailingGateway(), fixture = try NavidromePlaybackFixture(gateway: gateway); defer { fixture.close() }
+        fixture.player.artwork.navidrome = nil // Count playback retries independently of optional artwork reads.
         let metadata = fixture.route("getSong", id: "expired", body: Data("{\"subsonic-response\":{\"status\":\"failed\",\"version\":\"1.16.1\",\"error\":{\"code\":40,\"message\":\"private credentials\"}}}".utf8))
         try fixture.player.setQueue([fixture.song("expired"), fixture.song("next")], at: 0)
         try await waitForStream { fixture.player.error != nil }
@@ -271,6 +274,7 @@ import AVFoundation
 
     func testNavidromeRepeatedSourceFailureStopsAfterThreeTracks() async throws {
         let fixture = try NavidromePlaybackFixture(gateway: FailingGateway()); defer { fixture.close() }
+        fixture.player.artwork.navidrome = nil // Count playback retries independently of optional artwork reads.
         var samples: [ProfileHTTPFixture] = []
         for id in ["one", "two", "three", "four"] {
             samples.append(fixture.route("getSong", id: id, body: Data("unavailable".utf8), status: 503))

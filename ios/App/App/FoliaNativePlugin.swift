@@ -17,6 +17,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         "getAISettings", "setAISettings", "aiRequest", "cancelAIRequest",
         "getSyncSettings", "setSyncSettings", "syncRequest", "cancelSyncRequest",
         "getNavidromeSettings", "setNavidromeSettings", "navidromeRequest", "cancelNavidromeRequest",
+        "readNavidromeLyrics",
         "getModels", "downloadModel", "cancelModel", "removeModels", "importModel"].map { CAPPluginMethod(name: $0, returnType: CAPPluginReturnPromise) }
     let picker = LocalImportPicker()
     let lyricFileShare = LyricFileShare()
@@ -218,7 +219,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         let song = try PlaybackEngine.sanitizedSong(raw)
         Task { @MainActor in
             do {
-                let data = try await self.engine.coverCache.cover(song, local: self.engine.local)
+                let data = try await self.engine.songCover(song)
                 call.resolve(data.map { ["url": "data:image/jpeg;base64," + $0.base64EncodedString()] } ?? [:])
             } catch { call.reject((error as? MobileFailure)?.code ?? "cover-unavailable") }
         }

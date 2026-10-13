@@ -2,6 +2,10 @@ import Foundation
 
 // NativeLyricExport.swift — bounded cache identity recovery and read-only export inventory.
 enum NativeLyricExport {
+    static func allowsNavidrome(_ song: [String: Any]?, scope: String) -> Bool {
+        guard !scope.isEmpty, let ref = song?["sourceRef"] as? [String: Any] else { return false }
+        return ref["kind"] as? String == "navidrome" && ref["scope"] as? String == scope
+    }
     static func metadata(_ song: [String: Any]) throws -> [String: Any] {
         var clean = try PlaybackEngine.sanitizedSong(song)
         var album = clean["album"] as? [String: Any] ?? [:]; album.removeValue(forKey: "coverUrl")
@@ -10,7 +14,7 @@ enum NativeLyricExport {
     }
     static func url(_ key: String, root: URL) throws -> URL {
         let parts = key.split(separator: "/", omittingEmptySubsequences: false)
-        guard parts.count == 2, ["qq", "netease", "kugou"].contains(String(parts[0])),
+        guard parts.count == 2, NativeResourceFiles.providers.contains(String(parts[0])),
               NativeMediaFiles.validKey(String(parts[1])) else { throw MobileFailure("invalid-lyric-identity") }
         return root.appendingPathComponent(String(parts[0])).appendingPathComponent(String(parts[1]) + ".json")
     }
@@ -51,7 +55,7 @@ enum NativeLyricExport {
             if let clean = try? metadata(song), let id = NativeProfileIdentity(clean), id.provider != nil { known[id.key] = clean }
         }
         var result: [[String: Any]] = []
-        for provider in ["qq", "netease", "kugou"] {
+        for provider in NativeResourceFiles.providers {
             let folder = root.appendingPathComponent(provider)
             guard FileManager.default.fileExists(atPath: folder.path) else { continue }
             // Unlike cache summary/pruning, a failed export inventory must not look like an empty cache.

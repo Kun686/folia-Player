@@ -2,9 +2,10 @@ import Foundation
 
 // NativeResourceFiles.swift — provider-scoped, bounded cache inventory reused by covers and parsed lyrics.
 struct NativeResourceFiles {
+    static let providers = ["qq", "netease", "kugou", "navidrome"]
     let root: URL, fileExtension: String
     func entries(provider: String? = nil) -> [(URL, Int, Date)] {
-        (provider.map { [$0] } ?? ["qq", "netease", "kugou"]).flatMap { provider in
+        (provider.map { [$0] } ?? Self.providers).flatMap { provider in
             ((try? FileManager.default.contentsOfDirectory(at: root.appendingPathComponent(provider),
                 includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey, .isRegularFileKey, .isSymbolicLinkKey])) ?? []).compactMap { url in
                 guard url.pathExtension == fileExtension, NativeMediaFiles.validKey(url.deletingPathExtension().lastPathComponent),

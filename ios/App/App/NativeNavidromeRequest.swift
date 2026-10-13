@@ -66,6 +66,12 @@ enum NativeNavidromeRequest {
     static func validMediaID(_ id: String) -> Bool {
         !id.isEmpty && id.utf8.count <= 4096 && !id.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
     }
+    static func coverURL(_ settings: NativeNavidromeSettings, id: String) throws -> URL {
+        try settings.validate()
+        guard settings.enabled else { throw MobileFailure("navidrome-disabled") }
+        guard validMediaID(id) else { throw MobileFailure("invalid-identity") }
+        return try signedURL(settings, operation: "getCoverArt", parameters: ["id": id, "size": "600"])
+    }
     static func isSignedMediaURL(_ url: URL) -> Bool {
         let names = Set(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.map(\.name) ?? [])
         return ["stream", "getCoverArt"].contains(url.lastPathComponent)

@@ -104,7 +104,7 @@ export async function initializeRuntime() {
   installMobileRuntime({ fetch: request, sync: mobileSyncConnection,
     lyrics: {
       open: async song => {
-        const provider = song.sourceRef?.kind === 'online' ? song.sourceRef.providerId : 'local';
+        const provider = song.sourceRef?.kind === 'online' ? song.sourceRef.providerId : song.sourceRef?.kind ?? 'local';
         const epoch = generation(provider), lyrics = lyricGeneration;
         await persistence;
         return openNativeLyricsStorage(song, () => epoch === generation(provider) && lyrics === lyricGeneration);
@@ -114,7 +114,7 @@ export async function initializeRuntime() {
     },
     covers: {
       load: async song => {
-        const provider = song.sourceRef?.kind === 'online' ? song.sourceRef.providerId : 'local';
+        const provider = song.sourceRef?.kind === 'online' ? song.sourceRef.providerId : song.sourceRef?.kind ?? 'local';
         const epoch = generation(provider), covers = coverGeneration;
         const result = await native.songCover({ song });
         if (epoch !== generation(provider) || (provider !== 'local' && covers !== coverGeneration)) throw new DOMException('Canceled', 'AbortError');

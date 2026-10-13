@@ -2,17 +2,32 @@ import Capacitor
 
 // FoliaNativeLyricsPlugin.swift — packaged frontend gets parsed data and revocable write tokens, never platform sessions.
 extension FoliaNativePlugin {
+    @MainActor private func lyricExportScope() throws -> String {
+        let settings = try navidrome.snapshot()
+        return settings["enabled"] as? Bool == true ? settings["scope"] as? String ?? "" : ""
+    }
     @objc func listExportLyrics(_ call: CAPPluginCall) { run(call) {
         let songs = self.engine.queue + (self.engine.currentSong.map { [$0] } ?? [])
         Task { @MainActor in
-            do { call.resolve(try await self.engine.lyricCache.exportInventory(knownSongs: songs)) }
+            do {
+                let scope = try self.lyricExportScope()
+                try await self.engine.mediaCachePurges["navidrome"]?.value
+                let result = try await self.engine.lyricCache.exportInventory(knownSongs: songs, navidromeScope: scope)
+                guard scope == (try self.lyricExportScope()) else { throw MobileFailure("lyric-cache-changed") }
+                call.resolve(result)
+            }
             catch { call.reject((error as? MobileFailure)?.code ?? "lyric-cache-unavailable") }
         }
     } }
     @objc func readExportLyrics(_ call: CAPPluginCall) { run(call) {
         guard let key = call.getString("key"), let token = call.getString("token") else { throw MobileFailure("invalid-lyric-identity") }
         Task { @MainActor in
-            do { call.resolve(try await self.engine.lyricCache.exportRead(key: key, token: token)) }
+            do {
+                let scope = try self.lyricExportScope()
+                let result = try await self.engine.lyricCache.exportRead(key: key, token: token, navidromeScope: scope)
+                guard scope == (try self.lyricExportScope()) else { throw MobileFailure("lyric-cache-changed") }
+                call.resolve(result)
+            }
             catch { call.reject((error as? MobileFailure)?.code ?? "lyric-cache-unavailable") }
         }
     } }
@@ -22,7 +37,12 @@ extension FoliaNativePlugin {
         let token = call.getString("token")
         Task { @MainActor in
             do {
-                if let token { try await self.engine.lyricCache.validateExport(token) }
+                if let token {
+                    let scope = try self.lyricExportScope()
+                    try await self.engine.mediaCachePurges["navidrome"]?.value
+                    try await self.engine.lyricCache.validateExport(token, navidromeScope: scope)
+                    guard scope == (try self.lyricExportScope()) else { throw MobileFailure("lyric-cache-changed") }
+                }
                 try self.lyricFileShare.presentArchive(fileName: name, encoded: data, on: controller) { result in
                     switch result {
                     case .success(let completed): call.resolve(["completed": completed])
@@ -37,6 +57,14 @@ extension FoliaNativePlugin {
         let song = try PlaybackEngine.sanitizedSong(raw)
         Task { @MainActor in
             do {
+                if (song["sourceRef"] as? [String: Any])?["kind"] as? String == "navidrome" {
+                    let epoch = try self.navidrome.validatePlayback(song)
+                    try await self.engine.mediaCachePurges["navidrome"]?.value
+                    var snapshot = try await self.engine.lyricCache.read(song)
+                    _ = try self.navidrome.validatePlayback(song, expected: epoch)
+                    snapshot["sessionToken"] = "navidrome:\(epoch)"
+                    call.resolve(snapshot); return
+                }
                 let transport = try NativeLyricMatchTransport(gateway: self.engine.gateway)
                 var snapshot = try await self.engine.lyricCache.read(song)
                 try transport.validate()
@@ -53,11 +81,17 @@ extension FoliaNativePlugin {
         Task { @MainActor in
             do {
                 let selection = call.getString("selectionToken")
-                let transport = try NativeLyricMatchTransport(gateway: self.engine.gateway)
+                let client = (song["sourceRef"] as? [String: Any])?["kind"] as? String == "navidrome" ? self.navidrome : nil
+                let epoch = try client?.validatePlayback(song)
+                if client != nil { try await self.engine.mediaCachePurges["navidrome"]?.value }
+                let transport = client == nil ? try NativeLyricMatchTransport(gateway: self.engine.gateway) : nil
                 let expectedSession = call.getString("sessionToken")
                 try await self.engine.lyricCache.write(song, token: token, field: field, value: value,
                     selectionToken: selection, validate: {
-                        if selection != nil {
+                        if let client {
+                            _ = try await client.validatePlayback(song, expected: epoch)
+                            if selection != nil, expectedSession != "navidrome:\(epoch!)" { throw MobileFailure("lyric-session-changed") }
+                        } else if selection != nil, let transport {
                             guard expectedSession == transport.sessionToken else { throw MobileFailure("lyric-session-changed") }
                             try transport.validate()
                         }

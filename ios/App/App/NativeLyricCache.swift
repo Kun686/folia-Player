@@ -6,6 +6,7 @@ actor NativeLyricCache {
     private let parser: NativeLyricParser
     private var tokens: [String: String] = [:]
     private var exportToken = UUID().uuidString
+    private var exportScope = ""
     private let limit: Int
     init(root: URL? = nil, parser: NativeLyricParser = NativeLyricParser(), limit: Int = 64 * 1024 * 1024) {
         self.root = root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -13,7 +14,7 @@ actor NativeLyricCache {
         self.parser = parser; self.limit = max(0, limit)
     }
     private func identity(_ song: [String: Any]) throws -> NativeProfileIdentity {
-        guard let id = NativeProfileIdentity(song), ["qq", "netease", "kugou"].contains(id.provider ?? "") else { throw MobileFailure("invalid-lyric-identity") }
+        guard let id = NativeProfileIdentity(song), NativeResourceFiles.providers.contains(id.provider ?? "") else { throw MobileFailure("invalid-lyric-identity") }
         return id
     }
     private func token(_ provider: String) -> String {
@@ -59,9 +60,9 @@ actor NativeLyricCache {
         return result
     }
     func write(_ song: [String: Any], token expected: String, field: String, value: Any, onlyIfMissing: Bool = false,
-               selectionToken expectedSelection: String? = nil, validate: () throws -> Void = {}) async throws {
+               selectionToken expectedSelection: String? = nil, validate: () async throws -> Void = {}) async throws {
         let id = try identity(song)
-        try validate()
+        try await validate()
         guard ["lyrics", "state"].contains(field), token(id.provider!) == expected else { throw MobileFailure("lyric-cache-changed") }
         let validated = try await parser.cacheDocument([field: value])
         try Task.checkCancellation()
@@ -69,7 +70,9 @@ actor NativeLyricCache {
             throw MobileFailure("lyric-cache-changed")
         }
         // Merge only after validation returns: a concurrent state edit must not be replaced by a late provider result.
-        try validate()
+        try await validate()
+        try Task.checkCancellation()
+        guard token(id.provider!) == expected else { throw MobileFailure("lyric-cache-changed") }
         let saved = record(id)
         var current = saved["payload"] as? [String: Any] ?? [:]
         let selectionVersion = saved["selectionVersion"] as? String ?? "legacy"
@@ -115,6 +118,40 @@ actor NativeLyricCache {
             return fetched["lines"] as? [[String: Any]]
         }
     }
+    func navidromeSnapshot(_ song: [String: Any], client: NativeNavidromeClient, refresh: Bool = false) async throws -> [String: Any] {
+        let epoch = try await client.validatePlayback(song)
+        let snapshot = try await read(song), payload = snapshot["payload"] as? [String: Any] ?? [:]
+        let state = payload["state"] as? [String: Any] ?? [:], expected = snapshot["token"] as! String
+        _ = try await client.validatePlayback(song, expected: epoch)
+        if !refresh && (payload.keys.contains("lyrics") || state["hasOnlineOverride"] as? Bool == true
+            || (state["lyricsSource"] as? String == "imported" && state["importedLyrics"] is [String: Any])) { return snapshot }
+        let document = try await NativeNavidromeLyrics.document(song, client: client, parser: parser)
+        try Task.checkCancellation()
+        _ = try await client.validatePlayback(song, expected: epoch)
+        guard token("navidrome") == expected else { throw MobileFailure("lyric-cache-changed") }
+        do {
+            try await write(song, token: expected, field: "lyrics", value: document["lyrics"] ?? NSNull(), onlyIfMissing: !refresh,
+                validate: { _ = try await client.validatePlayback(song, expected: epoch) })
+        } catch {
+            try Task.checkCancellation()
+            _ = try await client.validatePlayback(song, expected: epoch)
+            guard token("navidrome") == expected else { throw MobileFailure("lyric-cache-changed") }
+            // Optional disk persistence may fail. Validate in-memory data and preserve a newer user selection.
+            guard (error as NSError).domain == NSCocoaErrorDomain else { throw error }
+            let latest = try await read(song)
+            var payload = latest["payload"] as? [String: Any] ?? [:]
+            if refresh || !payload.keys.contains("lyrics") { payload["lyrics"] = document["lyrics"] ?? NSNull() }
+            var result = try await parser.cacheDocument(payload)
+            _ = try await client.validatePlayback(song, expected: epoch)
+            guard token("navidrome") == expected else { throw MobileFailure("lyric-cache-changed") }
+            result["token"] = expected; result["selectionToken"] = latest["selectionToken"]
+            return result
+        }
+        let result = try await read(song)
+        _ = try await client.validatePlayback(song, expected: epoch)
+        guard token("navidrome") == expected else { throw MobileFailure("lyric-cache-changed") }
+        return result
+    }
     private var files: NativeResourceFiles { NativeResourceFiles(root: root, fileExtension: "json") }
     private func prune() throws {
         // Imported and authoritative selections are user data, not disposable provider refreshes.
@@ -126,22 +163,30 @@ actor NativeLyricCache {
         }
     }
     func summary() -> [String: Int] { files.summary() }
-    func exportInventory(knownSongs: [[String: Any]]) throws -> [String: Any] {
-        ["token": exportToken, "entries": try NativeLyricExport.inventory(root: root, knownSongs: knownSongs)]
+    func exportInventory(knownSongs: [[String: Any]], navidromeScope: String = "") throws -> [String: Any] {
+        if exportScope != navidromeScope { exportScope = navidromeScope; exportToken = UUID().uuidString }
+        let entries = try NativeLyricExport.inventory(root: root, knownSongs: knownSongs).filter { item in
+            guard (item["key"] as? String)?.hasPrefix("navidrome/") == true else { return true }
+            return NativeLyricExport.allowsNavidrome(item["song"] as? [String: Any], scope: navidromeScope)
+        }
+        return ["token": exportToken, "entries": entries]
     }
-    func validateExport(_ expected: String) throws {
-        guard expected == exportToken else { throw MobileFailure("lyric-cache-changed") }
+    func validateExport(_ expected: String, navidromeScope: String = "") throws {
+        guard expected == exportToken, exportScope == navidromeScope else { throw MobileFailure("lyric-cache-changed") }
     }
-    func exportRead(key: String, token expected: String) async throws -> [String: Any] {
-        try validateExport(expected)
+    func exportRead(key: String, token expected: String, navidromeScope: String = "") async throws -> [String: Any] {
+        try validateExport(expected, navidromeScope: navidromeScope)
         let record = try NativeLyricExport.record(NativeLyricExport.url(key, root: root))
+        if key.hasPrefix("navidrome/"), !NativeLyricExport.allowsNavidrome(NativeLyricExport.song(record), scope: navidromeScope) {
+            throw MobileFailure("navidrome-settings-changed")
+        }
         let parsed = try await parser.cacheDocument(record["payload"] as! [String: Any])
-        try Task.checkCancellation(); try validateExport(expected)
+        try Task.checkCancellation(); try validateExport(expected, navidromeScope: navidromeScope)
         return ["payload": parsed["payload"] ?? [:]]
     }
     func clear(provider: String? = nil) throws {
-        guard provider == nil || ["qq", "netease", "kugou"].contains(provider!) else { throw MobileFailure("invalid-provider") }
-        for provider in provider.map({ [$0] }) ?? ["qq", "netease", "kugou"] { tokens[provider] = UUID().uuidString }
+        guard provider == nil || NativeResourceFiles.providers.contains(provider!) else { throw MobileFailure("invalid-provider") }
+        for provider in provider.map({ [$0] }) ?? NativeResourceFiles.providers { tokens[provider] = UUID().uuidString }
         exportToken = UUID().uuidString
         try files.clear(provider: provider)
     }

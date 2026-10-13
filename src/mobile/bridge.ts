@@ -62,6 +62,7 @@ export interface FoliaNativePlugin {
   setNavidromeSettings(options: { revision: number; scope: string; settings: NativeNavidromeSettingsEdit }): Promise<NativeNavidromeSettings>;
   navidromeRequest(options: { id: string; revision: number; scope: string; operation: NativeNavidromeOperation; parameters: Record<string, string> }): Promise<NativeNavidromeResponse>;
   cancelNavidromeRequest(options: { id: string }): Promise<void>;
+  readNavidromeLyrics(options: { song: SongResult; refresh?: boolean }): ReturnType<FoliaNativePlugin['readLyricCache']>;
   getAISettings(): Promise<NativeAISettings>;
   setAISettings(options: { revision: number; settings: NativeAISettingsEdit }): Promise<NativeAISettings>;
   aiRequest(options: { id: string; revision: number; provider: NativeAISettings['provider']; body: string }): Promise<NativeAIResponse>;

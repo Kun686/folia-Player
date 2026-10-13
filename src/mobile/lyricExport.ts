@@ -24,7 +24,7 @@ async function readRawSource(song: SongResult, priority: LocalLyricsPriority): P
                 ? () => snapshot.matched!.matchedIsPureMusic! : isPureMusicLyricText,
         };
     }
-    if (song.sourceRef?.kind !== 'online') throw new Error('unsupported-lyric-source');
+    if (song.sourceRef?.kind !== 'online' && song.sourceRef?.kind !== 'navidrome') throw new Error('unsupported-lyric-source');
     // Both fields come from one native snapshot, so a concurrent source change cannot mix them.
     const { payload } = await native.readLyricCache({ song });
     const state = payload.state ?? null;

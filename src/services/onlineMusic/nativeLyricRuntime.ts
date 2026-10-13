@@ -16,6 +16,7 @@ export { vorbisMetadataJSON } from '../../utils/lyrics/nativeVorbisMetadata';
 export { localMatchJSON } from '../../utils/lyrics/nativeLocalMatchRuntime';
 export { localAutomaticInputJSON, localAutomaticResultJSON } from './nativeLocalAutomaticMatch';
 export { cacheJSON } from '../../utils/lyrics/nativeCacheRuntime';
+export { navidromeStepJSON } from '../../utils/lyrics/nativeNavidromeRuntime';
 function fail(code = 'invalid-lyric-response'): never { throw new Error(code); }
 type Reply = { status: number; body: string };
 const readResponse = (response: Reply) => {

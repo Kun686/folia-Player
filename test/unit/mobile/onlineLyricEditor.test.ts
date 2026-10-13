@@ -6,7 +6,8 @@ import { matchOnlineLyricSelection } from '../../../src/utils/onlineLyricEdits';
 import { resolveOnlineLyrics } from '../../../src/utils/onlineLyricsSelection';
 
 // onlineLyricEditor.test.ts — actual original import parser plus persistence/cancellation semantics at the native boundary.
-const api = vi.hoisted(() => ({ getLyrics: vi.fn() }));
+const api = vi.hoisted(() => ({ getLyrics: vi.fn(), readNavidromeLyrics: vi.fn() }));
+vi.mock('@/mobile/bridge', () => ({ native: { readNavidromeLyrics: api.readNavidromeLyrics } }));
 vi.mock('../../../src/services/onlineMusic/omni', () => ({ omni: api }));
 vi.mock('../../../src/utils/lyrics/workerClient', async () => {
   const { parseLyricsByFormat } = await import('../../../src/utils/lyrics/parserCore');
@@ -41,6 +42,17 @@ describe('mobile original online lyric edits', () => {
     await resetMobileOnlineLyrics(storage, song);
     expect(api.getLyrics).toHaveBeenCalledWith(song); expect(writes).toEqual(['lyrics', 'state']);
     expect(selected).toEqual({ lyricsSource: 'online' });
+  });
+  it('restores Navidrome through native parsing and retains selection on session failure', async () => {
+    const scoped: SongResult = { ...song, sourceRef: { kind: 'navidrome', mediaId: 'track', scope: 'scope' } };
+    api.readNavidromeLyrics.mockResolvedValue({ payload: { lyrics: base } });
+    await resetMobileOnlineLyrics(storage, scoped);
+    expect(api.readNavidromeLyrics).toHaveBeenCalledWith({ song: scoped, refresh: true });
+    expect(api.getLyrics).not.toHaveBeenCalled(); expect(writes).toEqual(['lyrics', 'state']);
+    const saved = selected; writes = [];
+    api.readNavidromeLyrics.mockRejectedValue(new Error('navidrome-settings-changed'));
+    await expect(resetMobileOnlineLyrics(storage, scoped)).rejects.toThrow('navidrome-settings-changed');
+    expect(selected).toBe(saved); expect(writes).toEqual([]);
   });
   it('preserves selections if the original provider fails or persistence rejects a write', async () => {
     const original = selected; api.getLyrics.mockRejectedValue(new Error('offline'));

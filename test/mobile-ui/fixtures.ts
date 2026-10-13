@@ -61,7 +61,7 @@ export const test = base.extend<{ nativeBridge: void }>({
     const methods = ['getDisplaySleepSettings', 'setDisplaySleepSettings', 'chooseAudioRoute', 'getLyricSettings', 'setLyricSettings', 'startPersonalFM', 'leavePersonalFM', 'getModels', 'downloadModel', 'cancelModel', 'removeModels', 'importModel', 'bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile', 'sharePlaylistFile',
       'readLocalFolders', 'beginFolderImport', 'readFolderImport', 'prepareFolderImport', 'finishFolderImport', 'cancelFolderImport', 'removeLocalFolder',
       'readLocalLibrary', 'editLocalLibrary', 'localCatalog', 'importAudio', 'localDetails', 'readLocalLyrics', 'readLocalMatch', 'writeLocalMatch', 'selectLocalLyrics', 'importLyrics', 'pickLyricFile', 'saveLocalLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
-      'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache', 'listExportLyrics', 'readExportLyrics', 'shareLyricArchive', 'getSleepTimer', 'setSleepTimer', 'getAISettings', 'setAISettings', 'aiRequest', 'cancelAIRequest', 'getSyncSettings', 'setSyncSettings', 'syncRequest', 'cancelSyncRequest'];
+      'readNavidromeLyrics', 'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache', 'listExportLyrics', 'readExportLyrics', 'shareLyricArchive', 'getSleepTimer', 'setSleepTimer', 'getAISettings', 'setAISettings', 'aiRequest', 'cancelAIRequest', 'getSyncSettings', 'setSyncSettings', 'syncRequest', 'cancelSyncRequest'];
     win.Capacitor = {
       PluginHeaders: [{ name: 'FoliaNative', methods: [...methods.map(name => ({ name, rtype: 'promise' })), { name: 'addListener' }, { name: 'removeListener' }] }],
       nativeCallback: (_plugin: string, method: string, options: any, cb: (state: unknown) => void) => {
@@ -143,7 +143,7 @@ export const test = base.extend<{ nativeBridge: void }>({
           return { completed: !win.fixtureShareCancelled };
         }
         if (method === 'copyText') { if (win.fixtureClipboardFailure) throw new Error('clipboard-unavailable'); win.fixtureClipboard = options.text; return {}; }
-        if (method === 'readLyricCache') return { token: lyricToken, payload: structuredClone(lyricCache[JSON.stringify(options.song.sourceRef)] || {}) };
+        if (method === 'readLyricCache' || method === 'readNavidromeLyrics') return { token: lyricToken, payload: structuredClone(lyricCache[JSON.stringify(options.song.sourceRef)] || {}) };
         if (method === 'writeLyricCache') {
           if (win.fixtureLyricWriteFailure) throw new Error('disk-full');
           if (options.token !== lyricToken) throw new Error('lyric-cache-changed');

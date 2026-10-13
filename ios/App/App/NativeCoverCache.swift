@@ -4,7 +4,7 @@ import UIKit
 
 // NativeCoverCache.swift — one credential-free, bounded cover store for the WebView and lock screen.
 actor NativeCoverCache {
-    private struct Job { let token: UUID; let provider: String; let task: Task<Data, Error> }
+    private struct Job { let token: UUID; let provider: String; let task: Task<Data?, Error> }
     private let root: URL
     private let configuration: URLSessionConfiguration
     private let limit: Int
@@ -31,7 +31,8 @@ actor NativeCoverCache {
         try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url.path)
         return data
     }
-    func cover(_ song: [String: Any], local: LocalMediaLibrary, allowNetwork: Bool = true) async throws -> Data? {
+    func cover(_ song: [String: Any], local: LocalMediaLibrary, allowNetwork: Bool = true,
+               navidrome: NativeNavidromeClient? = nil) async throws -> Data? {
         try Task.checkCancellation()
         guard let identity = NativeProfileIdentity(song) else { throw MobileFailure("invalid-cover-identity") }
         if let id = identity.localID {
@@ -40,20 +41,31 @@ actor NativeCoverCache {
             try Task.checkCancellation()
             return try await local.cover(id)
         }
-        // This path accepts public provider artwork URLs only, never Subsonic credentials from JS.
-        guard identity.provider != "navidrome" else { return nil }
+        let scopedClient = identity.provider == "navidrome" ? navidrome : nil
+        if identity.provider == "navidrome", scopedClient == nil { throw MobileFailure("navidrome-not-configured") }
+        let connection = try await scopedClient?.validatePlayback(song)
         let destination = path(identity)
-        if let data = cached(destination) { return data }
+        if let data = cached(destination) {
+            _ = try await scopedClient?.validatePlayback(song, expected: connection)
+            return data
+        }
         guard allowNetwork else { return nil }
-        guard let raw = (song["album"] as? [String: Any])?["coverUrl"] as? String, raw.count <= 4096,
-              let url = URL(string: raw) else { return nil }
-        _ = try NativeMediaTransport.request(url)
         let key = identity.key, provider = identity.provider!, epoch = generations[identity.provider!, default: 0]
         let job: Job
         if let existing = jobs[key] { job = existing }
         else {
             guard jobs.count < 4 else { throw MobileFailure("cover-busy") }
-            let task = Task { [configuration] in
+            let task = Task<Data?, Error> { [configuration] in
+                let url: URL
+                if let scopedClient {
+                    guard let source = try await scopedClient.coverURL(song) else { return nil }
+                    url = source
+                } else {
+                    guard let raw = (song["album"] as? [String: Any])?["coverUrl"] as? String, raw.count <= 4096,
+                          let source = URL(string: raw) else { return nil }
+                    url = source
+                }
+                _ = try NativeMediaTransport.request(url)
                 let download = try await NativeMediaDownload(configuration: configuration, maximumBytes: 8_000_000,
                                                               resourceTimeout: 30).read(url)
                 defer { try? FileManager.default.removeItem(at: download.url) }
@@ -63,10 +75,12 @@ actor NativeCoverCache {
             job = Job(token: UUID(), provider: identity.provider!, task: task); jobs[key] = job
         }
         defer { if jobs[key]?.token == job.token { jobs.removeValue(forKey: key) } }
-        let data = try await job.task.value
+        let result = try await job.task.value
+        _ = try await scopedClient?.validatePlayback(song, expected: connection)
         // Clear/logout invalidates the shared job, even if a completed network reply is already queued.
         guard generations[provider, default: 0] == epoch else { throw CancellationError() }
         try Task.checkCancellation()
+        guard let data = result else { return nil }
         // Optional persistence must not hide an otherwise valid image when storage is full.
         // Each live waiter may publish identical bytes, so one cancelled consumer cannot prevent caching.
         try? FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true,
@@ -94,8 +108,8 @@ actor NativeCoverCache {
     private func prune() throws { try files.prune(limit: limit) }
     func summary() -> [String: Int] { files.summary() }
     func clear(provider: String? = nil) throws {
-        guard provider == nil || ["qq", "netease", "kugou"].contains(provider!) else { throw MobileFailure("invalid-provider") }
-        for provider in provider.map({ [$0] }) ?? ["qq", "netease", "kugou"] { generations[provider, default: 0] += 1 }
+        guard provider == nil || NativeResourceFiles.providers.contains(provider!) else { throw MobileFailure("invalid-provider") }
+        for provider in provider.map({ [$0] }) ?? NativeResourceFiles.providers { generations[provider, default: 0] += 1 }
         for (key, job) in jobs where provider == nil || job.provider == provider { job.task.cancel(); jobs.removeValue(forKey: key) }
         try files.clear(provider: provider)
     }

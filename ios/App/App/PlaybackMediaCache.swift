@@ -6,6 +6,30 @@ extension PlaybackEngine {
         navidrome?.connectionChanged = nil
         navidrome = client
         client.connectionChanged = { [weak self] in self?.invalidateProvider("navidrome") }
+        artwork.navidrome = { [weak self] song, allow in
+            guard let self else { throw CancellationError() }
+            return try await self.songCover(song, allowNetwork: allow)
+        }
+        crossfade?.connectNavidrome { [weak self] song in
+            guard let self else { throw CancellationError() }
+            return try await self.navidromeLyrics(song)
+        }
+    }
+    @MainActor func songCover(_ song: [String: Any], allowNetwork: Bool = true) async throws -> Data? {
+        let epoch = try validateNavidrome(song)
+        if epoch != nil { try await mediaCachePurges["navidrome"]?.value }
+        let data = try await coverCache.cover(song, local: local, allowNetwork: allowNetwork, navidrome: navidrome)
+        _ = try validateNavidrome(song, expected: epoch)
+        return data
+    }
+    @MainActor func navidromeLyrics(_ song: [String: Any], refresh: Bool = false) async throws -> [String: Any] {
+        guard let navidrome else { throw MobileFailure("navidrome-not-configured") }
+        let epoch = try navidrome.validatePlayback(song)
+        try await mediaCachePurges["navidrome"]?.value
+        _ = try navidrome.validatePlayback(song, expected: epoch)
+        let result = try await lyricCache.navidromeSnapshot(song, client: navidrome, refresh: refresh)
+        _ = try navidrome.validatePlayback(song, expected: epoch)
+        return result
     }
     @MainActor private func validateNavidrome(_ song: [String: Any], expected: Int? = nil) throws -> Int? {
         guard (song["sourceRef"] as? [String: Any])?["kind"] as? String == "navidrome" else { return nil }

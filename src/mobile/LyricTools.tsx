@@ -34,7 +34,7 @@ export default function LyricTools({ song, time, lyricTime, lyrics, rawLyrics, s
   const [segmenting, setSegmenting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [retry, setRetry] = useState(0);
-  const online = song.sourceRef?.kind === 'online';
+  const online = song.sourceRef?.kind === 'online' || song.sourceRef?.kind === 'navidrome';
   useEffect(() => {
     let mounted = true; active.current = true; setError(false);
     if (online) void (async () => {
@@ -69,7 +69,8 @@ export default function LyricTools({ song, time, lyricTime, lyrics, rawLyrics, s
     <GlobalLyricOffsetModal isOpen={visible} isDaylight={light} lyrics={lyrics} lyricCurrentTime={lyricTime}
       onClose={() => setCalibrating(false)} />
   </div>;
-  const sourceLabel = getLyricProviderLabel(selection?.matchedLyricsSource ?? getSongNativeLyricProviderSource(song), selection?.matchedLyricsProviderPlatform);
+  const sourceLabel = song.sourceRef?.kind === 'navidrome' && !selection?.matchedLyricsSource ? 'Navidrome'
+    : getLyricProviderLabel(selection?.matchedLyricsSource ?? getSongNativeLyricProviderSource(song), selection?.matchedLyricsProviderPlatform);
   return <div className="sheet-backdrop"><section className="sheet online-lyric-tools" role="dialog" aria-modal="true" aria-label={t('localMusic.lyrics')}>
     <header><h2>{t('localMusic.lyrics')}</h2><button onClick={dismiss}>{t('mobile.close')}</button></header>
     <p>{song.name}</p>

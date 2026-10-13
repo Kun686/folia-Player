@@ -111,6 +111,7 @@ final class NativeCrossfade {
         if let fade, matches(fade.tailSong) { cancel() }
     }
     func invalidateProvider(_ provider: String) { invalidatePlan(); profiles.invalidateProvider(provider); lyrics.invalidateProvider(provider); stems.remove(provider: provider) }
+    func connectNavidrome(_ load: @escaping @MainActor ([String: Any]) async throws -> [String: Any]) { lyrics.navidrome = load }
     func providerLyricsChanged(_ provider: String) {
         lyrics.invalidateProvider(provider)
         if !isFading { invalidatePlan(); tick() }
