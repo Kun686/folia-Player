@@ -163,7 +163,7 @@ final class OnlineAutomixGateway: GatewayClient {
             XCTAssertNil(request.value(forHTTPHeaderField: "Authorization")); XCTAssertNil(request.value(forHTTPHeaderField: "Cookie"))
         }
         XCTAssertTrue(audio.read().rms > 0.00001)
-        report["liveHandover"] = try await onlineAutomixHandover(player, audio: audio)
+        report["liveHandover"] = try await onlineAutomixHandover(player, audio: audio, refreshLyricsDuringPreplay: true)
         let requests = fixtures.map { $0.stats.requests }, resolutions = gateway.resolves.count
         gateway.offline = true
         // Restart the native queue from persisted complete media; no resolver, network or WebView should be needed.
@@ -172,7 +172,7 @@ final class OnlineAutomixGateway: GatewayClient {
         try await waitForStream({ player.outputIsPlaying && player.playbackPosition > 0.5 }, seconds: 10)
         XCTAssertEqual(gateway.resolves.count, resolutions)
         XCTAssertEqual(fixtures.map { $0.stats.requests }, requests)
-        report["offlineHandover"] = try await onlineAutomixHandover(player, audio: audio)
+        report["offlineHandover"] = try await onlineAutomixHandover(player, audio: audio, refreshLyricsDuringPreplay: true)
         XCTAssertEqual(gateway.resolves.count, resolutions)
         XCTAssertEqual(fixtures.map { $0.stats.requests }, requests)
         XCTAssertNil(player.error)
@@ -192,7 +192,8 @@ final class OnlineAutomixGateway: GatewayClient {
     }
 
     // Observe the real render clock after moving to the original measured cue; never replace its plan or PCM.
-    func onlineAutomixHandover(_ player: PlaybackEngine, audio: OutputMeasurement, loopingNext: Int? = nil) async throws -> [String: Any] {
+    func onlineAutomixHandover(_ player: PlaybackEngine, audio: OutputMeasurement, loopingNext: Int? = nil,
+                              refreshLyricsDuringPreplay: Bool = false) async throws -> [String: Any] {
         try await waitForStream({
             player.crossfade?.analysisDiagnostics["planKind"] as? String == "fade"
                 && player.crossfade?.analysisDiagnostics["planning"] as? Bool == false
@@ -200,8 +201,32 @@ final class OnlineAutomixGateway: GatewayClient {
         let plan = try XCTUnwrap(player.crossfade?.analysisDiagnostics)
         let cue = try XCTUnwrap(plan["planOutStart"] as? Double)
         XCTAssertEqual(player.index, 0)
+        let outgoingSong = try XCTUnwrap(player.currentSong)
+        if refreshLyricsDuringPreplay {
+            let snapshot = try await player.lyricCache.read(outgoingSong)
+            try await player.lyricCache.write(outgoingSong, token: snapshot["token"] as! String, field: "lyrics",
+                value: ["lines": [["startTime": 1, "endTime": cue + 2, "fullText": "延迟保存的歌词", "words": []]]])
+        }
         try player.command("seek", position: max(0, cue - 1.5))
         try await waitForStream { player.outputIsPlaying && player.stream?.seeking == false }
+        var lyricRefresh: [String: Any] = [:]
+        if refreshLyricsDuringPreplay {
+            // Deliver the saved automatic update while the actual next decoder is playing at zero gain.
+            try await waitForStream {
+                player.index == 0 && player.preparedStream?.entry.playing == true
+                    && player.crossfade?.analysisDiagnostics["armed"] as? Bool == true
+            }
+            let next = try XCTUnwrap(player.preparedStream?.entry), crossfade = try XCTUnwrap(player.crossfade)
+            let locked = try XCTUnwrap(crossfade.analysisDiagnostics["planOutStart"] as? Double)
+            let generation = player.streamOutput?.transitionGain.clock.generation
+            crossfade.songLyricsChanged(outgoingSong, automatic: true)
+            XCTAssertTrue(player.preparedStream?.entry === next)
+            XCTAssertTrue(next.playing)
+            XCTAssertEqual(crossfade.analysisDiagnostics["armed"] as? Bool, true)
+            XCTAssertEqual(crossfade.analysisDiagnostics["planOutStart"] as? Double, locked)
+            XCTAssertEqual(player.streamOutput?.transitionGain.clock.generation, generation)
+            lyricRefresh = ["duringMutedPreplay": true, "planOutStart": locked, "position": player.playbackPosition]
+        }
         audio.reset()
         var samples: [[String: Any]] = [], sawStem = false, finished = false, stopped = 0
         for index in 0..<400 {
@@ -226,7 +251,7 @@ final class OnlineAutomixGateway: GatewayClient {
         XCTAssertEqual(player.streamOutput?.attachedCount, 1)
         let pcm = audio.read()
         XCTAssertGreaterThan(pcm.frames, 10000); XCTAssertGreaterThan(pcm.rms, 0.00001)
-        return ["plan": plan, "sawStem": sawStem, "finished": finished, "notPlayingSamples": stopped,
+        return ["plan": plan, "lyricRefresh": lyricRefresh, "sawStem": sawStem, "finished": finished, "notPlayingSamples": stopped,
             "audioFrames": pcm.frames, "audioRMS": pcm.rms, "samples": samples]
     }
 }

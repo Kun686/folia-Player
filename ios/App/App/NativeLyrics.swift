@@ -97,11 +97,14 @@ final class NativeLyrics {
     private var wanted: Set<String> = []
     private var tasks: [String: (UUID, Task<Void, Never>)] = [:]
     private var values: [String: Value] = [:]
+    private var selections: Set<String> = []
     private var localPriority = "local"
     private var settings = NativeLyricSettings()
     private(set) var revision = 0
     var changed: (() -> Void)?
     var cacheChanged: (([String: Any]) -> Void)?
+    // Only explicit choices briefly hold new Automix planning; audio and optional matching continue.
+    var awaitingSelection: Bool { !selections.isDisjoint(with: wanted) }
     init(local: LocalMediaLibrary, parser: NativeLyricParser = NativeLyricParser(), gateway: GatewayClient = GatewayClient(), cache: NativeLyricCache? = nil,
          session: ((String) throws -> [String: Any])? = nil) {
         self.local = local; self.parser = parser; self.gateway = gateway; self.session = session; self.cache = cache
@@ -112,12 +115,16 @@ final class NativeLyrics {
     }
     func cancel() {
         for (id, task) in tasks { task.1.cancel(); values.removeValue(forKey: id) }
-        tasks.removeAll(); wanted.removeAll()
+        tasks.removeAll(); wanted.removeAll(); selections.removeAll()
     }
     func invalidate(_ id: String) {
         invalidateKey("local:" + id)
     }
-    func invalidateSong(_ song: [String: Any]) { if let id = NativeProfileIdentity(song) { invalidateKey(id.key) } }
+    func invalidateSong(_ song: [String: Any], selection: Bool = false) {
+        guard let id = NativeProfileIdentity(song) else { return }
+        invalidateKey(id.key)
+        if selection { selections.insert(id.key) }
+    }
     private func invalidateKey(_ key: String) {
         tasks.removeValue(forKey: key)?.1.cancel(); values.removeValue(forKey: key); wanted.remove(key)
         revision += 1
@@ -150,7 +157,7 @@ final class NativeLyrics {
         let ids = Set(identities.map(\.key))
         guard ids != wanted else { return }
         for id in Array(tasks.keys) where !ids.contains(id) { tasks.removeValue(forKey: id)?.1.cancel() }
-        values = values.filter { ids.contains($0.key) }; wanted = ids
+        values = values.filter { ids.contains($0.key) }; wanted = ids; selections.formIntersection(ids)
         for id in ids where values[id] == nil && tasks[id] == nil {
             guard let identity = identities.first(where: { $0.key == id }),
                   let song = songs.first(where: { NativeProfileIdentity($0)?.key == id }) else { continue }
@@ -170,7 +177,8 @@ final class NativeLyrics {
                             baseline: { [weak self] lines in
                                 await MainActor.run {
                                     guard let self, !Task.isCancelled, self.wanted.contains(id), self.tasks[id]?.0 == stamp else { return }
-                                    self.values[id] = Value(lines: lines); self.revision += 1; self.changed?()
+                                    self.values[id] = Value(lines: lines); self.selections.remove(id)
+                                    self.revision += 1; self.changed?()
                                 }
                             }, saved: { [weak self] in
                                 await MainActor.run {
@@ -188,7 +196,7 @@ final class NativeLyrics {
                     }
                 } catch { lines = nil }
                 guard let self, !Task.isCancelled, self.wanted.contains(id), self.tasks[id]?.0 == stamp else { return }
-                self.tasks.removeValue(forKey: id); self.values[id] = Value(lines: lines)
+                self.tasks.removeValue(forKey: id); self.values[id] = Value(lines: lines); self.selections.remove(id)
                 self.revision += 1; self.changed?()
             }
             tasks[id] = (stamp, task)

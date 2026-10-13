@@ -280,4 +280,65 @@ import XCTest
         XCTAssertEqual(offline.calls.count, 0)
     }
 
+    func testAutomaticLyricRefreshKeepsArmedAudioPlanWhileManualChoiceReplans() async throws {
+        for kind in ["baseline", "automatic", "manual"] {
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            let audio = try sharedConstantFile(seconds: 30, stereo: true)
+            defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: audio) }
+            let cache = NativeLyricCache(root: root), local = LocalMediaLibrary(), gateway = LyricFixtureGateway()
+            gateway.audioURL = audio
+            let tracks = [song("qq", "outgoing"), song("netease", "incoming")]
+            func lyrics(_ end: Double) -> [String: Any] {
+                ["lines": [["startTime": 1, "endTime": end, "fullText": "受控歌词", "words": []]]]
+            }
+            for track in tracks {
+                let token = try await cache.read(track)["token"] as! String
+                try await cache.write(track, token: token, field: "lyrics", value: lyrics(26))
+            }
+            let suite = "folia.lyric-arm." + UUID().uuidString, storage = UserDefaults(suiteName: suite)!
+            defer { storage.removePersistentDomain(forName: suite) }
+            let coordinator = NativeLyrics(local: local, gateway: gateway, cache: cache, session: { _ in [:] })
+            let engine = PlaybackEngine(gateway: gateway, storage: storage, local: local, usesStereoOutput: true, lyricCache: cache)
+            engine.network.cancel(); engine.crossfade = NativeCrossfade(owner: engine, lyrics: coordinator)
+            defer { engine.stop(); engine.clearOutput() }
+            _ = try engine.setTransitionSettings(["enabled": true, "mode": "automix", "crossfadeMaxSec": 5.0])
+            try engine.setQueue(tracks, at: 0)
+            let crossfade = try XCTUnwrap(engine.crossfade)
+            try await waitForStream {
+                engine.outputIsPlaying && engine.preparedStream != nil && coordinator.value(tracks[0]) != nil
+                    && coordinator.value(tracks[1]) != nil && (crossfade.analysisDiagnostics["planOutStart"] as? Double ?? -1) > 0
+            }
+            let start = try XCTUnwrap(crossfade.analysisDiagnostics["planOutStart"] as? Double)
+            XCTAssertEqual(start, 26, accuracy: 0.01)
+            try engine.command("seek", position: start - 0.7)
+            try await waitForStream { crossfade.analysisDiagnostics["armed"] as? Bool == true }
+            let outgoing = try XCTUnwrap(engine.stream), incoming = try XCTUnwrap(engine.preparedStream?.entry)
+            let snapshot = try await cache.read(tracks[0]), token = snapshot["token"] as! String
+            if kind == "baseline" {
+                try await cache.write(tracks[0], token: token, field: "lyrics", value: lyrics(29))
+            } else {
+                try await cache.write(tracks[0], token: token, field: "state",
+                    value: ["lyricsSource": "online", "hasOnlineOverride": true, "onlineOverrideLyrics": lyrics(29)],
+                    selectionToken: kind == "automatic" ? snapshot["selectionToken"] as? String : nil)
+            }
+            crossfade.songLyricsChanged(tracks[0], automatic: kind != "manual")
+            if kind != "manual" {
+                XCTAssertEqual(crossfade.analysisDiagnostics["armed"] as? Bool, true, kind)
+                XCTAssertEqual(crossfade.analysisDiagnostics["planOutStart"] as? Double, start, kind)
+                try await waitForStream { engine.index == 1 && crossfade.isFading && engine.outputIsPlaying }
+                XCTAssertTrue(engine.stream === incoming)
+                XCTAssertLessThan(outgoing.position, start + 0.7, kind)
+                // Changes during the audible blend must retain the actual pair and scheduled audio gains.
+                crossfade.songLyricsChanged(tracks[1], automatic: true)
+                XCTAssertTrue(crossfade.isFading); XCTAssertTrue(engine.stream === incoming)
+                XCTAssertEqual(engine.streamOutput?.attachedCount, 2)
+            } else {
+                XCTAssertEqual(crossfade.analysisDiagnostics["armed"] as? Bool, false)
+                try await waitForStream { (crossfade.analysisDiagnostics["planOutStart"] as? Double ?? -1) > start + 1 }
+                XCTAssertEqual(engine.index, 0); XCTAssertTrue(engine.stream === outgoing)
+            }
+            XCTAssertTrue(engine.outputIsPlaying); XCTAssertEqual(gateway.calls.count, 0)
+        }
+    }
+
 }

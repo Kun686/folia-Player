@@ -62,7 +62,7 @@ extension FoliaNativePlugin {
                             try transport.validate()
                         }
                     })
-                self.engine.crossfade?.songLyricsChanged(song)
+                self.engine.crossfade?.songLyricsChanged(song, automatic: field == "lyrics" || selection != nil)
                 call.resolve()
             } catch { call.reject((error as? MobileFailure)?.code ?? "lyric-cache-unavailable") }
         }

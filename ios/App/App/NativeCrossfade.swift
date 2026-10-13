@@ -111,9 +111,14 @@ final class NativeCrossfade {
         lyrics.invalidateProvider(provider)
         if !isFading { invalidatePlan(); tick() }
     }
-    func songLyricsChanged(_ song: [String: Any]) {
-        lyrics.invalidateSong(song)
-        if !isFading { invalidatePlan(); tick() }
+    func songLyricsChanged(_ song: [String: Any], automatic: Bool = false) {
+        lyrics.invalidateSong(song, selection: !automatic)
+        if !isFading {
+            // Optional provider updates follow the same arm lead as native matching callbacks.
+            // A deliberate choice still replans, once its saved selection is available below.
+            if !automatic || !armed { invalidatePlan() }
+            tick()
+        }
     }
     func cancelLyricRequests() { lyrics.cancel() }
     func cancelAnalysis() { profiles.cancel(); stems.cancel() }
@@ -200,7 +205,8 @@ final class NativeCrossfade {
             }
             return
         }
-        guard enabled, owner.usesStereoOutput, owner.intentToPlay, owner.outputIsPlaying,
+        guard enabled, mode != "automix" || !lyrics.awaitingSelection,
+              owner.usesStereoOutput, owner.intentToPlay, owner.outputIsPlaying,
               owner.repeatMode != "one", owner.queue.count >= 2,
               owner.queue.indices.contains(owner.index) || owner.repeatMode == "all",
               let outgoing = owner.stream, !outgoing.seeking, !outgoing.hasEnded,

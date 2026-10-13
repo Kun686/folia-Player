@@ -1,9 +1,14 @@
 # 真实服务与真机验收表
 
-原版最佳歌词的独立原生宿主已接通四来源原始请求、实际期限／取消及全部平台会话隔离。
-328 项逻辑、30 项 WebKit、Mac 裸 JavaScriptCore 8 项及独立 iPad 模拟器 17 项通过。
-队列自动触发、偏好同步和自动结果缓存合并尚未接入；真实平台／真机 NOT_RUN，个人 App／服务器未更新，
-见 [LYRIC_MATCH_HOST.md](LYRIC_MATCH_HOST.md)，算法分离记录见 [LYRIC_MATCH_CORE.md](LYRIC_MATCH_CORE.md)。
+原版最佳歌词现已接入原生当前／下一首队列、原设置同步、带会话与选择版本校验的共享缓存，
+并支持前台恢复显示。70 文件／664 项逻辑、会话保护补测 37 项、33 项 WebKit、
+Mac 裸 JavaScriptCore 8 项及独立模拟器 24 项通过；分批统计不相加为不同用例总数。
+真实平台／真机 NOT_RUN，个人 App／服务器未更新，见 [LYRIC_QUEUE_INTEGRATION.md](LYRIC_QUEUE_INTEGRATION.md)。
+
+自动歌词更新撤销已锁定 Automix 计划的问题已复现并修复，手动选择也会等缓存重读后再规划。
+18 项原生回归及 1 项原模型模拟器用例通过；受控在线与离线两次分轨交接均在静音预播放期间更新歌词，
+保留同一下一首、计划和音频调度。真实服务／物理设备／系统挂起 NOT_RUN，公开完整能力仍关闭，
+个人 mobile.28／服务器未更新，见 [LYRIC_HANDOVER.md](LYRIC_HANDOVER.md)。
 
 Automix 三进程内存测量通过：独立模拟器 1 个用例内三轮真实分轨交接，0 FAIL／0 SKIP；
 187 次原始快照中 185 次覆盖 15 个有效阶段。最高同次物理账本之和约 1.38GiB，
@@ -32,7 +37,8 @@ Automix 三进程内存测量通过：独立模拟器 1 个用例内三轮真实
 
 在线歌词偏好通过 56 项逻辑、30 个 WebKit 场景及类型检查，覆盖两平台已选来源保护、
 真实匹配器与受控 QQ 样本、切换偏好时的旧结果隔离。本批原生容器／真实平台／真机 NOT_RUN；
-后台队列自动触发与缓存合并仍未接通，个人 App／服务器未更新，见 [ONLINE_LYRIC_PREFERENCE.md](ONLINE_LYRIC_PREFERENCE.md)。
+该阶段尚未接通后台队列与缓存合并，后续已由上述 LYRIC_QUEUE_INTEGRATION 完成；
+个人 App／服务器未更新，见 [ONLINE_LYRIC_PREFERENCE.md](ONLINE_LYRIC_PREFERENCE.md)。
 
 歌词格式排序、持久化与重扫设置通过 28 项逻辑、27 个 WebKit 场景及类型检查。
 测试涵盖原批次协议及取消／失败边界，受控桥不代表实际目录授权、文件覆盖或真机验收。
