@@ -22,8 +22,8 @@ export default function LoginSheet({ provider, refresh, close }: { provider: str
       const epoch = errorEpoch.current;
       void cancelProvider(id).catch(() => { if (epoch === errorEpoch.current) setError(true); });
     },
-    onConfirmed: async () => { await flushSessions(); return refresh(); },
-  }), [refresh]);
+    onConfirmed: async () => { await flushSessions([provider]); return refresh(); },
+  }), [provider, refresh]);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
   useEffect(() => {
     let active = true;

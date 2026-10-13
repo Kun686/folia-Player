@@ -11,7 +11,7 @@ import { isCloudDriveCollection } from '../library/core/model/collectionIdentity
 // mobilePlaylistEditor.ts — original collection rules with native-session ownership and writes surviving dialog dismissal.
 export interface PlaylistAccount { user: ProviderUser; current(): boolean }
 export function createMobilePlaylistEditor(api: typeof omni, capture: (provider: string) => () => boolean,
-  flush: () => Promise<void>, removeCache: (key: string) => Promise<void>, changed: (collection: ProviderCollection) => void,
+  flush: (providers: readonly string[]) => Promise<void>, removeCache: (key: string) => Promise<void>, changed: (collection: ProviderCollection) => void,
   subscriptionChanged: (collection: ProviderCollection) => Promise<void> | void = changed) {
   const pending = new Map<string, Promise<void>>();
   const canEdit = (collection: ProviderCollection, user: ProviderUser) => resolveCollectionMutationBranches({
@@ -32,7 +32,7 @@ export function createMobilePlaylistEditor(api: typeof omni, capture: (provider:
     await wait(provider);
     if (!current()) throw new Error('account-changed');
     const user = await api.getLoginStatus(provider);
-    await flush();
+    await flush([provider]);
     if (!current() || !user) throw new Error('account-required');
     return { user, current };
   };
@@ -41,7 +41,7 @@ export function createMobilePlaylistEditor(api: typeof omni, capture: (provider:
     if (pending.has(collection.providerId)) throw new Error('playlist-busy');
     const operation = Promise.resolve().then(async () => {
       if (!account.current() || !permitted(collection, account.user)) throw new Error('account-changed');
-      await flush();
+      await flush([collection.providerId]);
       const user = await api.getLoginStatus(collection.providerId);
       if (!account.current() || !user || String(user.id) !== String(account.user.id)) throw new Error('account-changed');
       await work();

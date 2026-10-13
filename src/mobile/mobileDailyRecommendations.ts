@@ -15,7 +15,7 @@ interface DailyState {
   resource: CollectionResourceSnapshot | null; mutation: CollectionMutationSnapshot | null;
 }
 const empty = (): DailyState => ({ phase: 'loading', busy: false, error: false, historyError: false, resource: null, mutation: null });
-export function createMobileDailyRecommendations(api: typeof omni, capture: (provider: string) => () => boolean, flush: () => Promise<void>) {
+export function createMobileDailyRecommendations(api: typeof omni, capture: (provider: string) => () => boolean, flush: (providers: readonly string[]) => Promise<void>) {
   const pending = new Map<string, Promise<unknown>>();
   return {
     createSession(provider: string) {
@@ -38,7 +38,7 @@ export function createMobileDailyRecommendations(api: typeof omni, capture: (pro
         // Refreshing recommendations and disliking both change platform state. Never replay a sent request on reopening.
         const mutate = async <T>(work: () => Promise<T>): Promise<T> => {
           check(); if (pending.has(provider)) throw new Error('daily-busy');
-          const operation = checked(async () => { await flush(); check(); return work(); });
+          const operation = checked(async () => { await flush([provider]); check(); return work(); });
           pending.set(provider, operation);
           try { return await operation; }
           finally { if (pending.get(provider) === operation) pending.delete(provider); }
@@ -47,7 +47,7 @@ export function createMobileDailyRecommendations(api: typeof omni, capture: (pro
           await pending.get(provider)?.catch(() => undefined); check();
           const user = await checked(() => api.getLoginStatus(provider));
           if (!user) throw new Error('daily-login-required');
-          await checked(flush);
+          await checked(() => flush([provider]));
           const descriptor = { source: 'online' as const, providerId: provider, type: 'daily_recommendations', id: 'daily_recommendations', name: 'Daily recommendations' };
           const current = createOnlineCollectionResource(`daily:${provider}:${user.id}`, {
             getCollectionTracks: (collection, page) => checked(() => api.getCollectionTracks(collection, page)),

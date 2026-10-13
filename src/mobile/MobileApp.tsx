@@ -57,7 +57,7 @@ import PlayerFeedback from './PlayerFeedback';
 import { usePlaybackCommands } from './usePlaybackCommands';
 import type { QueueAddBehavior, SongResult } from '../types';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
-import { captureMobileQueueSessions, enqueueMobileSongs, editMobileQueue, playMobileSearchSong, type QueueAction } from './queueActions';
+import { captureMobileQueueSessions, flushMobileQueueSessions, enqueueMobileSongs, editMobileQueue, playMobileSearchSong, type QueueAction } from './queueActions';
 import { initializeSyncCoordinator } from '../services/sync/syncCoordinator';
 import OnlineAccountLibrary from './OnlineAccountLibrary';
 import { useSheetViewport } from './useSheetViewport';
@@ -150,13 +150,14 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const startCollection = async (tracks: SongResult[], index: number, started: () => void) => {
     const check = captureMobileQueueSessions(tracks);
     if (await replacement.offer(tracks, index, started)) return;
-    check(); await flushSessions(); check();
+    check(); await flushMobileQueueSessions(tracks); check();
     await native.setQueue({ songs: tracks, index }); check(); started();
   };
   const play = async (index: number) => {
     const current = searchingOnline ? captureProviderSession(provider) : () => true;
     await queueWork(async () => {
-      if ((queueView || searchingOnline) && songs.some(song => song.sourceRef?.kind === 'online')) await flushSessions();
+      if (!songs[index]) throw new Error('queue-changed');
+      if (queueView || searchingOnline) await flushMobileQueueSessions([songs[index]]);
       if (queueView) await native.selectQueue({ index, queueRevision: playback.state.queueRevision });
       else if (searchingOnline) await playMobileSearchSong(songs[index], current);
       else { await startCollection(songs, index, () => setExpanded(true)); return; }

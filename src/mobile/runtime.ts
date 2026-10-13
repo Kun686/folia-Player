@@ -28,9 +28,12 @@ const enqueueSave = (provider: string) => {
   const values = { ...sessions[provider] }, context = scoped();
   persistence = persistence.then(() => native.saveSession({ provider, values, ...context })).then(() => { persistenceErrors.delete(provider); }).catch(error => { persistenceErrors.set(provider, error); });
 };
-export async function flushSessions() {
+export async function flushSessions(providers?: readonly string[]) {
   await persistence;
-  if (persistenceErrors.size) throw persistenceErrors.values().next().value;
+  // Preserve serialized durable writes, but one account's failed save cannot reject another account's action.
+  for (const [provider, error] of persistenceErrors) {
+    if (providers === undefined || providers.includes(provider)) throw error;
+  }
 }
 export async function cancelProvider(provider: string) {
   lyricGeneration++; // Cross-source matching can depend on any platform account.

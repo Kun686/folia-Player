@@ -21,7 +21,7 @@ export default function PersonalFM(props: Props) {
   useEffect(() => { if (open) dialog.current?.showModal(); else dialog.current?.close(); }, [open]);
   const start = async (next: PersonalFmSelection, close = false) => {
     setFailed(false);
-    const ok = await props.work(async () => { await flushSessions(); return native.startPersonalFM({ selection: next }); });
+    const ok = await props.work(async () => { await flushSessions(['netease']); return native.startPersonalFM({ selection: next }); });
     setFailed(!ok);
     if (ok && close) { setOpen(false); props.playing(); }
   };

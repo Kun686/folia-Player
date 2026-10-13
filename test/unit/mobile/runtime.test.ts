@@ -122,6 +122,33 @@ describe('mobile secure runtime', () => {
     getMobileRuntime()!.write('qq', 'cookie', 'new');
     await expect(runtime.flushSessions()).rejects.toThrow('secure-storage');
   });
+  it.each(['qq', 'netease'])('isolates a failed %s save without clearing its durable error', async provider => {
+    const other = provider === 'qq' ? 'netease' : 'qq';
+    native.saveSession.mockImplementation(async args => { if (args.provider === provider) throw Error('secure-storage'); });
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    await runtime.initializeRuntime(); const port = getMobileRuntime()!;
+    port.write(provider, 'cookie', 'pending-account');
+    await expect(runtime.flushSessions([other])).resolves.toBeUndefined();
+    await expect(runtime.flushSessions([provider])).rejects.toThrow('secure-storage');
+    await expect(runtime.flushSessions([other, provider])).rejects.toThrow('secure-storage');
+    await expect(runtime.flushSessions()).rejects.toThrow('secure-storage');
+    port.write(other, 'cookie', 'other-account');
+    await expect(runtime.flushSessions([other])).resolves.toBeUndefined();
+    await expect(runtime.flushSessions([provider])).rejects.toThrow('secure-storage');
+    native.saveSession.mockResolvedValue(undefined); port.write(provider, 'cookie', 'pending-account');
+    await expect(runtime.flushSessions([provider, other])).resolves.toBeUndefined();
+  });
+  it.each(['qq', 'netease'])('waits for the actual %s save before accepting a scoped operation', async provider => {
+    let finish!: () => void, accepted = false;
+    native.saveSession.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    await runtime.initializeRuntime(); getMobileRuntime()!.write(provider, 'cookie', 'pending-account');
+    const waiting = runtime.flushSessions([provider]).then(() => { accepted = true; });
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function')); expect(accepted).toBe(false);
+    finish(); await waiting; expect(accepted).toBe(true);
+  });
   it('a failed gateway commit preserves memory, revokes old replies and allows retry', async () => {
     const runtime = await import('../../../src/mobile/runtime');
     const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');

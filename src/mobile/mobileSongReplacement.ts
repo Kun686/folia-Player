@@ -18,7 +18,7 @@ export async function prepareMobileSongReplacement(queue: SongResult[], index: n
   if (source.kind !== 'online' || !providers.includes(source.providerId)) throw new Error('replacement-unsupported');
   const session = captureProviderSession(source.providerId), valid = () => current() && session();
   const check = () => { if (!valid()) throw new Error('queue-changed'); };
-  check(); await flushSessions(); check();
+  check(); await flushSessions([source.providerId]); check();
   const state = await native.getState(); check();
   const replacement = await omni.getSongReplacement(originalSong); check();
   if (!replacement || isSongUnavailable(replacement.song)) throw new Error('song-unavailable');

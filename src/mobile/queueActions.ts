@@ -68,13 +68,19 @@ export async function addMobileSongs(songs: SongResult[], behavior: QueueAddBeha
 
 // Capture every online session before an asynchronous queue action, including collection playback.
 // Mixed scopes are invalidated if any of their accounts changes while the action is pending.
+const queueProviders = (songs: SongResult[]) => [...new Set(songs.flatMap(song => song.sourceRef?.kind === 'online' ? [song.sourceRef.providerId] : []))];
 export function captureMobileQueueSessions(songs: SongResult[], assertCurrent: () => void = () => {}) {
-  const providers = new Set(songs.flatMap(song => song.sourceRef?.kind === 'online' ? [song.sourceRef.providerId] : []));
-  const sessions = [...providers].map(captureProviderSession);
+  const sessions = queueProviders(songs).map(captureProviderSession);
   return () => {
     assertCurrent();
     if (sessions.some(current => !current())) throw new Error('queue-changed');
   };
+}
+
+// A whole collection checks all of its platforms; selecting an existing row checks only that song.
+export async function flushMobileQueueSessions(songs: SongResult[]) {
+  const providers = queueProviders(songs);
+  if (providers.length) await flushSessions(providers);
 }
 
 // Capture every online session before flushing or reading the native queue. Mixed scopes keep their
@@ -82,7 +88,7 @@ export function captureMobileQueueSessions(songs: SongResult[], assertCurrent: (
 export async function enqueueMobileSongs(songs: SongResult[], behavior: QueueAddBehavior, assertCurrent: () => void = () => {}) {
   const check = captureMobileQueueSessions(songs, assertCurrent);
   check();
-  if (songs.some(song => song.sourceRef?.kind === 'online')) await flushSessions();
+  await flushMobileQueueSessions(songs);
   check();
   return addMobileSongs(songs, behavior, check);
 }
@@ -111,7 +117,7 @@ export async function playMobileSearchSong(song: SongResult, current: () => bool
 // Confirmation preserves any newer native queue/remote-control intent via both atomic queue revisions.
 export async function playMobileReplacement(request: PreparedSongReplacement) {
   const check = () => { if (!request.current()) throw new Error('queue-changed'); };
-  check(); await flushSessions(); check();
+  check(); await flushMobileQueueSessions(request.queue); check();
   let state = await native.getState(); check();
   if (state.queueRevision !== request.queueRevision) throw new Error('queue-changed');
   if (isSongUnavailable(request.replacementSong)) throw new Error('song-unavailable');
