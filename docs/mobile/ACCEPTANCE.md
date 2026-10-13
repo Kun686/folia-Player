@@ -1,5 +1,9 @@
 # 真实服务与真机验收表
 
+定位状态竞争已用真实解码与最小并发程序复现并修复；iPad 模拟器 26 项流式路径 Thread Sanitizer、
+iPhone 模拟器普通 Release 39 项回归通过。旧 AVPlayer 的系统 tap 交接诊断仍未定论，未把完整插桩组标为通过。
+物理设备／真实平台／长期性能 NOT_RUN，个人 App／服务器未更新，见 [PLAYBACK_THREAD_SAFETY.md](PLAYBACK_THREAD_SAFETY.md)。
+
 「播放时阻止休眠」已接入原设置与 UIKit，默认关闭，原生管理前台播放及暂停／离开释放。
 14 项逻辑、15 个 WebKit 场景、iPhone／iPad 模拟器各 17 项原生测试通过，包含真实打包页面与 PCM 输出。
 真实锁屏／温升 NOT_RUN，个人 mobile.28／服务器未更新；首轮线程问题、失败与复测证据见 [DISPLAY_SLEEP.md](DISPLAY_SLEEP.md)。

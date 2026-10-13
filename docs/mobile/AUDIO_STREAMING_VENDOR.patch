@@ -1,3 +1,51 @@
+--- a/AudioStreaming/Streaming/Audio Entry/Models/SeekRequest.swift
++++ b/AudioStreaming/Streaming/Audio Entry/Models/SeekRequest.swift
+@@ -6,8 +6,41 @@
+ import Foundation
+ 
+ final class SeekRequest {
+-    let lock = UnfairLock()
+-    var requested: Bool = false
+-    var version = Atomic<Int>(0)
+-    var time: Double = 0
++    struct Snapshot {
++        var requested = false
++        var version: UInt64 = 0
++        var time: Double = 0
++    }
++
++    private let lock = UnfairLock()
++    private var state = Snapshot()
++
++    // Callers and packet decoders share one lock, including reads outside the source queue.
++    var requested: Bool { lock.withLock { state.requested } }
++    var snapshot: Snapshot { lock.withLock { state } }
++
++    /// Publish a complete seek intent; return whether the source needs its initial suspension.
++    func request(time: Double) -> Bool {
++        lock.withLock {
++            let firstRequest = !state.requested
++            state.requested = true
++            state.time = time
++            state.version &+= 1
++            return firstRequest
++        }
++    }
++
++    /// A decoder finishing an older seek must not consume a newer position.
++    func complete(version: UInt64) {
++        lock.withLock {
++            if state.version == version { state.requested = false }
++        }
++    }
++
++    func cancel() {
++        lock.withLock {
++            state.requested = false
++            state.version &+= 1
++        }
++    }
+ }
 --- a/AudioStreaming/Streaming/Audio Source/FileAudioSource.swift
 +++ b/AudioStreaming/Streaming/Audio Source/FileAudioSource.swift
 @@ -7,7 +7,14 @@
@@ -18,7 +66,23 @@
  
 --- a/AudioStreaming/Streaming/AudioPlayer/AudioPlayer.swift
 +++ b/AudioStreaming/Streaming/AudioPlayer/AudioPlayer.swift
-@@ -152,6 +152,10 @@
+@@ -75,12 +75,9 @@
+         let playingEntry = playerContext.audioPlayingEntry
+         playerContext.entriesLock.unlock()
+         guard let entry = playingEntry else { return 0 }
+-        entry.seekRequest.lock.lock()
+-        let seekRequested = entry.seekRequest.requested
+-        let seekTime = entry.seekRequest.time
+-        entry.seekRequest.lock.unlock()
+-        if seekRequested {
+-            return seekTime
++        let seek = entry.seekRequest.snapshot
++        if seek.requested {
++            return seek.time
+         }
+         return entry.progress
+     }
+@@ -152,6 +149,10 @@
      private var stateBeforePaused: InternalState = .initial
  
      /// The underlying `AVAudioEngine` object
@@ -29,7 +93,7 @@
      private let audioEngine: AVAudioEngine
      /// An `AVAudioUnit` object that represents the audio player
      private(set) var player = AVAudioUnit()
-@@ -184,7 +188,13 @@
+@@ -184,7 +185,13 @@
      private var currentLoopIteration: Int = 0
  
      public init(configuration: AudioPlayerConfiguration = .default,
@@ -44,7 +108,7 @@
          self.configuration = configuration.normalizeValues()
          let engine = AVAudioEngine()
          audioEngine = engine
-@@ -196,7 +206,9 @@
+@@ -196,7 +203,9 @@
          sourceQueue = DispatchQueue(label: "source.queue", qos: .default)
  
          entryProvider = AudioEntryProvider(
@@ -55,7 +119,7 @@
              underlyingQueue: sourceQueue,
              outputAudioFormat: outputAudioFormat
          )
-@@ -219,7 +231,7 @@
+@@ -219,7 +228,7 @@
              }
          )
          configPlayerContext()
@@ -64,7 +128,7 @@
          configureRateNode()
          setupEngine()
      }
-@@ -231,6 +243,99 @@
+@@ -231,6 +240,98 @@
      }
  
      // MARK: Public
@@ -142,7 +206,6 @@
 +        let entry = playerContext.audioPlayingEntry
 +        playerContext.entriesLock.unlock()
 +        guard let entry else { return false }
-+        entry.seekRequest.lock.lock(); defer { entry.seekRequest.lock.unlock() }
 +        return entry.seekRequest.requested
 +    }
 +
@@ -164,7 +227,7 @@
  
      /// Starts the audio playback for the given URL
      ///
-@@ -461,6 +566,12 @@
+@@ -461,6 +562,12 @@
              }
              startPlayer(resetBuffers: false)
          }
@@ -177,7 +240,35 @@
      }
  
      /// Seeks the audio to the specified time.
-@@ -677,7 +788,7 @@
+@@ -469,21 +576,14 @@
+         guard let playingEntry = playerContext.audioPlayingEntry else {
+             return
+         }
+-        playingEntry.seekRequest.lock.lock()
+-        let alreadyRequestedToSeek = playingEntry.seekRequest.requested
+-        playingEntry.seekRequest.requested = true
+-        playingEntry.seekRequest.time = time
+-        playingEntry.seekRequest.lock.unlock()
+-
+-        if !alreadyRequestedToSeek {
+-            playingEntry.seekRequest.version.write { version in
+-                version += 1
+-            }
++        if playingEntry.seekRequest.request(time: time) {
+             playingEntry.suspend()
+             checkRenderWaitingAndNotifyIfNeeded()
+-            sourceQueue.async { [weak self] in
+-                self?.processSource()
+-            }
++        }
++        // A newer request can arrive while processSeek is applying the previous snapshot.
++        // Enqueue it even when another seek is pending so completion cannot strand the update.
++        sourceQueue.async { [weak self] in
++            self?.processSource()
+         }
+     }
+ 
+@@ -677,7 +777,7 @@
          guard isEngineRunning else { return }
          audioEngine.reset()
          audioEngine.pause()
@@ -186,7 +277,7 @@
          Logger.debug("engine paused ⏸", category: .generic)
      }
  
-@@ -686,7 +797,7 @@
+@@ -686,7 +786,7 @@
      /// - parameter reason: A value of `AudioPlayerStopReason` indicating the reason the engine stopped.
      private func stopEngine(reason: AudioPlayerStopReason) {
          audioEngine.stop()
@@ -195,7 +286,7 @@
          rendererContext.resetBuffers()
          playerContext.setInternalState(to: .stopped)
          playerContext.stopReason.write { $0 = reason }
-@@ -700,8 +811,10 @@
+@@ -700,8 +800,10 @@
          if resetBuffers {
              rendererContext.resetBuffers()
          }
@@ -206,6 +297,56 @@
              try player.auAudioUnit.allocateRenderResources()
              try player.auAudioUnit.startHardware()
          } catch {
+@@ -763,28 +865,18 @@
+            playingEntry.audioStreamState.processedDataFormat,
+            playingEntry.calculatedBitrate() > 0.0
+         {
+-            let currSeekVersion = playingEntry.seekRequest.version.value
+-            playingEntry.seekRequest.lock.lock()
+-            let originalSeekToTimeRequested = playingEntry.seekRequest.requested
+-            playingEntry.seekRequest.lock.unlock()
+-
+-            if originalSeekToTimeRequested, playerContext.audioReadingEntry === playingEntry {
+-                processSeekTime()
+-
+-                let version = playingEntry.seekRequest.version.value
+-                if currSeekVersion == version {
+-                    playingEntry.seekRequest.lock.lock()
+-                    playingEntry.seekRequest.requested = false
+-                    playingEntry.seekRequest.lock.unlock()
+-                }
+-            }
+-        }
+-    }
+-
+-    private func processSeekTime() {
++            let seek = playingEntry.seekRequest.snapshot
++            if seek.requested, playerContext.audioReadingEntry === playingEntry {
++                processSeekTime(seek.time)
++                playingEntry.seekRequest.complete(version: seek.version)
++            }
++        }
++    }
++
++    private func processSeekTime(_ time: Double) {
+         assert(playerContext.audioReadingEntry === playerContext.audioPlayingEntry,
+                "reading and playing entry must be the same")
+-        fileStreamProcessor.processSeek()
++        fileStreamProcessor.processSeek(to: time)
+     }
+ 
+     private func setCurrentReading(entry: AudioEntry?, startPlaying: Bool, shouldClearQueue: Bool) {
+@@ -831,9 +923,7 @@
+                 nextEntry.lock.withLock {
+                     nextEntry.seekTime = 0
+                 }
+-                nextEntry.seekRequest.lock.withLock {
+-                    nextEntry.seekRequest.requested = false
+-                }
++                nextEntry.seekRequest.cancel()
+             }
+             
+             // Track entries as they transition (NOT for .all mode - handled separately to preserve order)
 --- a/AudioStreaming/Streaming/AudioPlayer/Processors/AudioFileStreamProcessor.swift
 +++ b/AudioStreaming/Streaming/AudioPlayer/Processors/AudioFileStreamProcessor.swift
 @@ -16,6 +16,7 @@
@@ -216,11 +357,10 @@
      let numberOfPackets: UInt32
      var audioBuffer = AudioBuffer()
      let packDescription: UnsafeMutablePointer<AudioStreamPacketDescription>?
-@@ -149,6 +150,14 @@
-         
+@@ -150,11 +151,19 @@
          if status != noErr {
              Logger.debug("Failed to flush AudioFileStream packets: \(status)", category: .generic)
-+        }
+         }
 +
 +        // The file parser and sample converter have separate buffers. A temporary no-input status
 +        // keeps converter PCM pending; only a successful zero-packet callback declares actual EOF.
@@ -228,9 +368,41 @@
 +        if status == noErr, let converter = audioConverter {
 +            var final = AudioConvertInfo(done: true, endOfStream: true, numberOfPackets: 0, packDescription: nil)
 +            decodePackets(converter, info: &final)
-         }
++        }
          
          return status
+     }
+ 
+-    func processSeek() {
++    func processSeek(to time: Double) {
+         guard let readingEntry = playerContext.audioReadingEntry else {
+             return
+         }
+@@ -178,21 +187,21 @@
+       
+         guard duration > 0.0 else { return }
+ 
+-        var seekByteOffset = Int64(dataOffset + (readingEntry.seekRequest.time / duration) * dataLengthInBytes)
++        var seekByteOffset = Int64(dataOffset + (time / duration) * dataLengthInBytes)
+ 
+         if seekByteOffset > readingEntry.length - (2 * Int(readingEntry.processedPacketsState.bufferSize)) {
+             seekByteOffset = Int64(readingEntry.length - (2 * Int(readingEntry.processedPacketsState.bufferSize)))
+         }
+ 
+         readingEntry.lock.lock()
+-        readingEntry.seekTime = readingEntry.seekRequest.time
++        readingEntry.seekTime = time
+         readingEntry.lock.unlock()
+ 
+         let bitrate = readingEntry.calculatedBitrate()
+         if readingEntry.packetDuration > 0, bitrate > 0 {
+             var ioFlags = AudioFileStreamSeekFlags(rawValue: 0)
+             var packetsAlignedByteOffset: Int64 = 0
+-            let seekPacket = Int64(floor(readingEntry.seekRequest.time / readingEntry.packetDuration))
++            let seekPacket = Int64(floor(time / readingEntry.packetDuration))
+ 
+             let seekStatus = AudioFileStreamSeek(stream, seekPacket, &packetsAlignedByteOffset, &ioFlags)
+             let dataOffset = Int64(readingEntry.audioStreamState.dataOffset)
 @@ -512,6 +521,11 @@
              inNumberPackets: inNumberPackets
          )

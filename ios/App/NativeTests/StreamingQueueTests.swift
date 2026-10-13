@@ -136,6 +136,26 @@ import AVFoundation
         XCTAssertEqual(gateway.count, 3)
     }
 
+    func testStereoRapidSeeksApplyLastPositionWhenPlayingAndPaused() async throws {
+        let source = try streamingTone(); defer { try? FileManager.default.removeItem(at: source) }
+        let tested = stereoEngine(AudioFixtureGateway(url: source)); defer { tested.stop(); tested.clearOutput() }
+        try tested.setQueue([song("qq", "seek-race")], at: 0)
+        try await waitForStream { tested.outputIsPlaying }
+        let entry = try XCTUnwrap(tested.stream), generation = tested.generation
+        for position in [2.0, 14, 4, 11] { try tested.command("seek", position: position) }
+        try await waitForStream { !entry.audio.isSeeking && tested.outputIsPlaying && tested.playbackPosition >= 11 }
+        XCTAssertLessThan(tested.playbackPosition, 12)
+        try tested.command("pause")
+        for position in [7.0, 15, 3, 8] { try tested.command("seek", position: position) }
+        XCTAssertFalse(tested.outputIsPlaying)
+        XCTAssertEqual(tested.playbackPosition, 8, accuracy: 0.05)
+        try tested.command("play")
+        try await waitForStream { !entry.audio.isSeeking && tested.outputIsPlaying && tested.playbackPosition >= 8 }
+        XCTAssertLessThan(tested.playbackPosition, 9)
+        XCTAssertTrue(tested.stream === entry); XCTAssertEqual(tested.generation, generation)
+        XCTAssertNil(tested.error)
+    }
+
     func testStereoStallRecoveryUsesFreshURLAndNewGeneration() async throws {
         let source = try streamingTone(); defer { try? FileManager.default.removeItem(at: source) }
         let gateway = AudioFixtureGateway(url: source)

@@ -56,6 +56,46 @@ final class OutputMeasurement {
 }
 
 @MainActor extension NativeTests {
+    func testSeekRequestCompletionPreservesNewerPositionAndCancellation() {
+        let seek = SeekRequest()
+        XCTAssertFalse(seek.requested)
+        XCTAssertTrue(seek.request(time: 2))
+        let old = seek.snapshot
+        XCTAssertFalse(seek.request(time: 14))
+        seek.complete(version: old.version)
+        XCTAssertTrue(seek.requested); XCTAssertEqual(seek.snapshot.time, 14)
+        let latest = seek.snapshot
+        seek.complete(version: latest.version)
+        XCTAssertFalse(seek.requested)
+        XCTAssertTrue(seek.request(time: 4))
+        let cancelled = seek.snapshot
+        seek.cancel()
+        XCTAssertFalse(seek.requested)
+        XCTAssertTrue(seek.request(time: 8))
+        seek.complete(version: cancelled.version)
+        XCTAssertTrue(seek.requested); XCTAssertEqual(seek.snapshot.time, 8)
+    }
+
+    func testSeekRequestSnapshotsAreCoherentDuringConcurrentDecoderReads() {
+        let seek = SeekRequest(), incoherent = Atomic<Int>(0)
+        // Same writer/decoder boundary as seek(to:) versus decodePackets; TSan also checks the flag getter.
+        DispatchQueue.concurrentPerform(iterations: 4) { worker in
+            for revision in 1...50_000 {
+                if worker == 0 {
+                    _ = seek.request(time: Double(revision))
+                } else if seek.requested {
+                    let snapshot = seek.snapshot
+                    if snapshot.time != Double(snapshot.version) || !snapshot.requested {
+                        incoherent.write { $0 += 1 }
+                    }
+                }
+            }
+        }
+        XCTAssertEqual(incoherent.value, 0)
+        XCTAssertEqual(seek.snapshot.time, 50_000)
+        XCTAssertEqual(seek.snapshot.version, 50_000)
+    }
+
     func testFileSourceDelegateCancellationDuringReadIsAtomic() async throws {
         let url = try streamingTone()
         defer { try? FileManager.default.removeItem(at: url) }

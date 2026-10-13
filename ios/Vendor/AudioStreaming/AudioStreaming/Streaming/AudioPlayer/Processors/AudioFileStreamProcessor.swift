@@ -163,7 +163,7 @@ final class AudioFileStreamProcessor {
         return status
     }
 
-    func processSeek() {
+    func processSeek(to time: Double) {
         guard let readingEntry = playerContext.audioReadingEntry else {
             return
         }
@@ -187,21 +187,21 @@ final class AudioFileStreamProcessor {
       
         guard duration > 0.0 else { return }
 
-        var seekByteOffset = Int64(dataOffset + (readingEntry.seekRequest.time / duration) * dataLengthInBytes)
+        var seekByteOffset = Int64(dataOffset + (time / duration) * dataLengthInBytes)
 
         if seekByteOffset > readingEntry.length - (2 * Int(readingEntry.processedPacketsState.bufferSize)) {
             seekByteOffset = Int64(readingEntry.length - (2 * Int(readingEntry.processedPacketsState.bufferSize)))
         }
 
         readingEntry.lock.lock()
-        readingEntry.seekTime = readingEntry.seekRequest.time
+        readingEntry.seekTime = time
         readingEntry.lock.unlock()
 
         let bitrate = readingEntry.calculatedBitrate()
         if readingEntry.packetDuration > 0, bitrate > 0 {
             var ioFlags = AudioFileStreamSeekFlags(rawValue: 0)
             var packetsAlignedByteOffset: Int64 = 0
-            let seekPacket = Int64(floor(readingEntry.seekRequest.time / readingEntry.packetDuration))
+            let seekPacket = Int64(floor(time / readingEntry.packetDuration))
 
             let seekStatus = AudioFileStreamSeek(stream, seekPacket, &packetsAlignedByteOffset, &ioFlags)
             let dataOffset = Int64(readingEntry.audioStreamState.dataOffset)

@@ -1,5 +1,10 @@
 # Folia iPhone / iPad 实现与安装
 
+线程检查修复了流式解码与恢复定位之间的数据竞争；复用原锁，统一定位快照及新旧请求版本。
+当前流式路径 26 项 Thread Sanitizer、普通 Release 39 项原生模拟器回归通过，原界面和音效算法不变。
+旧 AVPlayer 的一份系统 tap 线程交接报告仍为 INCONCLUSIVE，完整 TSan 组不算全过；个人 mobile.28／服务器未更新。
+见 [PLAYBACK_THREAD_SAFETY.md](PLAYBACK_THREAD_SAFETY.md)。
+
 原版「播放时阻止休眠」已适配 iOS：默认关闭，开启后仅原生前台实际播放时保持唤醒，暂停／离开时释放。
 复用原设置与系统 API，修正本地曲库刷新后的线程发布问题；14 项逻辑、15 个 WebKit 场景及两种模拟器各 17 项原生测试通过。
 真机自动锁屏／温升 NOT_RUN，个人 mobile.28／服务器未更新，见 [DISPLAY_SLEEP.md](DISPLAY_SLEEP.md)。

@@ -24,11 +24,13 @@ Folia持有歌曲身份和队列版本，每个播放项使用独立解码器，
 删除待播项会释放其解码器，不经过存在缺陷的上游URL队列，也不会重启当前歌曲。
 
 为支持不消耗歌曲开头的静默预加载，把固定提交`e28a74b7b8632fc14312b7a79dcd82fa302779af`
-的59个源文件纳入`ios/Vendor/AudioStreaming`，原始总计291,190字节；当前开发源码四个文件有适配：
+的59个源文件纳入`ios/Vendor/AudioStreaming`，原始总计291,190字节；当前开发源码五个文件有适配：
 AudioPlayer添加延迟启动输出、外部渲染、缓冲／seek状态读取及可选网络配置；Package.swift去除未复制的上游测试target；
 AudioFileStreamProcessor在真实EOF后排空系统AudioConverter，修复测试音频末尾丢失2696帧的问题。
 FileAudioSource复用已有锁保护弱代理读写，修复取消预加载时的并发崩溃；回调在锁外执行。
 复现和回归记录见 [ONLINE_LYRICS.md](ONLINE_LYRICS.md)。
+SeekRequest统一定位标记／时间／版本的同步，AudioPlayer与AudioFileStreamProcessor使用一致快照，
+修复后台解码与恢复定位的竞争；线程检查范围及系统回调未定论报告见 [PLAYBACK_THREAD_SAFETY.md](PLAYBACK_THREAD_SAFETY.md)。
 继续复用原解码器、网络和音效实现，Ogg／Vorbis继续精确锁定0.1.2；原版权和MIT／BSD声明保留。
 `AUDIO_STREAMING_VENDOR.json`保存原始及当前逐文件SHA256，完整差异在同名`.patch`中。
 

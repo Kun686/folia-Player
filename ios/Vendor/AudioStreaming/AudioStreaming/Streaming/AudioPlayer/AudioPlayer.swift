@@ -75,12 +75,9 @@ open class AudioPlayer {
         let playingEntry = playerContext.audioPlayingEntry
         playerContext.entriesLock.unlock()
         guard let entry = playingEntry else { return 0 }
-        entry.seekRequest.lock.lock()
-        let seekRequested = entry.seekRequest.requested
-        let seekTime = entry.seekRequest.time
-        entry.seekRequest.lock.unlock()
-        if seekRequested {
-            return seekTime
+        let seek = entry.seekRequest.snapshot
+        if seek.requested {
+            return seek.time
         }
         return entry.progress
     }
@@ -317,7 +314,6 @@ open class AudioPlayer {
         let entry = playerContext.audioPlayingEntry
         playerContext.entriesLock.unlock()
         guard let entry else { return false }
-        entry.seekRequest.lock.lock(); defer { entry.seekRequest.lock.unlock() }
         return entry.seekRequest.requested
     }
 
@@ -580,21 +576,14 @@ open class AudioPlayer {
         guard let playingEntry = playerContext.audioPlayingEntry else {
             return
         }
-        playingEntry.seekRequest.lock.lock()
-        let alreadyRequestedToSeek = playingEntry.seekRequest.requested
-        playingEntry.seekRequest.requested = true
-        playingEntry.seekRequest.time = time
-        playingEntry.seekRequest.lock.unlock()
-
-        if !alreadyRequestedToSeek {
-            playingEntry.seekRequest.version.write { version in
-                version += 1
-            }
+        if playingEntry.seekRequest.request(time: time) {
             playingEntry.suspend()
             checkRenderWaitingAndNotifyIfNeeded()
-            sourceQueue.async { [weak self] in
-                self?.processSource()
-            }
+        }
+        // A newer request can arrive while processSeek is applying the previous snapshot.
+        // Enqueue it even when another seek is pending so completion cannot strand the update.
+        sourceQueue.async { [weak self] in
+            self?.processSource()
         }
     }
 
@@ -876,28 +865,18 @@ open class AudioPlayer {
            playingEntry.audioStreamState.processedDataFormat,
            playingEntry.calculatedBitrate() > 0.0
         {
-            let currSeekVersion = playingEntry.seekRequest.version.value
-            playingEntry.seekRequest.lock.lock()
-            let originalSeekToTimeRequested = playingEntry.seekRequest.requested
-            playingEntry.seekRequest.lock.unlock()
-
-            if originalSeekToTimeRequested, playerContext.audioReadingEntry === playingEntry {
-                processSeekTime()
-
-                let version = playingEntry.seekRequest.version.value
-                if currSeekVersion == version {
-                    playingEntry.seekRequest.lock.lock()
-                    playingEntry.seekRequest.requested = false
-                    playingEntry.seekRequest.lock.unlock()
-                }
+            let seek = playingEntry.seekRequest.snapshot
+            if seek.requested, playerContext.audioReadingEntry === playingEntry {
+                processSeekTime(seek.time)
+                playingEntry.seekRequest.complete(version: seek.version)
             }
         }
     }
 
-    private func processSeekTime() {
+    private func processSeekTime(_ time: Double) {
         assert(playerContext.audioReadingEntry === playerContext.audioPlayingEntry,
                "reading and playing entry must be the same")
-        fileStreamProcessor.processSeek()
+        fileStreamProcessor.processSeek(to: time)
     }
 
     private func setCurrentReading(entry: AudioEntry?, startPlaying: Bool, shouldClearQueue: Bool) {
@@ -944,9 +923,7 @@ open class AudioPlayer {
                 nextEntry.lock.withLock {
                     nextEntry.seekTime = 0
                 }
-                nextEntry.seekRequest.lock.withLock {
-                    nextEntry.seekRequest.requested = false
-                }
+                nextEntry.seekRequest.cancel()
             }
             
             // Track entries as they transition (NOT for .all mode - handled separately to preserve order)
