@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { List, type RowComponentProps } from 'react-window';
 import { ChevronLeft, ChevronRight, Music2, Search } from 'lucide-react';
@@ -14,6 +14,9 @@ import { navidromeErrorKey } from './localeNavidrome';
 import NavidromeSettingsSheet from './NavidromeSettingsSheet';
 import SongList from './SongList';
 import { createNavidromeArtwork, navidromeCoverId, navidromeCoverKey } from './navidromeArtwork';
+import { getNavidromeEditor } from './navidromeEditor';
+import NavidromePlaylistSheet, { type NavidromePlaylistTarget } from './NavidromePlaylistSheet';
+import NavidromeSongActions from './NavidromeSongActions';
 
 // NavidromeBrowser.tsx — touch navigation over original library models, with virtual rows and scoped queue actions.
 type Props = { play(songs: SongResult[], index: number, current: () => void, search: boolean): Promise<unknown>; add(song: SongResult, behavior: QueueAddBehavior | undefined, current: () => void): Promise<unknown>;
@@ -35,9 +38,28 @@ function CardRow({ index, style, cards, select, artwork }: RowComponentProps<{ c
 }
 function Connected({ settings, ...props }: Props & { settings: NativeNavidromeSettings }) {
   const { t } = useTranslation(), [query, setQuery] = useState('');
-  const library = useMemo(() => createMobileNavidromeLibrary(settings, navidromeRuntime.capture()), [settings]);
+  const [target, setTarget] = useState<NavidromePlaylistTarget | null>(null);
+  const editor = useMemo(() => getNavidromeEditor(settings, navidromeRuntime.capture()), [settings]);
+  const edits = useSyncExternalStore(editor.subscribe, editor.getSnapshot);
+  const library = useMemo(() => createMobileNavidromeLibrary(settings, navidromeRuntime.capture(), undefined, editor.wait), [settings, editor]);
   const artwork = useMemo(() => createNavidromeArtwork(settings.scope, navidromeRuntime.capture()), [settings]);
   const state = useSyncExternalStore(library.subscribe, library.getSnapshot);
+  const observed = useRef(edits.revision);
+  useEffect(() => {
+    if (observed.current === edits.revision) return;
+    observed.current = edits.revision; library.invalidateHome();
+    // Player actions share this editor; keep a visible collection current without restarting an existing refresh.
+    if (!library.getSnapshot().busy) void library.load();
+  }, [edits.revision, library]);
+  const changed = async (deleted = false) => {
+    library.invalidateHome();
+    if (deleted) await library.home('playlists'); else await library.load();
+  };
+  const refresh = async () => {
+    if (edits.error) { library.invalidateHome(); await library.home('playlists'); } else await library.load();
+    if (!library.getSnapshot().error) { try { editor.acknowledgeRefresh(); } catch {} }
+  };
+  const editable = state.playlist?.owner === settings.username;
   useEffect(() => { void library.start().catch(() => undefined); return () => library.dispose(); }, [library]);
   const cards = useMemo<Card[]>(() => {
     const deps = { t, coverArtUrl: navidromeCoverKey };
@@ -63,17 +85,31 @@ function Connected({ settings, ...props }: Props & { settings: NativeNavidromeSe
     <div className="local-collection-heading">
       {state.view.kind !== 'home' && <button aria-label={t('mobile.backToCollections')} onClick={() => { setQuery(''); library.home(); }}><ChevronLeft /></button>}
       <h3>{state.view.kind === 'collection' ? state.view.collection.name : state.view.kind === 'search' ? t('mobile.navidrome.searchResults') : t(NAVIDROME_HOME_SECTIONS.find(s => s.key === state.section)!.labelKey)}</h3>
-      <button disabled={state.busy} onClick={() => void library.load()}>{t('options.audioOutputRefresh')}</button>
+      <button disabled={state.busy || edits.busy} onClick={() => void refresh()}>{t('options.audioOutputRefresh')}</button>
     </div>
+    {((state.view.kind === 'home' && state.section === 'playlists') || editable) && <div className="collection-actions">
+      {state.view.kind === 'home' && state.section === 'playlists' && <button disabled={edits.busy || !!edits.error} onClick={() => setTarget({ kind: 'create' })}>{t('mobile.navidrome.createPlaylist')}</button>}
+      {editable && state.playlist && <button disabled={edits.busy || !!edits.error} onClick={() => setTarget({ kind: 'edit', playlist: state.playlist! })}>{t('mobile.navidrome.playlistTools')}</button>}
+    </div>}
+    {edits.busy && <p role="status">{t('mobile.loading')}</p>}
+    {edits.error && <p role="alert">{t(navidromeErrorKey(edits.error))} <button disabled={edits.busy || state.busy} onClick={() => void refresh()}>{t('mobile.navidrome.reviewChanges')}</button></p>}
     {state.busy && <p role="status">{t('mobile.loading')}</p>}
     {state.error && <p role="alert">{t(navidromeErrorKey(state.error))} <button onClick={() => void library.load()}>{t('mobile.retry')}</button></p>}
     {!!cards.length && <List className="song-list local-collections" style={{ minHeight: 180,
       flexGrow: state.songs.length ? 0 : 1, flexShrink: state.songs.length ? 0 : 1, flexBasis: state.songs.length ? 220 : 'auto' }}
       rowComponent={CardRow} rowCount={cards.length} rowHeight={76} rowProps={{ cards, select: open, artwork }} overscanCount={3} />}
     {!!state.songs.length && <SongList songs={state.songs} busy={props.busy}
+      libraryActions={(song, close) => <NavidromeSongActions song={song} editor={editor} close={close} changed={changed}
+        add={() => setTarget({ kind: 'add', song })} remove={editable && state.playlist ? () => {
+          const playlist = state.playlist!, index = state.songs.indexOf(song);
+          if (window.confirm(t('mobile.onlinePlaylistConfirm', { song: song.name, playlist: playlist.name }))) {
+            void editor.remove(playlist, index).then(result => { if (result.ok) void changed(); });
+          }
+        } : undefined} />}
       play={index => { void props.play(state.songs, index, library.assertCurrent, state.view.kind === 'search'); }}
       add={(song, behavior) => { void props.add(song, behavior, library.assertCurrent); }} />}
     {!state.busy && !state.error && !cards.length && !state.songs.length && <p className="empty">{t('mobile.empty')}</p>}
+    {target && <NavidromePlaylistSheet target={target} editor={editor} changed={changed} close={() => setTarget(null)} />}
   </>;
 }
 export default function NavidromeBrowser(props: Props) {

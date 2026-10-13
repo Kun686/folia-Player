@@ -1,7 +1,7 @@
 # Navidrome 移动设置与曲库浏览
 
 本批把已有 Navidrome 原生连接、播放、歌词和封面接到移动触摸入口。个人 App 保持 mobile.28，未操作真实账户、服务器或物理设备。
-完整移植仍未完成；Navidrome 写入功能及真实服务验收另行完成。
+完整移植仍未完成；本阶段未包含写入，后续歌单／收藏移植见 [NAVIDROME_EDITS.md](NAVIDROME_EDITS.md)，真实服务仍未验收。
 
 ## 复用与行为
 
@@ -46,5 +46,6 @@
 源码与移动资源一起部署／回退；个人 mobile.28 未更新。`delivery.json` 记录本批源码与 QA 包摘要，CI 以准确提交记录。
 新增入口依赖既有原生 Navidrome 接口及新增集合封面方法，不能只更新旧 App 的网页资源。
 
-后续仍需补齐原版 Navidrome 歌单编辑、收藏写入及搜索续页，并完成真实服务与 iPhone／iPad 验收。
+后续歌单编辑与收藏写入已完成受控验证，见 [NAVIDROME_EDITS.md](NAVIDROME_EDITS.md)；真实服务与 iPhone／iPad 验收仍待完成。
+此前将搜索续页列为待移植项目不准确：原 `useSearchNavigationStore.ts` 的 Navidrome 搜索明确返回 `hasMore: false`，继续保留原行为。
 完整 Automix 的真机资源、热保护、后台与长期稳定性验收继续待设备条件恢复。

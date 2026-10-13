@@ -11,6 +11,7 @@ import type { AudioQualityPreference } from '../types/onlineMusic';
 import type { NativeAISettings, NativeAISettingsEdit, NativeAIResponse } from './nativeAI';
 import type { NativeSyncSettings, NativeSyncSettingsEdit, NativeSyncOperation, NativeSyncResponse } from './nativeSync';
 import type { NativeNavidromeSettings, NativeNavidromeSettingsEdit, NativeNavidromeOperation, NativeNavidromeResponse } from './nativeNavidrome';
+import type { NavidromeWriteOperation } from '../services/navidromeWriteApi';
 import type { NativeModelsState } from './nativeModels';
 import type { AutomixModelName } from '../services/automix/modelAvailability';
 import type { PersonalFmSelection } from '../services/onlineMusic/fmModes';
@@ -63,6 +64,7 @@ export interface FoliaNativePlugin {
   setNavidromeSettings(options: { revision: number; scope: string; settings: NativeNavidromeSettingsEdit }): Promise<NativeNavidromeSettings>;
   navidromeRequest(options: { id: string; revision: number; scope: string; operation: NativeNavidromeOperation; parameters: Record<string, string> }): Promise<NativeNavidromeResponse>;
   cancelNavidromeRequest(options: { id: string }): Promise<void>;
+  navidromeMutation(options: { id: string; revision: number; scope: string; operation: NavidromeWriteOperation; parameters: Record<string, string | string[]> }): Promise<NativeNavidromeResponse>;
   readNavidromeLyrics(options: { song: SongResult; refresh?: boolean }): ReturnType<FoliaNativePlugin['readLyricCache']>;
   getAISettings(): Promise<NativeAISettings>;
   setAISettings(options: { revision: number; settings: NativeAISettingsEdit }): Promise<NativeAISettings>;

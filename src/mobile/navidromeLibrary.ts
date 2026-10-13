@@ -1,5 +1,5 @@
 import type { SongResult } from '../types';
-import type { SubsonicSong, Search3Response } from '../types/navidrome';
+import type { SubsonicSong, SubsonicPlaylist, Search3Response } from '../types/navidrome';
 import type { NativeNavidromeSettings } from './nativeNavidrome';
 import type { NavidromeGridViewCollectionDescriptor } from '../library/core/contracts/collection';
 import type { LibraryNavidromeHomeData } from '../library/core/contracts/homeModel';
@@ -13,7 +13,7 @@ import { createMobileNavidromeConnection, safeNavidromeError } from './navidrome
 // navidromeLibrary.ts — original overview/collection reads with one cancellable navigation lifetime.
 type View = { kind: 'home' } | { kind: 'collection'; collection: NavidromeGridViewCollectionDescriptor } | { kind: 'search'; query: string };
 type State = { view: View; section: NavidromeHomeSection; busy: boolean; error: string; home: LibraryNavidromeHomeData | null;
-  songs: SongResult[]; search: Search3Response['searchResult3'] | null };
+  songs: SongResult[]; search: Search3Response['searchResult3'] | null; playlist: SubsonicPlaylist | null };
 export function nativeNavidromeSongs(settings: NativeNavidromeSettings, songs: SubsonicSong[]): SongResult[] {
   return buildNavidromeQueue(songs.map(song => {
     const converted = createNavidromeSong(song, '');
@@ -23,8 +23,8 @@ export function nativeNavidromeSongs(settings: NativeNavidromeSettings, songs: S
   }));
 }
 export function createMobileNavidromeLibrary(settings: NativeNavidromeSettings, current: () => boolean,
-  connect = createMobileNavidromeConnection) {
-  let state: State = { view: { kind: 'home' }, section: DEFAULT_NAVIDROME_HOME_SECTION, busy: false, error: '', home: null, songs: [], search: null };
+  connect = createMobileNavidromeConnection, waitForWrites: () => Promise<void> = () => Promise.resolve()) {
+  let state: State = { view: { kind: 'home' }, section: DEFAULT_NAVIDROME_HOME_SECTION, busy: false, error: '', home: null, songs: [], search: null, playlist: null };
   let generation = 0, disposed = false, connection: ReturnType<typeof connect> | null = null;
   const listeners = new Set<() => void>();
   const commit = (patch: Partial<State>) => { state = { ...state, ...patch }; listeners.forEach(listener => listener()); };
@@ -35,14 +35,17 @@ export function createMobileNavidromeLibrary(settings: NativeNavidromeSettings, 
     cancel(); const ticket = generation;
     const client = connection = connect(settings);
     const valid = () => !disposed && current() && generation === ticket;
-    commit({ view, busy: true, error: '', songs: [], search: null });
+    commit({ view, busy: true, error: '', songs: [], search: null, playlist: null });
     try {
+      await waitForWrites(); if (!valid()) return;
       if (view.kind === 'home') {
         const home = await loadNavidromeHomeData(client.api, client.settings, valid);
         if (valid()) commit({ home });
       } else if (view.kind === 'collection') {
-        const songs = await readNavidromeCollection(client.settings, view.collection, client.api, 2);
-        if (valid()) commit({ songs: nativeNavidromeSongs(settings, songs) });
+        const playlist = view.collection.type === 'playlist' ? await client.api.getPlaylist(client.settings, view.collection.id) : null;
+        const songs = view.collection.type === 'playlist' ? playlist?.entry ?? [] : await readNavidromeCollection(client.settings, view.collection, client.api, 2);
+        if (valid()) commit({ songs: nativeNavidromeSongs(settings, songs), playlist,
+          view: playlist ? { kind: 'collection', collection: { ...view.collection, name: playlist.name } } : view });
       } else {
         const search = await client.api.search(client.settings, view.query);
         if (valid()) commit({ search, songs: nativeNavidromeSongs(settings, search.song ?? []) });
@@ -58,10 +61,11 @@ export function createMobileNavidromeLibrary(settings: NativeNavidromeSettings, 
     load: () => load(state.view),
     open: (collection: NavidromeGridViewCollectionDescriptor) => load({ kind: 'collection', collection }),
     search: (query: string) => query.trim() ? load({ kind: 'search', query: query.trim() }) : Promise.resolve(),
-    home(section = state.section) { if (disposed || !current()) return;
-      cancel(); commit({ view: { kind: 'home' }, section, busy: false, error: '', songs: [], search: null });
-      if (!state.home) void load({ kind: 'home' }); },
+    home(section = state.section) { if (disposed || !current()) return Promise.resolve();
+      cancel(); commit({ view: { kind: 'home' }, section, busy: false, error: '', songs: [], search: null, playlist: null });
+      return state.home ? Promise.resolve() : load({ kind: 'home' }); },
     dispose() { disposed = true; cancel(); listeners.clear(); },
+    invalidateHome() { if (!disposed && current()) commit({ home: null }); },
   };
 }
 export type MobileNavidromeLibrary = ReturnType<typeof createMobileNavidromeLibrary>;

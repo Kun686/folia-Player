@@ -78,13 +78,49 @@ enum NativeNavidromeRequest {
             && url.deletingLastPathComponent().lastPathComponent == "rest" && names.isSuperset(of: ["u", "t", "s"])
     }
     private static func signedURL(_ settings: NativeNavidromeSettings, operation: String, parameters: [String: String]) throws -> URL {
+        try signedURL(settings, operation: operation, values: parameters.mapValues { [$0] })
+    }
+    // Write routes retain repeated Subsonic parameters; no credential or endpoint overrides are accepted.
+    static func mutation(settings: NativeNavidromeSettings, operation: String, parameters: [String: Any]) throws -> URLRequest {
+        try settings.validate()
+        guard settings.enabled, !settings.username.isEmpty, !settings.password.isEmpty else { throw MobileFailure("navidrome-not-configured") }
+        let routes: [String: Set<String>] = ["createPlaylist": ["name", "songId"], "deletePlaylist": ["id"],
+            "updatePlaylist": ["playlistId", "name", "comment", "public", "songIdToAdd", "songIndexToRemove"],
+            "star": ["id"], "unstar": ["id"]]
+        guard let allowed = routes[operation], Set(parameters.keys).isSubset(of: allowed) else { throw MobileFailure("invalid-navidrome-request") }
+        let arrays: Set<String> = ["songId", "songIdToAdd", "songIndexToRemove"]
+        var values: [String: [String]] = [:]
+        for (key, raw) in parameters {
+            let entries: [String]
+            if arrays.contains(key), let list = raw as? [String], list.count <= 1000 { entries = list }
+            else if !arrays.contains(key), let text = raw as? String { entries = [text] }
+            else { throw MobileFailure("invalid-navidrome-request") }
+            guard entries.allSatisfy({ validMediaID($0) }) else { throw MobileFailure("invalid-navidrome-request") }
+            if key == "songIndexToRemove", !entries.allSatisfy({ value in
+                value.utf8.allSatisfy({ (48...57).contains($0) }) && Int(value).map { (0...10_000_000).contains($0) } == true
+            }) { throw MobileFailure("invalid-navidrome-request") }
+            if key == "public", !entries.allSatisfy({ ["true", "false"].contains($0) }) { throw MobileFailure("invalid-navidrome-request") }
+            values[key] = entries
+        }
+        let required = operation == "createPlaylist" ? "name" : operation == "updatePlaylist" ? "playlistId" : "id"
+        guard values[required]?.first?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+              values.values.reduce(0, { $0 + $1.count }) <= 1005,
+              operation != "updatePlaylist" || values.keys.contains(where: { $0 != "playlistId" }) else { throw MobileFailure("invalid-navidrome-request") }
+        let url = try signedURL(settings, operation: operation, values: values)
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30)
+        // Match original Subsonic GET semantics, including older servers without formPost support.
+        request.httpMethod = "GET"; request.httpShouldHandleCookies = false
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        return request
+    }
+    private static func signedURL(_ settings: NativeNavidromeSettings, operation: String, values: [String: [String]]) throws -> URL {
         let salt = try randomSalt()
         guard var parts = URLComponents(string: settings.baseURL + "/rest/" + operation) else { throw MobileFailure("invalid-navidrome-request") }
         parts.queryItems = [URLQueryItem(name: "u", value: settings.username),
             URLQueryItem(name: "t", value: token(password: settings.password, salt: salt)),
             URLQueryItem(name: "s", value: salt), URLQueryItem(name: "v", value: "1.16.1"),
             URLQueryItem(name: "c", value: "Folia"), URLQueryItem(name: "f", value: "json")]
-        parts.queryItems! += parameters.sorted(by: { $0.key < $1.key }).map { URLQueryItem(name: $0.key, value: $0.value) }
+        parts.queryItems! += values.sorted(by: { $0.key < $1.key }).flatMap { key, entries in entries.map { URLQueryItem(name: key, value: $0) } }
         // Form-style servers treat a literal '+' as space; URLComponents leaves it unescaped by default.
         parts.percentEncodedQuery = parts.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
         guard let url = parts.url, url.absoluteString.utf8.count <= 32768 else { throw MobileFailure("invalid-navidrome-request") }

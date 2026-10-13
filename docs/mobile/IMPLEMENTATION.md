@@ -1,8 +1,13 @@
 # Folia iPhone / iPad 实现与安装
 
+Navidrome 新建／重命名／删除歌单、加入／移除歌曲与收藏已接入曲库和播放器工具，复用原参数映射与既有原生传输，无新依赖。
+1,427 项逻辑、27 项 Navidrome WebKit 场景、21 项既有在线收藏回归及 35 项原生模拟器测试通过。
+写入结果不明时刷新核对，不自动重试；位置移除仍受 Subsonic 无条件写入的并发限制。
+个人 mobile.28 未更新；真实服务／真机 NOT_RUN，见 [NAVIDROME_EDITS.md](NAVIDROME_EDITS.md)。
+
 Navidrome 移动设置、曲库浏览与搜索已接通既有原生播放；复用原版首页／集合业务和队列规则，无新依赖。
 1,418 项逻辑、32 项 WebKit（另 4 项重复旋转实例按原规则跳过）及 31 项原生模拟器测试通过。
-个人 mobile.28 未更新；真实服务／真机 NOT_RUN，歌单编辑、收藏写入等仍待移植，见 [NAVIDROME_LIBRARY.md](NAVIDROME_LIBRARY.md)。
+该浏览阶段个人 mobile.28 未更新；真实服务／真机 NOT_RUN，后续歌单编辑与收藏见上文，见 [NAVIDROME_LIBRARY.md](NAVIDROME_LIBRARY.md)。
 
 Navidrome 封面和歌词已接入原生播放器，复用原解析器与缓存，支持已有歌词导入、来源切换和导出工具。
 1,451 项逻辑、9 项 WebKit 界面及 87 项原生模拟器回归通过；真实 Navidrome／真机／系统挂起仍 NOT_RUN。

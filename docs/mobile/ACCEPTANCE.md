@@ -1,8 +1,12 @@
 # 真实服务与真机验收表
 
+Navidrome 歌单编辑与收藏已完成受控验证：1,427 项逻辑、27 项 Navidrome WebKit 场景、21 项既有在线收藏回归及 35 项原生模拟器测试通过。
+涵盖未知写入结果、重复歌曲位置、账号变更取消和原生桥接；Subsonic 不支持条件写入，不能保证跨客户端的位置移除原子性。
+个人 mobile.28 未更新；真实服务器写入／物理设备／系统挂起 NOT_RUN，完整交付仍未完成，见 [NAVIDROME_EDITS.md](NAVIDROME_EDITS.md)。
+
 Navidrome 设置、浏览、搜索与既有原生播放已接通：1,418 项逻辑、32 项 WebKit 及 31 项原生模拟器测试通过。
 旋转测试在 phone 项目覆盖 8 种尺寸和深浅主题，另 4 个重复实例按原规则跳过；真实服务／物理设备／系统挂起仍 NOT_RUN。
-个人 mobile.28 未更新；歌单编辑与收藏写入等尚未移植，完整交付仍未完成，见 [NAVIDROME_LIBRARY.md](NAVIDROME_LIBRARY.md)。
+该浏览阶段个人 mobile.28 未更新；后续歌单编辑与收藏见上文，完整交付仍未完成，见 [NAVIDROME_LIBRARY.md](NAVIDROME_LIBRARY.md)。
 
 Navidrome 封面和歌词已接入原生播放器，复用原解析器与缓存，支持已有歌词导入、来源切换和导出工具。
 1,451 项逻辑、9 项 WebKit 界面及 87 项原生模拟器回归通过；真实 Navidrome／真机／系统挂起仍 NOT_RUN。

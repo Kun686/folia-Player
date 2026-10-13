@@ -1,6 +1,6 @@
 import Foundation
 
-// NativeNavidromeClient.swift — independent Keychain connection and bounded read transport, usable without a running WebView.
+// NativeNavidromeClient.swift — independent Keychain connection and bounded Subsonic transport, usable without a running WebView.
 @MainActor final class NativeNavidromeClient {
     private let read: () throws -> [String: Any]
     private let write: ([String: Any]) throws -> Void
@@ -10,6 +10,7 @@ import Foundation
     private let playbackRequests = NativeJSONTasks(prefix: "navidrome")
     // Four cover downloads plus current/next lyrics; they cannot consume playback or browsing slots.
     private let resourceRequests = NativeJSONTasks(prefix: "navidrome", maximumActive: 6)
+    private let mutations = NativeJSONTasks(prefix: "navidrome", maximumActive: 1)
     private(set) var revision = 0
     var connectionChanged: (() -> Void)?
     nonisolated static let maxResponseBytes = 8 * 1024 * 1024
@@ -30,7 +31,7 @@ import Foundation
         let next = try previous.editing(values)
         try write(next.record())
         // A failed Keychain write must preserve current requests and the last committed settings.
-        revision += 1; requests.cancelAll(); playbackRequests.cancelAll(); resourceRequests.cancelAll()
+        revision += 1; requests.cancelAll(); playbackRequests.cancelAll(); resourceRequests.cancelAll(); mutations.cancelAll()
         if previous.scope != next.scope || previous.enabled != next.enabled { connectionChanged?() }
         return publicValues(next)
     }
@@ -71,6 +72,15 @@ import Foundation
             replayGain: NativeReplayGainInfo(remote["replayGain"]) ?? NativeReplayGainInfo(song["replayGain"]))
     }
     func cancel(_ id: String) { requests.cancel(id) }
+    func mutate(id: String, expected: Int, scope: String, operation: String, parameters: [String: Any]) async throws -> [String: Any] {
+        try await mutations.run(id: id) { [self] in
+            _ = try validateResource(scope, expected: expected)
+            let request = try NativeNavidromeRequest.mutation(settings: NativeNavidromeSettings.read(read()), operation: operation, parameters: parameters)
+            let result = try await NativeJSONTransport.perform(request, configuration: configuration(), limit: Self.maxResponseBytes, timeout: 30, prefix: "navidrome")
+            _ = try validateResource(scope, expected: expected)
+            return ["scope": scope, "revision": revision, "response": try NativeNavidromeRequest.response(result)]
+        }
+    }
     func resource(_ song: [String: Any], operation: String, parameters: [String: String]) async throws -> [String: Any] {
         let epoch = try validatePlayback(song), settings = try NativeNavidromeSettings.read(read())
         guard ["getSong", "getLyricsBySongId", "getLyrics"].contains(operation) else { throw MobileFailure("invalid-navidrome-request") }

@@ -63,6 +63,7 @@ describe('mobile Navidrome library', () => {
     const f = fixture(), late = deferred<Record<string, unknown>>();
     f.read.mockImplementation(async operation => operation === 'search3' ? late.promise : { album: { song: [song('new')] } });
     const old = f.library.search('old');
+    await vi.waitFor(() => expect(f.read).toHaveBeenCalledTimes(1));
     await f.library.open({ source: 'navidrome', type: 'album', id: 'new', name: 'New' });
     late.resolve({ searchResult3: { song: [song('old')] } }); await old;
     expect(f.library.getSnapshot().songs.map(track => track.name)).toEqual(['new']);
@@ -70,7 +71,7 @@ describe('mobile Navidrome library', () => {
   });
   it('rejects stale queue actions, drops in-flight reads and ignores stale navigation', async () => {
     const f = fixture(), late = deferred<Record<string, unknown>>(); f.read.mockReturnValue(late.promise);
-    const pending = f.library.search('old'); f.revoke();
+    const pending = f.library.search('old'); await vi.waitFor(() => expect(f.read).toHaveBeenCalledTimes(1)); f.revoke();
     late.resolve({ searchResult3: { song: [song('old')] } }); await pending;
     expect(f.library.getSnapshot().songs).toEqual([]);
     expect(() => f.library.assertCurrent()).toThrow('navidrome-settings-changed');

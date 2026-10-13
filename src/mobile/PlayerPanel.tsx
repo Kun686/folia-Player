@@ -30,6 +30,7 @@ import { native, type PlaybackSnapshot } from './bridge';
 import type { SongResult } from '../types';
 import { useMobileThemeGeneration } from './useMobileThemeGeneration';
 import OnlineSongLike from './OnlineSongLike';
+import NavidromePlayerActions from './NavidromePlayerActions';
 import type { MobileSongLikes } from './mobileSongLikes';
 import SongInfoActions from './SongInfoActions';
 import { VideoLayerPlayback } from '../components/visualizer/videoLayer/VideoLayerPlayback';
@@ -135,6 +136,7 @@ export default function PlayerPanel({ appearance, state, time, visible, light, e
         unavailable={state.playing && state.audioProcessingAvailable === false} effects={state.audioEffects} listening={state.listening} replayGain={song?.replayGain} />
       {toolsOpen && expanded && song?.sourceRef?.kind === 'online' && <OnlineSongLike song={song} likes={likes}
         writable={songLikeProviders.includes(song.sourceRef.providerId)} />}
+      {toolsOpen && expanded && song?.sourceRef?.kind === 'navidrome' && <NavidromePlayerActions song={song} />}
       {toolsOpen && expanded && song && <SongInfoActions song={song} details />}
       <div className="player-options"><button onClick={() => setVisualSettings(true)}>{t('mobile.visuals')}</button>
         <button onClick={() => setTransitionSettings(true)}>{t('options.transitionSettings')}</button>

@@ -1,3 +1,4 @@
+import { createNavidromeWriteApi } from './navidromeWriteApi';
 import { createNavidromeSong } from './navidromeSong';
 import {
     NavidromeConfig,
@@ -5,8 +6,6 @@ import {
     SubsonicAlbum,
     SubsonicSong,
     NavidromeSong,
-    CreatePlaylistResponse,
-    SubsonicPlaylist,
     NavidromeServerProfile,
 } from '../types/navidrome';
 import md5 from 'blueimp-md5';
@@ -207,87 +206,7 @@ export const refreshNavidromeServerProfile = async (config: NavidromeConfig): Pr
 };
 
 // API Methods
-export const navidromeApi = Object.assign(createNavidromeReadApi<NavidromeConfig>(fetchSubsonic), {
-
-    createPlaylist: async (
-        config: NavidromeConfig,
-        name: string,
-        songIds: string[] = []
-    ): Promise<SubsonicPlaylist | null> => {
-        try {
-            const res = await fetchSubsonic<CreatePlaylistResponse>(config, 'createPlaylist', {
-                name,
-                songId: songIds,
-            });
-            if (res['subsonic-response'].status === 'ok') {
-                return res['subsonic-response'].playlist || null;
-            }
-        } catch (e) {
-            console.error('[Navidrome] createPlaylist failed:', e);
-        }
-        return null;
-    },
-
-    deletePlaylist: async (config: NavidromeConfig, playlistId: string): Promise<boolean> => {
-        try {
-            const res = await fetchSubsonic<Record<string, never>>(config, 'deletePlaylist', {
-                id: playlistId,
-            });
-            return res['subsonic-response'].status === 'ok';
-        } catch (e) {
-            console.error('[Navidrome] deletePlaylist failed:', e);
-        }
-        return false;
-    },
-
-    updatePlaylist: async (
-        config: NavidromeConfig,
-        playlistId: string,
-        options: {
-            name?: string;
-            comment?: string;
-            public?: boolean;
-            songIdsToAdd?: string[];
-            songIndexesToRemove?: number[];
-        }
-    ): Promise<boolean> => {
-        try {
-            const res = await fetchSubsonic<Record<string, never>>(config, 'updatePlaylist', {
-                playlistId,
-                ...(options.name ? { name: options.name } : {}),
-                ...(options.comment ? { comment: options.comment } : {}),
-                ...(typeof options.public === 'boolean' ? { public: options.public } : {}),
-                ...(options.songIdsToAdd?.length ? { songIdToAdd: options.songIdsToAdd } : {}),
-                ...(options.songIndexesToRemove?.length ? { songIndexToRemove: options.songIndexesToRemove } : {}),
-            });
-            return res['subsonic-response'].status === 'ok';
-        } catch (e) {
-            console.error('[Navidrome] updatePlaylist failed:', e);
-        }
-        return false;
-    },
-
-    // Star a song on the Navidrome server
-    star: async (config: NavidromeConfig, songId: string): Promise<boolean> => {
-        try {
-            const res = await fetchSubsonic<Record<string, never>>(config, 'star', { id: songId });
-            return res['subsonic-response'].status === 'ok';
-        } catch (e) {
-            console.error('[Navidrome] star failed:', e);
-        }
-        return false;
-    },
-
-    // Unstar a song on the Navidrome server
-    unstar: async (config: NavidromeConfig, songId: string): Promise<boolean> => {
-        try {
-            const res = await fetchSubsonic<Record<string, never>>(config, 'unstar', { id: songId });
-            return res['subsonic-response'].status === 'ok';
-        } catch (e) {
-            console.error('[Navidrome] unstar failed:', e);
-        }
-        return false;
-    },
+export const navidromeApi = Object.assign(createNavidromeReadApi<NavidromeConfig>(fetchSubsonic), createNavidromeWriteApi<NavidromeConfig>(fetchSubsonic), {
 
     scrobble: async (
         config: NavidromeConfig,
