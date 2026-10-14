@@ -130,6 +130,7 @@ def main():
                         raise RuntimeError("footprint did not measure the exact three live processes")
                     samples.append({"phase": phase, "elapsed": before - started,
                         "captureSeconds": time.monotonic() - before, "file": target.name,
+                        "phaseAfterCapture": marker["phase"], "samplingDoneAfterCapture": sampling_done,
                         "processes": identities[key]})
                     last_sample = time.monotonic()
                 if now - shown >= 5:

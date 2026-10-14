@@ -158,3 +158,8 @@ Classic、Diorama、Lumiere、Sonnet 在两平台受控身份下共64个阶段�
 2026-10-14 [设置背景交互隔离](SETTINGS_MODAL_ISOLATION.md)：修复设置及子页开启时背景播放控件仍可获得焦点的问题。
 复用inert，保留原版动画／布局；最终60项WebKit和类型检查通过，同一原生QA在手机／平板各1项PASS，含焦点与真实PCM。
 VoiceOver／硬件键盘／真机触摸／真实账号／长期性能仍NOT_RUN，个人mobile.28与服务器未更新。
+
+2026-10-14 [同一动效重复资源检查](WARMED_VISUALIZER_RESOURCES.md)：Diorama每平台反复开关设置16次，
+同一原生QA在iPhone／iPad模拟器各1项PASS，每端64阶段保持实际PCM及设置恢复。
+预热后WebContent仍增长约12–37MiB；未取得保留链，泄漏原因未定，长期稳定性未验收。
+本批只扩展QA与采样元数据，生产功能、个人mobile.28及服务器未更新，真实账号／真机仍NOT_RUN。

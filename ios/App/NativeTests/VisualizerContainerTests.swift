@@ -15,8 +15,13 @@ import AVFoundation
                                             "partita", "pendolo", "still", "tempera", "tilt"])
     }
 
+    func testWarmedDioramaSettingsCyclesPreserveNativePlayback() async throws {
+        // Repeat one loaded renderer so later process samples are not different modes' first-use allocations.
+        try await checkPackagedVisualizers(["diorama"], cycles: 16, restoredWindowMilliseconds: 4000)
+    }
+
     // Reuses the same native output and page lifecycle for both mode groups, without a second playback fixture.
-    func checkPackagedVisualizers(_ modes: [String],
+    func checkPackagedVisualizers(_ modes: [String], cycles: Int = 2, restoredWindowMilliseconds: Int? = nil,
         afterRestore: (@MainActor (WKWebView, String, PlaybackEngine, OutputMeasurement) async throws -> Void)? = nil) async throws {
         #if !targetEnvironment(simulator)
         throw XCTSkip("Independent simulator container check only")
@@ -87,12 +92,13 @@ import AVFoundation
             try jointProcessCheckpoint(phase, web: web)
             audio.reset(); let position = player.playbackPosition
             // Give the external system sampler time to capture each second restored phase independently.
-            try await Task.sleep(for: .milliseconds(phase.hasSuffix("-1-restored") ? 3000 : 450))
+            let observation = settingsOpen ? 450 : restoredWindowMilliseconds ?? (phase.hasSuffix("-1-restored") ? 3000 : 450)
+            try await Task.sleep(for: .milliseconds(observation))
             let pcm = audio.read(), advanced = player.playbackPosition - position
             let state = try await jointJS(web, #"JSON.stringify({canvases:document.querySelectorAll('.lyric-stage canvas').length,settings:!!document.querySelector('.visual-settings'),mode:localStorage.getItem('visualizer_mode'),title:document.querySelector('.track-description h2')?.textContent,stageText:document.querySelector('.lyric-stage')?.textContent?.slice(0,250),diagnostics:window.visualizerContainerQA})"#)
             let bytes = try XCTUnwrap((state as? String)?.data(using: .utf8))
             let ui = try XCTUnwrap(try JSONSerialization.jsonObject(with: bytes) as? [String: Any])
-            samples.append(["phase": phase, "positionAdvanced": advanced, "frames": pcm.frames, "rms": pcm.rms,
+            samples.append(["phase": phase, "observationMilliseconds": observation, "positionAdvanced": advanced, "frames": pcm.frames, "rms": pcm.rms,
                             "channels": pcm.channels, "playing": player.outputIsPlaying, "ui": ui])
             XCTAssertTrue(player.outputIsPlaying, phase); XCTAssertGreaterThan(advanced, 0.1, phase)
             XCTAssertGreaterThan(pcm.frames, 1000, phase); XCTAssertGreaterThan(pcm.rms, 0.00001, phase)
@@ -109,7 +115,7 @@ import AVFoundation
                 try await waitForStream({ player.outputIsPlaying && player.playbackPosition > 0.5 }, seconds: 10)
             }
             for mode in modes {
-                for cycle in 0..<2 {
+                for cycle in 0..<cycles {
                     _ = try await jointJS(web, "document.querySelector('.player-wake')?.click(); true")
                     try await jointUIReady(web, condition: "!document.querySelector('.player-heading')?.inert")
                     _ = try await jointJS(web, "document.querySelector('.player-heading button[aria-haspopup=dialog]').click(); true")
@@ -128,7 +134,7 @@ import AVFoundation
                     try await jointUIReady(web, condition: "!document.querySelector('.visual-settings') && (\(rendering)) && (\(lyricsReady)) && !document.querySelector('.empty-lyrics') && !document.querySelector('.lyric-notice')")
                     try await checkpoint("\(provider)-\(mode)-\(cycle)-restored", mode: mode, provider: provider, settingsOpen: false)
                     XCTAssertEqual(player.index, index); XCTAssertEqual(player.queue.count, 2); XCTAssertNil(player.error)
-                    if cycle == 1 {
+                    if cycle == cycles - 1 {
                         let config = WKSnapshotConfiguration(); config.afterScreenUpdates = true
                         let image = try await web.takeSnapshot(configuration: config)
                         let attachment = XCTAttachment(image: image); attachment.name = "\(provider)-\(mode)-restored"

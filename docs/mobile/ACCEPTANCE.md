@@ -3,6 +3,11 @@
 当前验收优先级为 QQ／网易云核心功能、特效动画、设置 UI，见 [CURRENT_SCOPE.md](CURRENT_SCOPE.md)。
 本地音乐、其他平台、同步、AI 和完整 Automix 扩展暂缓；历史自动测试不自动替代当前两平台真机验收。
 
+2026-10-14 [同一动效重复资源检查](WARMED_VISUALIZER_RESOURCES.md)：1个唯一XCTest在iPhone／iPad各执行1次均PASS，
+每端64阶段有真实双声道PCM、正确歌曲／模式和设置恢复；三进程PID持续一致，采样排除跨阶段结果。
+预热后WebContent仍增长，未取得对象保留链；泄漏未定、长期性能及真机NOT_RUN，不能标记内存稳定。
+本批只改QA与采样元数据，个人mobile.28、服务器和生产功能未更新，旧WebKit失败记录保留。
+
 2026-10-14 [设置背景焦点隔离](SETTINGS_MODAL_ISOLATION.md)：手机RED为4项FAIL／36条背景focus断言；修复后60项WebKit PASS。
 同一原生QA在手机／平板各1项PASS，覆盖实际WKWebView的背景focus拒绝、设置返回及真实PCM。
 不等同于完整焦点循环、VoiceOver、硬件键盘或真机触摸验收；这些及真实账号／长期性能仍NOT_RUN，个人App和服务器未更新。
