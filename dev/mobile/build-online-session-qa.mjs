@@ -6,7 +6,7 @@ await build({
   configFile: false, root: fileURLToPath(new URL('../../', import.meta.url)), publicDir: false,
   resolve: { alias: { '@': fileURLToPath(new URL('../../src', import.meta.url)) } },
   build: {
-    target: 'safari17', outDir: '.mobile-test-results/native-logout/qa-assets', emptyOutDir: true,
+    target: 'safari17', outDir: process.argv[2] ?? '.mobile-test-results/native-logout/qa-assets', emptyOutDir: true,
     lib: { entry: 'dev/mobile/online-session-qa.ts', name: 'FoliaOnlineSessionQA', formats: ['iife'],
       fileName: () => 'online-session-qa.js' },
   },
