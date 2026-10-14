@@ -175,7 +175,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
     <LocalSongPlaylistActions song={song} controller={localPlaylists}
       selected={isLocal && !queueView ? localBrowser.selected : undefined} close={close} /></>;
   return <main className={'mobile-app ' + (light ? 'daylight' : '')} data-layout="compact">
-    <div className="library-panel" inert={expanded}>
+    <div className="library-panel" inert={expanded || settings}>
       <header className="brand"><div><small>FOLIA</small><h1>{t('mobile.library')}</h1></div>
         <button aria-label={t('mobile.settings')} onClick={() => setSettings(true)}><Settings /></button></header>
       <nav className="providers" aria-label="Music platform">
@@ -280,7 +280,7 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       likes={likes} songLikeProviders={available.songLikeProviders}
       captureSongGuard={playback.captureSongGuard}
       expanded={expanded} collapse={() => setExpanded(false)} openQueue={() => { setQueueView(true); setExpanded(false); }} />
-    <footer className="mini-player" inert={expanded}>
+    <footer className="mini-player" inert={expanded || settings}>
       <button className="mini-title" onClick={() => setExpanded(true)}><Music2 /><span><strong>{active?.name ?? 'Folia'}</strong>
         <small>{active?.artists.map(a => a.name).join(' / ') ?? 'Classic'}</small></span></button>
       <button disabled={!active && !playback.state.queue.length} aria-label={t(playback.state.playing ? 'mobile.pause' : 'mobile.play')}

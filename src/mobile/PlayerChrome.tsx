@@ -7,8 +7,8 @@ import type { PlaybackSnapshot } from './bridge';
 import { useReducedMotionFor } from '../hooks/useReducedMotionFor';
 
 // PlayerChrome.tsx — floating transport over the original full-window visualizer; tools keep their existing components.
-export default function PlayerChrome({ state, cover, hidden, reveal, collapse, openQueue, command, toolsOpen, setToolsOpen, children }: {
-  state: PlaybackSnapshot; cover?: string; hidden: boolean; reveal(): void; collapse(): void; openQueue(): void;
+export default function PlayerChrome({ state, cover, hidden, blocked, reveal, collapse, openQueue, command, toolsOpen, setToolsOpen, children }: {
+  state: PlaybackSnapshot; cover?: string; hidden: boolean; blocked: boolean; reveal(): void; collapse(): void; openQueue(): void;
   command(action: 'play' | 'pause' | 'next' | 'previous' | 'seek' | 'repeat', position?: number, mode?: string): void;
   toolsOpen: boolean; setToolsOpen(open: boolean): void; children: ReactNode;
 }) {
@@ -24,7 +24,7 @@ export default function PlayerChrome({ state, cover, hidden, reveal, collapse, o
     {hidden && <button className="player-wake" aria-label={t('mobile.showControls')}
       onPointerDown={event => event.stopPropagation()} onPointerUp={event => event.stopPropagation()}
       onClick={event => { event.stopPropagation(); reveal(); }} />}
-    <motion.header className="player-heading" inert={hidden || toolsOpen} aria-hidden={hidden}
+    <motion.header className="player-heading" inert={hidden || toolsOpen || blocked} aria-hidden={hidden}
       initial={false} animate={{ opacity: hidden ? 0 : 1 }} transition={transition}>
       <button className="player-collapse chrome-button" onClick={collapse} aria-label={t('mobile.back')}><ChevronDown /></button>
       <div className="track-heading">
@@ -33,7 +33,7 @@ export default function PlayerChrome({ state, cover, hidden, reveal, collapse, o
       </div>
       <button className="chrome-button" aria-label={t('mobile.playerTools')} aria-haspopup="dialog" onClick={() => setToolsOpen(true)}><MoreHorizontal /></button>
     </motion.header>
-    <motion.div className="player-controls" inert={hidden || toolsOpen} aria-hidden={hidden} initial={false}
+    <motion.div className="player-controls" inert={hidden || toolsOpen || blocked} aria-hidden={hidden} initial={false}
       animate={{ opacity: hidden ? 0 : 1, y: hidden && !reducedMotion ? 18 : 0, scale: hidden && !reducedMotion ? 0.92 : 1 }} transition={transition}>
       <div className="playback-progress"><input type="range" aria-label={t('mobile.position')} min={0} max={state.duration || 1} step={0.1}
         value={Math.min(state.position, state.duration || 1)} disabled={!song || !state.duration}

@@ -134,7 +134,7 @@ export default function PlayerPanel({ appearance, state, time, visible, light, e
         theme={light ? appearance.theme.light : appearance.theme.dark} />
       {song && !lyrics?.lines.length && <p className="lyric-notice" role="status">{t('mobile.noLyrics')}</p>}
     </div>
-    <PlayerChrome state={state} cover={cover} hidden={hidden} reveal={revealChrome} collapse={collapse} openQueue={openQueue}
+    <PlayerChrome state={state} cover={cover} hidden={hidden} blocked={modalOpen} reveal={revealChrome} collapse={collapse} openQueue={openQueue}
       command={command} toolsOpen={toolsOpen} setToolsOpen={setToolsOpen}>
       <AudioControls light={light} theme={light ? appearance.theme.light : appearance.theme.dark}
         unavailable={state.playing && state.audioProcessingAvailable === false} effects={state.audioEffects} listening={state.listening} replayGain={song?.replayGain} />

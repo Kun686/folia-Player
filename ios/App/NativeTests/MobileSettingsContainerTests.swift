@@ -26,8 +26,25 @@ import WebKit
                 let result = try await self.jointJS(web, #"JSON.stringify({draft:document.querySelector('.appearance-transfer textarea')?.value,open:[...document.querySelectorAll('.visual-settings details')].filter(n=>n.open).length,cache:document.querySelector('.settings-sheet .mobile-cache-controls')?.textContent,diagnostics:window.visualizerContainerQA})"#)
                 let bytes = try XCTUnwrap((result as? String)?.data(using: .utf8))
                 let ui = try XCTUnwrap(try JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+                var backgroundIsolated: Bool?
+                if phase != "applied-lyrics" {
+                    let selectors = phase.hasPrefix("cache-")
+                        ? [".brand button", ".mini-title", ".mini-player > button[aria-label]"]
+                        : [".player-collapse", ".primary-play", ".player-heading button:last-child"]
+                    let encoded = String(decoding: try JSONSerialization.data(withJSONObject: selectors), as: UTF8.self)
+                    let isolated = try await self.jointJS(web, """
+                    (()=>{const previous=document.activeElement; let blocked=true;
+                      for(const selector of \(encoded)) { const target=document.querySelector(selector);
+                        if(!target) {blocked=false;continue;} target.focus({preventScroll:true});
+                        if(document.activeElement===target) blocked=false; }
+                      previous?.focus?.({preventScroll:true}); return blocked;})()
+                    """)
+                    backgroundIsolated = isolated as? Bool
+                    XCTAssertEqual(backgroundIsolated, true, "Settings must isolate covered playback controls")
+                }
                 phases.append(["phase": label + "-" + phase, "frames": pcm.frames, "channels": pcm.channels,
-                               "rms": pcm.rms, "positionAdvanced": advanced, "ui": ui])
+                               "rms": pcm.rms, "positionAdvanced": advanced, "ui": ui,
+                               "backgroundIsolated": backgroundIsolated as Any? ?? NSNull()])
                 print("SETTINGS_CONTAINER \(label)-\(phase) frames=\(pcm.frames) rms=\(pcm.rms) advanced=\(advanced)")
             }
             _ = try await self.jointJS(web, "document.querySelector('.player-wake')?.click(); true")
