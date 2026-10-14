@@ -37,9 +37,9 @@ export default function VisualSettings({ light, close, appearance, visible, them
   const entry = getVisualizerRegistryEntry(s.visualizerMode);
   const background = useVisualizerBackgroundConfig();
   const theme = light ? appearance.theme.light : appearance.theme.dark;
-  if (themeEditor) return <MobileThemeEditor appearance={appearance} light={light} visible={visible} source={themeSource} close={() => setThemeEditor(false)} />;
-  if (aiSettings) return <AISettingsSheet close={() => setAISettings(false)} />;
-  return <div className="sheet-backdrop"><section className="sheet sheet-pinned visual-settings" role="dialog" aria-modal="true" aria-label={t('mobile.visuals')}>
+  // Keep drafts and native details/scroll state until this settings session closes.
+  const subviewOpen = themeEditor || aiSettings;
+  return <><div className="sheet-backdrop" hidden={subviewOpen} inert={subviewOpen}><section className="sheet sheet-pinned visual-settings" role="dialog" aria-modal="true" aria-label={t('mobile.visuals')}>
     <header><h2>{t('mobile.visuals')}</h2><button disabled={uploading} onClick={close}>{t('mobile.close')}</button></header>
     <div className="sheet-body" ref={scrollBody}>
     <fieldset className="visual-settings-content" disabled={uploading}>
@@ -104,5 +104,8 @@ export default function VisualSettings({ light, close, appearance, visible, them
     </Suspense></details>
     </fieldset>
     </div>
-  </section></div>;
+  </section></div>
+    {themeEditor && <MobileThemeEditor appearance={appearance} light={light} visible={visible} source={themeSource} close={() => setThemeEditor(false)} />}
+    {aiSettings && <AISettingsSheet close={() => setAISettings(false)} />}
+  </>;
 }

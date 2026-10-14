@@ -1,4 +1,6 @@
 /* mobile-settings.css — fixed headings and touch-scrollable original settings, with no effect on the lyric stage. */
+/* Retained parent forms must not paint or accept input behind a settings subview. */
+.sheet-backdrop[hidden] { display: none; }
 .sheet.sheet-pinned { padding: 0; min-height: 0; overflow: hidden; }
 /* Do not override the browser's display:none for a closed native dialog. */
 .sheet-pinned:not(dialog), dialog.sheet-pinned[open] { display: flex; flex-direction: column; }
