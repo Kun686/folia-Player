@@ -20,7 +20,11 @@ extension PlaybackEngine {
                     observeStream(stream, epoch: generation)
                     try activate(); try resumeStream(stream)
                     if preparedStream == nil { prefetch() }
-                } else { select(index, position: restoredPosition) }
+                } else {
+                    // Retry at the live/seek position; a naturally finished song is replayed from the beginning.
+                    let position = stream?.hasEnded == true ? 0 : playbackPosition
+                    select(index, position: position)
+                }
                 break
             }
             if player.currentItem == nil || player.currentItem?.status == .failed || error != nil { select(index, position: restoredPosition) }

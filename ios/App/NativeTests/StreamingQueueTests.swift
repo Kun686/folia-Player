@@ -136,6 +136,70 @@ import AVFoundation
         XCTAssertEqual(gateway.count, 3)
     }
 
+    func testQQManualNetworkRetryPreservesPositionAndReplayStartsAtBeginning() async throws {
+        try await checkManualNetworkRetry(provider: "qq")
+    }
+
+    func testNetEaseManualNetworkRetryPreservesPositionAndReplayStartsAtBeginning() async throws {
+        try await checkManualNetworkRetry(provider: "netease")
+    }
+
+    // Manual recovery must use the current decoder/seek position, then discard any old auto-resume intent.
+    private func checkManualNetworkRetry(provider: String) async throws {
+        let source = try streamingTone(); defer { try? FileManager.default.removeItem(at: source) }
+        let gateway = AudioFixtureGateway(url: source), tested = stereoEngine(gateway)
+        defer { tested.stop(); tested.clearOutput() }
+        try tested.setQueue([song(provider, "manual-network-retry")], at: 0)
+        try await waitForStream { tested.outputIsPlaying }
+        let output = try XCTUnwrap(tested.streamOutput), measured = OutputMeasurement()
+        output.engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, _ in measured.consume(buffer) }
+        defer { output.engine.mainMixerNode.removeTap(onBus: 0) }
+        var checkpoints: [[String: Any]] = []
+        for mode in ["direct", "pause-then-play", "seek-then-play"] {
+            try tested.command("seek", position: 6)
+            try await waitForStream { tested.outputIsPlaying && tested.playbackPosition >= 6 }
+            tested.networkChanged(connected: false)
+            XCTAssertEqual(tested.error, "network"); XCTAssertFalse(tested.intentToPlay)
+            XCTAssertNotNil(tested.networkResume)
+            var expected = tested.playbackPosition
+            if mode == "pause-then-play" {
+                try tested.command("pause"); XCTAssertNil(tested.networkResume)
+            } else if mode == "seek-then-play" {
+                try tested.command("seek", position: 10); expected = 10
+            }
+            let old = try XCTUnwrap(tested.stream), resolves = gateway.resolved.count
+            try tested.command("play")
+            try await waitForStream { tested.outputIsPlaying }
+            let resumed = tested.playbackPosition
+            XCTAssertGreaterThanOrEqual(resumed, expected - 0.05, mode + " lost the user's position")
+            XCTAssertLessThan(resumed, expected + 1, mode)
+            XCTAssertFalse(tested.stream === old); XCTAssertEqual(gateway.resolved.count, resolves + 1)
+            XCTAssertNil(tested.error); XCTAssertNil(tested.networkResume)
+            let entry = tested.stream, epoch = tested.generation
+            tested.networkChanged(connected: true)
+            measured.reset(); let before = tested.playbackPosition
+            try await Task.sleep(nanoseconds: 450_000_000)
+            let pcm = measured.read(), advance = tested.playbackPosition - before
+            XCTAssertGreaterThan(pcm.frames, 1000); XCTAssertEqual(pcm.channels, 2)
+            XCTAssertGreaterThan(pcm.rms, 0.005); XCTAssertGreaterThan(advance, 0.2)
+            XCTAssertTrue(tested.stream === entry); XCTAssertEqual(tested.generation, epoch)
+            XCTAssertEqual(gateway.resolved.count, resolves + 1, "A late network callback must not restart manual recovery")
+            checkpoints.append(["mode": mode, "expectedPosition": expected, "resumedPosition": resumed,
+                                "frames": pcm.frames, "channels": pcm.channels, "rms": pcm.rms, "advanceSeconds": advance])
+        }
+        // After natural EOF, a new play command means replay, not recovery at the old start offset.
+        try tested.command("seek", position: 19.8)
+        try await waitForStream { tested.stream?.hasEnded == true && !tested.intentToPlay }
+        try tested.command("play")
+        try await waitForStream { tested.outputIsPlaying }
+        XCTAssertLessThan(tested.playbackPosition, 1)
+        XCTAssertEqual(gateway.resolved.count, 5)
+        let data = try JSONSerialization.data(withJSONObject: ["provider": provider, "checkpoints": checkpoints,
+            "replayPosition": tested.playbackPosition], options: [.prettyPrinted, .sortedKeys])
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = provider + "-manual-network-retry"; attachment.lifetime = .keepAlways; add(attachment)
+    }
+
     func testStereoRapidSeeksApplyLastPositionWhenPlayingAndPaused() async throws {
         let source = try streamingTone(); defer { try? FileManager.default.removeItem(at: source) }
         let tested = stereoEngine(AudioFixtureGateway(url: source)); defer { tested.stop(); tested.clearOutput() }
