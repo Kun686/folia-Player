@@ -3,6 +3,10 @@
 当前验收优先级为 QQ／网易云核心功能、特效动画、设置 UI，见 [CURRENT_SCOPE.md](CURRENT_SCOPE.md)。
 本地音乐、其他平台、同步、AI 和完整 Automix 扩展暂缓；历史自动测试不自动替代当前两平台真机验收。
 
+2026-10-14 [缓存歌曲断网连续播放](CACHED_NETWORK_RECOVERY.md)：原代码在iPhone模拟器2项FAIL；最小修复后，
+同一11项XCTest在iPhone／iPad模拟器均PASS、0失败／跳过，含两平台缓存断网时的实际双声道PCM。
+断网事件为直接调用原生网络处理方法，不是真实网络切换；真实账号／物理设备／长播本批NOT_RUN，个人App和服务器未更新。
+
 2026-10-14 [会话与设置恢复原生补验](NATIVE_SETTINGS_RECOVERY.md)：同一8项XCTest在iPhone／iPad模拟器均PASS。
 过期作用域由原生实际拒绝、另一平台Keychain保存及恢复成功；完整页面的设置草稿／缓存重试与真实PCM通过。
 本批只补QA，不证明真实登录或Keychain实际存储故障；真机／长播／长期性能NOT_RUN，个人App与服务器未更新。

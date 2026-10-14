@@ -159,7 +159,9 @@ extension PlaybackEngine {
     func networkChanged(connected: Bool) {
         sleepTimer.reconcile()
         if connected { listening.retryUnavailable() }
-        if !connected && intentToPlay && !currentIsLocal {
+        // A decoder's complete cache lease remains playable even after the cache index is cleared.
+        let hasOfflineSource = currentIsLocal || (usesStereoOutput && stream?.cachedMedia != nil)
+        if !connected && intentToPlay && !hasOfflineSource {
             let pending = playbackPosition
             stop("network"); networkResume = pending
         } else if connected, let pending = networkResume {

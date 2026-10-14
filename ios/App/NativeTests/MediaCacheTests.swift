@@ -1,4 +1,5 @@
 import XCTest
+import AVFoundation
 @testable import App
 
 // MediaCacheTests.swift — full-body transport, shared jobs, account clearing and live file ownership.
@@ -117,6 +118,74 @@ import XCTest
         XCTAssertEqual(gateway.resolved.count, 0)
         XCTAssertEqual(fixture.stats.requests, 1)
         XCTAssertEqual(engine.meter?.processingAvailable(), true)
+    }
+
+    func testQQCachedPlaybackSurvivesNetworkLossAndCacheClear() async throws {
+        try await checkCachedPlaybackNetworkChange(provider: "qq")
+    }
+
+    func testNetEaseCachedPlaybackSurvivesNetworkLossAndCacheClear() async throws {
+        try await checkCachedPlaybackNetworkChange(provider: "netease")
+    }
+
+    // Exercise path-monitor callbacks against a real leased decoder, including clearing its cache index.
+    private func checkCachedPlaybackNetworkChange(provider: String) async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let file = try profileAudio(seconds: 12)
+        let suite = "folia.cache-network." + UUID().uuidString
+        let storage = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer {
+            try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: file)
+            storage.removePersistentDomain(forName: suite)
+        }
+        let fixture = ProfileHTTPFixture(try Data(contentsOf: file)), url = ProfileHTTPProtocol.add(fixture)
+        defer { ProfileHTTPProtocol.remove(url) }
+        let cache = NativeMediaCache(directory: root, configuration: profileNetworkConfiguration(), settings: .init(enabled: true))
+        let song = song(provider, "cached-network"), identity = try XCTUnwrap(NativeProfileIdentity(song))
+        _ = try await cache.store(identity, song: song, source: url)
+        let gateway = FailingGateway()
+        let engine = PlaybackEngine(gateway: gateway, storage: storage, usesStereoOutput: true, mediaCache: cache)
+        engine.network.cancel()
+        defer { engine.stop(); engine.clearOutput() }
+        try engine.setQueue([song], at: 0)
+        try await waitForStream { engine.outputIsPlaying && engine.playbackPosition > 0.1 }
+        let entry = try XCTUnwrap(engine.stream), output = try XCTUnwrap(engine.streamOutput)
+        let lease = try XCTUnwrap(entry.cachedMedia), generation = engine.generation
+        let measured = OutputMeasurement()
+        output.engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, _ in measured.consume(buffer) }
+        defer { output.engine.mainMixerNode.removeTap(onBus: 0) }
+        var checkpoints: [[String: Any]] = []
+        for cleared in [false, true] {
+            if cleared { try await engine.clearMediaCache() }
+            engine.networkChanged(connected: false)
+            XCTAssertNil(engine.error, "A complete cached song must not report network failure")
+            XCTAssertNil(engine.networkResume, "A leased decoder must not schedule remote re-resolution")
+            guard engine.intentToPlay else { XCTFail("Network loss stopped cached " + provider + " playback"); return }
+            measured.reset(); let before = engine.playbackPosition
+            try await Task.sleep(nanoseconds: 450_000_000)
+            let pcm = measured.read(), advance = engine.playbackPosition - before
+            XCTAssertGreaterThan(pcm.frames, 1000); XCTAssertEqual(pcm.channels, 2)
+            XCTAssertGreaterThan(pcm.rms, 0.005); XCTAssertGreaterThan(advance, 0.2)
+            XCTAssertTrue(FileManager.default.fileExists(atPath: lease.url.path))
+            engine.networkChanged(connected: true)
+            XCTAssertTrue(engine.stream === entry); XCTAssertEqual(engine.generation, generation)
+            XCTAssertNil(engine.error); XCTAssertTrue(engine.intentToPlay)
+            checkpoints.append(["cacheCleared": cleared, "frames": pcm.frames, "channels": pcm.channels,
+                                "rms": pcm.rms, "advanceSeconds": advance])
+        }
+        try engine.command("pause")
+        try await waitForStream { !engine.outputIsPlaying }
+        engine.networkChanged(connected: false); engine.networkChanged(connected: true)
+        XCTAssertFalse(engine.intentToPlay); XCTAssertNil(engine.networkResume)
+        try engine.command("seek", position: 5); try engine.command("play")
+        try await waitForStream { engine.outputIsPlaying && engine.playbackPosition > 5 }
+        XCTAssertTrue(engine.stream === entry); XCTAssertEqual(gateway.count, 0)
+        XCTAssertEqual(fixture.stats.requests, 1)
+        let summary = await cache.summary(); XCTAssertEqual(summary["count"] as? Int, 0)
+        let data = try JSONSerialization.data(withJSONObject: ["provider": provider, "checkpoints": checkpoints,
+            "gatewayResolves": gateway.count], options: [.prettyPrinted, .sortedKeys])
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = provider + "-cached-network"; attachment.lifetime = .keepAlways; add(attachment)
     }
 
     func testMediaCachedFullProfileSurvivesLeaseRotationAndProviderLogout() async throws {
