@@ -163,3 +163,8 @@ VoiceOver／硬件键盘／真机触摸／真实账号／长期性能仍NOT_RUN�
 同一原生QA在iPhone／iPad模拟器各1项PASS，每端64阶段保持实际PCM及设置恢复。
 预热后WebContent仍增长约12–37MiB；未取得保留链，泄漏原因未定，长期稳定性未验收。
 本批只扩展QA与采样元数据，生产功能、个人mobile.28及服务器未更新，真实账号／真机仍NOT_RUN。
+
+2026-10-14 [动效对象回收诊断](VISUALIZER_COLLECTION_DIAGNOSTIC.md)：完整页面两平台样本的回收断言均FAIL；
+最小对照把此WebKit环境的旧画布／渲染器保留缩小到Three Fiber路径，直接WebGL／Three.js对照可回收。
+尚未取得持有链或生产打包／原生对应复现；本批只保存诊断，不改生产代码／依赖，不宣称泄漏修复或长期稳定。
+个人mobile.28与服务器未更新，真实账号／真机仍NOT_RUN。
