@@ -11,6 +11,7 @@ import { useLatticeExpansionSettled } from './useLatticeExpansionSettled';
 import { prewarmLatticeLyrics } from './lyrics/prewarmLatticeLyrics';
 import { prewarmLatticePosterArtwork, useLatticePosterArtwork } from './useLatticePosterArtwork';
 import { countRender } from '../../../dev/renderCount';
+import { useLatticeCoverSource } from './LatticeArtworkContext';
 
 // Renders one poster and its expanded Player Chrome controls.
 const LatticeLyrics = lazy(() => import('./lyrics/LatticeLyrics'));
@@ -128,13 +129,14 @@ function LatticePoster({
     // The artwork only has to cover the card's own box, and a square cover is scaled to the longer
     // edge. Both inputs are discrete - gears are integer spans and the camera only rescales on a
     // breakpoint - so this is not a per-frame value even while the card animates towards the size.
-    const coverUrl = useLatticePosterArtwork(tile.coverUrl, Math.max(rect.width, rect.height) * pixelScale);
+    const source = useLatticeCoverSource(tile.song, tile.coverUrl);
+    const coverUrl = useLatticePosterArtwork(source.url, Math.max(rect.width, rect.height) * pixelScale, source.managed);
     // Hover and press are the last moments before the open: warming here keeps the lyric chunk,
     // the Pixi module and the first shader compile off the click path.
     const warmLyrics = () => { if (isCurrent) prewarmLatticeLyrics(); };
     // Deliberately not on hover: a pointer sweeping the wall would pull a full-size cover per card,
     // which costs more than the swap it saves. A press is already an open in all but name.
-    const warmExpandedArtwork = () => prewarmLatticePosterArtwork(tile.coverUrl, expandedSize * pixelScale);
+    const warmExpandedArtwork = () => { if (!source.managed) prewarmLatticePosterArtwork(tile.coverUrl, expandedSize * pixelScale); };
     // Frozen at mount: the wave's own delay must not follow later camera moves.
     const landingDelay = useRef(entranceDelay).current;
     const landing = entranceDelay === null ? null : landingDelay;

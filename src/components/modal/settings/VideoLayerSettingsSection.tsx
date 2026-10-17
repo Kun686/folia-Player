@@ -104,6 +104,7 @@ const VideoLayerSettingsSection: React.FC<VideoLayerSettingsSectionProps> = ({
                     className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${!settings.enabled ? toggleOffBackgroundClass : ''}`}
                     style={{ backgroundColor: settings.enabled ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
                     aria-pressed={settings.enabled}
+                    data-ui-switch
                     aria-label={t('options.videoLayerEnabled')}
                 >
                     <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${settings.enabled ? 'translate-x-6' : 'translate-x-0'}`} />

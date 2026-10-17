@@ -9,6 +9,19 @@ vi.mock('../../../src/services/onlineMusic/providerStorage', () => ({
 }));
 afterEach(() => { vi.restoreAllMocks(); request.mockClear(); });
 describe('NetEase like freshness', () => {
+  it('refreshes playlist contents after a like while retaining the requested page', async () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1000);
+    await neteaseApi.getPlaylistTracks(9, 50, 0);
+    await neteaseApi.likeSong(42, true);
+    now.mockReturnValue(2000); await neteaseApi.getPlaylistTracks(9, 50, 0);
+    now.mockReturnValue(3000); await neteaseApi.getPlaylistTracks(9, 50, 50);
+    const urls = request.mock.calls.map(([url]) => new URL(url, 'https://fixture.invalid'));
+    expect(urls.map(url => url.searchParams.getAll('timestamp'))).toEqual([['1000'], ['1000'], ['2000'], ['3000']]);
+    expect(urls[0].pathname).toBe('/mobile/netease/playlist/track/all');
+    expect(urls[0].href).not.toBe(urls[2].href);
+    expect(urls[3].searchParams.get('id')).toBe('9');
+    expect(urls[3].searchParams.get('limit')).toBe('50'); expect(urls[3].searchParams.get('offset')).toBe('50');
+  });
   it('busts account subscription read caches and preserves explicit write direction', async () => {
     const now = vi.spyOn(Date, 'now').mockReturnValue(1000);
     await neteaseApi.getAlbumDetailDynamic(8); await neteaseApi.getPlaylistDetailDynamic(9);

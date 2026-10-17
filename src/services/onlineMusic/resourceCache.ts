@@ -10,11 +10,11 @@ import { getLegacySongResourceCacheKeys, getSongResourceCacheKey, type SongResou
 
 // The mobile host shares these bytes with lock-screen artwork; browser callers retain their existing store.
 // Only blob: URLs transfer ownership to the caller and must be revoked on replacement/unmount.
-export const loadSongCover = async (song: SongResult): Promise<string | null> => {
+export const loadSongCover = async (song: SongResult, cachedOnly = false): Promise<string | null> => {
     const mobile = getMobileRuntime()?.covers;
-    if (mobile) return mobile.load(song);
+    if (mobile) return mobile.load(song, cachedOnly);
     const cached = await getCachedSongCoverUrl(song);
-    return cached ?? (song.album.coverUrl
+    return cached ?? (!cachedOnly && song.album.coverUrl
         ? loadCachedOrFetchCover(getSongResourceCacheKey('cover', song), song.album.coverUrl) : null);
 };
 

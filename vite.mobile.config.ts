@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { normalizeBuildCommit, resolveBuildRepo } from './dev/build/buildIdentity.mjs';
+import { r3fLoopLifetimePlugin } from './dev/mobile/r3fLoopLifetime';
 
 // vite.mobile.config.ts — bundled assets only; no remote app code or service worker.
 const root = fileURLToPath(new URL('.', import.meta.url));
@@ -21,7 +22,7 @@ function git(...args: string[]): string {
 const commit = normalizeBuildCommit(process.env.GITHUB_SHA || git('rev-parse', 'HEAD'));
 const repository = resolveBuildRepo(process.env, () => git('remote', 'get-url', 'origin'));
 export default defineConfig({
-  plugins: [react(), {
+  plugins: [react(), r3fLoopLifetimePlugin(), {
     name: 'folia-mobile-build-identity',
     generateBundle() {
       // Keep provenance even when the optimizer removes all consumers of a build constant.

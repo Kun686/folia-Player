@@ -44,6 +44,8 @@ export interface NativeSleepTimerState { hours: number; minutes: number; enabled
 export type NativeSleepTimerEdit = Partial<Pick<NativeSleepTimerState, 'hours' | 'minutes' | 'enabled'>>;
 export type PlaybackEvent = Omit<PlaybackSnapshot, 'queue' | 'currentSong'> & Partial<Pick<PlaybackSnapshot, 'queue' | 'currentSong'>>;
 export interface FoliaNativePlugin {
+  setStatusBarHidden(options: { hidden: boolean }): Promise<void>;
+  setInterfaceStyle(options: { light: boolean }): Promise<void>;
   getDisplaySleepSettings(): Promise<{ enabled: boolean }>;
   setDisplaySleepSettings(options: { enabled: boolean }): Promise<{ enabled: boolean }>;
   chooseAudioRoute(options: { light: boolean; labels: { title: string; hint: string; close: string; fallback: string } }): Promise<void>;
@@ -95,7 +97,7 @@ export interface FoliaNativePlugin {
   addListener(name: 'lyrics', listener: (event: { song: SongResult }) => void): Promise<PluginListenerHandle>;
   lyricCacheState(): Promise<{ bytes: number; count: number }>;
   clearLyricCache(): Promise<void>;
-  songCover(options: { song: SongResult }): Promise<{ url?: string }>;
+  songCover(options: { song: SongResult; cachedOnly?: boolean }): Promise<{ url?: string }>;
   coverCacheState(): Promise<{ bytes: number; count: number }>;
   clearCoverCache(): Promise<void>;
   getMediaCacheSettings(): Promise<NativeMediaCacheSettings>;

@@ -9,10 +9,22 @@ export interface SongLikeState {
   writable: boolean;
 }
 
-export function createMobileSongLikes(api: LikeAPI, captureSession: (provider: string) => () => boolean) {
+export function createMobileSongLikes(api: LikeAPI, captureSession: (provider: string) => () => boolean,
+  changed?: (provider: string) => void) {
   // Keep a sent mutation alive across dialog dismissal. A reopened dialog waits before reading
   // server state, so an uncertain response cannot turn a second tap into an accidental inverse.
   const pending = new Map<string, Promise<void>>();
+  const openSessions = new Map<string, number>();
+  const refreshPending = new Map<string, () => boolean>();
+  // Wait for every menu for this provider to close, including one reopened during
+  // an in-flight write. Reloading its host rows would otherwise dismiss that menu.
+  const refreshLibrary = (provider: string) => {
+    if (openSessions.has(provider)) return;
+    const current = refreshPending.get(provider); refreshPending.delete(provider);
+    if (!current?.()) return;
+    try { changed?.(provider); }
+    catch { console.warn('[Mobile] Unable to refresh the library after a song like'); }
+  };
   return {
     createSession(song: SongResult, writable: boolean) {
       const ref = song.sourceRef;
@@ -54,6 +66,12 @@ export function createMobileSongLikes(api: LikeAPI, captureSession: (provider: s
         pending.set(ref.providerId, operation);
         try {
           await operation;
+          // A sent write can finish after its dialog closes. Refresh the owning library
+          // independently of that dialog, but never notify a replacement account.
+          if (isCurrent()) {
+            refreshPending.set(ref.providerId, isCurrent);
+            refreshLibrary(ref.providerId);
+          }
           if (active && ticket === epoch) {
             publish(isCurrent() ? { phase: 'ready', liked: desired } : { phase: 'error', writable: false });
           }
@@ -63,8 +81,17 @@ export function createMobileSongLikes(api: LikeAPI, captureSession: (provider: s
       return {
         getSnapshot: () => state,
         subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
-        start() { active = true; publish({ phase: 'loading', liked: null, writable: false }); void read(); },
-        dispose() { active = false; epoch++; },
+        start() {
+          if (!active) openSessions.set(ref.providerId, (openSessions.get(ref.providerId) ?? 0) + 1);
+          active = true; publish({ phase: 'loading', liked: null, writable: false }); void read();
+        },
+        dispose() {
+          if (active) {
+            const count = (openSessions.get(ref.providerId) ?? 1) - 1;
+            if (count) openSessions.set(ref.providerId, count); else openSessions.delete(ref.providerId);
+          }
+          active = false; epoch++; refreshLibrary(ref.providerId);
+        },
         read, change,
       };
     },

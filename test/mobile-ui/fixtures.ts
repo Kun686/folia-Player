@@ -56,13 +56,14 @@ export const test = base.extend<{ nativeBridge: void }>({
     let lyric = '[00:00.00]测试本地歌词\n[00:10.00]第二句';
     win.fixturePlayback = state;
     win.fixtureCommands = [];
+    win.fixtureStatusBarHidden = false;
     const emit = () => { state.revision++; subscriber?.({ ...state }); };
     win.fixtureEmitPlayback = (patch: Record<string, unknown>) => { Object.assign(state, patch); emit(); };
     const methods = ['getDisplaySleepSettings', 'setDisplaySleepSettings', 'chooseAudioRoute', 'getLyricSettings', 'setLyricSettings', 'startPersonalFM', 'leavePersonalFM', 'getModels', 'downloadModel', 'cancelModel', 'removeModels', 'importModel', 'bootstrap', 'configure', 'health', 'saveSession', 'clearSession', 'request', 'cancelRequests', 'setQueue', 'editQueue', 'selectQueue', 'command', 'getState', 'shareQR', 'copyText', 'shareLyricFile', 'sharePlaylistFile',
       'readLocalFolders', 'beginFolderImport', 'readFolderImport', 'prepareFolderImport', 'finishFolderImport', 'cancelFolderImport', 'removeLocalFolder',
       'readLocalLibrary', 'editLocalLibrary', 'localCatalog', 'importAudio', 'localDetails', 'readLocalLyrics', 'readLocalMatch', 'writeLocalMatch', 'selectLocalLyrics', 'importLyrics', 'pickLyricFile', 'saveLocalLyrics', 'removeLocal', 'audioLevels', 'getAudioSettings', 'setAudioSettings', 'getTransitionSettings', 'setTransitionSettings', 'getMediaCacheSettings', 'setMediaCacheSettings', 'mediaCacheState', 'clearMediaCache', 'songCover', 'coverCacheState', 'clearCoverCache',
       'readNavidromeLyrics', 'readLyricCache', 'writeLyricCache', 'lyricCacheState', 'clearLyricCache', 'listExportLyrics', 'readExportLyrics', 'shareLyricArchive', 'getSleepTimer', 'setSleepTimer', 'getAISettings', 'setAISettings', 'aiRequest', 'cancelAIRequest', 'getSyncSettings', 'setSyncSettings', 'syncRequest', 'cancelSyncRequest'];
-    methods.push('getNavidromeSettings', 'setNavidromeSettings', 'navidromeRequest', 'cancelNavidromeRequest', 'navidromeArtwork', 'navidromeMutation');
+    methods.push('setInterfaceStyle', 'setStatusBarHidden', 'getNavidromeSettings', 'setNavidromeSettings', 'navidromeRequest', 'cancelNavidromeRequest', 'navidromeArtwork', 'navidromeMutation');
     win.Capacitor = {
       PluginHeaders: [{ name: 'FoliaNative', methods: [...methods.map(name => ({ name, rtype: 'promise' })), { name: 'addListener' }, { name: 'removeListener' }] }],
       nativeCallback: (_plugin: string, method: string, options: any, cb: (state: unknown) => void) => {
@@ -81,6 +82,11 @@ export const test = base.extend<{ nativeBridge: void }>({
         if (method === 'addListener') { if (options.eventName === 'sleepTimer') sleepSubscriber = cb; else if (options.eventName === 'mediaCache') cacheSubscriber = cb as () => void; else if (options.eventName === 'playback') subscriber = cb; } return 'callback-1';
       },
       nativePromise: async (_plugin: string, method: string, options: any) => {
+        if (method === 'setInterfaceStyle') { win.fixtureInterfaceLight = options.light; return; }
+        if (method === 'setStatusBarHidden') {
+          if (win.fixtureRejectStatusBar) throw Error('status-bar-unavailable');
+          win.fixtureStatusBarHidden = options.hidden; return;
+        }
         if (['getNavidromeSettings', 'setNavidromeSettings', 'navidromeRequest', 'cancelNavidromeRequest', 'navidromeArtwork', 'navidromeMutation'].includes(method)) {
           if (win.fixtureNavidromeBridge) return win.fixtureNavidromeBridge(method, options);
           if (method === 'getNavidromeSettings') return { enabled: false, baseURL: '', username: '', hasPassword: false, scope: 'empty', revision: 0 };

@@ -141,6 +141,7 @@ export const MonetSettingsPanel: React.FC<VisualizerSettingsPanelProps> = ({
 }) => {
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [feedback, setFeedback] = useState<string | null>(null);
+    const [isAssetBusy, setIsAssetBusy] = useState(false);
     const resolvedTuning = {
         keywordColoringEnabled: monetTuning.keywordColoringEnabled ?? DEFAULT_MONET_TUNING.keywordColoringEnabled,
         showDescription: monetTuning.showDescription ?? DEFAULT_MONET_TUNING.showDescription,
@@ -193,12 +194,32 @@ export const MonetSettingsPanel: React.FC<VisualizerSettingsPanelProps> = ({
             return;
         }
 
-        const result = await onUploadMonetPortraitImage(files);
-        if (result.ok) {
-            onMonetTuningChange?.({ portraitSource: 'custom' });
-            setFeedback(files[0].name);
-        } else {
-            setFeedback(result.error || t('options.monetUploadPortrait'));
+        setIsAssetBusy(true);
+        try {
+            const result = await onUploadMonetPortraitImage(files);
+            if (result.ok) {
+                onMonetTuningChange?.({ portraitSource: 'custom' });
+                setFeedback(files[0].name);
+            } else {
+                setFeedback(result.error || t('options.imageAssetSaveFailed'));
+            }
+        } catch {
+            setFeedback(t('options.imageAssetSaveFailed'));
+        } finally {
+            setIsAssetBusy(false);
+        }
+    };
+
+    const handleClearImage = async () => {
+        if (!onClearMonetPortraitImage) return;
+        setFeedback(null);
+        setIsAssetBusy(true);
+        try {
+            await onClearMonetPortraitImage();
+        } catch {
+            setFeedback(t('options.imageAssetClearFailed'));
+        } finally {
+            setIsAssetBusy(false);
         }
     };
 
@@ -293,7 +314,7 @@ export const MonetSettingsPanel: React.FC<VisualizerSettingsPanelProps> = ({
                         <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            disabled={isLoadingMonetPortraitImage || !onUploadMonetPortraitImage}
+                            disabled={isAssetBusy || isLoadingMonetPortraitImage || !onUploadMonetPortraitImage}
                             className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition-all disabled:cursor-not-allowed disabled:opacity-45"
                             style={{
                                 color: theme.primaryColor,
@@ -306,8 +327,8 @@ export const MonetSettingsPanel: React.FC<VisualizerSettingsPanelProps> = ({
                         </button>
                         <button
                             type="button"
-                            onClick={() => void onClearMonetPortraitImage?.()}
-                            disabled={!monetPortraitImage || !onClearMonetPortraitImage}
+                            onClick={() => void handleClearImage()}
+                            disabled={isAssetBusy || isLoadingMonetPortraitImage || !monetPortraitImage || !onClearMonetPortraitImage}
                             className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition-all disabled:cursor-not-allowed disabled:opacity-45"
                             style={{
                                 color: theme.primaryColor,

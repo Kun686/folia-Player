@@ -5,6 +5,7 @@ import type { TemperaLayerImage } from '../../../types';
 import { DEFAULT_TEMPERA_LAYER_IMAGE, TEMPERA_MAX_LAYER_IMAGES } from '../../../types';
 import {
     clearTemperaLayerImage,
+    clearTemperaLayerImages,
     isSupportedTemperaLayerImageFile,
     prepareTemperaLayerImage,
     saveTemperaLayerImage,
@@ -100,6 +101,8 @@ const TemperaImageLayerControls: React.FC<TemperaImageLayerControlsProps> = ({
     // removal is undone by simply not committing it.
     const [removedIds, setRemovedIds] = useState<string[]>([]);
     const [busy, setBusy] = useState<TemperaPoolBusyAction>('idle');
+    const [commitError, setCommitError] = useState<string | null>(null);
+    const committingRef = useRef(false);
     const activeWriteAbortRef = useRef<AbortController | null>(null);
 
     const previewImages = isDialogOpen ? draft.layerImages : images;
@@ -108,21 +111,39 @@ const TemperaImageLayerControls: React.FC<TemperaImageLayerControlsProps> = ({
     const open = useCallback(() => {
         setDraft({ layerImages: images, layerImageDepth: depth, layerImageFrequency: frequency });
         setRemovedIds([]);
+        setCommitError(null);
         setDialogOpen(true);
     }, [depth, frequency, images]);
 
-    const commit = useCallback(() => {
+    const commit = useCallback(async () => {
         // The dialog blocks its own close paths, but an outer unmount goes through none of them.
-        // Its cleanup aborts the write and leaves the live tuning untouched.
-        if (isTemperaPoolWriteLocked(busy)) return;
-        setDialogOpen(false);
-        void Promise.all(removedIds.map(id => clearTemperaLayerImage(id).catch(() => undefined)));
-        setRemovedIds([]);
-        const changed = draft.layerImageDepth !== depth
-            || draft.layerImageFrequency !== frequency
-            || !sameImages(draft.layerImages, images);
-        if (changed) onCommit(draft);
-    }, [busy, depth, draft, frequency, images, onCommit, removedIds]);
+        // Its cleanup aborts uploads/imports; an already-started save finishes its single commit.
+        if (isTemperaPoolWriteLocked(busy) || committingRef.current) return;
+        committingRef.current = true;
+        if (isMountedRef.current) {
+            setBusy('saving');
+            setCommitError(null);
+        }
+        try {
+            // Keep the live tuning and every old record intact unless the entire removal succeeds.
+            await clearTemperaLayerImages(removedIds);
+            const changed = draft.layerImageDepth !== depth
+                || draft.layerImageFrequency !== frequency
+                || !sameImages(draft.layerImages, images);
+            if (changed) onCommit(draft);
+            if (isMountedRef.current) {
+                setRemovedIds([]);
+                setDialogOpen(false);
+            }
+        } catch {
+            const text = t('options.imageAssetClearFailed');
+            if (isMountedRef.current) setCommitError(text);
+            else setStatusMessage({ type: 'error', text });
+        } finally {
+            committingRef.current = false;
+            if (isMountedRef.current) setBusy('idle');
+        }
+    }, [busy, depth, draft, frequency, images, onCommit, removedIds, t]);
 
     // Closing the whole playground while the dialog is open must not strand an upload the user
     // already made in IndexedDB with nothing in the tuning pointing at it. Unmount only - keying
@@ -133,7 +154,7 @@ const TemperaImageLayerControls: React.FC<TemperaImageLayerControlsProps> = ({
     isOpenRef.current = isDialogOpen;
     // An outer settings close can unmount this component without going through ThemedDialog. Abort
     // first so an in-flight write rolls back its newly stored blobs; the locked commit then leaves
-    // the unchanged live tuning alone.
+    // the unchanged live tuning alone. A pending atomic removal owns its commit until it settles.
     const isMountedRef = useRef(true);
     useEffect(() => {
         // StrictMode replays setup after its development-only cleanup, so restore the live marker.
@@ -141,7 +162,7 @@ const TemperaImageLayerControls: React.FC<TemperaImageLayerControlsProps> = ({
         return () => {
             isMountedRef.current = false;
             activeWriteAbortRef.current?.abort();
-            if (isOpenRef.current) commitRef.current();
+            if (isOpenRef.current) void commitRef.current();
         };
     }, []);
 
@@ -480,7 +501,7 @@ const TemperaImageLayerControls: React.FC<TemperaImageLayerControlsProps> = ({
 
             <TemperaImageLayerDialog
                 isOpen={isDialogOpen}
-                onClose={commit}
+                onClose={() => void commit()}
                 isDaylight={isDaylight}
                 t={t}
                 images={draft.layerImages}
@@ -498,6 +519,7 @@ const TemperaImageLayerControls: React.FC<TemperaImageLayerControlsProps> = ({
                 onImportPool={(file, mode) => void importPool(file, mode)}
                 onExportPool={() => void exportPool()}
                 busy={busy}
+                commitError={commitError}
             />
         </div>
     );

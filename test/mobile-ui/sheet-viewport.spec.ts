@@ -139,3 +139,89 @@ test('a 130px native keyboard viewport keeps the entire connection field and clo
   await close.tap();
   await expect(dialog).toHaveCount(0);
 });
+
+test('theme editing keeps the focused name and both actions inside a compact keyboard viewport', async ({ page }) => {
+  await page.goto('/mobile.html');
+  await page.getByRole('button', { name: '导入音乐', exact: true }).click();
+  await page.getByRole('button', { name: '播放 本地测试音乐', exact: true }).click();
+  await clickPlayerTool(page, '歌词与动效');
+  await page.getByRole('button', { name: 'Theme Park · 主题编辑', exact: true }).click();
+  const panel = page.getByRole('dialog', { name: 'Theme Park · 主题编辑', exact: true });
+  await panel.getByRole('button', { name: '信息', exact: true }).tap();
+  const name = panel.locator('input[type=text]').last();
+  await name.tap(); await name.fill('Keyboard draft');
+  for (const frame of [
+    { width: 390, height: 844, visible: 340, top: 24 },
+    { width: 874, height: 402, visible: 130, top: 0 },
+    { width: 390, height: 844, visible: 340, top: 0 },
+  ]) {
+    await viewport(page, frame.width, frame.height, frame.visible, frame.top);
+    await expect.poll(async () => {
+      const field = (await name.boundingBox())!, body = (await panel.locator('.sheet-body').boundingBox())!;
+      return field.height >= 44 && field.y >= body.y && field.y + field.height <= body.y + body.height;
+    }).toBe(true);
+    for (const label of ['取消', '保存并应用']) {
+      await expect.poll(() => panel.getByRole('button', { name: label, exact: true }).evaluate((node, frame) => {
+        const r = node.getBoundingClientRect();
+        return r.height >= 44 && r.width >= 44 && r.top >= frame.top && r.bottom <= frame.top + frame.visible
+          && node.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+      }, frame)).toBe(true);
+    }
+    await expect(name).toBeFocused(); await expect(name).toHaveValue('Keyboard draft');
+    await page.screenshot({ path: test.info().outputPath(`theme-keyboard-${frame.width}-${frame.top}.png`) });
+  }
+  await viewport(page, 390, 844, 844);
+  await expect(page.locator('html')).not.toHaveAttribute('data-sheet-compact-viewport');
+  await expect(panel.getByRole('heading', { name: 'Theme Park · 主题编辑', exact: true })).toBeInViewport();
+  await panel.getByRole('button', { name: '保存并应用', exact: true }).tap();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('custom_dual_theme')!).dark.name)).toBe('Keyboard draft');
+});
+
+for (const surface of ['catalog', 'queue'] as const) test(`${surface} search stays in the safe visual viewport without resizing playback`, async ({ page }) => {
+  await page.goto('/mobile.html');
+  await expect(page.getByRole('heading', { name: '音乐库', exact: true })).toBeVisible();
+  // Offline geometry fixture only. The authenticated simulator keeps its real queue and transport.
+  await page.evaluate(() => {
+    const song = { id: 'viewport-fixture', name: '键盘回归样本', artists: [{ id: 'fixture', name: '离线样本' }],
+      album: { id: 'fixture', name: '布局回归' }, durationMs: 180000,
+      sourceRef: { kind: 'online', providerId: 'qq', mediaId: 'viewport-fixture' } };
+    (window as any).fixtureEmitPlayback({ queue: [song], currentSong: song, index: 0, position: 19, playing: false });
+  });
+  if (surface === 'queue') await page.getByRole('button', { name: '播放队列 · 1', exact: true }).tap();
+  const field = page.getByRole('textbox', { name: surface === 'queue' ? '搜索播放队列' : '搜索歌曲', exact: true });
+  const library = page.locator('.library-panel'), player = page.locator('.player-panel'), mini = page.locator('.mini-player');
+  const initial = page.viewportSize()!, initialPlayer = await player.boundingBox();
+  const before = await page.evaluate(() => JSON.stringify({ state: (window as any).fixturePlayback, commands: (window as any).fixtureCommands }));
+  await expect(mini).toBeVisible();
+  await field.focus();
+  for (const frame of [
+    { width: initial.width, height: initial.height, visible: 430, top: 56, safe: 62, side: 0 },
+    { width: 874, height: 402, visible: 130, top: 0, safe: 0, side: 62 },
+    { width: initial.width, height: initial.height, visible: 430, top: 24, safe: 62, side: 0 },
+  ]) {
+    await page.locator('.mobile-app').evaluate((element, frame) => {
+      const style = (element as HTMLElement).style;
+      style.setProperty('--safe-top', `${frame.safe}px`);
+      style.setProperty('--safe-left', `${frame.side}px`); style.setProperty('--safe-right', `${frame.side}px`);
+    }, frame);
+    await viewport(page, frame.width, frame.height, frame.visible, frame.top);
+    await expect.poll(async () => {
+      const area = (await library.boundingBox())!, input = (await field.boundingBox())!;
+      // A short result list can reach the scroller's end before its search field reaches the top.
+      const atEnd = await library.evaluate(el => el.scrollTop + el.clientHeight >= el.scrollHeight - 1);
+      return area.y >= frame.top + frame.safe && area.y + area.height <= frame.top + frame.visible
+        && input.y >= area.y && (input.y <= area.y + 16 || atEnd) && input.y + input.height <= area.y + area.height && input.height >= 44
+        && input.x >= frame.side && input.x + input.width <= frame.width - frame.side;
+    }).toBe(true);
+    await expect(field).toBeFocused();
+    await expect(mini).toBeHidden();
+    await field.fill('回归');
+    expect(await library.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  }
+  await viewport(page, initial.width, initial.height, initial.height);
+  await expect(mini).toBeVisible();
+  await expect(page.locator('html')).not.toHaveAttribute('data-library-keyboard');
+  await expect(field).toHaveValue('回归');
+  expect(await player.boundingBox()).toEqual(initialPlayer);
+  expect(await page.evaluate(() => JSON.stringify({ state: (window as any).fixturePlayback, commands: (window as any).fixtureCommands }))).toBe(before);
+});

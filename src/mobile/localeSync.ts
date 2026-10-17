@@ -1,6 +1,6 @@
 // localeSync.ts — optional original sync controls; separate from music-gateway and AI credentials.
 export const syncEn = {
-  hint: 'Optional: sync appearance settings and song themes with your own Folia sync service. Playback works without it.',
+  hint: 'Optional: sync appearance settings and song themes with your own sync service. Playback works without it.',
   tokenSaved: 'Sync token saved securely', tokenMissing: 'No sync token saved', tokenHint: 'Leave blank to retain the saved token',
   clearToken: 'Remove saved sync token', addressHint: 'Changing the address clears its old token. Enter a replacement for the new server.',
   saved: 'Sync settings saved', failed: 'Sync failed. Check the saved address, token, network and available storage, then retry.',
@@ -12,7 +12,7 @@ export const syncEn = {
   localChanged: 'Appearance settings changed during sync. Your edits were kept; retry when you are finished editing.',
 };
 export const syncZh: typeof syncEn = {
-  hint: '可选：通过你自己的 Folia 同步服务同步外观设置与歌曲主题。不配置也能使用播放器。',
+  hint: '可选：通过你自己的同步服务同步外观设置与歌曲主题。不配置也能使用播放器。',
   tokenSaved: '同步凭据已安全保存', tokenMissing: '尚未保存同步凭据', tokenHint: '留空保留已保存的凭据',
   clearToken: '清除已保存的同步凭据', addressHint: '更换地址会清除旧凭据，请同时填写新服务器的凭据。',
   saved: '同步设置已保存', failed: '同步失败。请检查已保存的地址、凭据、网络和可用存储后重试。',

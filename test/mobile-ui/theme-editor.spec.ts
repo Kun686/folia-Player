@@ -141,3 +141,29 @@ test('daylight touch color picker applies the selected color without horizontal 
   await panel.getByRole('button', { name: '保存并应用', exact: true }).click();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('custom_dual_theme')!).light.accentColor)).toBe(selected);
 });
+
+test('save and cancel remain touchable after scrolling and rotation without losing the draft', async ({ page }) => {
+  const panel = editor(page);
+  await panel.getByRole('button', { name: '信息', exact: true }).tap();
+  const draft = panel.getByRole('textbox').first();
+  await draft.fill('Scroll and rotation draft');
+  const initial = page.viewportSize()!;
+  for (const size of [initial, { width: 844, height: 390 }, { width: 320, height: 568 }, initial]) {
+    await page.setViewportSize(size);
+    await panel.locator('.sheet-body').evaluate(body => { body.scrollTop = body.scrollHeight; });
+    await expect.poll(() => panel.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+    for (const label of ['取消', '保存并应用']) {
+      const button = panel.getByRole('button', { name: label, exact: true });
+      // A locator click would auto-scroll an offscreen action and conceal the original defect.
+      await expect.poll(() => button.evaluate(node => {
+        const r = node.getBoundingClientRect();
+        return r.width >= 44 && r.height >= 44 && r.top >= 0 && r.bottom <= innerHeight
+          && node.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+      })).toBe(true);
+    }
+    await expect(draft).toHaveValue('Scroll and rotation draft');
+    await page.screenshot({ path: test.info().outputPath(`pinned-editor-${size.width}-${size.height}.png`) });
+  }
+  await panel.getByRole('button', { name: '取消', exact: true }).tap();
+  expect(await page.evaluate(() => localStorage.getItem('custom_dual_theme'))).toBeNull();
+});

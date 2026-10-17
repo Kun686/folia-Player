@@ -67,6 +67,7 @@ const MotionReductionSettingsSection: React.FC<MotionReductionSettingsSectionPro
             </div>
             <button
                 type="button"
+                data-ui-switch
                 onClick={() => {
                     try { onChange(!active); setSaveError(false); }
                     catch { setSaveError(true); }

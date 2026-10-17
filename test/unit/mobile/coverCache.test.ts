@@ -22,7 +22,9 @@ describe('mobile shared cover storage', () => {
     const song: SongResult = { id: 42, name: 'Cover', album: { id: 1, name: 'Album', coverUrl: 'https://example.com/cover' },
       artists: [], durationMs: 1000, sourceRef: { kind: 'online', providerId: 'netease', mediaId: '42', variant: 'cloud' } };
     await expect(loadSongCover(song)).resolves.toBe('data:image/jpeg;base64,fixture');
-    expect(covers.load).toHaveBeenCalledWith(song);
+    expect(covers.load).toHaveBeenCalledWith(song, false);
+    await loadSongCover(song, true);
+    expect(covers.load).toHaveBeenLastCalledWith(song, true);
     expect(await getFromCache('cover_online:netease:42')).toBeNull();
   });
   it('counts and clears the existing cover category without clearing lyrics or media', async () => {

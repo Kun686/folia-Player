@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { SongResult } from '../../../types';
 import {
     getLatticeGeometry,
@@ -29,6 +29,7 @@ import { EXPANSION_SPAN } from './blockTemplates';
 // Draggable poster field: one greedily packed block template repeats over the queue.
 
 type PosterWallProps = {
+    fitViewport?: boolean;
     tiles: LatticeTile[];
     /** Only for playback focus and visibility tracking; the chrome reads transport state from context. */
     currentSong: SongResult | null;
@@ -64,6 +65,7 @@ const getWorldBounds = (camera: LatticeCamera, viewport: { width: number; height
 });
 
 export default function PosterWall({
+    fitViewport = false,
     tiles,
     currentSong,
     onPlay,
@@ -121,24 +123,6 @@ export default function PosterWall({
         });
     }, [publishCurrentPosterVisibility]);
 
-    useEffect(() => {
-        const container = containerRef.current;
-        if (!container) return;
-        const observer = new ResizeObserver(([entry]) => {
-            viewportRef.current = { width: entry.contentRect.width, height: entry.contentRect.height };
-            const scale = getScale(entry.contentRect.width);
-            applyCamera({ ...cameraRef.current, scale }, true);
-            setCameraScale(previous => previous === scale ? previous : scale);
-            setMeasured(true);
-        });
-        observer.observe(container);
-        return () => {
-            observer.disconnect();
-            if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
-            frameRef.current = null;
-        };
-    }, [applyCamera]);
-
     // Widens the culled region to cover a pan's destination the moment it starts. Held arrow
     // keys interrupt each pan before it settles, so bounds cannot wait for the animation to end.
     const reserveBounds = useCallback((camera: LatticeCamera) => {
@@ -164,6 +148,33 @@ export default function PosterWall({
     }, []);
 
     const { panTo, stopPan, animationRef } = useWallCameraPan({ cameraRef, viewportRef, reducedMotion, applyCamera, reserveBounds });
+
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+        const observer = new ResizeObserver(([entry]) => {
+            const { width, height } = entry.contentRect;
+            if (width <= 0 || height <= 0) return;
+            const previous = viewportRef.current, camera = cameraRef.current;
+            const scale = fitViewport
+                ? Math.min(getScale(width), Math.max(1, width - 32) / EXPANDED_SIZE, Math.max(1, height - 128) / EXPANDED_SIZE)
+                : getScale(width);
+            // Keep the viewed world point centred across rotation, including during an interrupted flight.
+            if (fitViewport) stopPan();
+            const x = fitViewport ? width / 2 - (previous.width / 2 - camera.x) / camera.scale * scale : camera.x;
+            const y = fitViewport ? height / 2 - (previous.height / 2 - camera.y) / camera.scale * scale : camera.y;
+            viewportRef.current = { width, height };
+            applyCamera({ x, y, scale }, true);
+            setCameraScale(value => value === scale ? value : scale);
+            setMeasured(true);
+        });
+        observer.observe(container);
+        return () => {
+            observer.disconnect();
+            if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+            frameRef.current = null;
+        };
+    }, [applyCamera, fitViewport, stopPan]);
 
     useEffect(() => {
         if (!measured || entranceDone) return;
@@ -317,7 +328,7 @@ export default function PosterWall({
             }}
             onClickCapture={onClickCapture}
         >
-            <div ref={worldRef} className="lattice-world">
+            <div ref={worldRef} className="lattice-world" style={{ '--lattice-camera-scale': cameraScale } as CSSProperties}>
                 {instances.map(instance => {
                     const tile = tiles[instance.queueIndex];
                     if (!tile) return null;

@@ -12,14 +12,48 @@ function fixture() {
   const api = { getLoginStatus: vi.fn(async (_provider: string) => ({ id: 'user', nickname: 'fixture' })),
     getProviderLikedSongIds: vi.fn(async (_provider: string, _user: string | number): Promise<(number | string)[]> => []),
     canLikeSong: vi.fn(() => true), likeSong: vi.fn(async (_song: SongResult, _liked: boolean, _context?: { isCurrent(): boolean }) => {}) };
-  const likes = createMobileSongLikes(api, () => { const epoch = revision; return () => epoch === revision; });
+  const changed = vi.fn();
+  const likes = createMobileSongLikes(api, () => { const epoch = revision; return () => epoch === revision; }, changed);
   const session = likes.createSession(song(), true);
-  return { api, likes, session, invalidate: () => { revision++; } };
+  return { api, likes, session, changed, invalidate: () => { revision++; } };
 }
 async function ready(session: ReturnType<ReturnType<typeof createMobileSongLikes>['createSession']>) {
   session.start(); await vi.waitFor(() => expect(session.getSnapshot().phase).toBe('ready'));
 }
 describe('mobile source-owned likes', () => {
+  it('keeps the success state open and refreshes once on dismissal', async () => {
+    const { session, changed } = fixture(); await ready(session);
+    await session.change();
+    expect(session.getSnapshot()).toMatchObject({ phase: 'ready', liked: true });
+    expect(changed).not.toHaveBeenCalled();
+    session.dispose(); session.dispose();
+    expect(changed).toHaveBeenCalledExactlyOnceWith('netease');
+  });
+  it('notifies the library after a successful write even when its menu was closed', async () => {
+    const { api, session, changed } = fixture(); await ready(session);
+    const pending = deferred<void>(); api.likeSong.mockReturnValueOnce(pending.promise);
+    const sent = session.change(); session.dispose();
+    expect(changed).not.toHaveBeenCalled(); pending.resolve(); await sent;
+    expect(changed).toHaveBeenCalledExactlyOnceWith('netease');
+  });
+  it.each(['failure', 'account-change'])('does not refresh the library after %s', async reason => {
+    const { api, session, changed, invalidate } = fixture(); await ready(session);
+    const pending = deferred<void>(); api.likeSong.mockReturnValueOnce(pending.promise);
+    const sent = session.change();
+    if (reason === 'failure') pending.reject(Error('private'));
+    else { invalidate(); pending.resolve(); }
+    await sent; expect(changed).not.toHaveBeenCalled();
+  });
+  it('does not misreport a confirmed mutation when its library observer throws', async () => {
+    const { session, changed } = fixture(); await ready(session);
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      changed.mockImplementation(() => { throw Error('private-refresh-detail'); });
+      await session.change(); session.dispose();
+      expect(session.getSnapshot()).toMatchObject({ phase: 'ready', liked: true });
+      expect(warning).toHaveBeenCalledExactlyOnceWith('[Mobile] Unable to refresh the library after a song like');
+    } finally { warning.mockRestore(); }
+  });
   it('reads the owner and canonical media identity, then writes an explicit desired value', async () => {
     const { api, session } = fixture(); api.getProviderLikedSongIds.mockResolvedValue([42]); await ready(session);
     expect(api.getLoginStatus).toHaveBeenCalledWith('netease');
@@ -63,13 +97,20 @@ describe('mobile source-owned likes', () => {
     await session.change(); expect(api.likeSong.mock.calls[1][1]).toBe(false);
   });
   it('reopening waits for an already sent mutation before reading the remote result', async () => {
-    const { api, session, likes } = fixture(); await ready(session); const pending = deferred<void>();
+    const { api, session, likes, changed } = fixture(); await ready(session); const pending = deferred<void>();
     api.likeSong.mockReturnValueOnce(pending.promise); const sent = session.change(); session.dispose();
     const reopened = likes.createSession(song(), true); reopened.start();
     await Promise.resolve(); expect(api.getProviderLikedSongIds).toHaveBeenCalledOnce();
     api.getProviderLikedSongIds.mockResolvedValue([42]); pending.resolve(); await sent;
     await vi.waitFor(() => expect(reopened.getSnapshot()).toMatchObject({ phase: 'ready', liked: true }));
     expect(api.likeSong).toHaveBeenCalledOnce();
+    expect(changed).not.toHaveBeenCalled(); reopened.dispose();
+    expect(changed).toHaveBeenCalledExactlyOnceWith('netease');
+  });
+  it('drops a queued refresh when the account changes before dismissal', async () => {
+    const { session, changed, invalidate } = fixture(); await ready(session);
+    await session.change(); invalidate(); session.dispose();
+    expect(changed).not.toHaveBeenCalled();
   });
   it('a pending mutation on one platform does not block another platform', async () => {
     const { api, session, likes } = fixture(); await ready(session); const pending = deferred<void>();

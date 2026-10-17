@@ -1,11 +1,17 @@
 import { useTranslation } from 'react-i18next';
 import { usePlayerChromeSettingsStore } from '../../../stores/usePlayerChromeSettingsStore';
 import { resolvePlayerControlSlot, type PlayerControlSlotActionId } from '../../floating-player/playerControlSlotActions';
-import { useLatticePlaybackActions } from './LatticePlaybackProvider';
+import { useLatticePlaybackActions, useLatticePlaybackExtras } from './LatticePlaybackProvider';
 
 // src/components/app/lattice/LatticeExtraControls.tsx
 // Transport and the main bar's configured slots share their handlers, icons and availability.
 export default function LatticeExtraControls({ disabled }: { disabled: boolean }) {
+    const extras = useLatticePlaybackExtras();
+    return extras === undefined ? <ConfiguredExtraControls disabled={disabled} />
+        : <fieldset className="lattice-native-actions" disabled={disabled}>{extras}</fieldset>;
+}
+
+function ConfiguredExtraControls({ disabled }: { disabled: boolean }) {
     const { t } = useTranslation();
     const context = useLatticePlaybackActions();
     const primary = usePlayerChromeSettingsStore(state => state.playerControlSlotPrimary);

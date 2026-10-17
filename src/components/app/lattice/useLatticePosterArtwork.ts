@@ -111,8 +111,9 @@ export const prewarmLatticePosterArtwork = (cover: string | undefined, sizePx: n
  * instead of blanking. It never trades back down either: a collapsed card holding a sharper copy
  * costs nothing to keep, while dropping to a smaller variant would buy a refetch and a second swap.
  */
-export const useLatticePosterArtwork = (cover: string | undefined, sizePx: number): string => {
-    const source = cover ?? '';
+export const useLatticePosterArtwork = (cover: string | undefined, sizePx: number, managed = false): string => {
+    // Native cache bytes already have a bounded size; never retain their data URLs in the global CDN registries.
+    const source = managed ? '' : cover ?? '';
     const targetStep = resolveCoverSizeStep(sizePx);
     const [ready, setReady] = useState<PosterArtwork>(() => pickDisplay(source, targetStep));
     // Recomputed only when this slot changes song; the artwork of the previous one must not linger.
@@ -136,5 +137,5 @@ export const useLatticePosterArtwork = (cover: string | undefined, sizePx: numbe
         return () => { cancelled = true; };
     }, [current, source, targetStep]);
 
-    return current.url;
+    return managed ? cover ?? '' : current.url;
 };

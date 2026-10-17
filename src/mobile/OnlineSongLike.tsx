@@ -16,17 +16,28 @@ export default function OnlineSongLike({ song, likes, writable }: { song: SongRe
     sync(); document.addEventListener('visibilitychange', sync);
     return () => { document.removeEventListener('visibilitychange', sync); session.dispose(); };
   }, [session]);
+  const busy = state.phase === 'loading' || state.phase === 'saving';
+  const retry = state.phase === 'error', anonymous = state.phase === 'anonymous';
+  const ready = state.phase === 'ready' || state.phase === 'saving';
+  const label = retry ? 'mobile.onlineLikeReload' : busy ? 'mobile.loading'
+    : anonymous || state.writable ? (state.liked ? 'mobile.onlineUnlike' : 'mobile.onlineLike')
+    : (state.liked ? 'mobile.onlineLiked' : 'mobile.onlineNotLiked');
+  const messages = [
+    { key: 'mobile.onlineLikeLogin', active: anonymous },
+    { key: 'mobile.onlineLikeError', active: retry },
+    { key: 'mobile.onlineLikeReadOnly', active: ready && !state.writable },
+  ];
   return <div className="online-song-like" aria-label={t('mobile.onlineLikeState')}>
-    {state.phase === 'loading' ? <p role="status">{t('mobile.loading')}</p>
-      : state.phase === 'anonymous' ? <p>{t('mobile.onlineLikeLogin')}</p>
-      : state.phase === 'error' ? <><p role="alert">{t('mobile.onlineLikeError')}</p>
-        <button onClick={() => void session.read()}>{t('mobile.onlineLikeReload')}</button></>
-      : <><button disabled={!state.writable || state.phase === 'saving'} aria-pressed={!!state.liked}
-        onClick={() => void session.change()}>
-        <Heart size={18} fill={state.liked ? 'currentColor' : 'none'} aria-hidden="true" />
-        {t(state.phase === 'saving' ? 'mobile.loading' : state.writable
-          ? (state.liked ? 'mobile.onlineUnlike' : 'mobile.onlineLike')
-          : (state.liked ? 'mobile.onlineLiked' : 'mobile.onlineNotLiked'))}
-      </button>{!state.writable && <p className="muted">{t('mobile.onlineLikeReadOnly')}</p>}</>}
+    <button disabled={busy || anonymous || (!retry && !state.writable)}
+      aria-pressed={ready ? !!state.liked : undefined}
+      onClick={() => void (retry ? session.read() : session.change())}>
+      <Heart size={18} fill={ready && state.liked ? 'currentColor' : 'none'} aria-hidden="true" />
+      <span role={busy ? 'status' : undefined}>{t(label)}</span>
+    </button>
+    {/* Invisible messages still size the shared slot, so network results cannot move touch targets. */}
+    <div className="online-song-like-message">
+      {messages.map(message => <p key={message.key} className="muted" data-active={message.active}
+        aria-hidden={!message.active} role={message.active && retry ? 'alert' : undefined}>{t(message.key)}</p>)}
+    </div>
   </div>;
 }

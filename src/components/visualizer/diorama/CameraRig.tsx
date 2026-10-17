@@ -23,6 +23,7 @@ import {
     smoothDamp,
 } from './cameraPath';
 import { resolveGlobal, type SequencerState } from './dioramaSequencer';
+import { createDioramaPreviewFraming } from './dioramaPreviewFraming';
 import {
     flightPerp,
     flightSide,
@@ -46,6 +47,7 @@ import {
 // the last line through an instrumental gap and, on a song change / loop, simply flies forward one step
 // across the graft joint into the next segment - the transition is ordinary forward follow, no snap.
 interface CameraRigProps {
+    previewFraming?: boolean;
     currentTime: MotionValue<number>;
     sequencer: SequencerState;
     globalIndex: number;
@@ -168,7 +170,10 @@ const CameraRig: React.FC<CameraRigProps> = ({
     activeLineWidthRef,
     motion,
     transitionEpoch,
+    previewFraming = false,
 }) => {
+    const fitPreview = useMemo(createDioramaPreviewFraming, []);
+    const previewCentre = useMemo(() => new THREE.Vector3(), []);
     // Cinematic transition flight: on an epoch change the camera snapshots its current pose and flies a
     // bowed eased arc to the incoming scene's live follow pose over TRANSITION_DURATION, then releases
     // back to the normal SmoothDamp follow (which continues seamlessly from the arrival pose).
@@ -428,6 +433,12 @@ const CameraRig: React.FC<CameraRigProps> = ({
         // Decaying bank INTO the arc (visual only, like the position arc): a roll about the view axis that
         // peaks mid-flight and is zero by the end, so it releases seamlessly into the level follow.
         if (bank !== 0) camera.rotateZ(bank);
+        previewCentre.set(
+            frame.position.x + R.x * placement.offsetR + U.x * placement.offsetU,
+            frame.position.y + R.y * placement.offsetR + U.y * placement.offsetU,
+            frame.position.z + R.z * placement.offsetR + U.z * placement.offsetU,
+        );
+        fitPreview(camera, previewFraming && !flying, previewCentre, _alignQuat, activeLineWidthRef.current, delta);
     });
 
     return null;

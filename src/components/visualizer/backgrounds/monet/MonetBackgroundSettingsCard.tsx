@@ -171,6 +171,7 @@ export const MonetBackgroundSettingsCard: React.FC<MonetBackgroundSettingsCardPr
 }) => {
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [feedback, setFeedback] = useState<string | null>(null);
+    const [isAssetBusy, setIsAssetBusy] = useState(false);
     const resolvedTuning = {
         backgroundSource: tuning.backgroundSource ?? DEFAULT_MONET_BACKGROUND_TUNING.backgroundSource,
         backgroundLayout: tuning.backgroundLayout ?? DEFAULT_MONET_BACKGROUND_TUNING.backgroundLayout,
@@ -212,12 +213,32 @@ export const MonetBackgroundSettingsCard: React.FC<MonetBackgroundSettingsCardPr
             return;
         }
 
-        const result = await onUploadMonetBackgroundImage(files);
-        if (result.ok) {
-            onTuningChange?.({ backgroundSource: 'uploaded-global' });
-            setFeedback(files[0].name);
-        } else {
-            setFeedback(result.error || t('options.monetUploadBackground'));
+        setIsAssetBusy(true);
+        try {
+            const result = await onUploadMonetBackgroundImage(files);
+            if (result.ok) {
+                onTuningChange?.({ backgroundSource: 'uploaded-global' });
+                setFeedback(files[0].name);
+            } else {
+                setFeedback(result.error || t('options.imageAssetSaveFailed'));
+            }
+        } catch {
+            setFeedback(t('options.imageAssetSaveFailed'));
+        } finally {
+            setIsAssetBusy(false);
+        }
+    };
+
+    const handleClearImage = async () => {
+        if (!onClearMonetBackgroundImage) return;
+        setFeedback(null);
+        setIsAssetBusy(true);
+        try {
+            await onClearMonetBackgroundImage();
+        } catch {
+            setFeedback(t('options.imageAssetClearFailed'));
+        } finally {
+            setIsAssetBusy(false);
         }
     };
 
@@ -252,7 +273,7 @@ export const MonetBackgroundSettingsCard: React.FC<MonetBackgroundSettingsCardPr
                         <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            disabled={isLoadingMonetBackgroundImage || !onUploadMonetBackgroundImage}
+                            disabled={isAssetBusy || isLoadingMonetBackgroundImage || !onUploadMonetBackgroundImage}
                             className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition-all disabled:cursor-not-allowed disabled:opacity-45"
                             style={{
                                 color: theme.primaryColor,
@@ -265,8 +286,8 @@ export const MonetBackgroundSettingsCard: React.FC<MonetBackgroundSettingsCardPr
                         </button>
                         <button
                             type="button"
-                            onClick={() => void onClearMonetBackgroundImage?.()}
-                            disabled={!monetBackgroundImage || !onClearMonetBackgroundImage}
+                            onClick={() => void handleClearImage()}
+                            disabled={isAssetBusy || isLoadingMonetBackgroundImage || !monetBackgroundImage || !onClearMonetBackgroundImage}
                             className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition-all disabled:cursor-not-allowed disabled:opacity-45"
                             style={{
                                 color: theme.primaryColor,

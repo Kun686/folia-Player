@@ -176,23 +176,26 @@ const Word: React.FC<{
     isChorus?: boolean;
     fontSize: string;
 }> = ({ word, config, currentTime, theme, isChaotic, layoutVariants, bodyVariants, baseColor, activeColor, renderProfile, isChorus, fontSize }) => {
-    const [status, setStatus] = useState<"waiting" | "active" | "passed">("waiting");
     const rippleScale = useMemo(() => 1.5 + Math.random() * 2, []);
     const duration = getClassicWordDisplayDuration(word, renderProfile);
     const activeEndTime = getClassicWordActiveEndTime(word, renderProfile);
     const graphemeTimings = useMemo(() => buildWordGraphemeTimings(word), [word]);
+    const resolveStatus = (latest: number): "waiting" | "active" | "passed" => {
+        if (latest >= word.startTime - renderProfile.wordLookahead && latest <= activeEndTime) {
+            return "active";
+        } else if (latest > activeEndTime) {
+            return "passed";
+        }
+        return "waiting";
+    };
+    const [status, setStatus] = useState(() => resolveStatus(currentTime.get()));
+    // A paused mode switch has no next clock event; restore the word's current phase on mount.
+    useEffect(() => {
+        setStatus(resolveStatus(currentTime.get()));
+    }, [currentTime, word.startTime, activeEndTime, renderProfile.wordLookahead]);
 
     useMotionValueEvent(currentTime, "change", (latest: number) => {
-        let newStatus: "waiting" | "active" | "passed" = "waiting";
-
-        if (latest >= word.startTime - renderProfile.wordLookahead && latest <= activeEndTime) {
-            newStatus = "active";
-        } else if (latest > activeEndTime) {
-            newStatus = "passed";
-        } else {
-            newStatus = "waiting";
-        }
-
+        const newStatus = resolveStatus(latest);
         if (newStatus !== status) {
             setStatus(newStatus);
         }
@@ -580,7 +583,7 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         >
             {/* Main Container */}
             <motion.div
-                className="relative z-10 w-full h-[70vh] flex items-center justify-center p-8 pointer-events-none will-change-transform"
+                className={`relative z-10 w-full ${props.contentPresentation?.width != null ? 'h-full' : 'h-[70vh]'} flex items-center justify-center p-8 pointer-events-none will-change-transform`}
                 animate={lyricContainerFloat?.animate}
                 transition={lyricContainerFloat?.transition}
             >

@@ -1,4 +1,6 @@
 import { parseQqSongDetail } from './qqNormalize';
+import { getMobileRuntime } from '../mobileRuntime';
+import { normalizeQQLyricSearch } from '../../utils/lyrics/providers/qqLyricSearch';
 import { qqLyricSong } from '../../utils/lyrics/providers/qqLyricProtocol';
 import { resolveQqPlayback } from '../../../shared/mobile/providerPlayback';
 import type { SongResult, UnifiedSong } from '../../types';
@@ -17,7 +19,6 @@ import { OnlineProviderError } from '../../types/onlineMusic';
 import { createProviderSongMetadata } from '../../utils/songMetadata';
 import { toSafePlaybackUrl } from '../../utils/appPlaybackHelpers';
 import { fetchQQLyrics, searchQQLyrics } from '../../utils/lyrics/providers/qqLyricProvider';
-import { writeProviderSessionValue } from './providerStorage';
 import { normalizeQqCollection, normalizeQqSong, normalizeQqUser } from './qqNormalize';
 import { clearQqSession, getQqRemoteApiBase, getQqTransportAvailability, hasQqSession, requestQq } from './qqTransport';
 import { collectLoginBackendDiagnostics } from './loginBackendDiagnostics';
@@ -33,7 +34,12 @@ const errorFields = (error: unknown) => ({
 
 const searchSongs = async (query: string, limit: number, offset: number) => {
     // Reuses the QQ search that already backs lyric matching; only the provider contract is new.
-    const results = await searchQQLyrics(query, Math.floor(offset / Math.max(1, limit)) + 1, limit);
+    const page = Math.floor(offset / Math.max(1, limit)) + 1;
+    const keyword = query.trim();
+    if (!keyword) return { items: [], hasMore: false, nextOffset: offset };
+    const results = getMobileRuntime()
+        ? normalizeQQLyricSearch((await requestQq<{ data: unknown }>('mobile_search', { key: keyword.slice(0, 60), page, limit })).data)
+        : await searchQQLyrics(query, page, limit);
     const items = results.map(normalizeQqSong);
     return { items, hasMore: items.length === limit, nextOffset: offset + items.length };
 };
@@ -317,10 +323,17 @@ const getLoginStatus = async (): Promise<ProviderUser | null> => {
 };
 
 const logout = async (): Promise<void> => {
+    const sessionCurrent = getMobileRuntime()?.captureSession?.('qq');
     if (hasQqSession()) {
         await requestQq('logout').catch(error => {
             console.warn('[QQProvider] logout:error', errorFields(error));
         });
+    }
+    if (sessionCurrent && !sessionCurrent()) {
+        // A current 401 may already have removed this cookie in the transport. Otherwise an old
+        // logout must not clear a newer account after cancellation, a network failure or success.
+        if (!hasQqSession()) return;
+        throw new DOMException('Canceled', 'AbortError');
     }
     clearQqSession();
 };
@@ -442,10 +455,7 @@ const checkQr = async (key: string): Promise<QrLoginState> => {
     if (code === 801) return { state: 'waiting' };
     if (code === 802) return { state: 'scanned' };
     if (code === 803) {
-        // Idempotent with the transport, which already stored the opaque session string on this response.
-        if (typeof response?.cookie === 'string' && response.cookie) {
-            writeProviderSessionValue('qq', 'cookie', response.cookie);
-        }
+        // The transport commits the session before returning; a second write here could restore a superseded login.
         return { state: 'confirmed' };
     }
     if (code === 800 && isQrNaturalExpiry(response)) return { state: 'expired' };

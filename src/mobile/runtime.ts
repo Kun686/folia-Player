@@ -22,6 +22,16 @@ export function captureProviderSession(provider: string): () => boolean {
   const epoch = generation(provider), revision = sessionRevisions.get(provider);
   return () => epoch === generation(provider) && revision === sessionRevisions.get(provider);
 }
+// Logout cancels requests itself; that must not hide credential replacement during the cancellation await.
+export function captureProviderCredentials(provider: string): () => boolean {
+  const revision = sessionRevisions.get(provider);
+  return () => revision === sessionRevisions.get(provider);
+}
+// Logout spans request cancellation and remote IO; neither may retarget cleanup to a new gateway.
+export function captureGatewayConnection(): () => boolean {
+  const context = scoped();
+  return () => !configuring && scope === context.scope;
+}
 let coverGeneration = 0;
 let lyricGeneration = 0;
 const enqueueSave = (provider: string) => {
@@ -107,7 +117,7 @@ export async function initializeRuntime() {
   sessions = state.sessions; scope = state.scope;
   // Optional sync failure must not block playback startup or fall back to browser-stored credentials.
   await loadMobileSyncSettings().catch(() => undefined);
-  installMobileRuntime({ fetch: request, sync: mobileSyncConnection,
+  installMobileRuntime({ fetch: request, sync: mobileSyncConnection, captureSession: captureProviderSession,
     lyrics: {
       open: async song => {
         const provider = song.sourceRef?.kind === 'online' ? song.sourceRef.providerId : song.sourceRef?.kind ?? 'local';
@@ -119,10 +129,10 @@ export async function initializeRuntime() {
       clear: () => { lyricGeneration++; return native.clearLyricCache(); },
     },
     covers: {
-      load: async song => {
+      load: async (song, cachedOnly = false) => {
         const provider = song.sourceRef?.kind === 'online' ? song.sourceRef.providerId : song.sourceRef?.kind ?? 'local';
         const epoch = generation(provider), covers = coverGeneration;
-        const result = await native.songCover({ song });
+        const result = await native.songCover({ song, cachedOnly });
         if (epoch !== generation(provider) || (provider !== 'local' && covers !== coverGeneration)) throw new DOMException('Canceled', 'AbortError');
         return result.url ?? null;
       },

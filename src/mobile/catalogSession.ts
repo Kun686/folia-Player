@@ -1,5 +1,5 @@
 import type { UnifiedSong } from '../types';
-import type { ProviderCollection, ProviderUser } from '../types/onlineMusic';
+import { OnlineProviderError, type ProviderCollection, type ProviderErrorCode, type ProviderUser } from '../types/onlineMusic';
 import type { omni } from '../services/onlineMusic/omni';
 import { collectionKey } from '../library/core/model/collectionIdentity';
 
@@ -10,16 +10,19 @@ export interface CatalogPort {
   cancel(): Promise<void>;
   clearSession(): Promise<void>;
   clearAccount(): Promise<unknown>;
+  captureConnection(): () => boolean;
+  captureCredentials(): () => boolean;
 }
 export interface CatalogState {
   user: ProviderUser | null; collections: ProviderCollection[]; songs: UnifiedSong[];
   collection: ProviderCollection | null; searchQuery: string | null;
-  accountBusy: boolean; busy: boolean; loggingOut: boolean; collectionsMore: boolean; more: boolean;
+  accountChecked: boolean; accountBusy: boolean; busy: boolean; loggingOut: boolean; collectionsMore: boolean; more: boolean;
   accountError: boolean; trackError: boolean; logoutError: boolean;
+  trackErrorCode: ProviderErrorCode | null;
 }
 type TrackInput = { query?: string; collection?: ProviderCollection };
-const empty = (): CatalogState => ({ user: null, collections: [], songs: [], collection: null, searchQuery: null, accountBusy: false, busy: false, loggingOut: false,
-  collectionsMore: false, more: false, accountError: false, trackError: false, logoutError: false });
+const empty = (): CatalogState => ({ user: null, collections: [], songs: [], collection: null, searchQuery: null, accountChecked: false, accountBusy: false, busy: false, loggingOut: false,
+  collectionsMore: false, more: false, accountError: false, trackError: false, trackErrorCode: null, logoutError: false });
 export const mobileCollectionKey = (value: ProviderCollection) => collectionKey({ ...value, source: 'online' });
 
 export function createCatalogSession(provider: string, port: CatalogPort) {
@@ -48,15 +51,16 @@ export function createCatalogSession(provider: string, port: CatalogPort) {
   const refresh = async () => {
     if (!active || leaving) return false;
     const request = ++accountEpoch;
-    publish({ accountBusy: true, accountError: false, logoutError: false });
+    publish({ accountChecked: false, accountBusy: true, accountError: false, logoutError: false });
     try {
       const user = await port.api.getLoginStatus(provider);
       if (!currentAccount(request)) return false;
       if (String(user?.id) !== String(state.user?.id)) {
         collectionOffset = 0; publish({ collections: [], collectionsMore: false });
-        if (tracks?.collection) { trackEpoch++; tracks = null; publish({ songs: [], collection: null, more: false, busy: false, trackError: false }); }
+        if (tracks?.collection) { trackEpoch++; tracks = null; publish({ songs: [], collection: null, more: false, busy: false, trackError: false, trackErrorCode: null }); }
       }
-      publish({ user });
+      // A null user is only anonymous after status resolves, independently of playlist work.
+      publish({ user, accountChecked: true });
       // Login persistence does not depend on a successful playlist response.
       await port.flush();
       if (!currentAccount(request)) return false;
@@ -80,7 +84,7 @@ export function createCatalogSession(provider: string, port: CatalogPort) {
     if (input) { tracks = { ...input, offset: 0 }; publish({ songs: [], collection: input.collection ?? null,
       searchQuery: input.collection ? null : input.query ?? '', more: false }); }
     const page = { ...tracks! };
-    publish({ busy: true, trackError: false });
+    publish({ busy: true, trackError: false, trackErrorCode: null });
     try {
       const result = page.collection
         ? await port.api.getCollectionTracks(page.collection, { limit: 50, offset: page.offset })
@@ -89,19 +93,36 @@ export function createCatalogSession(provider: string, port: CatalogPort) {
       const more = canContinue(result.hasMore, result.nextOffset, page.offset);
       tracks = { ...page, offset: result.nextOffset };
       publish({ songs: page.offset ? [...state.songs, ...result.items] : result.items, more });
-    } catch { if (active && request === trackEpoch) publish({ trackError: true }); }
+    } catch (error) { if (active && request === trackEpoch) publish({ trackError: true,
+      trackErrorCode: error instanceof OnlineProviderError ? error.code : null }); }
     finally { if (active && request === trackEpoch) publish({ busy: false }); }
   };
   const logout = async () => {
     if (!active || leaving) return;
+    const connectionCurrent = port.captureConnection(), credentialsCurrent = port.captureCredentials();
     leaving = true; const request = ++accountEpoch; trackEpoch++; tracks = null; collectionOffset = 0;
     publish({ ...empty(), busy: true, loggingOut: true });
-    let failed = false;
-    try { await port.cancel(); await port.api.logout(provider); } catch { failed = true; }
+    let failed = false, obsolete = false;
+    if (connectionCurrent()) {
+      try { await port.cancel(); } catch { failed = true; }
+      // The remote adapter captures its own session only when invoked. Do not invoke it with
+      // credentials that replaced the account while native cancellation was still pending.
+      obsolete = !credentialsCurrent();
+      if (!failed && !obsolete && connectionCurrent()) {
+        try { await port.api.logout(provider); }
+        catch (error) {
+          failed = true;
+          obsolete = error instanceof Error && error.name === 'AbortError';
+        }
+      }
+    }
     // Each local cleanup must run even when the upstream logout or the other cleanup fails.
-    const cleanup = await Promise.allSettled([port.clearSession(), port.clearAccount()]);
-    failed ||= cleanup.some(result => result.status === 'rejected');
-    if (active && request === accountEpoch) { leaving = false; publish({ busy: false, loggingOut: false, logoutError: failed }); }
+    // An obsolete request belongs to a replaced session; never clear the replacement's state.
+    if (!obsolete && connectionCurrent()) {
+      const cleanup = await Promise.allSettled([port.clearSession(), port.clearAccount()]);
+      failed ||= cleanup.some(result => result.status === 'rejected');
+    } else { failed = true; }
+    if (active && request === accountEpoch) { leaving = false; publish({ accountChecked: true, busy: false, loggingOut: false, logoutError: failed }); }
   };
   return {
     getSnapshot: () => state,
@@ -109,6 +130,13 @@ export function createCatalogSession(provider: string, port: CatalogPort) {
     start() { active = true; leaving = false; accountEpoch++; trackEpoch++; tracks = null; collectionOffset = 0; publish(empty()); },
     dispose() { active = false; accountEpoch++; trackEpoch++; },
     refresh, load, loadCollections, logout,
+    browseCollections() {
+      if (!active || leaving) return;
+      // Retire only this view's pending page; playback resources share the provider session.
+      trackEpoch++; tracks = null;
+      publish({ songs: [], collection: null, searchQuery: null, more: false, busy: false,
+        trackError: false, trackErrorCode: null });
+    },
     refreshCollection(collection: ProviderCollection) {
       if (active && tracks?.collection && mobileCollectionKey(tracks.collection) === mobileCollectionKey(collection)) {
         return load({ collection: tracks.collection });

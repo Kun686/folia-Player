@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Settings, Search, Music2, Play, Pause } from 'lucide-react';
+import { Settings, Search, Music2, Play, Pause, PanelsTopLeft, ArrowRight, MoreHorizontal, ListMusic, ArrowLeft } from 'lucide-react';
+import QueueActionsMenu from './QueueActionsMenu';
 import { useTranslation } from 'react-i18next';
 import '../i18n/config';
 import { native, isNative } from './bridge';
@@ -46,6 +47,7 @@ import { useAppPreferences } from '../hooks/useAppPreferences';
 import { useThemeSettingsStore } from '../stores/useThemeSettingsStore';
 import { useMediaCache } from './useMediaCache';
 import SongList from './SongList';
+import SongThumbnail from './SongThumbnail';
 import QueueBrowser from './QueueBrowser';
 import CollectionQueueActions from './CollectionQueueActions';
 import NavidromeBrowser from './NavidromeBrowser';
@@ -54,6 +56,7 @@ import SettingsSheet from './SettingsSheet';
 import { useNativeSleepTimer } from './useNativeSleepTimer';
 import PlayerPanel from './PlayerPanel';
 import PlayerFeedback from './PlayerFeedback';
+import CatalogTrackFeedback from './CatalogTrackFeedback';
 import { usePlaybackCommands } from './usePlaybackCommands';
 import type { QueueAddBehavior, SongResult } from '../types';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
@@ -64,6 +67,11 @@ import { useSheetViewport } from './useSheetViewport';
 import { useLocalLyricPreference } from './LocalLyricPreference';
 import { useMobileSongReplacement } from './useMobileSongReplacement';
 import SongReplacementDialog from './SongReplacementDialog';
+import { usePlaybackEntryViewStore } from '../stores/usePlaybackEntryViewStore';
+import PlayerQueueSheet from './PlayerQueueSheet';
+import OnlineCollections from './OnlineCollections';
+import LibraryAccount from './LibraryAccount';
+import { useNativeInterfaceStyle } from './useNativeInterfaceStyle';
 
 // src/mobile/MobileApp.tsx — library and full-window player share the original native playback state.
 export default function MobileApp({ initialServer }: { initialServer: string }) {
@@ -81,8 +89,10 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const [managedPlaylist, setManagedPlaylist] = useState<ProviderCollection | null>(null);
   const [login, setLogin] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
   const [queueView, setQueueView] = useState(false);
   const light = useThemeSettingsStore(s => s.isDaylight);
+  useNativeInterfaceStyle(light);
   const setLight = useThemeSettingsStore(s => s.setDaylightPreference);
   useAppPreferences();
   useEffect(() => initializeSyncCoordinator(), []);
@@ -91,20 +101,27 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   const [queueBusy, setQueueBusy] = useState(false);
   const queueLock = useRef(false);
   const available = useProviders(server);
-  const likes = useMemo(() => createMobileSongLikes(omni, captureProviderSession), []);
   const providerEnabled = available.providers.includes(provider);
   useEffect(() => {
-    if (provider !== 'local' && provider !== 'cached' && provider !== 'navidrome' && available.providers.length && !providerEnabled) setProvider(available.providers[0]);
+    const supported = available.providers[0];
+    if (provider !== 'local' && provider !== 'cached' && provider !== 'navidrome' && supported && !providerEnabled) setProvider(supported);
   }, [available.providers, providerEnabled, provider]);
   const playback = usePlayback();
   const playbackCommands = usePlaybackCommands(playback.songEpoch);
   const appearance = useMobileTheme(playback.state.currentSong, playback.songEpoch, playback.captureSongGuard);
   const sleepTimer = useNativeSleepTimer();
   const catalog = useCatalog(isNavidrome ? '' : provider, !!server && isNative && providerEnabled);
+  const checkingAccount = !catalog.accountChecked && (providerEnabled || Boolean(server && isNative && !available.error));
   const replacement = useMobileSongReplacement(available.replacementProviders);
   const cancelReplacement = replacement.cancel;
   useEffect(() => { cancelReplacement(); }, [cancelReplacement, provider, queueView, onlineTarget, managedPlaylist, catalog.collection, catalog.searchQuery]);
   const catalogRef = useRef(catalog); catalogRef.current = catalog;
+  const likes = useMemo(() => createMobileSongLikes(omni, captureProviderSession, owner => {
+    const current = catalogRef.current;
+    if (current.provider === owner && current.collection?.type === 'playlist') {
+      void current.refreshCollection(current.collection);
+    }
+  }), []);
   const playlistEditor = useMemo(() => createMobilePlaylistEditor(omni, captureProviderSession, flushSessions, removeFromCache,
     collection => { void catalogRef.current.refreshCollection(collection); },
     collection => { if (catalogRef.current.provider === collection.providerId) return catalogRef.current.refresh().then(() => undefined); }), []);
@@ -137,6 +154,8 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
     ? new Map(local.snapshot?.editorSongs.map(song => [song.id, formatLocalAlbumTrackLabel(song)])) : undefined,
   [isLocal, queueView, localBrowser.selected?.type, local.snapshot?.editorSongs]);
   const active = playback.state.currentSong;
+  const loadMoreAction = !isLocal && !isCached && !isNavidrome && !queueView && catalog.more
+    ? <button disabled={catalog.busy} onClick={() => void catalog.load()}>{t('mobile.more')}</button> : null;
   const queueWork = async (work: () => Promise<unknown>) => {
     if (queueLock.current) return false;
     queueLock.current = true; setQueueBusy(true); setQueueError('');
@@ -171,15 +190,30 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
   };
   const add = (song: SongResult, behavior?: QueueAddBehavior) => enqueue([song], behavior);
   const edit = (action: QueueAction) => void queueWork(() => editMobileQueue(playback.state, action));
+  const playQueueSong = (song: SongResult) => void queueWork(async () => {
+    const index = playback.state.queue.indexOf(song);
+    if (index < 0) throw new Error('queue-changed');
+    const check = captureMobileQueueSessions([song]);
+    check(); await flushMobileQueueSessions([song]); check();
+    await native.selectQueue({ index, queueRevision: playback.state.queueRevision });
+  });
   const songActions = (song: SongResult, close: () => void) => <>{onlineActions(song, close)}
     <LocalSongPlaylistActions song={song} controller={localPlaylists}
       selected={isLocal && !queueView ? localBrowser.selected : undefined} close={close} /></>;
+  const collectionOverview = !catalog.collection && !searchingOnline;
+  const collectionsNav = !isLocal && !isCached && !isNavidrome && !queueView && catalog.collections.length > 0
+    ? <OnlineCollections collections={catalog.collections} selected={catalog.collection ?? null} overview={collectionOverview}
+        select={collection => { setQuery(''); void catalog.load({ collection }); }} /> : null;
   return <main className={'mobile-app ' + (light ? 'daylight' : '')} data-layout="compact">
-    <div className="library-panel" inert={expanded || settings}>
-      <header className="brand"><div><small>FOLIA</small><h1>{t('mobile.library')}</h1></div>
-        <button aria-label={t('mobile.settings')} onClick={() => setSettings(true)}><Settings /></button></header>
+    <div className="library-panel" data-online={provider === 'qq' || provider === 'netease' ? 'true' : undefined} inert={expanded || settings}>
+      <header className="brand"><h1>{t('mobile.library')}</h1><div className="library-header-actions">
+        {catalog.user && !isCached && !isLocal && !isNavidrome && <LibraryAccount name={catalog.user.nickname} busy={catalog.busy}
+          logout={() => void catalog.logout().catch(() => setError(true))} />}
+        <button aria-label={t('home.latticeLabel')} onClick={() => { usePlaybackEntryViewStore.getState().setPlaybackEntryView('lattice'); setExpanded(true); }}><PanelsTopLeft /></button>
+        <button aria-label={t('mobile.settings')} onClick={() => setSettings(true)}><Settings /></button></div></header>
       <nav className="providers" aria-label="Music platform">
-        {[['local', t('mobile.local')], ['navidrome', 'Navidrome'], ['cached', t('options.mediaCache')], ['netease', '网易云'], ['qq', 'QQ 音乐'], ['kugou', '酷狗']].filter(([id]) => id !== 'kugou' || available.providers.includes(id)).map(([id, name]) =>
+        {[['qq', 'QQ 音乐'], ['netease', '网易云'], ['local', t('mobile.local')], ['navidrome', 'Navidrome'], ['cached', t('options.mediaCache')],
+          ...(available.providers.includes('kugou') ? [['kugou', '酷狗']] : [])].map(([id, name]) =>
           <button key={id} disabled={catalog.loggingOut} aria-pressed={provider === id} onClick={() => { setProvider(id); setQueueView(false); setQuery(''); }}>{name}</button>)}
       </nav>
       {isNavidrome && !queueView ? <NavidromeBrowser busy={queueBusy} queueError={queueError} queueCount={playback.state.queue.length}
@@ -191,22 +225,21 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
       {!isNavidrome && <>
       {isCached ? <div className="account-row"><span>{mediaCache.state?.count ?? 0} {t('mobile.tracks')}</span></div> : isLocal ? <div className="account-row"><span>{local.songs.length} {t('mobile.tracks')}</span>
         <button disabled={local.busy || folders.busy || !isNative} onClick={() => void local.importAudio()}>{t('mobile.importAudio')}</button></div> :
-      <div className="account-row"><span>{catalog.user?.nickname ?? provider.toUpperCase()}</span>
-        {catalog.user ? <button disabled={catalog.busy} onClick={() => void catalog.logout().catch(() => setError(true))}>{t('mobile.logout')}</button>
+      !catalog.user && <div className="account-row"><span>{provider === 'qq' ? 'QQ 音乐' : provider === 'kugou' ? '酷狗' : '网易云'}</span>
+        {checkingAccount && !catalog.loggingOut ? <button disabled={!providerEnabled || !catalog.accountError || catalog.accountBusy}
+            onClick={() => void catalog.refresh()}>{t(catalog.accountError ? 'mobile.retry' : 'mobile.loading')}</button>
           : <button disabled={!providerEnabled || catalog.loggingOut} onClick={() => setLogin(true)}>{t('mobile.login')}</button>}</div>}
       {!isLocal && !isCached && !isNavidrome && !providerEnabled && <p className="connection-hint">
         {available.error || available.busy
           ? <button disabled={available.busy} onClick={() => available.retry()}>{t(available.busy ? 'mobile.loading' : 'mobile.retry')}</button>
           : t('mobile.connect')} <button onClick={() => setSettings(true)}>{t('mobile.settings')}</button></p>}
-      {!queueView && <form className="search" onSubmit={e => { e.preventDefault(); setQueueView(false); if (!isLocal && !isCached && !isNavidrome && query.trim()) void catalog.load({ query: query.trim() }); }}>
+      {!queueView && <div className="library-search-tools"><form className="search" onSubmit={e => { e.preventDefault(); setQueueView(false); if (!isLocal && !isCached && !isNavidrome && query.trim()) void catalog.load({ query: query.trim() }); }}>
         <Search size={20} /><input aria-label={t('mobile.search')} placeholder={t('mobile.search')} value={query} onChange={e => setQuery(e.target.value)} />
-        <button disabled={(!isLocal && !isCached && !isNavidrome && !providerEnabled) || catalog.busy || !query.trim()}>{t('mobile.search')}</button>
-      </form>}
-      </>}
-      <div className="section-heading"><h2>{queueView ? t('mobile.queue') : t(isCached ? 'options.mediaCache' : isLocal ? 'mobile.local' : catalog.collection?.type === 'cloud' ? 'mobile.accountCloud' : 'mobile.playlists')}</h2>
-        <button aria-pressed={queueView} onClick={() => setQueueView(!queueView)}>{t('mobile.queue')} · {playback.state.queue.length}</button></div>
-      {isLocal && !queueView && <LocalLibraryNav browser={localBrowser} clearQuery={() => setQuery('')} />}
-      {sortable && <LocalTrackSortControls />}
+        <button aria-label={t('mobile.search')} title={t('mobile.search')} disabled={(!isLocal && !isCached && !isNavidrome && !providerEnabled) || catalog.busy || !query.trim()}><ArrowRight size={20} /></button>
+      </form>
+      {!queueView && ['qq', 'netease'].includes(provider) && <details key={provider} className="online-library-extras">
+      <summary aria-label={t('mobile.moreMusicFeatures')} title={t('mobile.moreMusicFeatures')}><MoreHorizontal size={22} /></summary>
+      <div className="online-library-extras-body">
       <PersonalFM provider={queueView ? '' : provider} enabled={available.personalFmProviders.includes(provider)} signedIn={!!catalog.user}
         state={playback.state} busy={queueBusy} work={queueWork} playing={() => setExpanded(true)} />
       {!queueView && <OnlineAccountLibrary key={provider + ':' + String(catalog.user?.id)} provider={provider} user={catalog.user}
@@ -220,6 +253,11 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         navigationChanged={cancelReplacement}
         queueBusy={queueBusy} queueError={queueError} add={(song, behavior) => void add(song, behavior)} enqueue={enqueue} actions={onlineActions}
         play={(tracks, index, close) => void queueWork(() => startCollection(tracks, index, () => { close(); setExpanded(true); }))} />
+      </div></details>}
+      </div>}
+      </>}
+      {isLocal && !queueView && <LocalLibraryNav browser={localBrowser} clearQuery={() => setQuery('')} />}
+      {sortable && <LocalTrackSortControls />}
       {isLocal && !queueView && <FolderImportStatus folders={folders} />}
       {isLocal && !queueView && local.snapshot && (localBrowser.section === 'songs' || (browsingFolders && folderView.root)) &&
         <LocalMetadataManager key={browsingFolders ? folderView.root?.id + '/' + folderView.path : 'all'} snapshot={local.snapshot}
@@ -233,14 +271,23 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         {t('localMusic.editEntityTitle', { kind: t(localBrowser.selected.type === 'artist' ? 'localMusic.artistLabel' : 'localMusic.albumLabel') })}</button>}
       {isLocal && !queueView && (localBrowser.section === 'playlists' || localPlaylists.error) &&
         <LocalPlaylistToolbar controller={localPlaylists} selected={localBrowser.selected} />}
-      {queueView && <div className="queue-toolbar">
-        <button disabled={queueBusy || songs.length < 2} onClick={() => edit({ type: 'shuffle' })}>{t('mobile.shuffleQueue')}</button>
-        <button disabled={queueBusy || !songs.length} onClick={() => { if (window.confirm(t('mobile.confirmClearQueue'))) edit({ type: 'clear' }); }}>{t('mobile.clearQueue')}</button>
-        <button disabled={!localPlaylists.ready || localPlaylists.busy || !songs.some(song => song.sourceRef?.kind === 'local')}
-          onClick={() => localPlaylists.create(songs)}>{t('localMusic.saveQueueAsPlaylist')}</button>
-      </div>}
-      {!isLocal && !isCached && !isNavidrome && !queueView && catalog.collections.length > 0 && <div className="collections">{catalog.collections.map(collection =>
-        <button key={mobileCollectionKey(collection)} onClick={() => void catalog.load({ collection })}><Music2 size={18} />{collection.name}</button>)}</div>}
+      <div className="section-heading library-section-heading">
+        {!queueView && !collectionOverview && !isLocal && !isCached && !isNavidrome && <button className="library-collection-back"
+          aria-label={t('mobile.backToPlaylists')} title={t('mobile.backToPlaylists')}
+          onClick={() => { setQuery(''); catalog.browseCollections(); }}><ArrowLeft size={22} /></button>}
+        <div className="library-section-title"><h2>{queueView ? t('mobile.queue') : searchingOnline ? t('home.resultsFor') + ' ' + catalog.searchQuery
+        : catalog.collection && !isLocal && !isCached ? catalog.collection.name
+        : t(isCached ? 'options.mediaCache' : isLocal ? 'mobile.local' : 'mobile.playlists')}</h2>
+        {songs.length > 0 && <small>{songs.length} {t('mobile.tracks')}</small>}</div>
+        {!queueView && !isLocal && !isCached && !isNavidrome && catalog.collection && songs.length > 0 &&
+          <CollectionQueueActions compact showCount={false} songs={songs} busy={queueBusy || catalog.busy} enqueue={enqueue} />}
+        {queueView && <QueueActionsMenu busy={queueBusy} count={songs.length} edit={edit}
+          savePlaylist={songs.some(song => song.sourceRef?.kind === 'local') ? () => localPlaylists.create(songs) : undefined}
+          saveDisabled={!localPlaylists.ready || localPlaylists.busy} />}
+        <button className="library-queue-toggle" aria-label={t(queueView ? 'mobile.library' : 'mobile.queue')}
+          title={t(queueView ? 'mobile.library' : 'mobile.queue')} aria-pressed={queueView} onClick={() => setQueueView(!queueView)}>
+          {queueView ? <ArrowLeft size={22} /> : <><ListMusic size={22} /><small>{t('mobile.queue')}</small></>}</button></div>
+      {collectionOverview && collectionsNav}
       {!isLocal && !isCached && !isNavidrome && !queueView && <div className="collection-actions">
         {catalog.collection && catalog.user && <OnlineCollectionSubscription
           key={mobileCollectionKey(catalog.collection) + ':' + String(catalog.user.id)} collection={catalog.collection}
@@ -248,18 +295,22 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         {catalog.collection && catalog.user && available.playlistEditProviders.includes(provider) && playlistEditor.canEdit(catalog.collection, catalog.user) &&
           <button onClick={() => setManagedPlaylist(catalog.collection)}>{t('mobile.onlinePlaylistManage')}</button>}
         {catalog.collectionsMore && <button disabled={catalog.accountBusy} onClick={() => void catalog.loadCollections()}>{t('mobile.morePlaylists')}</button>}
-        {catalog.accountError && <button disabled={catalog.accountBusy} onClick={() => void catalog.refresh()}>{t('mobile.retryPlaylists')}</button>}
+        {catalog.accountError && (catalog.accountChecked || catalog.user) && <button disabled={catalog.accountBusy} onClick={() => void catalog.refresh()}>{t('mobile.retryPlaylists')}</button>}
         {catalog.trackError && <button disabled={catalog.busy} onClick={() => void catalog.load()}>{t('mobile.retrySongs')}</button>}
         {catalog.logoutError && <button disabled={catalog.loggingOut} onClick={() => void catalog.logout()}>{t('mobile.retry')} · {t('mobile.logout')}</button>}
       </div>}
-      {((!isLocal && !isCached && !isNavidrome && (catalog.error || available.error)) || error) && <p role="alert">{t('mobile.error')}</p>}
+      {((!isLocal && !isCached && !isNavidrome && (catalog.accountError || catalog.logoutError || available.error)) || error) && <p role="alert">{t('mobile.error')}</p>}
+      {!isLocal && !isCached && !isNavidrome && !queueView && <CatalogTrackFeedback error={catalog.trackError} code={catalog.trackErrorCode} />}
       {!expanded && <PlayerFeedback state={playback.state} commandError={playbackCommands.error} otherError={false} className="library-playback-error" />}
       {isCached && mediaCache.error && <p role="alert">{t('mobile.cacheError')}</p>}
       {queueError && <p role="alert">{t('mobile.' + queueError)}</p>}
       {isLocal && local.error && <p role="alert">{t('mobile.importError')} {local.error}</p>}
       {(catalog.busy || catalog.accountBusy || local.busy) && <p role="status">{t('mobile.loading')}</p>}
-      {!queueView && songs.length > 0 && ((isLocal && !localBrowser.browsing) || (!isLocal && !isCached && !isNavidrome && catalog.collection)) &&
+      {!queueView && songs.length > 0 && isLocal && !localBrowser.browsing &&
         <CollectionQueueActions songs={songs} busy={queueBusy || localPlaylists.busy || (isLocal ? local.busy : catalog.busy)} enqueue={enqueue} />}
+      {searchingOnline && songs.length > 0 && <div className="collection-queue-actions"><div className="collection-actions">
+        <span>{t('libraryTui.scope', { count: songs.length })}</span>
+      </div></div>}
       {isLocal && !queueView && localBrowser.browsing ? <LocalCollections collections={localBrowser.collections}
         select={id => { localBrowser.select(id); setQuery(''); }} /> : queueView ? <QueueBrowser state={playback.state}
         busy={queueBusy || localPlaylists.busy} play={index => void play(index)} add={(song, behavior) => void add(song, behavior)} edit={edit} libraryActions={songActions} />
@@ -269,25 +320,30 @@ export default function MobileApp({ initialServer }: { initialServer: string }) 
         busy={queueBusy || localPlaylists.busy}
         libraryActions={songActions}
         remove={isLocal && !queueView ? song => { if (window.confirm(t('mobile.confirmRemove', { name: song.name }))) void local.remove(song); } : undefined} />
-        : (browsingFolders && !queueView && !folderView.root) || (!isLocal && !isCached && !isNavidrome && !queueView && (catalog.busy || catalog.trackError))
+        : (collectionOverview && collectionsNav) || (browsingFolders && !queueView && !folderView.root) || (!isLocal && !isCached && !isNavidrome && !queueView && (catalog.busy || catalog.trackError))
           ? null : <div className="empty"><Music2 size={44} /><p>{t(queueView ? 'mobile.queueEmpty' : searchingOnline ? 'mobile.empty'
             : isLocal ? (local.songs.length ? 'mobile.empty' : 'mobile.localEmpty') : 'mobile.noSongs')}</p></div>}
-      {!isLocal && !isCached && !isNavidrome && catalog.more && !queueView && <button disabled={catalog.busy} onClick={() => void catalog.load()}>{t('mobile.more')}</button>}
+      {loadMoreAction && <div className="library-pagination">{loadMoreAction}</div>}
       </>}
     </div>
     <PlayerPanel appearance={appearance} state={playback.state} time={playback.currentTime} visible={playback.visible} light={light} songEpoch={playback.songEpoch}
+      queueBusy={queueBusy} queueError={queueError} playQueueSong={playQueueSong} shuffleQueue={() => edit({ type: 'shuffle' })}
       commands={playbackCommands}
       likes={likes} songLikeProviders={available.songLikeProviders}
       captureSongGuard={playback.captureSongGuard}
-      expanded={expanded} collapse={() => setExpanded(false)} openQueue={() => { setQueueView(true); setExpanded(false); }} />
+      expanded={expanded} queueOpen={queueOpen} collapse={() => { setQueueOpen(false); setExpanded(false); }} openQueue={() => setQueueOpen(true)} />
+    {queueOpen && <PlayerQueueSheet state={playback.state} busy={queueBusy || localPlaylists.busy} error={queueError}
+      close={() => setQueueOpen(false)} play={index => { const song = playback.state.queue[index]; if (song) playQueueSong(song); }}
+      add={(song, behavior) => void add(song, behavior)} edit={edit} libraryActions={songActions} />}
     <footer className="mini-player" inert={expanded || settings}>
-      <button className="mini-title" onClick={() => setExpanded(true)}><Music2 /><span><strong>{active?.name ?? 'Folia'}</strong>
-        <small>{active?.artists.map(a => a.name).join(' / ') ?? 'Classic'}</small></span></button>
+      <button className="mini-title" onClick={() => setExpanded(true)}><SongThumbnail song={active} /><span><strong>{active?.name ?? t('mobile.idlePlayer')}</strong>
+        <small>{active?.artists.map(a => a.name).join(' / ') ?? t('mobile.chooseSong')}</small></span></button>
       <button disabled={!active && !playback.state.queue.length} aria-label={t(playback.state.playing ? 'mobile.pause' : 'mobile.play')}
         onClick={() => playbackCommands.send({ action: playback.state.playing ? 'pause' : 'play' })}>
         {playback.state.playing ? <Pause /> : <Play />}</button>
     </footer>
     {settings && <SettingsSheet folders={folders} lyricPreference={lyricPreference} appearance={appearance} mediaCache={mediaCache} timer={sleepTimer} server={server} light={light} setLight={setLight}
+      openCache={() => { setProvider('cached'); setQueueView(false); setQuery(''); setSettings(false); }}
       saved={() => location.reload()} close={() => setSettings(false)} />}
     {login && <LoginSheet provider={provider} refresh={catalog.refresh} close={() => setLogin(false)} />}
     {onlineTarget && <OnlineCatalogSheet target={onlineTarget} busy={queueBusy} error={queueError} close={() => setOnlineTarget(null)} enqueue={enqueue}

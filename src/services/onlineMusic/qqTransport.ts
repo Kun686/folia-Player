@@ -9,13 +9,14 @@ export const QQ_OPERATIONS = [
     'login_channels',
     'user_detail', 'user_playlist', 'user_albums', 'user_liked_songs', 'user_playlist_detail',
     'music_play', 'song_list_detail', 'song_info',
-    'album_info', 'artist_albums', 'artist_songs',
+    'album_info', 'artist_albums', 'artist_songs', 'mobile_search',
 ] as const;
 
 export type QqOperation = typeof QQ_OPERATIONS[number];
 export type QqParams = Record<string, string | number | boolean | undefined>;
 
 const ENDPOINTS: Record<QqOperation, string> = {
+    mobile_search: '/mobile/search',
     login_qr_key: '/login/qr/key',
     login_qr_create: '/login/qr/create',
     login_qr_check: '/login/qr/check',
@@ -232,7 +233,12 @@ const endpointFor = (operation: QqOperation, params: QqParams): { path: string; 
 
 // Routes one provider request through the embedded Electron server or the configured Web base URL.
 export const requestQq = async <T = unknown>(operation: QqOperation, params: QqParams = {}): Promise<T> => {
+    let sessionCurrent = getMobileRuntime()?.captureSession?.('qq');
+    const assertSessionCurrent = () => {
+        if (sessionCurrent && !sessionCurrent()) throw new DOMException('Canceled', 'AbortError');
+    };
     const base = await resolveApiBase();
+    assertSessionCurrent();
 
     const endpoint = endpointFor(operation, params);
     const query = new URLSearchParams();
@@ -246,7 +252,11 @@ export const requestQq = async <T = unknown>(operation: QqOperation, params: QqP
             const token = tokenFromCookieString(cookie);
             // 同源请求不允许把未知格式的 session 放回 URL；清掉无效值，交给后端按未登录处理。
             if (token) headers[SESSION_HEADER_NAME] = token;
-            else clearQqSession();
+            else {
+                clearQqSession();
+                // This request itself removed an invalid cookie; its anonymous response is still current.
+                sessionCurrent = getMobileRuntime()?.captureSession?.('qq');
+            }
         } else {
             query.set('cookie', cookie);
         }
@@ -260,6 +270,7 @@ export const requestQq = async <T = unknown>(operation: QqOperation, params: QqP
     try {
         response = await providerFetch(`${base}${endpoint.path}?${query}`, { credentials, headers });
     } catch (error) {
+        assertSessionCurrent();
         // 连后端本身都没连上（内嵌后端退出、远端不可达），与后端回了错误码分开。
         throw new OnlineProviderError(
             'network',
@@ -268,8 +279,11 @@ export const requestQq = async <T = unknown>(operation: QqOperation, params: QqP
             error,
         );
     }
+    const body = await readJsonBody(response);
+    // Native fetch guards delivery; JSON consumption is another asynchronous boundary before session writes.
+    assertSessionCurrent();
     if (!response.ok) {
-        const failure = await readJsonBody(response);
+        const failure = body;
         const backendMessage = typeof failure?.message === 'string' && failure.message.trim() ? ` (${failure.message.trim()})` : '';
         // A missing, expired, rejected, or non-persisted backend session is surfaced uniformly as 401.
         if (response.status === 401) {
@@ -288,6 +302,10 @@ export const requestQq = async <T = unknown>(operation: QqOperation, params: QqP
                 response.status,
             );
         }
+        if (operation === 'mobile_search' && response.status === 502 &&
+            ['unavailable', 'invalid-response'].includes(failure?.errorKey)) {
+            throw new OnlineProviderError(failure.errorKey, 'QQ Music search unavailable', 'qq', undefined, response.status);
+        }
         throw new OnlineProviderError(
             'network',
             `QQMusicApi ${operation} failed: HTTP ${response.status}${backendMessage}`,
@@ -298,7 +316,6 @@ export const requestQq = async <T = unknown>(operation: QqOperation, params: QqP
         );
     }
 
-    const body = await readJsonBody(response);
     if (body === undefined) {
         throw new OnlineProviderError('invalid-response', `QQMusicApi returned an unreadable ${operation} body`, 'qq');
     }

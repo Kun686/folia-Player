@@ -36,6 +36,10 @@ final class AudioFileStreamProcessor {
     private let playerContext: AudioPlayerContext
     private let rendererContext: AudioRendererContext
     private let outputAudioFormat: AudioStreamBasicDescription
+    // Folia: a FLAC byte estimate is not a media timestamp. Decode/discard from an exact
+    // packet (or the first audio frame) before publishing PCM at the requested position.
+    private var seekFramesToDiscard: UInt64 = 0
+    private let seekScratch = UnsafeMutableRawPointer.allocate(byteCount: 65536, alignment: 16)
     
     // Add Ogg Vorbis processor
     private lazy var oggVorbisProcessor = OggVorbisStreamProcessor(
@@ -58,6 +62,8 @@ final class AudioFileStreamProcessor {
     var isFileStreamOpen: Bool {
         audioFileStream != nil || isProcessingOggVorbis
     }
+
+    deinit { seekScratch.deallocate() }
 
     init(playerContext: AudioPlayerContext,
          rendererContext: AudioRendererContext,
@@ -93,6 +99,7 @@ final class AudioFileStreamProcessor {
 
     /// Closes the currently open `AudioFileStream` instance, if opened.
     func closeFileStreamIfNeeded() {
+        seekFramesToDiscard = 0
         if isProcessingOggVorbis {
             isProcessingOggVorbis = false
             oggVorbisProcessor.cleanup()
@@ -180,6 +187,11 @@ final class AudioFileStreamProcessor {
             return
         }
 
+        if readingEntry.audioStreamFormat.mFormatID == kAudioFormatFLAC {
+            restartFLACSeek(to: time, entry: readingEntry)
+            return
+        }
+
         let dataOffset = Double(readingEntry.audioStreamState.dataOffset)
         let dataLengthInBytes = Double(readingEntry.audioDataLengthBytes())
         let entryDuration = readingEntry.duration()
@@ -198,6 +210,7 @@ final class AudioFileStreamProcessor {
         readingEntry.lock.unlock()
 
         let bitrate = readingEntry.calculatedBitrate()
+        seekFramesToDiscard = 0
         if readingEntry.packetDuration > 0, bitrate > 0 {
             var ioFlags = AudioFileStreamSeekFlags(rawValue: 0)
             var packetsAlignedByteOffset: Int64 = 0
@@ -223,6 +236,31 @@ final class AudioFileStreamProcessor {
         rendererContext.waitingForDataAfterSeekFrameCount.write { $0 = 0 }
         playerContext.setInternalState(to: .waitingForDataAfterSeek)
         rendererContext.resetBuffers()
+    }
+
+    // A fresh FLAC parser/converter also discards any partial compressed frame from the
+    // previous HTTP chunk. Resetting only AudioConverter can leave a CRC-invalid boundary.
+    private func restartFLACSeek(to time: Double, entry: AudioEntry) {
+        let frames = time * outputAudioFormat.mSampleRate
+        guard frames.isFinite, frames >= 0, frames < Double(Int64.max) else {
+            fileStreamCallback?(.raiseError(.codecError)); return
+        }
+        closeFileStreamIfNeeded()
+        disposeAudioConverter()
+        discontinuous = false
+        guard openFileStream(with: kAudioFileFLACType) == noErr else {
+            fileStreamCallback?(.raiseError(.codecError)); return
+        }
+        seekFramesToDiscard = UInt64(frames.rounded())
+        entry.lock.withLock {
+            entry.seekTime = time
+            entry.audioStreamState.processedDataFormat = false
+        }
+        entry.reset()
+        rendererContext.waitingForDataAfterSeekFrameCount.write { $0 = 0 }
+        rendererContext.resetBuffers()
+        playerContext.setInternalState(to: .waitingForDataAfterSeek)
+        entry.seek(at: 0)
     }
 
     /// Creates an `AudioConverter` instance to be used for converting the remote audio data to the canonical audio format
@@ -526,6 +564,7 @@ final class AudioFileStreamProcessor {
 
     // Decode available packets, or flush the converter at EOF, using the existing shared PCM ring.
     private func decodePackets(_ converter: AudioConverterRef, info convertInfo: inout AudioConvertInfo) {
+        if seekFramesToDiscard > 0, !discardSeekFrames(converter, info: &convertInfo) { return }
         var status: OSStatus = noErr
         packetProcess: while status == noErr {
             rendererContext.lock.lock()
@@ -670,6 +709,35 @@ final class AudioFileStreamProcessor {
                 }
             }
         }
+    }
+
+    // Runs on the existing decoder queue, never the audio render callback. Discarded PCM
+    // does not enter the ring or advance the public clock; a newer seek cancels this work.
+    private func discardSeekFrames(_ converter: AudioConverterRef, info: inout AudioConvertInfo) -> Bool {
+        let bytesPerFrame = outputAudioFormat.mBytesPerFrame
+        guard bytesPerFrame > 0, bytesPerFrame <= 65536 else {
+            fileStreamCallback?(.raiseError(.codecError)); return false
+        }
+        while seekFramesToDiscard > 0 {
+            if playerContext.internalState == .disposed || playerContext.internalState == .pendingNext
+                || playerContext.internalState == .stopped { return false }
+            if playerContext.audioPlayingEntry?.seekRequest.requested == true {
+                fileStreamCallback?(.processSource); return false
+            }
+            var frames = UInt32(min(seekFramesToDiscard, UInt64(65536 / bytesPerFrame)))
+            var buffer = AudioBufferList(mNumberBuffers: 1, mBuffers: AudioBuffer(
+                mNumberChannels: outputAudioFormat.mChannelsPerFrame,
+                mDataByteSize: frames * bytesPerFrame, mData: seekScratch))
+            let status = AudioConverterFillComplexBuffer(converter, _converterCallback, &info, &frames, &buffer, nil)
+            guard UInt64(frames) <= seekFramesToDiscard else {
+                fileStreamCallback?(.raiseError(.codecError)); return false
+            }
+            seekFramesToDiscard -= UInt64(frames)
+            if status == AudioConvertStatus.done.rawValue { return false }
+            guard status == noErr else { fileStreamCallback?(.raiseError(.codecError)); return false }
+            if frames == 0 { return false }
+        }
+        return true
     }
 
     /// Fills the `AudioBuffer` with data as required

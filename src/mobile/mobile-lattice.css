@@ -1,0 +1,34 @@
+/* mobile-lattice.css — original poster wall, native touch controls and safe-area chrome. */
+.player-panel[data-surface=lattice] > :is(.player-heading, .player-controls, .player-wake) { display: none; }
+.mobile-lattice .lattice-root { inset: 0; }
+.mobile-lattice .lattice-back { top: calc(var(--safe-top) + 12px); left: max(16px, var(--safe-left)); width: 44px; height: 44px; }
+.player-panel .mobile-lattice .lattice-root .lattice-tools.mobile-lattice-tools {
+  bottom: calc(var(--safe-bottom) + 12px); right: max(16px, var(--safe-right)); display: flex; gap: 4px; padding: 4px; border-radius: 28px !important;
+  border: 1px solid var(--glass-edge); background: color-mix(in srgb, var(--bg) 65%, transparent);
+  backdrop-filter: blur(18px) saturate(130%); -webkit-backdrop-filter: blur(18px) saturate(130%);
+  box-shadow: 0 8px 24px #0003;
+  transform-origin: right bottom; transition: var(--mobile-lattice-tools-transition, opacity 180ms ease, transform 180ms ease);
+}
+.mobile-lattice-tools[aria-hidden=true] { opacity: 0; transform: translateY(8px) scale(.94); pointer-events: none; }
+:root[data-reduce-motion~='uiMicroMotion'] .mobile-lattice-tools { --mobile-lattice-tools-transition: opacity 120ms ease; transform: none; }
+.mobile-lattice-tools button { display: grid; place-items: center; width: 44px; height: 44px; padding: 10px; border: 0; border-radius: 50%; color: var(--text); background: transparent; touch-action: manipulation; }
+.mobile-lattice-tools button:active { background: var(--raised); }
+.mobile-lattice-tools svg { width: 21px; height: 21px; }
+.mobile-lattice .lattice-native-actions { border: 0; padding: 0; margin: 0; min-width: 0; overflow: hidden; }
+/* The wall scales world coordinates. Compensate using the actual camera scale in every window. */
+.mobile-lattice .lattice-chrome { width: 100%; gap: calc(8px / var(--lattice-camera-scale)); }
+.mobile-lattice .lattice-chrome-transport { flex-wrap: wrap; gap: 0; min-height: 0; }
+.mobile-lattice .lattice-chrome button { width: calc(44px / var(--lattice-camera-scale)); height: calc(44px / var(--lattice-camera-scale)); }
+.mobile-lattice .lattice-chrome button svg { width: calc(20px / var(--lattice-camera-scale)); height: calc(20px / var(--lattice-camera-scale)); }
+.mobile-lattice .lattice-chrome-details { order: 4; flex-basis: 100%; grid-template-columns: 1fr; grid-template-rows: 0fr; transition: grid-template-rows 180ms ease, opacity 150ms ease; }
+.mobile-lattice .lattice-chrome.is-revealed .lattice-chrome-details { grid-template-rows: 1fr; }
+.mobile-lattice .lattice-chrome-actions { gap: 0; justify-content: space-between; }
+.mobile-lattice .lattice-chrome-time { order: 1; padding: 0; margin-inline: auto; font-size: calc(11px / var(--lattice-camera-scale)); }
+.mobile-lattice .lattice-secondary-action { order: 2; }
+.mobile-lattice .lattice-progress { margin-right: 0; }
+.mobile-lattice .lattice-progress input[type=range] { height: calc(44px / var(--lattice-camera-scale)); padding: 0; }
+.mobile-lattice .lattice-poster.is-expanded .lattice-poster-copy:not(.lattice-lyric-metadata) { bottom: calc(132px / var(--lattice-camera-scale)); }
+.mobile-lattice .lattice-lyrics { bottom: calc(84px / var(--lattice-camera-scale)); }
+.mobile-lattice .lattice-poster:has(.lattice-chrome.is-revealed) .lattice-lyrics { bottom: calc(128px / var(--lattice-camera-scale)); }
+.mobile-lattice-error { position: absolute; z-index: 40; top: calc(var(--safe-top) + 64px); left: max(16px, var(--safe-left)); right: max(16px, var(--safe-right)); padding: 12px 16px; border-radius: 16px; background: var(--bg); color: var(--text); }
+:root[data-reduce-motion~='lattice'] .mobile-lattice .lattice-chrome-details { transition: none; }

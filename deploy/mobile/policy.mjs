@@ -10,7 +10,7 @@ export const routes = {
     '/personal_fm', '/personal/fm/mode', '/personalized', '/recommend/songs', '/recommend/songs/dislike', '/history/recommend/songs', '/history/recommend/songs/detail']),
   qq: new Set(['/login/qr/key', '/login/qr/create', '/login/qr/check', '/login/qr/cancel',
     '/login/status', '/login/channels', '/logout', '/user/detail', '/user/playlist', '/user/playlist-detail',
-    '/user/liked-songs', '/user/albums', '/getAlbumInfo', '/getSingerHotsong', '/getSingerAlbum']),
+    '/user/liked-songs', '/user/albums', '/getAlbumInfo', '/getSingerHotsong', '/getSingerAlbum', '/mobile/search']),
   kugou: new Set(['/register/dev', '/login/qr/key', '/login/qr/create', '/login/qr/check', '/logout',
     '/user/detail', '/user/vip/detail', '/user/playlist', '/search', '/audio', '/krm/audio', '/song/url',
     '/search/lyric', '/lyric', '/song/climax', '/playlist/track/all', '/playlist/detail']),
@@ -44,6 +44,11 @@ export function authorizeTarget(input, bases, playbackReport = false) {
   const reportWrite = playbackReport && provider === 'netease' && parsed.pathname === '/scrobble/v1';
   if (!routes[provider].has(parsed.pathname) && !qqRead && !reportWrite) throw fault('unsupported', 404);
   const params = { ...Object.fromEntries(parsed.searchParams), ...(input.query ?? {}) };
+  if (provider === 'qq' && parsed.pathname === '/mobile/search' &&
+      (typeof params.key !== 'string' || !params.key.trim() || params.key.length > 60 ||
+       !/^[1-9]\d*$/.test(String(params.page ?? 1)) || Number(params.page ?? 1) > 10000 ||
+       !/^[1-9]\d*$/.test(String(params.limit ?? 20)) || Number(params.limit ?? 20) > 100 ||
+       Object.keys(params).some(key => !['key', 'page', 'limit', 'timestamp'].includes(key)))) throw fault('invalid-request');
   if (provider === 'netease') {
     if (parsed.pathname === '/song/copyright/rcmd') {
       if (!/^[1-9][0-9]{0,19}$/.test(String(params.songid ?? '')) ||

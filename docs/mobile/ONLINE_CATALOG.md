@@ -37,6 +37,10 @@
 
 ## 验证
 
+2026-10-14 后续真实验证见 [LIVE_ONLINE_CATALOG.md](LIVE_ONLINE_CATALOG.md)：目录专用网关补丁已上线，
+七条正式HTTPS真实路由通过，独立iPhone真实QQ／网易云导航已观察，并修复返回歌手页标签重置。
+下表为初次实现的历史结果，其NOT_RUN不能覆盖后续证据；真机和目录发起的实际播放仍未补验。
+
 本地证据目录：`.mobile-test-results/online-catalog/`。
 
 | 检查 | 结果 | 边界 |

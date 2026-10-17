@@ -3,6 +3,17 @@ import AVFoundation
 @testable import App
 
 // StreamingQueueTests.swift — original queue semantics on independent stereo occurrences, with real decoded PCM.
+private final class PrefetchReplayGainGateway: GatewayClient {
+    let url: URL
+    init(url: URL) { self.url = url }
+    override func send(_ path: String, body: [String: Any]? = nil) async throws -> [String: Any] {
+        throw MobileFailure("fixture-no-lyrics")
+    }
+    override func resolve(_ song: [String: Any], quality: String = "standard") async throws -> NativeAudioSource {
+        NativeAudioSource(url: url, replayGain: NativeReplayGainInfo(["trackGain": -3.0]))
+    }
+}
+
 @MainActor extension NativeTests {
     func stereoEngine(_ gateway: GatewayClient) -> PlaybackEngine {
         let storage = UserDefaults(suiteName: "folia.streaming-tests")!
@@ -19,6 +30,36 @@ import AVFoundation
         }
         XCTFail("Native stream condition timed out")
         throw MobileFailure("test-timeout")
+    }
+
+    func testPausedPrefetchPublishesQueueRevisionBeforeSelectingBufferedSong() async throws {
+        let source = try streamingTone(); defer { try? FileManager.default.removeItem(at: source) }
+        let tested = stereoEngine(PrefetchReplayGainGateway(url: source))
+        defer { tested.emit = nil; tested.stop(); tested.clearOutput() }
+        await tested.libraryRefreshTask?.value
+        tested.queue = try [song("qq", "current"), song("netease", "next")].map(PlaybackEngine.sanitizedSong)
+        tested.index = 0
+        let output = try await StreamMixOutput.make()
+        tested.streamOutput = output
+        tested.stream = try await StreamOccurrence.prepare(url: source, output: output)
+        var lastEvent: [String: Any] = [:]
+        tested.emit = { lastEvent = $0 }
+        tested.publish()
+        let before = tested.queueRevision
+
+        // No playback timer can rescue an unpublished metadata change while the current song is paused.
+        tested.prefetchStream()
+        try await waitForStream { tested.preparedStream != nil }
+        XCTAssertFalse(tested.intentToPlay)
+        XCTAssertGreaterThan(tested.queueRevision, before)
+        let observedRevision = try XCTUnwrap(lastEvent["queueRevision"] as? Int)
+        XCTAssertEqual(observedRevision, tested.queueRevision)
+        let publishedQueue = lastEvent["queue"] as? [[String: Any]]
+        XCTAssertEqual(publishedQueue?.count, 2)
+        XCTAssertEqual(NativeReplayGainInfo(publishedQueue?[1]["replayGain"])?.dictionary, ["trackGain": -3])
+        XCTAssertNoThrow(try tested.selectQueue(1, expectedRevision: observedRevision))
+        tested.task?.cancel()
+        XCTAssertEqual(tested.index, 1)
     }
 
     func testStereoQueueDeletesBufferedNextWithoutRestartingCurrent() async throws {

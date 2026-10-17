@@ -14,8 +14,33 @@ export default function TypographyControls({ theme, onUploading }: { theme: Them
   const visual = useVisualizerSettingsStore(useShallow(state => ({ mode: state.visualizerMode,
     opacity: state.visualizerOpacity, setOpacity: state.handleSetVisualizerOpacity })));
   const autoSize = LYRICS_FONT_SIZE_AUTO_NOTICE_KEYS[visual.mode];
+  // Match VisPlayground's section resets through the existing persistent setters.
+  const resetCommon = () => {
+    s.handleSetLyricsCustomFont(null);
+    s.handleSetLyricsFontFallbackFamilies([]);
+    s.handleSetLyricsFontStyle('sans');
+    s.handleSetLyricsFontScale(1);
+    s.handleSetLyricsFontWeight(null);
+    visual.setOpacity(1);
+  };
+  const resetSubtitles = () => {
+    s.handleToggleHidePlayerTranslationSubtitle(false);
+    s.handleSetSubtitleContentMode('translation');
+    s.handleToggleSubtitleOverlayBackground(true);
+    s.handleToggleSubtitleUpcomingLyricsBlur(true);
+    s.handleToggleShowHarmonySubtitle(true);
+    s.handleToggleHarmonySubtitleBackground(true);
+    s.handleSetSubtitleOverlayOpacity(0.6);
+    s.handleSetSubtitleFontScale(1);
+    s.handleSetSubtitleFontInheritsLyrics(true);
+    s.handleSetSubtitleFontStyle('sans');
+    s.handleSetSubtitleFontWeight(null);
+    s.handleSetSubtitleFontFamily(null);
+    s.handleSetSubtitleFontFallbackFamilies([]);
+  };
   return <div className="typography-controls">
     <details><summary>{t('options.previewCommonSettings')}</summary>
+      <button type="button" className="mobile-visual-reset" onClick={resetCommon}>{t('ui.default')}</button>
       <FontControls theme={theme} onUploading={onUploading} />
       <label>{t('options.fontSize')} · {Math.round(s.lyricsFontScale * 100)}%
         <TouchRange min={0.85} max={1.4} step={0.05} value={s.lyricsFontScale} disabled={!!autoSize}
@@ -28,6 +53,7 @@ export default function TypographyControls({ theme, onUploading }: { theme: Them
       </label>
     </details>
     <details><summary>{t('options.previewSubtitleSettings')}</summary>
+      <button type="button" className="mobile-visual-reset" onClick={resetSubtitles}>{t('ui.default')}</button>
       <label className="check-label"><input type="checkbox" checked={s.hidePlayerTranslationSubtitle}
         onChange={event => s.handleToggleHidePlayerTranslationSubtitle(event.target.checked)} />{t('options.hidePlayerTranslationSubtitle')}</label>
       <label>{t('options.subtitleContentMode')}<select aria-label={t('options.subtitleContentMode')} value={s.subtitleContentMode} onChange={event => {

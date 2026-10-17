@@ -1,4 +1,5 @@
 import type { SongResult } from '../../../types';
+import { OnlineProviderError } from '../../../types/onlineMusic';
 import { getOriginalCoverUrl } from '../../coverUrl';
 
 // qqLyricSearch.ts — original QQ lyric search parameters and response mapping, free of Web transport.
@@ -26,7 +27,7 @@ export function qqLyricSearchParams(safeKeyword: string, page: number, pageSize:
 export function normalizeQQLyricSearch(data: any): SongResult[] {
     const songs = data?.body?.item_song;
     // Only an explicit array distinguishes an empty page from a malformed reply.
-    if (!Array.isArray(songs)) throw new Error('QQ Music search returned no song list');
+    if (!Array.isArray(songs)) throw new OnlineProviderError('invalid-response', 'QQ Music search returned no song list', 'qq');
     
     return songs.map((info: any) => {
       const artists = (info.singer || []).map((s: any, idx: number) => ({

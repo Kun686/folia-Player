@@ -1,3 +1,4 @@
+import { revealMusicFeatures } from './music-features-navigation';
 import type { Page } from '@playwright/test';
 import { test, expect, revealPlayerControls } from './fixtures';
 import { replacementFixture } from './song-replacement-fixture';
@@ -71,7 +72,7 @@ test('remote queue advance while the prompt is open wins over confirmation', asy
 });
 test('daily recommendations remain open after cancel and close only after confirmed playback', async ({ page }) => {
   await page.goto('/mobile.html'); await seedSearchQueue(page);
-  await page.getByRole('button', { name: '每日推荐', exact: true }).tap();
+  await revealMusicFeatures(page); await page.getByRole('button', { name: '每日推荐', exact: true }).tap();
   const daily = page.getByRole('dialog', { name: '每日推荐', exact: true });
   await daily.getByRole('button', { name: '播放 歌单歌曲200', exact: true }).tap(); await expect(prompt(page)).toBeVisible();
   await prompt(page).getByRole('button', { name: '取消', exact: true }).tap(); await expect(daily).toBeVisible();
@@ -82,7 +83,7 @@ test('daily recommendations remain open after cancel and close only after confir
 });
 test('closing daily recommendations retires its pending lookup', async ({ page }) => {
   await page.goto('/mobile.html'); await seedSearchQueue(page);
-  await page.getByRole('button', { name: '每日推荐', exact: true }).tap();
+  await revealMusicFeatures(page); await page.getByRole('button', { name: '每日推荐', exact: true }).tap();
   const daily = page.getByRole('dialog', { name: '每日推荐', exact: true });
   await page.evaluate(() => { (window as any).replacementDelay = true; });
   await daily.getByRole('button', { name: '播放 歌单歌曲200', exact: true }).tap();

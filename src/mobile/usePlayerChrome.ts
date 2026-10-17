@@ -24,9 +24,14 @@ export function usePlayerChrome(enabled: boolean, playing: boolean, blocked: boo
     window.addEventListener('keydown', keyDown);
     return () => window.removeEventListener('keydown', keyDown);
   }, [enabled]);
-  const focusProps: HTMLAttributes<HTMLElement> = {
+  const focusProps: Pick<HTMLAttributes<HTMLElement>, 'onPointerDownCapture' | 'onFocusCapture' | 'onBlurCapture'> = {
     onPointerDownCapture: () => setKeyboardFocus(false),
-    onFocusCapture: event => setKeyboardFocus(event.target.matches(':focus-visible')),
+    // WebKit may mark programmatic poster focus as focus-visible after lazy loading.
+    // Only an actual Tab key establishes keyboard mode; focus alone must not pin the chrome open.
+    onFocusCapture: event => {
+      const visible = event.target.matches(':focus-visible');
+      setKeyboardFocus(current => current && visible);
+    },
     onBlurCapture: event => { if (!event.currentTarget.contains(event.relatedTarget)) setKeyboardFocus(false); },
   };
   const stageTapProps: HTMLAttributes<HTMLDivElement> = {

@@ -1,0 +1,28 @@
+/* mobile-queue-sheet.css — a floating queue over the current player, sized to the keyboard viewport. */
+.player-queue-host { position: fixed; inset: 0; top: var(--sheet-viewport-top, 0px); left: var(--sheet-viewport-left, 0px); margin: 0; padding: 0; border: 0; width: var(--sheet-viewport-width, 100vw); height: var(--sheet-viewport-height, 100dvh); max-width: none; max-height: none; background: transparent; overflow: hidden; color: var(--text); }
+.player-queue-host::backdrop { background: transparent; }
+.player-queue-scrim { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0; background: #000; touch-action: manipulation; }
+.player-queue-sheet.sheet { position: absolute; bottom: 0; left: max(0px, var(--safe-left)); right: max(0px, var(--safe-right)); margin: 0 auto; width: min(100%, 720px); height: calc(100% - var(--safe-top) - 12px); max-height: none; display: flex; flex-direction: column; padding: 0 var(--mobile-inset) max(12px, var(--safe-bottom)); border-radius: 30px 30px 0 0; overflow: hidden; box-shadow: 0 -12px 50px #0004; background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
+.player-queue-sheet.sheet { padding-bottom: calc(max(12px, var(--safe-bottom)) + var(--queue-hidden-inset, 0px)); }
+.player-queue-sheet .queue-grab { display: grid; place-items: center; width: 100%; height: 44px; min-height: 44px; flex-shrink: 0; padding: 0; border: 0; background: transparent; touch-action: none; cursor: grab; }
+.queue-grab span { width: 40px; height: 5px; border-radius: 4px; background: var(--muted); opacity: .6; }
+.player-queue-sheet > header { flex-shrink: 0; margin-bottom: 8px; }
+.player-queue-sheet > header > div { display: flex; align-items: baseline; gap: 10px; }
+.player-queue-sheet > header small { color: var(--muted); font-variant-numeric: tabular-nums; }
+.player-queue-sheet header button { display: grid; place-items: center; padding: 10px; border-radius: 50%; }
+.player-queue-sheet header .queue-heading-actions { gap: 4px; align-items: center; }
+.queue-menu { position: relative; }
+.queue-action-menu { position: absolute; right: 0; top: 48px; z-index: 4; width: 200px; padding: 8px; border: 1px solid var(--border); border-radius: 16px; background: var(--bg); box-shadow: 0 8px 24px #0004; }
+.mobile-app .queue-action-menu button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 10px; border-radius: 10px; text-align: start; background: transparent; font-size: var(--mobile-body); }
+.mobile-app .destructive { color: #ef9e8b; }
+.mobile-app.daylight .destructive { color: #a33422; }
+.queue-search-controls .search button { display: grid; place-items: center; }
+.queue-search-controls .search button[aria-pressed=true] { color: var(--text); background: color-mix(in srgb, var(--text) 12%, transparent); }
+.queue-sheet-content { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.queue-sheet-content > :not(.song-list) { flex-shrink: 0; }
+.queue-sheet-content .song-list { min-height: 120px !important; }
+.queue-sheet-content .queue-search-controls label { flex-direction: row; margin-block: 0; }
+.queue-sheet-content .queue-expand { margin-left: auto; }
+.queue-sheet-content .icon-button { flex-shrink: 0; background: transparent; padding-inline: 10px; }
+@media (max-height: 500px) { .player-queue-sheet.sheet { border-radius: 22px 22px 0 0; } .player-queue-sheet > header { margin-bottom: 6px; } .queue-sheet-content .queue-toolbar { padding-bottom: 6px; } }
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) { .player-queue-sheet.sheet { background: var(--bg); backdrop-filter: none; -webkit-backdrop-filter: none; } }

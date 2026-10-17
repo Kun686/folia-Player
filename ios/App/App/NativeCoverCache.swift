@@ -31,6 +31,18 @@ actor NativeCoverCache {
         try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url.path)
         return data
     }
+    // Match utils/coverUrl.ts getSizedCoverUrl(..., 800) for QQ's existing CDN family.
+    // This also runs when only the native lock-screen player is alive; stored song metadata stays original.
+    static func downloadURL(_ url: URL) -> URL {
+        guard var parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              parts.scheme == "https", parts.user == nil, parts.password == nil,
+              ["y.gtimg.cn", "y.qq.com"].contains(parts.host?.lowercased() ?? ""),
+              parts.path.range(of: "^/music/photo_new/T00[12](R[0-9]+x[0-9]+)?M000[A-Za-z0-9]+\\.jpg$",
+                               options: .regularExpression) != nil else { return url }
+        parts.path = parts.path.replacingOccurrences(of: "(T00[12])(R[0-9]+x[0-9]+)?(M000)",
+                                                     with: "$1R800x800$3", options: .regularExpression)
+        return parts.url ?? url
+    }
     func cover(_ song: [String: Any], local: LocalMediaLibrary, allowNetwork: Bool = true,
                navidrome: NativeNavidromeClient? = nil) async throws -> Data? {
         try Task.checkCancellation()
@@ -49,7 +61,7 @@ actor NativeCoverCache {
             resolve: {
                 if let scopedClient { return try await scopedClient.coverURL(song) }
                 guard let raw = (song["album"] as? [String: Any])?["coverUrl"] as? String, raw.count <= 4096 else { return nil }
-                return URL(string: raw)
+                return URL(string: raw).map(Self.downloadURL)
             })
     }
     func navidromeArtwork(_ id: String, scope: String, client: NativeNavidromeClient) async throws -> Data? {

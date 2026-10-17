@@ -6,6 +6,17 @@ import { DEFAULT_NOMAND_BACKGROUND_TUNING, DEFAULT_SONNET_TUNING, DEFAULT_TEMPER
 // Verifies visual settings configuration compression, base64 encoding, and decompression/restoration.
 
 describe('Visual Settings Import and Export', () => {
+    it.each([{ families: [] }, { families: ['Georgia', 'serif'] }])('preserves explicit font fallback stacks: $families', ({ families }) => {
+        const config = { lyricsFontFallbackFamilies: families, subtitleFontFallbackFamilies: families };
+        expect(decompressConfig(compressConfig(config))).toMatchObject(config);
+    });
+
+    it('keeps omitted font fallback stacks absent in partial configurations', () => {
+        const decoded = decompressConfig(compressConfig({ lyricsFontScale: 1.2 }));
+        expect(decoded).not.toHaveProperty('lyricsFontFallbackFamilies');
+        expect(decoded).not.toHaveProperty('subtitleFontFallbackFamilies');
+    });
+
     it('uses the requested Sonnet post-process defaults', () => {
         expect(DEFAULT_SONNET_TUNING).toMatchObject({
             postProcessEnabled: false,

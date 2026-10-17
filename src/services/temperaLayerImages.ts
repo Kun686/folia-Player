@@ -1,4 +1,5 @@
 import type { TemperaLayerImage } from '../types';
+import { removeCacheEntries } from './repositories/cacheRepository';
 import {
     buildStoredVisualizerImageAsset,
     clearStoredVisualizerImageAsset,
@@ -42,6 +43,11 @@ export const saveTemperaLayerImage = async (image: StoredTemperaLayerImage) => {
 
 export const clearTemperaLayerImage = async (id: string) => {
     await clearStoredVisualizerImageAsset(keyFor(id));
+};
+
+/** Commit a pool removal atomically: one failed delete must not leave surviving placements broken. */
+export const clearTemperaLayerImages = async (ids: string[]) => {
+    await removeCacheEntries(ids.map(keyFor));
 };
 
 export const buildStoredTemperaLayerImage = (file: File) => (

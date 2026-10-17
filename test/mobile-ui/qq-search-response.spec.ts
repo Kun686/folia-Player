@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 import { searchPlaybackFixture } from './search-playback-fixture';
 
-// qq-search-response.spec.ts — QQ raw search failures must retain the original retry/cursor/queue behavior.
+// qq-search-response.spec.ts — mobile QQ responses retain retry/cursor/queue behavior.
 async function search(page: Page) {
   await page.getByRole('textbox', { name: '搜索歌曲', exact: true }).fill('分页搜索');
   await page.getByRole('button', { name: '搜索歌曲', exact: true }).tap();
@@ -14,11 +14,12 @@ test.beforeEach(async ({ page }) => {
     w.qqSearchMode = 'normal'; w.qqSearchPages = [];
     w.fixtureOnlineRequest = async (payload: any) => {
       const url = new URL(payload.path, 'https://fixture.invalid');
-      if (url.hostname !== 'u.y.qq.com' || !payload.body) return previous(payload);
-      const request = JSON.parse(payload.body).request;
-      if (request?.method !== 'DoSearchForQQMusicLite') return previous(payload);
-      const page = request.param.page_num;
+      if (payload.provider !== 'qq' || url.pathname !== '/mobile/search') return previous(payload);
+      const page = Number(url.searchParams.get('page'));
       w.qqSearchPages.push(page);
+      if (w.qqSearchMode === 'upstream-error') return {
+        status: 502, headers: {}, body: JSON.stringify({ code: 502, errorKey: 'unavailable' }),
+      };
       const songs = Array.from({ length: page === 1 ? 50 : 1 }, (_, i) => {
         const id = (page - 1) * 50 + i + 1;
         return { id, mid: 'qq-search-' + id, title: 'QQ分页歌曲' + id,
@@ -28,7 +29,7 @@ test.beforeEach(async ({ page }) => {
         : w.qqSearchMode === 'missing-songs' ? { body: {} }
         : { body: { item_song: w.qqSearchMode === 'empty' ? [] : songs } };
       return { status: 200, headers: {}, body: JSON.stringify({
-        code: 0, request: { code: w.qqSearchMode === 'upstream-error' ? 2001 : 0, data },
+        code: 200, data,
       }) };
     };
   });
@@ -61,7 +62,7 @@ test('a missing QQ song list preserves earlier pages and retries the same page b
   await page.getByRole('button', { name: '加载更多', exact: true }).tap();
   await expect(page.getByRole('button', { name: '重试歌曲加载', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '播放 QQ分页歌曲1', exact: true })).toBeVisible();
-  // Search has no collection count; check both ends of the virtual list without counting mounted rows.
+  // Check both ends of the virtual list without confusing mounted rows with loaded songs.
   await page.locator('.song-list').evaluate(element => { element.scrollTop = element.scrollHeight; });
   await expect(page.getByRole('button', { name: '播放 QQ分页歌曲50', exact: true })).toBeVisible();
   expect(await page.evaluate(() => (window as any).searchPlaybackCalls)).toEqual([]);
@@ -91,7 +92,7 @@ test('explicit empty QQ search stops paging without an error or logout', async (
   await page.screenshot({ path: info.outputPath('qq-search-empty.png') });
 });
 
-test('QQ business error 2001 remains a retryable search failure', async ({ page }) => {
+test('QQ gateway business error remains retryable without logging out', async ({ page }) => {
   await page.evaluate(() => { (window as any).qqSearchMode = 'upstream-error'; });
   await search(page);
   await expect(page.getByRole('button', { name: '重试歌曲加载', exact: true })).toBeVisible();

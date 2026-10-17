@@ -8,8 +8,9 @@ export interface MobileRuntime {
   fetch(input: string, init?: RequestInit): Promise<Response>;
   read(provider: string, key: string): string | null;
   write(provider: string, key: string, value: string | null): void;
+  captureSession?(provider: string): () => boolean;
   covers?: {
-    load(song: SongResult): Promise<string | null>;
+    load(song: SongResult, cachedOnly?: boolean): Promise<string | null>;
     usage(): Promise<number>;
     clear(): Promise<void>;
   };

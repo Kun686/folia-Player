@@ -1,16 +1,18 @@
-import { List, type RowComponentProps } from 'react-window';
-import { Music2, Plus, MoreHorizontal } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { List, useListCallbackRef, type RowComponentProps } from 'react-window';
+import { Plus, MoreHorizontal } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ReactNode } from 'react';
 import type { QueueAddBehavior, SongResult } from '../types';
 import type { QueueAction } from './queueActions';
 import { isSongUnavailable, getSongUnavailableLabel } from '../services/onlineMusic/songAvailability';
 import SongInfoActions from './SongInfoActions';
+import SongThumbnail from './SongThumbnail';
 
 // src/mobile/SongList.tsx — virtualized, touch-accessible rows; no hover-only actions.
 interface Props {
   trackLabels?: ReadonlyMap<string, string | null>;
+  initialIndex?: number;
   libraryActions?(song: SongResult, close: () => void): ReactNode;
   songs: SongResult[]; play: (index: number) => void; add: (song: SongResult, behavior?: QueueAddBehavior) => void;
   remove?: (song: SongResult) => void; edit?: (action: QueueAction) => void; currentIndex?: number; busy?: boolean; respectAvailability?: boolean;
@@ -22,7 +24,7 @@ function Row({ index, style, songs, play, add, remove, edit, currentIndex, busy,
   const track = song.sourceRef?.kind === 'local' ? trackLabels?.get(song.sourceRef.mediaId) : null;
   return <div className="song-row" style={style}>
     <button className="song-main" disabled={busy || unavailable} aria-current={currentIndex === index ? 'true' : undefined} onClick={() => play(index)} aria-label={t('mobile.play') + ' ' + song.name}>
-      <div className="song-art" aria-hidden="true">{track ?? <Music2 size={18} />}</div><span><strong>{song.name}</strong><small>{unavailable
+      <SongThumbnail song={song} label={track} /><span><strong>{song.name}</strong><small>{unavailable
         ? getSongUnavailableLabel(song, t('status.songUnavailableTag')) : song.artists.map(a => a.name).join(' / ')}</small></span>
     </button>
     {!edit && <button className="icon-button" disabled={busy || unavailable} onClick={() => add(song)} aria-label={t('mobile.add') + ' ' + song.name}><Plus size={20} /></button>}
@@ -33,6 +35,14 @@ export default function SongList(props: Props) {
   const { t } = useTranslation();
   const [selected, setSelected] = useState<number | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
+  const [list, setList] = useListCallbackRef(null);
+  const positioned = useRef(false);
+  useLayoutEffect(() => {
+    const index = props.initialIndex;
+    if (positioned.current || index == null || index < 0 || index >= props.songs.length || !list?.element) return;
+    list.scrollToRow({ index, align: 'start', behavior: 'instant' });
+    positioned.current = true;
+  }, [list, props.initialIndex, props.songs.length]);
   useEffect(() => { setSelected(null); }, [props.songs]);
   useEffect(() => {
     if (selected !== null) dialog.current?.showModal(); else dialog.current?.close();
@@ -41,7 +51,7 @@ export default function SongList(props: Props) {
   const unavailable = props.respectAvailability && isSongUnavailable(song);
   const act = (action: () => void) => { setSelected(null); action(); };
   return <>
-    <List className="song-list" style={{ minHeight: 180 }} rowComponent={Row} rowCount={props.songs.length}
+    <List listRef={setList} className="song-list" style={{ minHeight: 180 }} rowComponent={Row} rowCount={props.songs.length}
       rowHeight={72} rowProps={{ ...props, open: setSelected }} overscanCount={5} />
     <dialog ref={dialog} className="song-actions sheet" aria-label={t('mobile.songActions')} onClose={() => setSelected(null)}>
       {song && selected !== null && <><header><h2>{song.name}</h2><button onClick={() => setSelected(null)}>{t('mobile.close')}</button></header>

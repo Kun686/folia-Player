@@ -45,6 +45,75 @@ import MediaPlayer
             XCTAssertFalse(String(decoding: try Data(contentsOf: url), as: UTF8.self).contains("profile.invalid"))
         }
     }
+    func testQQCoverUsesBoundedCDNImageForOriginalAndLockScreen() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        // Public album identity and original Content-Length captured from the real Power search.
+        let original = URL(string: "https://y.gtimg.cn/music/photo_new/T002M000000hlJOJ3987mu.jpg?max_age=2592000")!
+        let resized = URL(string: "https://y.gtimg.cn/music/photo_new/T002R800x800M000000hlJOJ3987mu.jpg?max_age=2592000")!
+        let large = try coverFixture(); large.advertised = 16_547_444
+        let originalResponse = HTTPURLResponse(url: original, statusCode: 200, httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Length": "16547444", "Content-Type": "image/jpeg"])!
+        XCTAssertThrowsError(try NativeMediaDownload.validate(originalResponse, maximumBytes: 8_000_000)) { error in
+            XCTAssertEqual((error as? MobileFailure)?.code, "cache-limit")
+        }
+        let small = try coverFixture(.blue, size: CGSize(width: 800, height: 800))
+        ProfileHTTPProtocol.add(large, at: original); ProfileHTTPProtocol.add(small, at: resized)
+        defer { ProfileHTTPProtocol.remove(original); ProfileHTTPProtocol.remove(resized) }
+        let cache = NativeCoverCache(root: root, configuration: profileNetworkConfiguration())
+        let local = LocalMediaLibrary(root: root.appendingPathComponent("local"))
+        let song = coverSong(original, id: "002y8Wh41vJv3s")
+        let loaded = try await cache.cover(song, local: local)
+        let data = try XCTUnwrap(loaded)
+        XCTAssertEqual(UIImage(data: data)?.size, CGSize(width: 800, height: 800))
+        XCTAssertEqual(large.stats.requests, 0); XCTAssertEqual(small.stats.requests, 1)
+        XCTAssertNil(small.stats.first?.value(forHTTPHeaderField: "Authorization"))
+        XCTAssertNil(small.stats.first?.value(forHTTPHeaderField: "Cookie"))
+        XCTAssertEqual((song["album"] as? [String: String])?["coverUrl"], original.absoluteString)
+        let artwork = PlaybackArtwork(cache: cache, local: local)
+        artwork.update(song)
+        try await waitForStream { artwork.image != nil }
+        XCTAssertEqual(artwork.image?.bounds.size, CGSize(width: 800, height: 800))
+        XCTAssertEqual(small.stats.requests, 1)
+    }
+    func testQQCoverDownloadURLKeepsQueriesAndOtherProvidersUnchanged() throws {
+        for host in ["y.gtimg.cn", "y.qq.com"] {
+            for kind in ["T001", "T002"] {
+                for size in ["", "R300x300", "R800x800"] {
+                    let url = URL(string: "https://\(host)/music/photo_new/\(kind)\(size)M000000hlJOJ3987mu.jpg?max_age=2592000")!
+                    XCTAssertEqual(NativeCoverCache.downloadURL(url).absoluteString,
+                        "https://\(host)/music/photo_new/\(kind)R800x800M000000hlJOJ3987mu.jpg?max_age=2592000")
+                }
+            }
+        }
+        for raw in ["https://p1.music.126.net/album.jpg?param=1024y1024", "https://other.invalid/music/photo_new/T002M000a.jpg",
+                    "https://y.gtimg.cn.example.com/music/photo_new/T002M000a.jpg", "https://y.gtimg.cn/other/T002M000a.jpg",
+                    "https://user:pass@y.gtimg.cn/music/photo_new/T002M000a.jpg", "http://y.gtimg.cn/music/photo_new/T002M000a.jpg"] {
+            let url = URL(string: raw)!
+            XCTAssertEqual(NativeCoverCache.downloadURL(url), url)
+        }
+    }
+    func testQQPublicLargeCoverLoadsThroughNativeCacheAndArtwork() async throws {
+        // Explicitly selected acceptance test: public CDN only, no platform login or gateway credential.
+        guard ProcessInfo.processInfo.environment["FOLIA_LIVE_COVER_QA"] == "1" else {
+            throw XCTSkip("Requires explicit live public-CDN acceptance selection")
+        }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = NativeCoverCache(root: root), local = LocalMediaLibrary(root: root.appendingPathComponent("local"))
+        let url = URL(string: "https://y.gtimg.cn/music/photo_new/T002M000000hlJOJ3987mu.jpg?max_age=2592000")!
+        let song = coverSong(url, id: "002y8Wh41vJv3s")
+        let loaded = try await cache.cover(song, local: local)
+        let data = try XCTUnwrap(loaded), image = try XCTUnwrap(UIImage(data: data))
+        XCTAssertGreaterThan(image.size.width, 0); XCTAssertLessThanOrEqual(image.size.width, 800)
+        XCTAssertGreaterThan(image.size.height, 0); XCTAssertLessThanOrEqual(image.size.height, 800)
+        let artwork = PlaybackArtwork(cache: cache, local: local); artwork.update(song)
+        try await waitForStream { artwork.image != nil }
+        XCTAssertEqual(artwork.image?.bounds.size, image.size)
+        let restored = try await cache.cover(song, local: local, allowNetwork: false)
+        XCTAssertEqual(restored, data)
+        print("FOLIA_LIVE_COVER bytes=\(data.count) width=\(image.size.width) height=\(image.size.height)")
+    }
     func testCoverCacheSeparatesProvidersVariantsAndClearCategories() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

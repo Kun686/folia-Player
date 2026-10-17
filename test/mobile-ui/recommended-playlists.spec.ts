@@ -1,3 +1,4 @@
+import { revealMusicFeatures } from './music-features-navigation';
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 import { recommendedFixture } from './recommended-playlists-fixture';
@@ -5,7 +6,7 @@ import { recommendedFixture } from './recommended-playlists-fixture';
 // recommended-playlists.spec.ts — real WebKit, Omni and collection resources; controlled responses are not live-platform proof.
 const feed = (page: Page) => page.getByRole('dialog', { name: '推荐歌单', exact: true });
 const catalog = (page: Page) => page.getByRole('dialog', { name: '在线音乐目录', exact: true });
-async function openFeed(page: Page) { await page.getByRole('button', { name: '推荐歌单', exact: true }).tap(); }
+async function openFeed(page: Page) { await revealMusicFeatures(page); await page.getByRole('button', { name: '推荐歌单', exact: true }).tap(); }
 async function openFirst(page: Page) { await openFeed(page); await feed(page).getByRole('button', { name: '歌单：推荐歌单1', exact: true }).tap(); }
 test.beforeEach(async ({ page }) => { await recommendedFixture(page); });
 test('original recommendations open paged tracks, subscribe and play the full queue', async ({ page }, info) => {
@@ -64,19 +65,19 @@ test('closing and switching provider discards late recommendations and never req
   await expect.poll(() => page.evaluate(() => typeof (window as any).releaseRecommendations)).toBe('function');
   await feed(page).getByRole('button', { name: '关闭', exact: true }).tap(); await page.getByRole('button', { name: 'QQ 音乐', exact: true }).tap();
   await page.evaluate(() => (window as any).releaseRecommendations()); await expect(feed(page)).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '推荐歌单', exact: true })).toHaveCount(0);
+  await revealMusicFeatures(page); await expect(page.getByRole('button', { name: '推荐歌单', exact: true })).toHaveCount(0);
 });
 test('late detail cannot reopen a dismissed catalog, and logout disables the recommendation entry', async ({ page }) => {
   await page.goto('/mobile.html'); await page.evaluate(() => { (window as any).recommendationDetailDelay = true; }); await openFirst(page);
   await expect.poll(() => page.evaluate(() => typeof (window as any).releaseRecommendationDetail)).toBe('function');
   await catalog(page).getByRole('button', { name: '关闭', exact: true }).tap();
   await page.getByRole('button', { name: '退出登录', exact: true }).tap(); await page.evaluate(() => (window as any).releaseRecommendationDetail());
-  await expect(catalog(page)).toHaveCount(0); await expect(page.getByRole('button', { name: '推荐歌单', exact: true })).toBeDisabled();
+  await expect(catalog(page)).toHaveCount(0); await revealMusicFeatures(page); await expect(page.getByRole('button', { name: '推荐歌单', exact: true })).toBeDisabled();
   expect(await page.evaluate(() => (window as any).recommendedWrites)).toEqual([]);
 });
 test('old gateway disables recommendations without making unsupported requests', async ({ page }) => {
   await page.addInitScript(() => { delete (window as any).fixtureHealth.recommendedCollectionProviders; });
-  await page.goto('/mobile.html'); await expect(page.getByRole('button', { name: '推荐歌单', exact: true })).toBeDisabled();
+  await page.goto('/mobile.html'); await revealMusicFeatures(page); await expect(page.getByRole('button', { name: '推荐歌单', exact: true })).toBeDisabled();
   await expect(page.getByText('更新音乐服务器后，可浏览推荐歌单。', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => (window as any).recommendationCalls)).toEqual([]);
 });

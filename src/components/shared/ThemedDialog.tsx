@@ -12,6 +12,8 @@ interface ThemedDialogProps {
     children: React.ReactNode;
     footer?: React.ReactNode;
     maxWidthClass?: string;
+    /** Optional surface hook; mobile hosts can constrain a portalled dialog without changing desktop sizing. */
+    overlayClassName?: string;
     /**
      * Blocks the two close paths this dialog owns - the X and the backdrop - while the caller is
      * mid-way through work a close would leave half-applied. Also dims the X so the wait shows:
@@ -32,6 +34,7 @@ const ThemedDialog: React.FC<ThemedDialogProps> = ({
     children,
     footer,
     maxWidthClass = 'max-w-md',
+    overlayClassName = '',
     closeDisabled = false,
     closeDisabledTitle,
 }) => {
@@ -60,11 +63,12 @@ const ThemedDialog: React.FC<ThemedDialogProps> = ({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     data-folia-keyboard-window="true"
-                    className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
+                    className={`fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 ${overlayClassName}`}
                     onMouseDown={handleOverlayMouseDown}
                     onClick={handleBackdropClick}
                 >
                     <motion.div
+                        data-themed-dialog-panel
                         initial={{ scale: 0.94, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         exit={{ scale: 0.94, opacity: 0 }}
@@ -82,7 +86,7 @@ const ThemedDialog: React.FC<ThemedDialogProps> = ({
                             <X size={18} />
                         </button>
 
-                        <div className="mb-5 pr-10">
+                        <div data-themed-dialog-header className="mb-5 pr-10">
                             <div className="flex items-center justify-between gap-3">
                                 <h2 className={`min-w-0 text-xl font-bold ${textPrimary}`}>{title}</h2>
                                 {headerActions && (
@@ -96,10 +100,10 @@ const ThemedDialog: React.FC<ThemedDialogProps> = ({
                             )}
                         </div>
 
-                        <div>{children}</div>
+                        <div data-themed-dialog-body>{children}</div>
 
                         {footer && (
-                            <div className="mt-5 flex items-center justify-end gap-3">
+                            <div data-themed-dialog-footer className="mt-5 flex items-center justify-end gap-3">
                                 {footer}
                             </div>
                         )}

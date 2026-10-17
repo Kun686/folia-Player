@@ -15,6 +15,7 @@ export const usePlayerChromeActivity = (
         if (!enabled) return;
         let isThrottled = false;
         let isPointerHeld = false;
+        let deferTouchReveal = false;
 
         const clearAutoHideTimer = () => {
             window.clearTimeout(timeoutIdRef.current);
@@ -35,7 +36,8 @@ export const usePlayerChromeActivity = (
             scheduleAutoHide(3000);
         };
 
-        const handleMouseOut = (event: MouseEvent) => {
+        const handleMouseOut = (event: PointerEvent) => {
+            if (event.pointerType !== 'mouse') return;
             const hasLeftWindow = !event.relatedTarget || event.clientY <= 0 || event.clientX <= 0
                 || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight;
             if (hasLeftWindow) {
@@ -43,7 +45,9 @@ export const usePlayerChromeActivity = (
             }
         };
 
-        const handleMouseMove = (event: MouseEvent) => {
+        const handleMouseMove = (event: PointerEvent) => {
+            // iOS emits compatibility mousemove before click. Revealing controls there can swallow the tap.
+            if (event.pointerType !== 'mouse') return;
             // A pointer released outside the window does not reliably deliver pointerup here.
             // Repair the held state as soon as the mouse comes back without a pressed button.
             if (isPointerHeld && event.buttons === 0) {
@@ -56,12 +60,21 @@ export const usePlayerChromeActivity = (
                 isThrottled = false;
             });
         };
-        const handlePointerDown = () => {
+        const handlePointerDown = (event: PointerEvent) => {
             isPointerHeld = true;
             clearAutoHideTimer();
-            setIsPlayerChromeHidden(false);
+            // Keep the hit-tested surface stable until an actionable touch produces its click.
+            deferTouchReveal = event.pointerType === 'touch' && event.target instanceof Element
+                && !!event.target.closest('button,a,input,select,textarea,[role="button"],[role="slider"]');
+            if (!deferTouchReveal) setIsPlayerChromeHidden(false);
         };
         const handlePointerUp = () => {
+            isPointerHeld = false;
+            if (deferTouchReveal) scheduleAutoHide(3000);
+            else showAndResetTimer();
+        };
+        const finishTouch = () => {
+            deferTouchReveal = false;
             isPointerHeld = false;
             showAndResetTimer();
         };
@@ -72,11 +85,12 @@ export const usePlayerChromeActivity = (
 
         revealRef.current = showAndResetTimer;
         showAndResetTimer();
-        window.addEventListener('mouseout', handleMouseOut);
-        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('pointerout', handleMouseOut);
+        window.addEventListener('pointermove', handleMouseMove);
         window.addEventListener('pointerdown', handlePointerDown);
         window.addEventListener('pointerup', handlePointerUp);
-        window.addEventListener('pointercancel', handlePointerUp);
+        window.addEventListener('pointercancel', finishTouch);
+        window.addEventListener('click', finishTouch);
         window.addEventListener('wheel', showAndResetTimer, { passive: true });
         window.addEventListener('blur', handleWindowBlur);
 
@@ -87,11 +101,12 @@ export const usePlayerChromeActivity = (
                 cancelAnimationFrame(rafIdRef.current);
                 rafIdRef.current = undefined;
             }
-            window.removeEventListener('mouseout', handleMouseOut);
-            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('pointerout', handleMouseOut);
+            window.removeEventListener('pointermove', handleMouseMove);
             window.removeEventListener('pointerdown', handlePointerDown);
             window.removeEventListener('pointerup', handlePointerUp);
-            window.removeEventListener('pointercancel', handlePointerUp);
+            window.removeEventListener('pointercancel', finishTouch);
+            window.removeEventListener('click', finishTouch);
             window.removeEventListener('wheel', showAndResetTimer);
             window.removeEventListener('blur', handleWindowBlur);
         };

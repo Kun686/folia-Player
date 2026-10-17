@@ -40,6 +40,7 @@ assert changed == ["AudioStreaming/Core/Network/NetworkSessionDelegate.swift",
                    "AudioStreaming/Core/Network/NetworkingClient.swift",
                    "AudioStreaming/Streaming/Audio Entry/Models/SeekRequest.swift",
                    "AudioStreaming/Streaming/Audio Source/FileAudioSource.swift",
+                   "AudioStreaming/Streaming/Audio Source/RemoteAudioSource.swift",
                    "AudioStreaming/Streaming/AudioPlayer/AudioPlayer.swift",
                    "AudioStreaming/Streaming/AudioPlayer/Processors/AudioFileStreamProcessor.swift", "Package.swift"]
 if args.upstream_root:

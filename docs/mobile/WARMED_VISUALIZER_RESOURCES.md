@@ -90,3 +90,6 @@ QA 副本仍用原离线首页，未改动的生产页面映射为 `mobile.html`
 后续 [对象回收诊断](VISUALIZER_COLLECTION_DIAGNOSTIC.md) 在独立WebKit中把保留现象缩小到
 已安装Three Fiber根节点路径：直接WebGL／Three.js对照可回收，R3F路径旧画布／渲染器逐轮存活。
 尚缺持有链和相同生产打包／原生对照，没有据此修复生产代码或将本页的增长全部归因于它。
+
+再后续已定位并修复生产帧循环的最后场景持有路径，见[帧循环引用释放](VISUALIZER_FRAME_LIFETIME.md)。
+该局部修复不等于解释本页全部footprint增长，长期资源验收继续保留。

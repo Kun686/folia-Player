@@ -32,6 +32,7 @@ import {
     type DioramaUnitRaster,
 } from './dioramaTextRaster';
 import { DioramaParticleField } from './DioramaParticleField';
+import { createDioramaLyricClearance } from './dioramaLyricClearance';
 import { buildDioramaParticleCorridorWindow } from './dioramaParticleCorridor';
 import {
     DIORAMA_MOTE_LINES_AHEAD,
@@ -67,6 +68,10 @@ import {
 // are DAMPED per-frame (fog, lights, materials), so theme/AI theme changes and song switches glide
 // instead of snapping. All per-frame values are refs inside useFrame - never React state.
 interface DioramaSceneProps {
+    /** Keep the active lyric legible in a constrained mobile stage; neighbour fades retain their original depth. */
+    readableActiveLine?: boolean;
+    /** Exact incoming line objects already drawn by the shared mobile subtitle. */
+    subtitleUpcomingLines?: readonly Line[];
     theme: Theme;
     // The continuous-tunnel sequencer + the sticky GLOBAL line index. The scene resolves each global
     // index in the mounted window to its segment/local line/world frame, so the window can straddle a
@@ -401,6 +406,8 @@ interface PlacedUnitRaster {
 }
 
 const DioramaScene: React.FC<DioramaSceneProps> = ({
+    readableActiveLine = false,
+    subtitleUpcomingLines,
     theme,
     sequencer,
     globalIndex,
@@ -426,6 +433,7 @@ const DioramaScene: React.FC<DioramaSceneProps> = ({
     gradientIntensity,
     keywordColoringEnabled,
 }) => {
+    const activeUnsungOpacity = readableActiveLine ? 0.72 : UNSUNG_UNIT_OPACITY;
     // Neighbour line planes (one rasterised texture per line) - meshes for the fit scale, materials
     // for per-frame colour/opacity. Keyed by GLOBAL line index (which grows without bound across the
     // continuous tunnel), so Maps rather than arrays - entries are added/removed as the window moves.
@@ -760,6 +768,7 @@ const DioramaScene: React.FC<DioramaSceneProps> = ({
     // but rasterises the MISSING lines only a couple per animation frame - and since incoming lines start
     // fog-hidden, the few-frame delay before a plane can mount is invisible. The tick state re-renders as
     // textures land (so their planes mount); every consumer reads the cache ref live.
+    const lyricClearance = useMemo(createDioramaLyricClearance, []);
     const lineRasterCacheRef = useRef<Map<number, DioramaLineRaster>>(new Map());
     const lineRasterFontRef = useRef('');
     const lineRasterEpochRef = useRef(-1);
@@ -929,12 +938,14 @@ const DioramaScene: React.FC<DioramaSceneProps> = ({
         const { camera } = frameState;
         const aspect = camera instanceof THREE.PerspectiveCamera ? camera.aspect : 1;
         const fov = camera instanceof THREE.PerspectiveCamera ? camera.fov : 55;
-        visibleLines.forEach(({ index, placement, isOutgoing }) => {
+        visibleLines.forEach(({ index, line, placement, isOutgoing, position }) => {
             if (index === globalIndex) return;
             const mesh = lineMeshRefs.current.get(index);
             const mat = lineMatRefs.current.get(index);
             const raster = lineRasterCacheRef.current.get(index);
             if (!mesh || !mat || !raster) return;
+            // Start from the authored corridor pose; mobile clearance is a bounded presentation offset.
+            mesh.position.fromArray(position);
             const worldWidth = raster.advancePx * (LINE_FONT_SIZE / raster.fontPx);
             const fit = resolveFrameFitScale(worldWidth, DIORAMA_HERO_DISTANCE, fov, aspect) * placement.scale * lyricsFontScale;
             mesh.scale.setScalar(fit);
@@ -946,7 +957,8 @@ const DioramaScene: React.FC<DioramaSceneProps> = ({
                 mat.color.copy(damped.primary);
             } else {
                 const offset = index - globalIndex;
-                mat.opacity = resolveNeighborLineOpacity(offset) * life;
+                mat.opacity = offset > 0 && subtitleUpcomingLines?.includes(line)
+                    ? 0 : resolveNeighborLineOpacity(offset) * life;
                 // Past (already-sung) lines glow in the primary/bright tone as a lit trail; upcoming lines
                 // sit in the dim secondary tone, waiting in the dark.
                 mat.color.copy(offset < 0 ? damped.primary : damped.secondary);
@@ -1038,7 +1050,8 @@ const DioramaScene: React.FC<DioramaSceneProps> = ({
                 // The gradient effect adds a small opacity lift on top.
                 baseMat.opacity = Math.min(
                     1,
-                    (UNSUNG_UNIT_OPACITY + (ACTIVE_LINE_OPACITY - UNSUNG_UNIT_OPACITY) * sungMix + 0.08 * Math.min(1, gradientEnergy)) * life
+                    (activeUnsungOpacity + (ACTIVE_LINE_OPACITY - activeUnsungOpacity) * sungMix
+                        + 0.08 * Math.min(1, gradientEnergy)) * life
                 );
 
                 // ---- UNIFIED sung-colour state: the fill colour is computed exactly ONCE ----
@@ -1114,6 +1127,18 @@ const DioramaScene: React.FC<DioramaSceneProps> = ({
         } else {
             activeLineWidthRef.current = 0;
         }
+        if (readableActiveLine && transitionOutgoingIndex == null && unitsGroup && activeUnitsRaster
+            && camera instanceof THREE.PerspectiveCamera) {
+            lyricClearance.begin(camera, unitsGroup, activeUnitsRaster.lineWidth, LINE_FONT_SIZE * 1.4, frameState.size.height);
+            visibleLines.forEach(({ index }) => {
+                if (index === globalIndex) return;
+                const mesh = lineMeshRefs.current.get(index), raster = lineRasterCacheRef.current.get(index);
+                if (!mesh || !raster) return;
+                const worldPerPx = LINE_FONT_SIZE / raster.fontPx;
+                lyricClearance.place(mesh, raster.canvasWidthPx * worldPerPx, raster.canvasHeightPx * worldPerPx,
+                    index < globalIndex ? 1 : -1, delta);
+            });
+        }
     });
 
     return (
@@ -1179,6 +1204,7 @@ const DioramaScene: React.FC<DioramaSceneProps> = ({
                     // keyed by GLOBAL index in a Map: added on mount, removed on unmount as the window moves.
                     <mesh
                         key={index}
+                        name={`diorama-neighbour-${index}`}
                         ref={el => { if (el) lineMeshRefs.current.set(index, el); else lineMeshRefs.current.delete(index); }}
                         position={position}
                         quaternion={quaternion}
@@ -1189,7 +1215,7 @@ const DioramaScene: React.FC<DioramaSceneProps> = ({
                             ref={el => { if (el) lineMatRefs.current.set(index, el); else lineMatRefs.current.delete(index); }}
                             map={raster.texture}
                             transparent
-                            opacity={initialOpacity}
+                            opacity={!isOutgoing && offset > 0 && subtitleUpcomingLines?.includes(line) ? 0 : initialOpacity}
                             depthWrite={false}
                             color={initialColor}
                         />
@@ -1251,7 +1277,7 @@ const DioramaScene: React.FC<DioramaSceneProps> = ({
                                     ref={el => { unitBaseMatRefs.current[unitIndex] = el; }}
                                     map={placed.raster.baseTexture}
                                     transparent
-                                    opacity={UNSUNG_UNIT_OPACITY}
+                                    opacity={activeUnsungOpacity}
                                     depthTest={false}
                                     depthWrite={false}
                                     color={colors.primary}

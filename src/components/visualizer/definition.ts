@@ -25,6 +25,7 @@ import {
 } from '../../types';
 import type { VisualizerTuningBundle } from './tuningRegistry';
 import type { VisualizerBackgroundConfig } from './backgrounds/definition';
+import type { ViewportPresentation } from '../../types/viewportPresentation';
 
 // src/components/visualizer/definition.ts
 // Shared contracts for discoverable visualizer modes.
@@ -58,6 +59,8 @@ export interface VisualizerSharedProps {
     lyricsFontScale?: number;
     /** Fit Partita's complete composition into a smaller host without changing its word animation. */
     constrainLyricsToStage?: boolean;
+    /** Host-owned live preview transform; background and renderer lifetime remain full-screen. */
+    contentPresentation?: ViewportPresentation;
     subtitleFontScale?: number;
     subtitleOverlayOpacity?: number;
     subtitleOverlayBackground?: boolean;

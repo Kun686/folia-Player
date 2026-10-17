@@ -10,6 +10,8 @@ import { getSizedCoverUrl } from '../../utils/coverUrl';
 import { FoliumStageLayerSlot } from '../../mods/folium/registries/stageLayers';
 import VideoLayer from './videoLayer/VideoLayer';
 import { isMainAppSurface } from '../../utils/appSurface';
+import ViewportComposition from '../shared/ViewportComposition';
+import { getContrastRatio, getRelativeLuminance } from '../../utils/themeColorMath';
 
 // Shared outer shell for all visualizers.
 // This is where we keep background layering, font injection, and the hover-only back button
@@ -29,6 +31,7 @@ type VisualizerShellSharedProps = Pick<
     | 'alwaysShowBackButton'
     | 'onPlayerPanelGuideHotspotChange'
     | 'isPreviewMode'
+    | 'contentPresentation'
 >;
 
 interface VisualizerShellProps {
@@ -210,7 +213,11 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                 />
             )}
 
-            {children}
+            <ViewportComposition presentation={sharedProps?.contentPresentation}
+                protectionColor={sharedProps?.contentPresentation ? (getContrastRatio(theme.primaryColor, theme.backgroundColor) >= 3
+                    ? theme.backgroundColor : getRelativeLuminance(theme.primaryColor) > .3 ? '#050505' : '#fafafa') : undefined}>
+                {children}
+            </ViewportComposition>
 
             {showStageLayers && (
                 <FoliumStageLayerSlot

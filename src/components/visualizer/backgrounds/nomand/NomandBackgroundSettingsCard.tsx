@@ -42,6 +42,7 @@ const NomandBackgroundSettingsCard: React.FC<NomandBackgroundSettingsCardProps> 
     const resolvedTuning = { ...DEFAULT_NOMAND_BACKGROUND_TUNING, ...tuning };
     const inputRef = useRef<HTMLInputElement | null>(null);
     const [feedback, setFeedback] = useState('');
+    const [isAssetBusy, setIsAssetBusy] = useState(false);
     const borderColor = colorWithAlpha(theme.secondaryColor, isDaylight ? 0.18 : 0.16);
     const selectedBg = colorWithAlpha(theme.accentColor, isDaylight ? 0.1 : 0.16);
 
@@ -51,9 +52,30 @@ const NomandBackgroundSettingsCard: React.FC<NomandBackgroundSettingsCardProps> 
 
     const handleFiles = async (files: File[]) => {
         if (!files.length || !onUploadMonetBackgroundImage) return;
-        const result = await onUploadMonetBackgroundImage(files);
-        setFeedback(result.ok ? t('options.nomandBackgroundUploadSuccess') : result.error ?? t('options.nomandBackgroundUploadFailed'));
-        if (result.ok) setSource('uploaded-global');
+        setFeedback('');
+        setIsAssetBusy(true);
+        try {
+            const result = await onUploadMonetBackgroundImage(files);
+            setFeedback(result.ok ? t('options.nomandBackgroundUploadSuccess') : result.error ?? t('options.nomandBackgroundUploadFailed'));
+            if (result.ok) setSource('uploaded-global');
+        } catch {
+            setFeedback(t('options.imageAssetSaveFailed'));
+        } finally {
+            setIsAssetBusy(false);
+        }
+    };
+
+    const handleClearImage = async () => {
+        if (!onClearMonetBackgroundImage) return;
+        setFeedback('');
+        setIsAssetBusy(true);
+        try {
+            await onClearMonetBackgroundImage();
+        } catch {
+            setFeedback(t('options.imageAssetClearFailed'));
+        } finally {
+            setIsAssetBusy(false);
+        }
     };
 
     return (
@@ -105,7 +127,7 @@ const NomandBackgroundSettingsCard: React.FC<NomandBackgroundSettingsCardProps> 
                     />
                     <button
                         type="button"
-                        disabled={isLoadingMonetBackgroundImage || !onUploadMonetBackgroundImage}
+                        disabled={isAssetBusy || isLoadingMonetBackgroundImage || !onUploadMonetBackgroundImage}
                         onClick={() => inputRef.current?.click()}
                         className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs disabled:opacity-40"
                         style={{ borderColor, color: theme.primaryColor }}
@@ -115,8 +137,8 @@ const NomandBackgroundSettingsCard: React.FC<NomandBackgroundSettingsCardProps> 
                     </button>
                     <button
                         type="button"
-                        disabled={!monetBackgroundImage || !onClearMonetBackgroundImage}
-                        onClick={() => void onClearMonetBackgroundImage?.()}
+                        disabled={isAssetBusy || isLoadingMonetBackgroundImage || !monetBackgroundImage || !onClearMonetBackgroundImage}
+                        onClick={() => void handleClearImage()}
                         className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs disabled:opacity-40"
                         style={{ borderColor, color: theme.secondaryColor }}
                     >

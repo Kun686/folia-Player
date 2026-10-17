@@ -7,6 +7,7 @@ import { getMobileRuntime, providerFetch } from '../../../services/mobileRuntime
  */
 
 import { SongResult } from '../../../types';
+import { OnlineProviderError } from '../../../types/onlineMusic';
 import { qrcDecrypt } from './qrcDecrypt';
 import { qqRequestPayload, qqLyricParams, parseQQLyricText } from './qqLyricProtocol';
 import type { NeteaseChorusRange } from '../chorusEffects';
@@ -39,8 +40,12 @@ async function requestQQ(method: string, module: string, param: any): Promise<an
   }
 
   const data = await response.json();
-  if (data.code !== 0 || data.request?.code !== 0) {
-    throw new Error(`QQ Music API error: code ${data.code || data.request?.code}`);
+  if (data?.code !== 0 || data?.request?.code !== 0) {
+    const codes = [data?.code, data?.request?.code];
+    const code = codes.find(value => typeof value === 'number' && Number.isFinite(value) && value !== 0);
+    // This request is anonymous: a business rejection says nothing about the saved account session.
+    throw new OnlineProviderError(code === undefined ? 'invalid-response' : 'unavailable',
+      code === undefined ? 'QQ Music API returned an invalid response' : `QQ Music API error: code ${code}`, 'qq');
   }
 
   return data.request.data;

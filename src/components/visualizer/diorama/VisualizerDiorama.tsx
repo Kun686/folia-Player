@@ -7,7 +7,7 @@ import { isInterludeLine } from '../../../utils/lyrics/parserCore';
 import { useVisualizerRuntime } from '../runtime';
 import { type VisualizerSharedProps } from '../definition';
 import VisualizerShell from '../VisualizerShell';
-import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
+import VisualizerSubtitleOverlay, { resolveVisualizerSubtitleOverlayContent } from '../VisualizerSubtitleOverlay';
 import { resolveSubtitleFontSizes } from '../subtitleFontSizes';
 import CameraRig from './CameraRig';
 import DioramaScene from './DioramaScene';
@@ -125,6 +125,18 @@ const VisualizerDiorama: React.FC<VisualizerDioramaProps> = (props) => {
         currentLineIndex,
         lines,
     });
+
+    // The flat subtitle owns these hints on mobile. Keep their 3D meshes mounted for instant
+    // restoration when subtitles are hidden or show a translation; compare identities, not text.
+    const subtitleUpcomingLines = useMemo(() => (
+        props.constrainLyricsToStage && (subtitleOverlayOpacity ?? 0.6) > 0
+            ? resolveVisualizerSubtitleOverlayContent({
+                showText, activeLine, recentCompletedLine, nextLines,
+                hideTranslationSubtitle, subtitleContentMode,
+            }).upcomingLines
+            : []
+    ), [props.constrainLyricsToStage, subtitleOverlayOpacity, showText, activeLine,
+        recentCompletedLine, nextLines, hideTranslationSubtitle, subtitleContentMode]);
 
     // Shared measured world-width of the active lyric line: DioramaScene writes it each frame (from
     // the raster layout), CameraRig reads it to size its word-following lateral truck. A ref, not
@@ -401,12 +413,15 @@ const VisualizerDiorama: React.FC<VisualizerDioramaProps> = (props) => {
         >
             <div className="absolute inset-0 z-0">
                 <Canvas
+                    // Measure layout pixels, not the host's animated preview transform.
+                    resize={props.contentPresentation ? { offsetSize: true } : undefined}
                     camera={{ position: [0, 0.6, 9], fov: 55 }}
                     dpr={[1, 2]}
                     gl={{ alpha: true, antialias: true }}
                     style={{ background: 'transparent' }}
                 >
                     <CameraRig
+                        previewFraming={props.constrainLyricsToStage || props.contentPresentation?.height != null}
                         currentTime={currentTime}
                         sequencer={seq}
                         globalIndex={globalIndex}
@@ -417,6 +432,8 @@ const VisualizerDiorama: React.FC<VisualizerDioramaProps> = (props) => {
                         transitionEpoch={transitionEpochRef.current}
                     />
                     <DioramaScene
+                        readableActiveLine={props.constrainLyricsToStage}
+                        subtitleUpcomingLines={subtitleUpcomingLines}
                         theme={theme}
                         sequencer={seq}
                         globalIndex={globalIndex}

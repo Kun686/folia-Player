@@ -38,6 +38,9 @@ test('NetEase artist pages retain loaded albums on failure, retry and navigate i
   await expect.poll(() => page.evaluate(() => (window as any).fixturePlayback.queue[0]?.sourceRef)).toMatchObject({ providerId: 'netease', mediaId: '131' });
   await sheet.getByRole('button', { name: '返回上一级', exact: true }).tap();
   await expect(sheet.getByRole('heading', { name: '测试歌手', exact: true })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: '专辑', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(sheet.getByRole('button', { name: '专辑：作品专辑1', exact: true })).toBeVisible();
+  await sheet.getByRole('button', { name: '热门歌曲', exact: true }).tap();
   await sheet.getByRole('button', { name: '歌曲操作 目录歌曲', exact: true }).tap();
   await page.getByRole('dialog', { name: '歌曲操作', exact: true }).getByRole('button', { name: '专辑：专辑', exact: true }).tap();
   await expect(sheet.getByRole('heading', { name: '专辑', exact: true })).toBeVisible();
@@ -66,6 +69,16 @@ test('QQ queued song resolves mids even while NetEase tab is selected, and neste
   await page.getByRole('dialog', { name: '歌曲操作', exact: true }).getByRole('button', { name: '关闭', exact: true }).tap();
   await expect(sheet).toBeVisible();
   await sheet.getByRole('button', { name: '专辑', exact: true }).tap();
+  await sheet.getByRole('button', { name: '专辑：QQ专辑', exact: true }).tap();
+  await expect(sheet.getByRole('button', { name: '播放 QQ目录歌曲', exact: true })).toBeVisible();
+  // Re-entering the same artist starts a new history entry; returning restores the earlier tab.
+  await sheet.getByRole('button', { name: '歌曲操作 QQ目录歌曲', exact: true }).tap();
+  await page.getByRole('dialog', { name: '歌曲操作', exact: true }).getByRole('button', { name: '歌手：QQ歌手', exact: true }).tap();
+  await expect(sheet.getByRole('button', { name: '热门歌曲', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await sheet.getByRole('button', { name: '返回上一级', exact: true }).tap();
+  await expect(sheet.getByRole('heading', { name: 'QQ专辑', exact: true })).toBeVisible();
+  await sheet.getByRole('button', { name: '返回上一级', exact: true }).tap();
+  await expect(sheet.getByRole('button', { name: '专辑', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await sheet.getByRole('button', { name: '专辑：QQ专辑', exact: true }).tap();
   await expect(sheet.getByRole('button', { name: '播放 QQ目录歌曲', exact: true })).toBeVisible();
   const requests = await page.evaluate(() => (window as any).catalogRequests);

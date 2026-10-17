@@ -33,6 +33,48 @@ for (const [language, expected] of [['zh-CN', '请返回音乐库重新登录后
 }
 
 for (const provider of ['qq', 'netease'] as const) {
+  test(`${provider}: lyric retry preserves playback and yields to playback errors`, async ({ page }) => {
+    await start(page, provider);
+    const before = await page.evaluate(() => {
+      const w = window as any, bridge = w.Capacitor.nativePromise;
+      w.failLyricRead = true;
+      w.Capacitor.nativePromise = async (plugin: string, method: string, options: any) => {
+        if (method === 'readLyricCache' && w.failLyricRead) throw new Error('private-lyric-cache-detail');
+        return bridge(plugin, method, options);
+      };
+      w.fixtureEmitLyrics(w.fixturePlayback.currentSong);
+      return { queue: w.fixturePlayback.queue, song: w.fixturePlayback.currentSong, playing: w.fixturePlayback.playing };
+    });
+    const panel = page.locator('.player-panel'), feedback = panel.getByRole('alert');
+    await expect(feedback).toContainText('歌词加载失败，请重试。');
+    await expect(feedback).not.toContainText('重新登录');
+    await expect(feedback).not.toContainText('private-lyric-cache-detail');
+    await expect(panel.locator('.lyric-notice')).toHaveCount(0);
+    const retry = panel.getByRole('button', { name: '重试歌词', exact: true });
+    const viewport = page.viewportSize()!;
+    for (const size of [viewport, { width: viewport.height, height: viewport.width }]) {
+      await page.setViewportSize(size);
+      expect((await retry.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      expect(await feedback.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+      expect(await retry.evaluate(node => {
+        const r = node.getBoundingClientRect(); return node.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+      })).toBe(true);
+    }
+    await page.evaluate(() => (window as any).fixtureEmitPlayback({ error: 'auth-required' }));
+    await expect(feedback).toContainText('请返回音乐库重新登录后播放');
+    await expect(retry).toHaveCount(0);
+    await page.evaluate(() => {
+      const w = window as any; w.failLyricRead = false; w.fixtureEmitPlayback({ error: null });
+    });
+    await retry.tap();
+    await expect(feedback).toHaveCount(0);
+    // QQ's existing QRC sample differs from NetEase's LRC; word highlights duplicate first-line DOM text.
+    await expect(panel.locator('.lyric-stage')).toContainText(provider === 'qq' ? '合成测试' : '第二句');
+    expect(await page.evaluate(() => {
+      const s = (window as any).fixturePlayback; return { queue: s.queue, song: s.currentSong, playing: s.playing };
+    })).toEqual(before);
+  });
+
   test(`${provider}: mini player clears its failed command after a successful retry`, async ({ page }) => {
     await start(page, provider);
     await revealPlayerControls(page);

@@ -1,3 +1,4 @@
+import { revealMusicFeatures } from './music-features-navigation';
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 import { subscriptionFixture } from './subscriptions-fixture';
@@ -6,7 +7,7 @@ import { subscriptionFixture } from './subscriptions-fixture';
 const catalog = (page: Page) => page.getByRole('dialog', { name: '在线音乐目录', exact: true });
 const albums = (page: Page) => page.getByRole('dialog', { name: '收藏专辑', exact: true });
 async function openAlbum(page: Page) {
-  await page.getByRole('button', { name: '收藏专辑', exact: true }).tap();
+  await revealMusicFeatures(page); await page.getByRole('button', { name: '收藏专辑', exact: true }).tap();
   await albums(page).getByRole('button', { name: '专辑：收藏专辑1', exact: true }).tap();
 }
 test.beforeEach(async ({ page }) => { await subscriptionFixture(page); });
@@ -33,7 +34,7 @@ test('album toggle keeps confirmed state, survives rotation and refreshes favori
     { type: 'album', t: '2', id: '1' }, { type: 'album', t: '1', id: '1' }, { type: 'album', t: '2', id: '1' },
   ]);
   await catalog(page).getByRole('button', { name: '关闭', exact: true }).tap();
-  await page.getByRole('button', { name: '收藏专辑', exact: true }).tap();
+  await revealMusicFeatures(page); await page.getByRole('button', { name: '收藏专辑', exact: true }).tap();
   await expect(albums(page).getByText('暂无结果', { exact: true })).toBeVisible(); expect(errors).toEqual([]);
 });
 test('only other users playlists allow subscriptions, and changes refresh the account list', async ({ page }) => {
@@ -81,7 +82,7 @@ test('late status after closing and switching to QQ cannot expose QQ writes', as
   await openAlbum(page); await expect.poll(() => page.evaluate(() => typeof (window as any).releaseSubscriptionRead)).toBe('function');
   await catalog(page).getByRole('button', { name: '关闭', exact: true }).tap();
   await page.getByRole('button', { name: 'QQ 音乐', exact: true }).tap();
-  await page.getByRole('button', { name: '收藏专辑', exact: true }).tap();
+  await revealMusicFeatures(page); await page.getByRole('button', { name: '收藏专辑', exact: true }).tap();
   await albums(page).getByRole('button', { name: '专辑：QQ专辑', exact: true }).tap();
   await page.evaluate(() => (window as any).releaseSubscriptionRead());
   await expect(catalog(page).getByRole('button', { name: '播放 QQ目录歌曲', exact: true })).toBeVisible();

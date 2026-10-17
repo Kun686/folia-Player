@@ -41,8 +41,9 @@ export default function MobileThemeEditor({ appearance, light, visible, source, 
     catch { setError(true); }
     finally { saveLock.current = false; setSaving(false); }
   };
-  return <div className="sheet-backdrop"><section className="sheet mobile-theme-editor" role="dialog" aria-modal="true" aria-label={t('mobile.themeEditor')}>
+  return <div className="sheet-backdrop"><section className="sheet sheet-pinned mobile-theme-editor" role="dialog" aria-modal="true" aria-label={t('mobile.themeEditor')}>
     <header><h2>{t('mobile.themeEditor')}</h2><button disabled={saving} onClick={close}>{t('mobile.cancel')}</button></header>
+    <div className="sheet-body">
     <fieldset className="mobile-theme-editor-fields" disabled={saving}>
     <nav className="theme-editor-tabs" aria-label={t('mobile.themeTarget')}>
       <button aria-pressed={draft.target === 'custom'} onClick={() => draft.setTarget('custom')}>{t('theme.targetCustomTheme')}</button>
@@ -50,8 +51,7 @@ export default function MobileThemeEditor({ appearance, light, visible, source, 
     </nav>
     {draft.target === 'ai' && <p>{t('mobile.themeSong', { name: session.song?.name })}</p>}
     {draft.target === 'ai' && stale && <p role="alert">{t('mobile.themeSongChanged')}</p>}
-    <div className="actions theme-editor-actions"><button onClick={draft.reset}>{t('ui.resetToDefaultTheme')}</button>
-      <button disabled={!isDualThemeNameValid(draft.draft) || (draft.target === 'ai' && stale)} onClick={() => void save()}>{t('options.saveAndApplyCustomTheme')}</button></div>
+    <div className="actions"><button onClick={draft.reset}>{t('ui.resetToDefaultTheme')}</button></div>
     {error && <p role="alert">{t('mobile.themeSaveError')}</p>}
     <details onToggle={event => setPreview(event.currentTarget.open)}><summary>{t('mobile.themePreview')}</summary>
       <p>{t('mobile.themePreviewHint')}</p>
@@ -72,5 +72,9 @@ export default function MobileThemeEditor({ appearance, light, visible, source, 
     {tab === 'ai' && <ThemeParkAiPanel {...(stale ? initialSource : source)} buildFinalTheme={draft.buildFinalTheme} fallbackTheme={draft.baseTheme}
       onImportTheme={draft.replaceDraft} writeClipboard={text => native.copyText({ text })} maxInputLength={200_000} />}
     </fieldset>
+    </div>
+    <footer className="theme-editor-actions">
+      <button disabled={saving || !isDualThemeNameValid(draft.draft) || (draft.target === 'ai' && stale)} onClick={() => void save()}>{t('options.saveAndApplyCustomTheme')}</button>
+    </footer>
   </section></div>;
 }

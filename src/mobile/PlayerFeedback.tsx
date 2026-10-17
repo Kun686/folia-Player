@@ -9,11 +9,15 @@ const keys: Record<string, keyof typeof playbackEn> = {
   network: 'network', 'network-timeout': 'network', 'rate-limited': 'rateLimited',
   unavailable: 'unavailable', 'audio-failed': 'audio', 'audio-session': 'audioSession', 'state-unavailable': 'state',
 };
-export default function PlayerFeedback({ state, commandError, otherError, className = 'player-error' }: {
-  state: PlaybackSnapshot; commandError: boolean; otherError: boolean; className?: string;
+export default function PlayerFeedback({ state, commandError, otherError, retryLyrics, className = 'player-error' }: {
+  state: PlaybackSnapshot; commandError: boolean; otherError: boolean; retryLyrics?: () => void; className?: string;
 }) {
   const { t } = useTranslation();
-  if (!state.error && !commandError && !otherError) return null;
+  if (!state.error && !commandError && !otherError && !retryLyrics) return null;
+  if (!state.error && !commandError && !otherError && retryLyrics) return <div className={`${className} lyric-retry`} role="alert">
+    <span>{t('mobile.lyricsLoadError')}</span>
+    <button onClick={retryLyrics}>{t('mobile.retryLyrics')}</button>
+  </div>;
   const source = state.currentSong?.sourceRef;
   const provider = source?.kind === 'online' ? omni.getProviderLabel(source.providerId) : t('mobile.playback.platform');
   const key = state.error ? `mobile.playback.${Object.hasOwn(keys, state.error) ? keys[state.error] : 'failed'}`

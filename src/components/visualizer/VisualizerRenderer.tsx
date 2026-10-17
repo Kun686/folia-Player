@@ -5,6 +5,7 @@ import { getVisualizerRegistryEntry } from './registry';
 import { applyVisualizerTuning } from './tuningRegistry';
 import { DEFAULT_VISUALIZER_BACKGROUND_MODE } from './backgrounds/registry';
 import VisualizerHarmonyOverlay from './VisualizerHarmonyOverlay';
+import ViewportComposition from '../shared/ViewportComposition';
 
 interface VisualizerRendererProps extends VisualizerSharedProps {
     mode: VisualizerMode;
@@ -31,7 +32,7 @@ const VisualizerRenderer: React.FC<VisualizerRendererProps> = ({ mode, ...props 
             <React.Suspense fallback={null}>
                 {getVisualizerRegistryEntry(mode).render(resolvedProps)}
             </React.Suspense>
-            <VisualizerHarmonyOverlay
+            <ViewportComposition presentation={props.contentPresentation} overlay><VisualizerHarmonyOverlay
                 currentTime={resolvedProps.currentTime}
                 lines={resolvedProps.lines}
                 showText={resolvedProps.showText ?? true}
@@ -44,7 +45,7 @@ const VisualizerRenderer: React.FC<VisualizerRendererProps> = ({ mode, ...props 
                 showHarmonySubtitle={resolvedProps.showHarmonySubtitle}
                 harmonySubtitleBackground={resolvedProps.harmonySubtitleBackground}
                 subtitleFontScale={resolvedProps.subtitleFontScale}
-            />
+            /></ViewportComposition>
         </>
     );
 };

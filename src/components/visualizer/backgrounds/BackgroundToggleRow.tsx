@@ -31,6 +31,7 @@ const BackgroundToggleRow: React.FC<BackgroundToggleRowProps> = ({
         </div>
         <button
             type="button"
+            data-ui-switch
             aria-pressed={checked}
             disabled={!onChange}
             onClick={() => onChange?.(!checked)}

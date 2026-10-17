@@ -24,6 +24,7 @@ export const DioramaSettingsToggle: React.FC<DioramaSettingsToggleProps> = ({
     <button
         type="button"
         role="switch"
+        data-ui-switch
         aria-checked={checked}
         aria-label={label}
         disabled={disabled}

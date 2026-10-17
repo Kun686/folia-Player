@@ -74,6 +74,9 @@ extension PlaybackEngine {
                 self.preparedStream?.entry.dispose()
                 self.preparedStream = (next, entry, Date())
                 self.crossfade?.tick()
+                // ReplayGain enrichment can advance the queue version while paused, when the
+                // playback timer is idle. Publish it before the next foreground queue action.
+                if self.queueDirty { self.persist(); self.publish() }
             } catch { /* Active audio is preserved. Selecting this identity resolves it afresh. */ }
         }
     }

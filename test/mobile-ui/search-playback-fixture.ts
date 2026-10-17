@@ -23,13 +23,10 @@ export async function searchPlaybackFixture(page: Page) {
         if (w.searchMalformed) return reply({ code: 200, result: { songs: {}, songCount: 3 } });
         return reply({ code: 200, result: w.searchEmpty ? { songCount: 0 } : { songs: (offset ? [102] : [100, 101]).map(song), songCount: 3 } });
       }
-      if (url.hostname === 'u.y.qq.com' && payload.body) {
-        const data = JSON.parse(payload.body);
-        if (data.request.method === 'DoSearchForQQMusicLite') {
-          w.searchCalls.push({ provider: 'qq', query: data.request.param.query, page: data.request.param.page_num });
-          return reply({ code: 0, request: { code: 0, data: { body: { item_song: [100, 101].map(id => ({ id, mid: 'qq-' + id,
-            title: 'QQ搜索歌曲' + id, singer: [{ id: 1, name: '测试歌手' }], album: { id: 1, name: '专辑' }, interval: 180 })) } } } });
-        }
+      if (payload.provider === 'qq' && url.pathname === '/mobile/search') {
+        w.searchCalls.push({ provider: 'qq', query: url.searchParams.get('key'), page: Number(url.searchParams.get('page')) });
+        return reply({ code: 200, data: { body: { item_song: [100, 101].map(id => ({ id, mid: 'qq-' + id,
+          title: 'QQ搜索歌曲' + id, singer: [{ id: 1, name: '测试歌手' }], album: { id: 1, name: '专辑' }, interval: 180 })) } } });
       }
       return request(payload);
     };

@@ -49,9 +49,20 @@ export const getQqSingerAvatarUrl = (singerMid: string): string | undefined => (
         : undefined
 );
 
-const normalizeQqCoverUrl = (coverUrl: unknown): string => (
-    getOriginalCoverUrl(text(coverUrl))
-);
+const normalizeQqCoverUrl = (coverUrl: unknown): string => {
+    let value = text(coverUrl);
+    // Actual user-playlist responses still use HTTP on QQ's HTTPS-capable artwork hosts.
+    // Keep unknown origins and signed query parameters intact; do not weaken iOS transport security.
+    try {
+        const url = new URL(value);
+        if (url.protocol === 'http:' && !url.username && !url.password && !url.port
+            && ['y.gtimg.cn', 'y.qq.com'].includes(url.hostname)) {
+            url.protocol = 'https:';
+            value = url.toString();
+        }
+    } catch { /* Empty and non-URL values retain the existing normalization behavior. */ }
+    return getOriginalCoverUrl(value);
+};
 
 // 专辑与歌手的集合身份一律用 mid。上游同时给出数字 `albumid` / `singer.id`，但那两个不是
 // `/getAlbumInfo` 与 `/getSingerHotsong` 认的参数：传数字进去会拿到 HTTP 200 加

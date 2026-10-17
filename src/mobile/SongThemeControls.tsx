@@ -10,7 +10,7 @@ export default function SongThemeControls({ appearance }: { appearance: MobileTh
     try { await work(); } catch { setError(true); } finally { setBusy(false); }
   };
   const { cached } = appearance;
-  return <fieldset className="mobile-song-theme" disabled={busy}>
+  return <fieldset className="mobile-song-theme settings-group" disabled={busy}>
     <label className="check-label"><input type="checkbox" checked={appearance.autoSwitch}
       onChange={event => void act(() => appearance.setAutoSwitch(event.target.checked))} />{t('mobile.themeAutoSwitch')}</label>
     <p>{appearance.loading ? t('mobile.loading') : cached.kind === 'none' ? t('mobile.themeSongEmpty')

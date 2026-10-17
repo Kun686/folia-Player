@@ -20,6 +20,7 @@ import { getPersonalFmRequestOptions } from '../../stores/usePersonalFmModeStore
 import { parseNeteaseChorusRanges, processNeteaseLyrics } from '../../utils/lyrics/neteaseProcessing';
 import { createProviderSongMetadata } from '../../utils/songMetadata';
 import { getNeteaseRemoteApiBase, isSongMarkedUnavailable, neteaseApi } from '../netease';
+import { getMobileRuntime } from '../mobileRuntime';
 import { readProviderSessionValue, writeProviderSessionValue } from './providerStorage';
 import { collectLoginBackendDiagnostics } from './loginBackendDiagnostics';
 import { canRunLoginSelfCheck, runLoginSelfCheck } from './loginSelfCheck';
@@ -303,7 +304,9 @@ export const neteaseProvider: OnlineMusicProvider = {
     lyrics: { getLyrics, getChorusRanges: getNeteaseChorusRanges },
     auth: {
         async getLoginStatus() {
+            const sessionCurrent = getMobileRuntime()?.captureSession?.('netease');
             const loginResponse = await neteaseApi.getLoginStatus();
+            if (sessionCurrent && !sessionCurrent()) throw new DOMException('Canceled', 'AbortError');
             const loginProfile = loginResponse?.data?.profile;
             const loginCode = Number(loginResponse?.code ?? loginResponse?.data?.code);
             if (!loginProfile || [301, 401, 403].includes(loginCode)) {
@@ -312,6 +315,7 @@ export const neteaseProvider: OnlineMusicProvider = {
             }
 
             const accountResponse = await neteaseApi.getUserAccount();
+            if (sessionCurrent && !sessionCurrent()) throw new DOMException('Canceled', 'AbortError');
             const accountCode = Number(accountResponse?.code ?? accountResponse?.data?.code);
             const accountProfile = accountResponse?.profile;
             const accountId = accountResponse?.account?.id ?? accountProfile?.userId;
@@ -327,7 +331,15 @@ export const neteaseProvider: OnlineMusicProvider = {
             noteLoginStatusCheck(`signed in (login/status code=${loginCode}, user/account code=${accountCode})`);
             return normalizeUser({ ...loginProfile, ...accountProfile });
         },
-        async logout() { await neteaseApi.logout(); },
+        async logout() {
+            const sessionCurrent = getMobileRuntime()?.captureSession?.('netease');
+            try { await neteaseApi.logout(); }
+            finally {
+                // The transport wraps network errors and parses the body asynchronously. Preserve
+                // cancellation ownership so the caller cannot clear a replacement account.
+                if (sessionCurrent && !sessionCurrent()) throw new DOMException('Canceled', 'AbortError');
+            }
+        },
         // 扫码三步：要码（unikey）→ 生成二维码图片 → 轮询。没拿到 key 或图片就直接失败：空 key 去轮询只会换来
         // 一个看不出原因的 code 400，空图片会让界面一直转圈。失败带上原始响应（cause），时间线里看得到网易回了什么。
         async getQrKey() {
@@ -348,7 +360,10 @@ export const neteaseProvider: OnlineMusicProvider = {
             throw new OnlineProviderError('invalid-response', `NetEase QR image request failed: ${describeQrResponse(response)}`, 'netease', response);
         },
         async checkQr(key) {
+            const sessionCurrent = getMobileRuntime()?.captureSession?.('netease');
             const response = await neteaseApi.checkQr(key);
+            // Body parsing and adapter continuations can outlive the native request's session check.
+            if (sessionCurrent && !sessionCurrent()) throw new DOMException('Canceled', 'AbortError');
             switch (response?.code) {
                 case 800: return { state: 'expired' };
                 case 801: return { state: 'waiting' };

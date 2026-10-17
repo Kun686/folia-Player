@@ -95,6 +95,184 @@
  
      var underlyingQueue: DispatchQueue
  
+--- a/AudioStreaming/Streaming/Audio Source/RemoteAudioSource.swift
++++ b/AudioStreaming/Streaming/Audio Source/RemoteAudioSource.swift
+@@ -29,6 +29,9 @@
+     private let httpBody: Data?
+     private let networkingClient: NetworkingClient
+     private var streamRequest: NetworkDataStream?
++    // Folia: header probes belong to the same seek lifetime as the media stream.
++    private var headerRequest: NetworkDataStream?
++    private var requestGeneration: UInt64 = 0
+ 
+     private var additionalRequestHeaders: [String: String]
+ 
+@@ -138,6 +141,8 @@
+     }
+ 
+     public func close() {
++        requestGeneration &+= 1
++        waitingForNetwork = false
+         retrierTimeout.cancel()
+         streamOperationQueue.isSuspended = false
+         streamOperationQueue.cancelAllOperations()
+@@ -146,6 +151,11 @@
+             networkingClient.remove(task: streamTask)
+         }
+         streamRequest = nil
++        if let task = headerRequest {
++            task.cancel()
++            networkingClient.remove(task: task)
++        }
++        headerRequest = nil
+     }
+ 
+     public func seek(at offset: Int) {
+@@ -180,10 +190,9 @@
+     private func startNetworkService() {
+         netStatusService.start { [weak self] connection in
+             guard let self = self else { return }
+-            guard connection.isConnected else { return }
+-            if self.waitingForNetwork {
++            self.underlyingQueue.async { [weak self] in
++                guard let self, connection.isConnected, self.waitingForNetwork else { return }
+                 self.seek(at: self.supportsSeek ? self.position : 0)
+-                self.waitingForNetwork = false
+             }
+         }
+     }
+@@ -210,10 +219,14 @@
+ 
+     private func doPerfomOpen(seek seekOffset: Int) {
+         let urlRequest = buildUrlRequest(with: url, seekIfNeeded: seekOffset)
++        let generation = requestGeneration
+         streamRequest = networkingClient.stream(request: urlRequest)
+             .responseStream { [weak self] event in
+                 guard let self = self else { return }
+-                self.handleResponse(event: event)
++                self.underlyingQueue.async { [weak self] in
++                    guard let self, self.requestGeneration == generation else { return }
++                    self.handleResponse(event: event)
++                }
+             }
+             .resume()
+ 
+@@ -223,34 +236,54 @@
+     private func initialRequest(completion: @escaping () -> Void) {
+         let urlRequest = fetchUrlForPartialContent(with: url)
+         let task: NetworkDataStream = networkingClient.stream(request: urlRequest)
+-        task.responseStream { [weak self] event in
+-            switch event {
+-            case let .response(urlResponse):
+-                self?.parseResponseHeader(response: urlResponse)
+-                task.cancel()
+-                completion()
+-            default:
+-                break
++        let generation = requestGeneration
++        headerRequest = task
++        task.responseStream { [weak self, weak task] event in
++            guard let self else { return }
++            self.underlyingQueue.async { [weak self, weak task] in
++                guard let self, let task, self.requestGeneration == generation,
++                      self.headerRequest === task else { return }
++                switch event {
++                case let .response(urlResponse):
++                    task.cancel()
++                    self.networkingClient.remove(task: task)
++                    self.headerRequest = nil
++                    self.parseResponseHeader(response: urlResponse)
++                    guard self.requestGeneration == generation,
++                          let response = urlResponse, (200..<300).contains(response.statusCode) else { return }
++                    completion()
++                case let .stream(.failure(error)):
++                    task.cancel()
++                    self.networkingClient.remove(task: task)
++                    self.headerRequest = nil
++                    self.handleFailedStreamEvent(error: error)
++                default:
++                    break
++                }
+             }
+         }.resume()
+     }
+ 
+     private func handleMp4Files() {
++        let generation = requestGeneration
+         mp4Restructure.optimizeIfNeeded { [weak self] result in
+             guard let self else { return }
+-            switch result {
+-            case let .success(value):
+-                if let value {
+-                    self.addStreamOperation {
+-                        let audioCount = self.processAudio(data: value.initialData)
+-                        self.relativePosition += audioCount
++            self.underlyingQueue.async { [weak self] in
++                guard let self, self.requestGeneration == generation else { return }
++                switch result {
++                case let .success(value):
++                    if let value {
++                        self.addStreamOperation {
++                            let audioCount = self.processAudio(data: value.initialData)
++                            self.relativePosition += audioCount
++                        }
++                        self.doPerfomOpen(seek: value.mdatOffset)
++                    } else {
++                        self.doPerfomOpen(seek: 0)
+                     }
+-                    self.doPerfomOpen(seek: value.mdatOffset)
+-                } else {
+-                    self.doPerfomOpen(seek: 0)
+-                }
+-            case let .failure(failure):
+-                self.delegate?.errorOccurred(source: self, error: failure)
++                case let .failure(failure):
++                    self.delegate?.errorOccurred(source: self, error: failure)
++                }
+             }
+         }
+     }
+@@ -405,9 +438,13 @@
+     }
+ 
+     private func retryOnError() {
++        let generation = requestGeneration
+         retrierTimeout.retry { [weak self] in
+             guard let self = self else { return }
+-            self.seek(at: self.supportsSeek ? self.position : 0)
++            self.underlyingQueue.async { [weak self] in
++                guard let self, self.requestGeneration == generation else { return }
++                self.seek(at: self.supportsSeek ? self.position : 0)
++            }
+         }
+     }
+ 
+@@ -417,7 +454,11 @@
+     ///
+     /// - Parameter block: A closure to be executed
+     private func addStreamOperation(_ block: @escaping () -> Void) {
+-        let operation = BlockOperation(block: block)
++        let generation = requestGeneration
++        let operation = BlockOperation { [weak self] in
++            guard let self, self.requestGeneration == generation else { return }
++            block()
++        }
+         operation.qualityOfService = .userInitiated
+         streamOperationQueue.addOperation(operation)
+     }
+@@ -426,7 +467,11 @@
+     ///
+     /// - Parameter block: A closure to be executed
+     private func addCompletionOperation(_ block: @escaping () -> Void) {
+-        let operation = BlockOperation(block: block)
++        let generation = requestGeneration
++        let operation = BlockOperation { [weak self] in
++            guard let self, self.requestGeneration == generation else { return }
++            block()
++        }
+         operation.queuePriority = .veryLow
+         streamOperationQueue.addOperation(operation)
+     }
 --- a/AudioStreaming/Streaming/AudioPlayer/AudioPlayer.swift
 +++ b/AudioStreaming/Streaming/AudioPlayer/AudioPlayer.swift
 @@ -75,12 +75,9 @@
@@ -390,7 +568,35 @@
      let numberOfPackets: UInt32
      var audioBuffer = AudioBuffer()
      let packDescription: UnsafeMutablePointer<AudioStreamPacketDescription>?
-@@ -150,11 +151,19 @@
+@@ -35,6 +36,10 @@
+     private let playerContext: AudioPlayerContext
+     private let rendererContext: AudioRendererContext
+     private let outputAudioFormat: AudioStreamBasicDescription
++    // Folia: a FLAC byte estimate is not a media timestamp. Decode/discard from an exact
++    // packet (or the first audio frame) before publishing PCM at the requested position.
++    private var seekFramesToDiscard: UInt64 = 0
++    private let seekScratch = UnsafeMutableRawPointer.allocate(byteCount: 65536, alignment: 16)
+     
+     // Add Ogg Vorbis processor
+     private lazy var oggVorbisProcessor = OggVorbisStreamProcessor(
+@@ -57,6 +62,8 @@
+     var isFileStreamOpen: Bool {
+         audioFileStream != nil || isProcessingOggVorbis
+     }
++
++    deinit { seekScratch.deallocate() }
+ 
+     init(playerContext: AudioPlayerContext,
+          rendererContext: AudioRendererContext,
+@@ -92,6 +99,7 @@
+ 
+     /// Closes the currently open `AudioFileStream` instance, if opened.
+     func closeFileStreamIfNeeded() {
++        seekFramesToDiscard = 0
+         if isProcessingOggVorbis {
+             isProcessingOggVorbis = false
+             oggVorbisProcessor.cleanup()
+@@ -150,11 +158,19 @@
          if status != noErr {
              Logger.debug("Failed to flush AudioFileStream packets: \(status)", category: .generic)
          }
@@ -411,7 +617,19 @@
          guard let readingEntry = playerContext.audioReadingEntry else {
              return
          }
-@@ -178,21 +187,21 @@
+@@ -168,6 +184,11 @@
+         guard let stream = audioFileStream else { return }
+ 
+         guard readingEntry.calculatedBitrate() > 0.0 || (playerContext.audioPlayingEntry?.length ?? 0) > 0 else {
++            return
++        }
++
++        if readingEntry.audioStreamFormat.mFormatID == kAudioFormatFLAC {
++            restartFLACSeek(to: time, entry: readingEntry)
+             return
+         }
+ 
+@@ -178,21 +199,22 @@
        
          guard duration > 0.0 else { return }
  
@@ -428,6 +646,7 @@
          readingEntry.lock.unlock()
  
          let bitrate = readingEntry.calculatedBitrate()
++        seekFramesToDiscard = 0
          if readingEntry.packetDuration > 0, bitrate > 0 {
              var ioFlags = AudioFileStreamSeekFlags(rawValue: 0)
              var packetsAlignedByteOffset: Int64 = 0
@@ -436,7 +655,39 @@
  
              let seekStatus = AudioFileStreamSeek(stream, seekPacket, &packetsAlignedByteOffset, &ioFlags)
              let dataOffset = Int64(readingEntry.audioStreamState.dataOffset)
-@@ -512,6 +521,11 @@
+@@ -214,6 +236,31 @@
+         rendererContext.waitingForDataAfterSeekFrameCount.write { $0 = 0 }
+         playerContext.setInternalState(to: .waitingForDataAfterSeek)
+         rendererContext.resetBuffers()
++    }
++
++    // A fresh FLAC parser/converter also discards any partial compressed frame from the
++    // previous HTTP chunk. Resetting only AudioConverter can leave a CRC-invalid boundary.
++    private func restartFLACSeek(to time: Double, entry: AudioEntry) {
++        let frames = time * outputAudioFormat.mSampleRate
++        guard frames.isFinite, frames >= 0, frames < Double(Int64.max) else {
++            fileStreamCallback?(.raiseError(.codecError)); return
++        }
++        closeFileStreamIfNeeded()
++        disposeAudioConverter()
++        discontinuous = false
++        guard openFileStream(with: kAudioFileFLACType) == noErr else {
++            fileStreamCallback?(.raiseError(.codecError)); return
++        }
++        seekFramesToDiscard = UInt64(frames.rounded())
++        entry.lock.withLock {
++            entry.seekTime = time
++            entry.audioStreamState.processedDataFormat = false
++        }
++        entry.reset()
++        rendererContext.waitingForDataAfterSeekFrameCount.write { $0 = 0 }
++        rendererContext.resetBuffers()
++        playerContext.setInternalState(to: .waitingForDataAfterSeek)
++        entry.seek(at: 0)
+     }
+ 
+     /// Creates an `AudioConverter` instance to be used for converting the remote audio data to the canonical audio format
+@@ -512,6 +559,12 @@
              inNumberPackets: inNumberPackets
          )
  
@@ -445,10 +696,11 @@
 +
 +    // Decode available packets, or flush the converter at EOF, using the existing shared PCM ring.
 +    private func decodePackets(_ converter: AudioConverterRef, info convertInfo: inout AudioConvertInfo) {
++        if seekFramesToDiscard > 0, !discardSeekFrames(converter, info: &convertInfo) { return }
          var status: OSStatus = noErr
          packetProcess: while status == noErr {
              rendererContext.lock.lock()
-@@ -583,7 +597,7 @@
+@@ -583,7 +636,7 @@
  
                  framesAdded = framesToDecode
  
@@ -457,7 +709,7 @@
                      fillUsedFrames(framesCount: framesAdded)
                      return
                  } else if status != 0 {
-@@ -613,7 +627,7 @@
+@@ -613,7 +666,7 @@
  
                  framesAdded += framesToDecode
  
@@ -466,7 +718,7 @@
                      fillUsedFrames(framesCount: framesAdded)
                      return
                  } else if status == AudioConvertStatus.processed.rawValue {
-@@ -644,7 +658,7 @@
+@@ -644,7 +697,7 @@
                  )
  
                  framesAdded = framesToDecode
@@ -475,7 +727,43 @@
                      fillUsedFrames(framesCount: framesAdded)
                      return
                  } else if status == AudioConvertStatus.processed.rawValue {
-@@ -754,7 +768,7 @@
+@@ -656,6 +709,35 @@
+                 }
+             }
+         }
++    }
++
++    // Runs on the existing decoder queue, never the audio render callback. Discarded PCM
++    // does not enter the ring or advance the public clock; a newer seek cancels this work.
++    private func discardSeekFrames(_ converter: AudioConverterRef, info: inout AudioConvertInfo) -> Bool {
++        let bytesPerFrame = outputAudioFormat.mBytesPerFrame
++        guard bytesPerFrame > 0, bytesPerFrame <= 65536 else {
++            fileStreamCallback?(.raiseError(.codecError)); return false
++        }
++        while seekFramesToDiscard > 0 {
++            if playerContext.internalState == .disposed || playerContext.internalState == .pendingNext
++                || playerContext.internalState == .stopped { return false }
++            if playerContext.audioPlayingEntry?.seekRequest.requested == true {
++                fileStreamCallback?(.processSource); return false
++            }
++            var frames = UInt32(min(seekFramesToDiscard, UInt64(65536 / bytesPerFrame)))
++            var buffer = AudioBufferList(mNumberBuffers: 1, mBuffers: AudioBuffer(
++                mNumberChannels: outputAudioFormat.mChannelsPerFrame,
++                mDataByteSize: frames * bytesPerFrame, mData: seekScratch))
++            let status = AudioConverterFillComplexBuffer(converter, _converterCallback, &info, &frames, &buffer, nil)
++            guard UInt64(frames) <= seekFramesToDiscard else {
++                fileStreamCallback?(.raiseError(.codecError)); return false
++            }
++            seekFramesToDiscard -= UInt64(frames)
++            if status == AudioConvertStatus.done.rawValue { return false }
++            guard status == noErr else { fileStreamCallback?(.raiseError(.codecError)); return false }
++            if frames == 0 { return false }
++        }
++        return true
+     }
+ 
+     /// Fills the `AudioBuffer` with data as required
+@@ -754,7 +836,7 @@
      // we need to tell the converter to stop converting after it should stop converting
      if convertInfo.pointee.done {
          ioNumberDataPackets.pointee = 0

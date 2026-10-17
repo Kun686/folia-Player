@@ -174,8 +174,9 @@ export const getCacheUsageByCategory = async (): Promise<{
   analysis: number;
   mediaCount: number;
 }> => {
-  const nativeCoverSize = await getMobileRuntime()?.covers?.usage() ?? 0;
-  const nativeLyricSize = await getMobileRuntime()?.lyrics?.usage() ?? 0;
+  const mobile = getMobileRuntime();
+  const nativeCoverSize = await mobile?.covers?.usage() ?? 0;
+  const nativeLyricSize = await mobile?.lyrics?.usage() ?? 0;
   try {
     const usage = await getBrowserCacheUsageByCategory();
     if (hasElectronAudioCacheStatsBridge()) {
@@ -189,14 +190,17 @@ export const getCacheUsageByCategory = async (): Promise<{
     usage.cover += nativeCoverSize;
     usage.lyrics += nativeLyricSize;
     return usage;
-  } catch {
+  } catch (error) {
+    // Mobile settings expose retry/error UI; a partial read is not an empty cache.
+    if (mobile) throw error;
     return { playlist: 0, lyrics: 0, cover: 0, media: 0, analysis: 0, mediaCount: 0 };
   }
 };
 
 export const clearCacheByCategory = async (category: CacheCategory): Promise<void> => {
-  if (category === 'cover') await getMobileRuntime()?.covers?.clear();
-  if (category === 'lyrics') await getMobileRuntime()?.lyrics?.clear();
+  const mobile = getMobileRuntime();
+  if (category === 'cover') await mobile?.covers?.clear();
+  if (category === 'lyrics') await mobile?.lyrics?.clear();
   try {
     await clearBrowserCacheByCategory(category);
     if (category === 'media' && hasElectronAudioCacheBridge()) {
@@ -204,6 +208,8 @@ export const clearCacheByCategory = async (category: CacheCategory): Promise<voi
     }
     if (category === 'cover') await clearCoverAssets();
   } catch (error) {
+    // Native and browser caches are separate stores: report any incomplete cleanup.
+    if (mobile) throw error;
     console.error('Failed to clear cache by category', error);
   }
 };

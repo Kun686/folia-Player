@@ -1,3 +1,4 @@
+import { revealMusicFeatures } from './music-features-navigation';
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 import { dailyFixture } from './daily-recommendations-fixture';
@@ -12,7 +13,7 @@ async function login(page: Page) {
   await page.getByRole('dialog', { name: '扫码登录' }).getByRole('button', { name: '关闭', exact: true }).tap();
 }
 async function open(page: Page) {
-  await page.getByRole('button', { name: '每日推荐', exact: true }).tap();
+  await revealMusicFeatures(page); await page.getByRole('button', { name: '每日推荐', exact: true }).tap();
   await expect(sheet(page).getByRole('button', { name: '播放 今日歌曲一', exact: true })).toBeVisible();
 }
 async function dislike(page: Page, name = '今日歌曲一') {
@@ -72,7 +73,7 @@ test('closing and reopening a pending dislike waits instead of resending; cancel
   await page.getByRole('button', { name: '不喜欢，换一首', exact: true }).tap();
   await expect.poll(() => page.evaluate(() => typeof (window as any).releaseDislike)).toBe('function');
   await sheet(page).getByRole('button', { name: '关闭', exact: true }).tap();
-  await page.getByRole('button', { name: '每日推荐', exact: true }).tap();
+  await revealMusicFeatures(page); await page.getByRole('button', { name: '每日推荐', exact: true }).tap();
   await expect(sheet(page).getByRole('status')).toBeVisible();
   await page.evaluate(() => (window as any).releaseDislike());
   await expect(sheet(page).getByRole('button', { name: '播放 替换歌曲', exact: true })).toBeVisible();
@@ -81,16 +82,16 @@ test('closing and reopening a pending dislike waits instead of resending; cancel
 test('history access failure is separate; anonymous and old gateways cannot load personal recommendations', async ({ page }) => {
   await dailyFixture(page); await page.addInitScript(() => { (window as any).historyCode = 403; });
   await page.goto('/mobile.html');
-  await expect(page.getByRole('button', { name: '每日推荐', exact: true })).toBeDisabled();
+  await revealMusicFeatures(page); await expect(page.getByRole('button', { name: '每日推荐', exact: true })).toBeDisabled();
   await login(page); await open(page);
   await expect(sheet(page).getByRole('alert')).toContainText('历史推荐暂不可用');
   await expect(sheet(page).getByRole('button', { name: '播放 今日歌曲一', exact: true })).toBeEnabled();
   await sheet(page).getByRole('button', { name: '关闭', exact: true }).tap();
   await page.addInitScript(() => { (window as any).fixtureHealth.dailyProviders = undefined; });
-  await page.reload(); await expect(page.getByRole('button', { name: '每日推荐', exact: true })).toBeDisabled();
+  await page.reload(); await revealMusicFeatures(page); await expect(page.getByRole('button', { name: '每日推荐', exact: true })).toBeDisabled();
   expect(await page.evaluate(() => (window as any).dailyRequests)).toEqual([]);
   await page.getByRole('button', { name: 'QQ 音乐', exact: true }).tap();
-  await expect(page.getByRole('button', { name: '每日推荐', exact: true })).toHaveCount(0);
+  await revealMusicFeatures(page); await expect(page.getByRole('button', { name: '每日推荐', exact: true })).toHaveCount(0);
 });
 
 test('daily songs reuse the common favorite, playlist and album actions without leaving a hidden modal over playback', async ({ page }) => {

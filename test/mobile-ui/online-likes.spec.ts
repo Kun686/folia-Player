@@ -24,7 +24,10 @@ test.beforeEach(async ({ page }) => {
       if (path.pathname === '/login/status') w.fixtureLikeStatuses.push(payload.provider);
       if (payload.provider === 'qq' && path.pathname === '/login/status') return reply({ code: 0, data: { profile: { uin: '77', nick: 'QQ fixture' } } });
       if (path.pathname === '/user/liked-songs') {
-        w.fixtureLikeReads.push('qq'); return reply({ code: 0, songs: [{ mid: '42', title: 'QQ歌曲', singer: [], album: {}, interval: 180 }], more: false, total: 1 });
+        w.fixtureLikeReads.push('qq');
+        if (w.fixtureLikeReadDelay) await new Promise(resolve => { w.fixtureLikeReadRelease = resolve; });
+        return reply(w.fixtureLikeReadFailure ? { code: 500 } : {
+          code: 0, songs: [{ mid: '42', title: 'QQ歌曲', singer: [], album: {}, interval: 180 }], more: false, total: 1 });
       }
       if (path.pathname === '/likelist') {
         w.fixtureLikeReads.push('netease');
@@ -40,6 +43,60 @@ test.beforeEach(async ({ page }) => {
       }
     };
   });
+});
+for (const provider of ['netease', 'qq']) for (const failure of [false, true]) {
+  test(`song menu targets stay fixed after ${provider} like read ${failure ? 'fails' : 'finishes'}`, async ({ page }) => {
+    await page.addInitScript(() => { (window as any).fixtureSessions = { qq: { cookie: 'qqmusic_session=fixture-qq' } }; });
+    await library(page);
+    await page.evaluate(provider => {
+      const w = window as any;
+      w.fixtureLikeReadDelay = true;
+      const song = { id: '42', name: '目录歌曲', artists: [], album: { id: '', name: '' }, durationMs: 180000,
+        sourceRef: { kind: 'online', providerId: provider, mediaId: '42' } };
+      w.fixtureEmitPlayback({ queue: [song], currentSong: null, index: -1, playing: false });
+    }, provider);
+    await page.getByRole('button', { name: '播放队列 · 1', exact: true }).tap();
+    await page.getByRole('button', { name: '歌曲操作 目录歌曲', exact: true }).tap();
+    await expect.poll(() => page.evaluate(() => typeof (window as any).fixtureLikeReadRelease)).toBe('function');
+    const menu = actions(page);
+    const targets = ['关闭', '播放', '下一首播放', '复制歌曲信息'].map(name => menu.getByRole('button', { name, exact: true }));
+    const before = await Promise.all(targets.map(target => target.boundingBox()));
+    await page.evaluate(fails => {
+      const w = window as any; w.fixtureLikeReadFailure = fails; w.fixtureLikeReadRelease();
+    }, failure);
+    await expect(menu.getByRole('button', { name: failure ? '重新读取收藏状态' : provider === 'qq' ? '已喜欢' : '喜欢这首歌', exact: true })).toBeVisible();
+    for (const [index, target] of targets.entries()) {
+      await expect.poll(async () => Math.abs((await target.boundingBox())!.y - before[index]!.y)).toBeLessThan(1);
+    }
+    await expect(menu.getByRole(failure ? 'alert' : 'status')).toHaveCount(failure ? 1 : 0);
+    expect(await page.evaluate(() => (window as any).fixtureLikeWrites)).toEqual([]);
+  });
+}
+test('an unlike refreshes the open playlist without requiring the user to reopen it', async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as any, request = w.fixtureOnlineRequest;
+    w.fixtureLikeIds = ['42']; w.fixtureLikeCollectionReads = 0; w.fixtureLikeCollectionVersions = [];
+    w.fixtureOnlineRequest = async (payload: any) => {
+      const path = new URL(payload.path, 'https://fixture.invalid');
+      if (path.pathname === '/playlist/track/all') {
+        w.fixtureLikeCollectionReads++;
+        w.fixtureLikeCollectionVersions.push(path.searchParams.get('timestamp'));
+        if (!w.fixtureLikeIds.length) return { status: 200, body: JSON.stringify({ code: 200, songs: [] }),
+          headers: { 'content-type': 'application/json' } };
+      }
+      return request(payload);
+    };
+  });
+  await library(page); await open(page);
+  await actions(page).getByRole('button', { name: '取消喜欢', exact: true }).tap();
+  await expect(actions(page).getByRole('button', { name: '喜欢这首歌', exact: true })).toBeEnabled();
+  await actions(page).getByRole('button', { name: '关闭', exact: true }).tap();
+  await expect.poll(() => page.evaluate(() => (window as any).fixtureLikeCollectionReads)).toBe(2);
+  const versions = await page.evaluate(() => (window as any).fixtureLikeCollectionVersions as string[]);
+  expect(versions.every(value => /^\d+$/.test(value))).toBe(true);
+  expect(versions[0]).not.toBe(versions[1]);
+  await expect(page.getByRole('button', { name: '播放 测试歌曲', exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).fixtureLikeWrites)).toEqual([{ provider: 'netease', id: '42', liked: false }]);
 });
 test('NetEase likes and unlikes from touch rows, player tools and queue without changing audio', async ({ page }, info) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
@@ -127,3 +184,41 @@ test('QQ uses its own liked IDs in a mixed queue and remains read-only even if t
   expect(await page.evaluate(() => (window as any).fixtureLikeReads)).toEqual(['qq']);
   expect(await page.evaluate(() => (window as any).fixtureLikeWrites)).toEqual([]);
 });
+
+for (const failure of [false, true]) {
+  test(`player shortcuts stay reachable when a pending like read ${failure ? 'fails' : 'finishes'}`, async ({ page }) => {
+    await library(page);
+    await page.getByRole('button', { name: '播放 测试歌曲', exact: true }).tap();
+    await page.evaluate(() => { (window as any).fixtureLikeReadDelay = true; });
+    await openPlayerTools(page);
+    await expect.poll(() => page.evaluate(() => typeof (window as any).fixtureLikeReadRelease)).toBe('function');
+    const tools = page.getByRole('dialog', { name: '更多播放选项', exact: true });
+    const body = tools.locator('.sheet-body');
+    const visual = tools.getByRole('button', { name: '歌词与动效', exact: true });
+    await body.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await expect(visual).toBeInViewport();
+    const before = (await visual.boundingBox())!;
+    await page.evaluate(fails => {
+      const w = window as any; w.fixtureLikeReadFailure = fails; w.fixtureLikeReadRelease();
+    }, failure);
+    await expect(tools.getByRole('button', { name: failure ? '重新读取收藏状态' : '喜欢这首歌', exact: true })).toBeAttached();
+    await expect.poll(async () => Math.abs((await visual.boundingBox())!.y - before.y)).toBeLessThan(1);
+    const original = page.viewportSize()!;
+    for (const size of [original, { width: original.height, height: original.width }, original]) {
+      await page.setViewportSize(size);
+      for (const edge of ['start', 'end']) {
+        await body.evaluate((element, edge) => { element.scrollTop = edge === 'start' ? 0 : element.scrollHeight; }, edge);
+        for (const button of [visual, tools.getByRole('button', { name: '歌词', exact: true })]) {
+          await expect.poll(() => button.evaluate(element => {
+            const rect = element.getBoundingClientRect();
+            return rect.width >= 44 && rect.height >= 44 &&
+              element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+          })).toBe(true);
+        }
+      }
+    }
+    await visual.tap();
+    await expect(page.getByRole('dialog', { name: '歌词与动效', exact: true })).toBeVisible();
+    expect(await page.evaluate(() => (window as any).fixtureLikeWrites)).toEqual([]);
+  });
+}

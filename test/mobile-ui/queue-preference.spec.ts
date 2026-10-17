@@ -4,7 +4,7 @@ import { searchPlaybackFixture, seedSearchQueue } from './search-playback-fixtur
 
 // queue-preference.spec.ts — original persisted preference over the real touch handlers and controlled queue bridge.
 const settings = (page: Page) => page.getByRole('dialog', { name: '服务器与外观', exact: true });
-const preference = (page: Page) => settings(page).getByRole('combobox', { name: '加入队列的默认位置', exact: true });
+const preference = (page: Page) => settings(page).getByRole('combobox', { name: '加入队列的位置', exact: true });
 // During capability loading the connection hint may expose a second settings button.
 const openSettings = (page: Page) => page.locator('.brand').getByRole('button', { name: '服务器与外观', exact: true }).tap();
 async function choose(page: Page, value: 'append' | 'next') {

@@ -1,0 +1,200 @@
+{
+  "song": {
+    "id": "000zD9G51kXTo7",
+    "name": "太迟",
+    "artists": [
+      {
+        "name": "于博雅",
+        "id": "002gYZwp3Vg6uI"
+      }
+    ],
+    "album": {
+      "name": "太迟",
+      "id": "003PgzM929DmNg"
+    },
+    "durationMs": 179000,
+    "sourceRef": {
+      "mediaId": "000zD9G51kXTo7",
+      "providerData": {
+        "songId": 9077195,
+        "songMid": "000zD9G51kXTo7",
+        "mediaMid": "0033TVQw0t2sNI"
+      },
+      "providerId": "qq",
+      "kind": "online"
+    }
+  },
+  "position": 165.80267573696145,
+  "lyrics": {
+    "isWordByWord": true,
+    "lines": [
+      {
+        "endTime": 165.316,
+        "fullText": "离不开虚华的灯红酒绿",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.289999999999992,
+          "renderEndTime": 165.696,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 161.026,
+        "words": [
+          {
+            "endTime": 161.276,
+            "startTime": 161.026,
+            "text": "离"
+          },
+          {
+            "endTime": 161.556,
+            "startTime": 161.276,
+            "text": "不"
+          },
+          {
+            "endTime": 161.816,
+            "startTime": 161.556,
+            "text": "开"
+          },
+          {
+            "endTime": 162.116,
+            "startTime": 161.816,
+            "text": "虚"
+          },
+          {
+            "endTime": 162.426,
+            "startTime": 162.116,
+            "text": "华"
+          },
+          {
+            "endTime": 163.016,
+            "startTime": 162.426,
+            "text": "的"
+          },
+          {
+            "endTime": 163.286,
+            "startTime": 163.016,
+            "text": "灯"
+          },
+          {
+            "endTime": 163.856,
+            "startTime": 163.286,
+            "text": "红"
+          },
+          {
+            "endTime": 164.446,
+            "startTime": 163.856,
+            "text": "酒"
+          },
+          {
+            "endTime": 165.316,
+            "startTime": 164.446,
+            "text": "绿"
+          }
+        ]
+      },
+      {
+        "endTime": 168.736,
+        "fullText": "这是现实下的规律",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 3.119999999999976,
+          "renderEndTime": 169.11599999999999,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 165.616,
+        "words": [
+          {
+            "endTime": 165.846,
+            "startTime": 165.616,
+            "text": "这"
+          },
+          {
+            "endTime": 166.146,
+            "startTime": 165.846,
+            "text": "是"
+          },
+          {
+            "endTime": 166.436,
+            "startTime": 166.146,
+            "text": "现"
+          },
+          {
+            "endTime": 166.736,
+            "startTime": 166.436,
+            "text": "实"
+          },
+          {
+            "endTime": 167.026,
+            "startTime": 166.736,
+            "text": "下"
+          },
+          {
+            "endTime": 167.556,
+            "startTime": 167.026,
+            "text": "的"
+          },
+          {
+            "endTime": 167.896,
+            "startTime": 167.556,
+            "text": "规"
+          },
+          {
+            "endTime": 168.736,
+            "startTime": 167.896,
+            "text": "律"
+          }
+        ]
+      },
+      {
+        "endTime": 173.826,
+        "fullText": "来不及回到过去",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 5.090000000000003,
+          "renderEndTime": 174.206,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 168.736,
+        "words": [
+          {
+            "endTime": 169.026,
+            "startTime": 168.736,
+            "text": "来"
+          },
+          {
+            "endTime": 169.576,
+            "startTime": 169.026,
+            "text": "不"
+          },
+          {
+            "endTime": 170.206,
+            "startTime": 169.576,
+            "text": "及"
+          },
+          {
+            "endTime": 170.706,
+            "startTime": 170.206,
+            "text": "回"
+          },
+          {
+            "endTime": 171.016,
+            "startTime": 170.706,
+            "text": "到"
+          },
+          {
+            "endTime": 171.316,
+            "startTime": 171.016,
+            "text": "过"
+          },
+          {
+            "endTime": 173.826,
+            "startTime": 171.316,
+            "text": "去"
+          }
+        ]
+      }
+    ]
+  }
+}

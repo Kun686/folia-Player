@@ -140,7 +140,7 @@ private final class JointMemoryOwner {
     }
 
     // Measures rAF scheduling in the real renderer's WebContent process, not a substitute animation.
-    private var jointFrameProbe: String { #"""
+    var jointFrameProbe: String { #"""
     (() => {
       if (window.__foliaJoint) cancelAnimationFrame(window.__foliaJoint.id);
       const m = window.__foliaJoint = {deltas: [], last: null, count: 0, id: 0, hidden: 0};

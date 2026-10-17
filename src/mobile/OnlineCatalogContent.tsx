@@ -14,6 +14,7 @@ import SongList from './SongList';
 import CollectionQueueActions, { type EnqueueCollection } from './CollectionQueueActions';
 
 // OnlineCatalogContent.tsx — original Library Core resources, presented through mobile virtual lists.
+export type OnlineArtistTab = 'songs' | 'albums';
 export interface OnlineCatalogContentProps {
   collection: OnlineGridViewCollectionDescriptor;
   play(songs: SongResult[], index: number): void;
@@ -22,6 +23,8 @@ export interface OnlineCatalogContentProps {
   open(collection: OnlineGridViewCollectionDescriptor): void;
   busy: boolean;
   enqueue: EnqueueCollection;
+  artistTab: OnlineArtistTab;
+  setArtistTab(tab: OnlineArtistTab): void;
 }
 function Tracks({ songs, ...props }: OnlineCatalogContentProps & { songs: SongResult[] }) {
   const { t } = useTranslation();
@@ -43,7 +46,7 @@ function ArtistContent(props: OnlineCatalogContentProps) {
   const { t } = useTranslation(), { collection } = props;
   const resource = useRef<LibraryArtistResource | null>(null);
   const [state, setState] = useState<LibraryArtistSnapshot | null>(null);
-  const [tab, setTab] = useState<'songs' | 'albums'>('songs');
+  const { artistTab: tab, setArtistTab: setTab } = props;
   useEffect(() => {
     const current = createArtistResource(collectionKey(collection), collection, {
       ...createArtistResourceDeps(t), reportError: () => console.warn('[MobileCatalog] Artist request failed'),

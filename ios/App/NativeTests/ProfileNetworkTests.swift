@@ -52,7 +52,9 @@ final class ProfileHTTPProtocol: URLProtocol, @unchecked Sendable {
     }
     static func remove(_ url: URL) { lock.lock(); fixtures.removeValue(forKey: key(url)); lock.unlock() }
     override class func canInit(with request: URLRequest) -> Bool {
-        request.url?.host == "profile.invalid" || request.url?.host?.hasSuffix(".profile.invalid") == true
+        guard let url = request.url else { return false }
+        lock.lock(); let registered = fixtures[key(url)] != nil; lock.unlock()
+        return registered || url.host == "profile.invalid" || url.host?.hasSuffix(".profile.invalid") == true
     }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {

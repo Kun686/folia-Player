@@ -19,6 +19,8 @@ export type LatticePlaybackActions = {
     disabled?: boolean;
 };
 const PlaybackContext = createContext<PlayerControlSlotContext | null>(null);
+const PlaybackExtrasContext = createContext<ReactNode>(undefined);
+export const useLatticePlaybackExtras = () => useContext(PlaybackExtrasContext);
 export const useLatticePlaybackActions = () => {
     const context = useContext(PlaybackContext);
     if (!context) throw new Error('Lattice playback controls need their provider');
@@ -26,7 +28,8 @@ export const useLatticePlaybackActions = () => {
 };
 
 type Props = {
-    actions: LatticePlaybackActions;
+    actions?: LatticePlaybackActions;
+    extras?: ReactNode;
     currentSong: SongResult | null;
     queue: SongResult[];
     lyrics: LyricData | null;
@@ -37,9 +40,10 @@ type Props = {
     children: ReactNode;
 };
 
-export default function LatticePlaybackProvider({ actions, currentSong, queue, lyrics, currentTime, duration, onSeek, isDaylight, children }: Props) {
+export default function LatticePlaybackProvider({ actions, extras, currentSong, queue, lyrics, currentTime, duration, onSeek, isDaylight, children }: Props) {
     const [timelineOpen, setTimelineOpen] = useState(false);
-    const context = useMemo<PlayerControlSlotContext>(() => {
+    const context = useMemo<PlayerControlSlotContext | null>(() => {
+        if (!actions) return null;
         const neighbors = resolvePlaybackNeighbors({ playQueue: queue, currentSong, loopMode: actions.loopMode,
             isFmMode: actions.playback.isFmMode, isStageActive: Boolean(actions.isStageActive) });
         return {
@@ -60,11 +64,11 @@ export default function LatticePlaybackProvider({ actions, currentSong, queue, l
             canInvokeCommandById: actions.canInvokeCommandById,
         };
     }, [actions, currentSong, lyrics, queue]);
-    return <PlaybackContext.Provider value={context}>
+    return <PlaybackExtrasContext.Provider value={extras}><PlaybackContext.Provider value={context}>
         {children}
         {timelineOpen && createPortal(<Suspense fallback={null}>
             <LyricsTimelineModal isOpen onClose={() => setTimelineOpen(false)} lyrics={lyrics}
-                currentTime={currentTime} duration={duration} onSeek={onSeek} isDaylight={isDaylight} disabled={actions.disabled} />
+                currentTime={currentTime} duration={duration} onSeek={onSeek} isDaylight={isDaylight} disabled={actions?.disabled} />
         </Suspense>, document.body)}
-    </PlaybackContext.Provider>;
+    </PlaybackContext.Provider></PlaybackExtrasContext.Provider>;
 }

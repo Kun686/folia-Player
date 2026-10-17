@@ -1,5 +1,30 @@
 # 移动服务部署与回滚
 
+2026-10-15 当前正式 release 为 `20261015-qq-search-metadata`，仅QQ路由保留上游数值元数据以诊断偶发空搜索，
+不是已完成的搜索修复。候选与正式HTTPS各4次真实搜索通过，独立iPhone仍捕获一次业务成功但零总数的失败。
+backend／网易云容器保持；QQ镜像为`sha256:167af42cf04c867b3aa6c882e6dd8f6179fe38ef3e8ef24986298e9498428c71`。
+旧版镜像与`rollback-metadata/mobile.env`（0600）保留；具体证据和回滚见[QQ搜索状态记录](../../docs/mobile/QQ_SEARCH_STATUS.md)。
+
+最新恢复（2026-10-15）：空响应原样重放临时观察已结束；16次实际App搜索均50首，未触发重放，结果INCONCLUSIVE。
+QQ已恢复上述原镜像及入口，当前容器`89bc40cb87d9365727000f1771a117f765a70afd2b5cb1e2c42ec0463a174710`。
+正式env／current、QQ会话、backend／网易云容器保持，临时镜像删除；
+证据`/opt/folia-player/evidence/20261015-qq-search-exact-empty/`。这不是搜索修复上线。
+
+同日后续最多12次／8分钟的临时观察取得第11次Love的同次上游空响应，随即停止，未进行第12次。
+观察镜像已撤下并恢复上述原镜像／入口；该批QQ容器`7c506a3586ceb93464360113edba589892d267c1230438903c0734283dded0d7`。
+正式env／current、会话文件及backend／网易云容器保持，临时镜像删除；
+恢复证据`/opt/folia-player/evidence/20261015-qq-search-context-capture/restored.json`，搜索根因仍未确定。
+
+前序同日临时请求观察镜像已撤下，QQ已恢复上述原镜像和入口。正式env／current、会话文件及backend／网易云容器保持；
+收尾证据在`/opt/folia-player/evidence/20261015-qq-search-context/restored.json`。
+该观察的4次真实界面搜索均成功，不能覆盖此前空响应失败或视为稳定性通过。
+
+2026-10-14 上一正式 release 为 `20261014-online-likes`，在上一版目录网关上仅开放原网易云歌曲喜欢接口；
+保留七条目录只读接口，QQ／网易云容器及会话卷保持原状。镜像摘要、精确源码、真实账户证据和回滚步骤见
+[网易云真实歌曲喜欢上线记录](../../docs/mobile/LIVE_ONLINE_LIKES.md)。上一版见
+[两平台真实目录上线记录](../../docs/mobile/LIVE_ONLINE_CATALOG.md)。
+部署文件与当前工作区全量gateway并不等价；歌单编辑及其他未发布能力不能视为已上线。
+
 2026-10-10 已完成首台服务器的内部部署，当前只启用网易云和 QQ。
 2026-10-11 用户指定 `music.nb686.cn` 后，已配置独立 HTTPS 入口；此前仅内部部署的状态已更新。
 App 保持受信任 HTTPS 校验。

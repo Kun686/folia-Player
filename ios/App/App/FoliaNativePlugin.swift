@@ -9,7 +9,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = ["bootstrap", "configure", "health", "saveSession", "clearSession",
         "request", "cancelRequests", "startPersonalFM", "leavePersonalFM", "setQueue", "editQueue", "selectQueue", "command", "getState", "shareQR", "copyText", "shareLyricFile", "sharePlaylistFile",
         "localCatalog", "importAudio", "localDetails", "importLyrics", "pickLyricFile", "saveLocalLyrics", "readLocalLyrics", "selectLocalLyrics", "readLocalMatch", "writeLocalMatch", "readLocalLibrary", "editLocalLibrary", "removeLocal", "audioLevels",
-        "getAudioSettings", "setAudioSettings", "chooseAudioRoute", "getDisplaySleepSettings", "setDisplaySleepSettings", "getLyricSettings", "setLyricSettings", "getTransitionSettings", "setTransitionSettings", "getMediaCacheSettings", "setMediaCacheSettings",
+        "getAudioSettings", "setAudioSettings", "chooseAudioRoute", "setStatusBarHidden", "setInterfaceStyle", "getDisplaySleepSettings", "setDisplaySleepSettings", "getLyricSettings", "setLyricSettings", "getTransitionSettings", "setTransitionSettings", "getMediaCacheSettings", "setMediaCacheSettings",
         "mediaCacheState", "clearMediaCache", "songCover", "coverCacheState", "clearCoverCache",
         "readLyricCache", "writeLyricCache", "lyricCacheState", "clearLyricCache",
         "listExportLyrics", "readExportLyrics", "shareLyricArchive", "getSleepTimer", "setSleepTimer",
@@ -70,6 +70,25 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
     }
     @objc func bootstrap(_ call: CAPPluginCall) { run(call) {
         call.resolve(try self.gateway.credentials.snapshot().publicValues)
+    } }
+    @objc func setStatusBarHidden(_ call: CAPPluginCall) { run(call) {
+        guard let hidden = call.getBool("hidden"),
+              let controller = self.bridge?.viewController as? CAPBridgeViewController else {
+            throw MobileFailure("invalid-status-bar-request")
+        }
+        controller.setStatusBarVisible(!hidden)
+        call.resolve()
+    } }
+    @objc func setInterfaceStyle(_ call: CAPPluginCall) { run(call) {
+        guard let light = call.getBool("light"), let controller = self.bridge?.viewController else {
+            throw MobileFailure("invalid-interface-style")
+        }
+        let style: UIUserInterfaceStyle = light ? .light : .dark
+        // WebKit's native menus inherit UIKit traits, not the page's CSS color-scheme.
+        controller.overrideUserInterfaceStyle = style
+        controller.view.window?.overrideUserInterfaceStyle = style
+        self.bridge?.webView?.overrideUserInterfaceStyle = style
+        call.resolve()
     } }
     @objc func configure(_ call: CAPPluginCall) { run(call) {
         guard let token = call.getString("token"), let scope = call.getString("scope") else {
@@ -220,7 +239,7 @@ public class FoliaNativePlugin: CAPPlugin, CAPBridgedPlugin {
         let song = try PlaybackEngine.sanitizedSong(raw)
         Task { @MainActor in
             do {
-                let data = try await self.engine.songCover(song)
+                let data = try await self.engine.songCover(song, allowNetwork: !call.getBool("cachedOnly", false))
                 call.resolve(data.map { ["url": "data:image/jpeg;base64," + $0.base64EncodedString()] } ?? [:])
             } catch { call.reject((error as? MobileFailure)?.code ?? "cover-unavailable") }
         }

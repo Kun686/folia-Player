@@ -146,7 +146,7 @@
     },
     "AudioStreaming/Streaming/Audio Source/RemoteAudioSource.swift": {
       "upstreamSHA256": "9a196d4c43d739120669bade9e479f126e13b7d15b329b60465b31fe27f75574",
-      "vendoredSHA256": "9a196d4c43d739120669bade9e479f126e13b7d15b329b60465b31fe27f75574"
+      "vendoredSHA256": "69398ad0a1f34a3f4d7a8f607d93e0e02e876860457a77a598b1d107c79b1b21"
     },
     "AudioStreaming/Streaming/AudioPlayer/AudioPlayer.swift": {
       "upstreamSHA256": "c857fd7e6ed1309a7f2de0894b516025f5ab3308f52c781d0412d16afd87582a",
@@ -178,7 +178,7 @@
     },
     "AudioStreaming/Streaming/AudioPlayer/Processors/AudioFileStreamProcessor.swift": {
       "upstreamSHA256": "cb4bdd4d459f88205b951ca16b23c6eb603d070b21b32df294057dafa8c20a7c",
-      "vendoredSHA256": "e30ce49e5b36f743399341ca28a5605e2f8b61468785304d78eb326ab54c12b3"
+      "vendoredSHA256": "59fcba68457484f2593a14b50d66a61063e6b77aa45bd2ff4a75502fc69a8c71"
     },
     "AudioStreaming/Streaming/AudioPlayer/Processors/AudioPlayerRenderProcessor.swift": {
       "upstreamSHA256": "765529109d91e34a281320e7d0a82db60d0c934ad94f281a1adce5d0d547ddc8",

@@ -40,6 +40,7 @@ interface TemperaImageLayerDialogProps {
     onImportPool: (file: File, mode: 'replace' | 'append') => void;
     onExportPool: () => void;
     busy: TemperaPoolBusyAction;
+    commitError?: string | null;
 }
 
 /**
@@ -47,7 +48,7 @@ interface TemperaImageLayerDialogProps {
  * in miniature - it appends artwork the user picked, not rows of a backup - but it locks the
  * dialog all the same: both it and `importing` write the draft after their last await.
  */
-export type TemperaPoolBusyAction = 'idle' | 'adding' | 'exporting' | 'importing';
+export type TemperaPoolBusyAction = 'idle' | 'adding' | 'exporting' | 'importing' | 'saving';
 
 /**
  * What the footer says while a run is in flight. The count it replaces is the one thing in the
@@ -57,16 +58,18 @@ const BUSY_LABELS: Record<Exclude<TemperaPoolBusyAction, 'idle'>, { key: string;
     adding: { key: 'options.temperaPoolBusyAdd', fallback: '正在添加…' },
     exporting: { key: 'options.temperaPoolBusyExport', fallback: '正在导出…' },
     importing: { key: 'options.temperaPoolBusyImport', fallback: '正在导入…' },
+    saving: { key: 'options.temperaPoolBusySave', fallback: '正在保存…' },
 };
 
 /**
  * Whether the run in flight is one a close would corrupt. `exporting` is deliberately excluded:
  * it reads the draft and writes nothing, so the download landing or not leaves the pool intact.
  * `adding` and `importing` both touch the draft *after* their last await, so a close in between
- * commits the pre-run pool and strands the tail in a draft nobody is looking at.
+ * commits the pre-run pool and strands the tail in a draft nobody is looking at. `saving` waits
+ * for the removal transaction before the draft can become the live pool.
  */
 export const isTemperaPoolWriteLocked = (busy: TemperaPoolBusyAction): boolean => (
-    busy === 'adding' || busy === 'importing'
+    busy === 'adding' || busy === 'importing' || busy === 'saving'
 );
 
 interface ChipProps {
@@ -133,6 +136,7 @@ const TemperaImageLayerDialog: React.FC<TemperaImageLayerDialogProps> = ({
     onImportPool,
     onExportPool,
     busy,
+    commitError,
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const importInputRef = useRef<HTMLInputElement>(null);
@@ -177,6 +181,7 @@ const TemperaImageLayerDialog: React.FC<TemperaImageLayerDialogProps> = ({
 
     return createPortal((
         <ThemedDialog
+            overlayClassName="tempera-image-dialog"
             isOpen={isOpen}
             onClose={requestClose}
             closeDisabled={writeLocked}
@@ -201,6 +206,7 @@ const TemperaImageLayerDialog: React.FC<TemperaImageLayerDialogProps> = ({
             )}
             footer={(
                 <div className="flex w-full flex-wrap items-center gap-2">
+                    {commitError && <p role="alert" className="w-full text-sm" style={{ color: tokens.textPrimary }}>{commitError}</p>}
                     <PoolAction
                         label={t('options.temperaAddLayerImage') || '添加图片'}
                         icon={<ImagePlus size={14} />}
@@ -271,7 +277,7 @@ const TemperaImageLayerDialog: React.FC<TemperaImageLayerDialogProps> = ({
                 className="flex min-h-0 flex-col gap-4 rounded-2xl border border-dashed p-4"
                 style={{ borderColor: dragging ? tokens.textPrimary : 'transparent' }}
             >
-                <div className="max-h-[62vh] space-y-5 overflow-y-auto pr-1" style={temperaDialogTextVars(tokens)}>
+                <div data-tempera-pool-scroll className="max-h-[62vh] space-y-5 overflow-y-auto pr-1" style={temperaDialogTextVars(tokens)}>
                     <div
                         className="space-y-3 rounded-2xl border p-4"
                         style={{ borderColor: tokens.line, backgroundColor: tokens.surface }}

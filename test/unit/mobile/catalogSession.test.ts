@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createCatalogSession, type CatalogPort } from '../../../src/mobile/catalogSession';
 import type { ProviderCollection, ProviderPage, ProviderUser } from '../../../src/types/onlineMusic';
+import { OnlineProviderError } from '../../../src/types/onlineMusic';
 import type { UnifiedSong } from '../../../src/types';
 
 // catalogSession.test.ts — page boundaries, independently ordered work and account lifetime failures.
@@ -12,7 +13,8 @@ function deferred<T>() {
   const promise = new Promise<T>(done => { resolve = done; });
   return { promise, resolve };
 }
-function setup() {
+function setup(provider = 'qq') {
+  const connection = { current: true };
   const port = {
     api: { getLoginStatus: vi.fn().mockResolvedValue({ id: 9, nickname: 'account' }),
       getProviderUserPlaylists: vi.fn().mockResolvedValue(page([collection(1)])),
@@ -20,11 +22,110 @@ function setup() {
       searchProviderSongs: vi.fn().mockResolvedValue(page([song(2)])), logout: vi.fn().mockResolvedValue(undefined) },
     flush: vi.fn().mockResolvedValue(undefined), cancel: vi.fn().mockResolvedValue(undefined),
     clearSession: vi.fn().mockResolvedValue(undefined), clearAccount: vi.fn().mockResolvedValue(undefined),
+    captureConnection: vi.fn(() => () => connection.current),
+    captureCredentials: vi.fn(() => () => true),
   } satisfies CatalogPort;
-  const session = createCatalogSession('qq', port); session.start();
-  return { session, port };
+  const session = createCatalogSession(provider, port); session.start();
+  return { session, port, connection };
 }
 describe('mobile catalog session', () => {
+  it('returns to playlists without clearing the account or accepting a late track page', async () => {
+    const { session, port } = setup(); await session.refresh();
+    const old = deferred<ProviderPage<UnifiedSong>>(); port.api.getCollectionTracks.mockReturnValueOnce(old.promise);
+    const loading = session.load({ collection: collection(1) });
+    session.browseCollections();
+    expect(session.getSnapshot()).toMatchObject({ collection: null, searchQuery: null, songs: [], busy: false,
+      more: false, user: { id: 9 }, collections: [collection(1)] });
+    old.resolve(page([song(99)], 1, true)); await loading;
+    expect(session.getSnapshot()).toMatchObject({ songs: [], collection: null, more: false, busy: false });
+    await session.load(); expect(port.api.getCollectionTracks).toHaveBeenCalledTimes(1);
+    expect(port.cancel).not.toHaveBeenCalled(); expect(port.clearSession).not.toHaveBeenCalled();
+    await session.load({ collection: collection(1) }); expect(session.getSnapshot().songs).toEqual([song(1)]);
+  });
+  it('does not revive search errors after returning to playlists', async () => {
+    const { session, port } = setup(); let reject!: (error: Error) => void;
+    port.api.searchProviderSongs.mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
+    const loading = session.load({ query: 'Power' }); session.browseCollections();
+    reject(new OnlineProviderError('unavailable', 'safe', 'qq')); await loading;
+    expect(session.getSnapshot()).toMatchObject({ searchQuery: null, songs: [], busy: false, trackError: false, trackErrorCode: null });
+  });
+  describe('account resolution', () => {
+    it('starts unresolved before the first request and resolves independently of playlist loading', async () => {
+      const { session, port } = setup();
+      expect(session.getSnapshot()).toMatchObject({ accountChecked: false, user: null });
+      const account = deferred<ProviderUser>(), playlists = deferred<ProviderPage<ProviderCollection>>();
+      port.api.getLoginStatus.mockReturnValueOnce(account.promise);
+      port.api.getProviderUserPlaylists.mockReturnValueOnce(playlists.promise);
+      const pending = session.refresh();
+      expect(session.getSnapshot()).toMatchObject({ accountChecked: false, accountBusy: true });
+      account.resolve({ id: 9, nickname: 'account' });
+      await vi.waitFor(() => expect(port.api.getProviderUserPlaylists).toHaveBeenCalledOnce());
+      expect(session.getSnapshot()).toMatchObject({ accountChecked: true, user: { id: 9 }, accountBusy: true });
+      playlists.resolve(page([])); await pending;
+    });
+    it('distinguishes a confirmed anonymous account from an unchecked account', async () => {
+      const { session, port } = setup(); port.api.getLoginStatus.mockResolvedValueOnce(null);
+      await session.refresh();
+      expect(session.getSnapshot()).toMatchObject({ accountChecked: true, user: null, accountError: false });
+      expect(port.api.getProviderUserPlaylists).not.toHaveBeenCalled();
+    });
+    it('keeps a failed account read unresolved and permits a successful retry', async () => {
+      const { session, port } = setup(); port.api.getLoginStatus.mockRejectedValueOnce(Error('offline'));
+      await session.refresh();
+      expect(session.getSnapshot()).toMatchObject({ accountChecked: false, user: null, accountBusy: false, accountError: true });
+      await session.refresh();
+      expect(session.getSnapshot()).toMatchObject({ accountChecked: true, user: { id: 9 }, accountError: false });
+    });
+    it('does not confuse a playlist failure with an unconfirmed account', async () => {
+      const { session, port } = setup(); port.api.getProviderUserPlaylists.mockRejectedValueOnce(Error('offline'));
+      await session.refresh();
+      expect(session.getSnapshot()).toMatchObject({ accountChecked: true, user: { id: 9 }, accountError: true });
+    });
+    it('keeps the previous user during a refresh but rechecks anonymous state', async () => {
+      const { session, port } = setup(); await session.refresh();
+      port.api.getLoginStatus.mockRejectedValueOnce(Error('offline'));
+      await session.refresh();
+      expect(session.getSnapshot()).toMatchObject({ accountChecked: false, user: { id: 9 }, accountError: true });
+      port.api.getLoginStatus.mockResolvedValueOnce(null); await session.refresh();
+      const account = deferred<ProviderUser>(); port.api.getLoginStatus.mockReturnValueOnce(account.promise);
+      const pending = session.refresh();
+      expect(session.getSnapshot()).toMatchObject({ accountChecked: false, user: null, accountError: false });
+      account.resolve({ id: 10, nickname: 'new' }); await pending;
+    });
+    it('logout resolves to signed out and a late account response cannot change it', async () => {
+      const { session, port } = setup(); const account = deferred<ProviderUser>();
+      port.api.getLoginStatus.mockReturnValueOnce(account.promise);
+      const pending = session.refresh(); await session.logout();
+      account.resolve({ id: 9, nickname: 'old' }); await pending;
+      expect(session.getSnapshot()).toMatchObject({ accountChecked: true, user: null, loggingOut: false });
+      session.dispose(); session.start();
+      expect(session.getSnapshot()).toMatchObject({ accountChecked: false, user: null });
+    });
+  });
+  it.each(['unavailable', 'auth-required', 'invalid-response'] as const)('retains structured %s failure without clearing the account, then clears it on recovery', async code => {
+    const { session, port } = setup();
+    await session.refresh();
+    port.api.searchProviderSongs.mockRejectedValueOnce(new OnlineProviderError(code, 'safe', 'qq'))
+      .mockResolvedValueOnce(page([]));
+    await session.load({ query: 'Power' });
+    expect(session.getSnapshot()).toMatchObject({ trackError: true, trackErrorCode: code, user: { id: 9 } });
+    expect(port.clearSession).not.toHaveBeenCalled();
+    expect(port.api.logout).not.toHaveBeenCalled();
+    await session.load();
+    expect(session.getSnapshot()).toMatchObject({ trackError: false, trackErrorCode: null, songs: [] });
+  });
+  it('does not let a late classified failure replace a newer successful search', async () => {
+    const { session, port } = setup();
+    let reject!: (error: Error) => void;
+    port.api.searchProviderSongs.mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }))
+      .mockResolvedValueOnce(page([]));
+    const old = session.load({ query: 'Power' });
+    await session.load({ query: '小半' });
+    reject(new OnlineProviderError('unavailable', 'safe', 'qq')); await old;
+    expect(session.getSnapshot()).toMatchObject({ searchQuery: '小半', trackError: false, trackErrorCode: null });
+    await session.logout();
+    expect(session.getSnapshot()).toMatchObject({ trackError: false, trackErrorCode: null, user: null });
+  });
   it('retains the submitted search identity through paging and clears it for collections and logout', async () => {
     const { session, port } = setup();
     expect(session.getSnapshot().searchQuery).toBeNull();
@@ -116,6 +217,48 @@ describe('mobile catalog session', () => {
     expect(port.clearSession).toHaveBeenCalledOnce(); expect(port.clearAccount).toHaveBeenCalledOnce();
     expect(session.getSnapshot()).toMatchObject({ user: null, collections: [], songs: [], busy: false, loggingOut: false, logoutError: true });
     await session.logout(); expect(session.getSnapshot().logoutError).toBe(false);
+  });
+  it.each(['qq', 'netease'])('does not send an old %s logout or clear a replacement connection after cancellation waits', async provider => {
+    const { session, port, connection } = setup(provider);
+    const cancellation = deferred<void>(); port.cancel.mockReturnValueOnce(cancellation.promise);
+    const pending = session.logout();
+    connection.current = false; cancellation.resolve(); await pending;
+    expect(port.api.logout).not.toHaveBeenCalled();
+    expect(port.clearSession).not.toHaveBeenCalled(); expect(port.clearAccount).not.toHaveBeenCalled();
+    expect(session.getSnapshot()).toMatchObject({ loggingOut: false, logoutError: true });
+  });
+  it.each(['qq', 'netease'])('preserves the new connection after a pending %s logout response', async provider => {
+    const { session, port, connection } = setup(provider);
+    const reply = deferred<void>(); port.api.logout.mockReturnValueOnce(reply.promise);
+    const pending = session.logout();
+    await vi.waitFor(() => expect(port.api.logout).toHaveBeenCalledExactlyOnceWith(provider));
+    connection.current = false; reply.resolve(); await pending;
+    expect(port.clearSession).not.toHaveBeenCalled(); expect(port.clearAccount).not.toHaveBeenCalled();
+    expect(session.getSnapshot()).toMatchObject({ loggingOut: false, logoutError: true });
+  });
+  it.each(['qq', 'netease'])('does not clear %s when its remote logout was invalidated by a newer session', async provider => {
+    const { session, port } = setup(provider);
+    port.api.logout.mockRejectedValueOnce(new DOMException('Canceled', 'AbortError'));
+    await session.logout();
+    expect(port.clearSession).not.toHaveBeenCalled(); expect(port.clearAccount).not.toHaveBeenCalled();
+    expect(session.getSnapshot()).toMatchObject({ loggingOut: false, logoutError: true });
+    await session.logout();
+    expect(port.clearSession).toHaveBeenCalledOnce(); expect(port.clearAccount).toHaveBeenCalledOnce();
+    expect(session.getSnapshot().logoutError).toBe(false);
+  });
+  it.each(['qq', 'netease'])('still clears %s locally after an ordinary remote logout failure', async provider => {
+    const { session, port } = setup(provider);
+    port.api.logout.mockRejectedValueOnce(Error('offline'));
+    await session.logout();
+    expect(port.clearSession).toHaveBeenCalledOnce(); expect(port.clearAccount).toHaveBeenCalledOnce();
+    expect(session.getSnapshot()).toMatchObject({ loggingOut: false, logoutError: true });
+  });
+  it('does not start logout against a connection already being replaced', async () => {
+    const { session, port, connection } = setup(); connection.current = false;
+    await session.logout();
+    expect(port.cancel).not.toHaveBeenCalled(); expect(port.api.logout).not.toHaveBeenCalled();
+    expect(port.clearSession).not.toHaveBeenCalled(); expect(port.clearAccount).not.toHaveBeenCalled();
+    expect(session.getSnapshot()).toMatchObject({ loggingOut: false, logoutError: true });
   });
   it('a disposed provider cannot publish, and effect restart rejects its old results', async () => {
     const { session, port } = setup(); const account = deferred<ProviderUser>(); const listener = vi.fn();

@@ -37,6 +37,46 @@ describe('mobile secure runtime', () => {
     const last = runtime.captureProviderSession('qq'); await runtime.clearProvider('qq'); expect(last()).toBe(false);
     await runtime.flushSessions();
   });
+  it('keeps a logout connection guard across provider cancellation but rejects a pending or replaced gateway', async () => {
+    const runtime = await import('../../../src/mobile/runtime');
+    await runtime.initializeRuntime();
+    const current = runtime.captureGatewayConnection();
+    await runtime.cancelProvider('qq'); expect(current()).toBe(true);
+    let complete!: (value: unknown) => void;
+    native.configure.mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+    const configuring = runtime.configureGateway('https://new.example', 'new-token');
+    expect(current()).toBe(false);
+    await vi.waitFor(() => expect(complete).toBeTypeOf('function'));
+    complete({ server: 'https://new.example', scope: 'next', sessions: {} }); await configuring;
+    expect(current()).toBe(false); expect(runtime.captureGatewayConnection()()).toBe(true);
+  });
+  it.each([200, 401])('a pending QQ logout (%s) preserves a newer account through the real adapter and transport', async status => {
+    native.bootstrap.mockResolvedValue({ server: 'https://music.example.com', scope: 'original', sessions: { qq: { cookie: 'qqmusic_session=old' } } });
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    const { qqProvider } = await import('../../../src/services/onlineMusic/qqProvider');
+    await runtime.initializeRuntime(); const port = getMobileRuntime()!;
+    let complete!: (value: unknown) => void;
+    native.request.mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+    const pending = qqProvider.auth!.logout().catch(error => error);
+    await vi.waitFor(() => expect(complete).toBeTypeOf('function'));
+    port.write('qq', 'cookie', 'qqmusic_session=replacement');
+    complete({ status, body: JSON.stringify({ code: status }), headers: {} });
+    expect(await pending).toMatchObject({ name: 'AbortError' }); await runtime.flushSessions();
+    expect(port.read('qq', 'cookie')).toBe('qqmusic_session=replacement');
+    expect(native.saveSession.mock.calls.map(([args]) => args.values)).toEqual([{ cookie: 'qqmusic_session=replacement' }]);
+  });
+  it.each([200, 401, 502])('still removes the current QQ account on logout status %s', async status => {
+    native.bootstrap.mockResolvedValue({ server: 'https://music.example.com', scope: 'original', sessions: { qq: { cookie: 'qqmusic_session=current' } } });
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    const { qqProvider } = await import('../../../src/services/onlineMusic/qqProvider');
+    await runtime.initializeRuntime();
+    native.request.mockResolvedValue({ status, body: JSON.stringify({ code: status }), headers: {} });
+    await qqProvider.auth!.logout(); await runtime.flushSessions();
+    expect(getMobileRuntime()!.read('qq', 'cookie')).toBeNull();
+    expect(native.saveSession.mock.calls.at(-1)?.[0].values).toEqual({});
+  });
   it('rejects a response that arrives after logout even if native cancellation races', async () => {
     const runtime = await import('../../../src/mobile/runtime');
     const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
@@ -78,6 +118,77 @@ describe('mobile secure runtime', () => {
     await response; await runtime.flushSessions();
     expect(port.read('qq', 'cookie')).toBe('qqmusic_session=new');
     expect(native.saveSession.mock.calls.map(([args]) => args.values)).toEqual([{ cookie: 'qqmusic_session=new' }]);
+  });
+  it.each([401, 803].flatMap(code => ['replace', 'cancel', 'replace-back', 'logout'].map(action => ({ code, action }))))(
+    'rejects a QQ response ($code, $action) superseded during body consumption', async ({ code, action }) => {
+    native.bootstrap.mockResolvedValue({ server: 'https://music.example.com', scope: 'original', sessions: { qq: { cookie: 'qqmusic_session=old' } } });
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    const { requestQq } = await import('../../../src/services/onlineMusic/qqTransport');
+    await runtime.initializeRuntime(); const port = getMobileRuntime()!;
+    native.request.mockResolvedValueOnce({ status: code === 401 ? 401 : 200, headers: {}, body: JSON.stringify({ code, cookie: 'qqmusic_session=late' }) });
+    let reading!: () => void, finish!: () => void;
+    const started = new Promise<void>(resolve => { reading = resolve; });
+    const released = new Promise<void>(resolve => { finish = resolve; });
+    const parse = Response.prototype.json;
+    const body = vi.spyOn(Response.prototype, 'json').mockImplementationOnce(async function (this: Response) {
+      reading(); await released; return parse.call(this);
+    });
+    try {
+      const response = requestQq(code === 803 ? 'login_qr_check' : 'login_status', { key: 'old-qr' }).catch(error => error);
+      await started;
+      if (action === 'cancel') await runtime.cancelProvider('qq');
+      else if (action === 'logout') await runtime.clearProvider('qq');
+      else {
+        port.write('qq', 'cookie', 'qqmusic_session=new');
+        if (action === 'replace-back') port.write('qq', 'cookie', 'qqmusic_session=old');
+      }
+      const expected = port.read('qq', 'cookie');
+      await runtime.flushSessions();
+      const writes = native.saveSession.mock.calls.map(([args]) => args.values);
+      finish(); const result = await response; await runtime.flushSessions();
+      expect(port.read('qq', 'cookie')).toBe(expected);
+      expect(native.saveSession.mock.calls.map(([args]) => args.values)).toEqual(writes);
+      expect(result).toMatchObject({ name: 'AbortError' });
+    } finally { finish(); body.mockRestore(); }
+  });
+  it.each([401, 803])('keeps a current QQ response (%s) during body consumption when unrelated state changes', async code => {
+    native.bootstrap.mockResolvedValue({ server: 'https://music.example.com', scope: 'original', sessions: { qq: { cookie: 'qqmusic_session=old' } } });
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    const { requestQq } = await import('../../../src/services/onlineMusic/qqTransport');
+    await runtime.initializeRuntime(); const port = getMobileRuntime()!;
+    native.request.mockResolvedValueOnce({ status: code === 401 ? 401 : 200, headers: {}, body: JSON.stringify({ code, cookie: 'qqmusic_session=confirmed' }) });
+    const parse = Response.prototype.json;
+    const body = vi.spyOn(Response.prototype, 'json').mockImplementationOnce(async function (this: Response) {
+      port.write('netease', 'cookie', 'other-account');
+      port.write('qq', 'cookie', 'qqmusic_session=old');
+      return parse.call(this);
+    });
+    try {
+      const result = await requestQq(code === 803 ? 'login_qr_check' : 'login_status').catch(error => error);
+      await runtime.flushSessions();
+      if (code === 401) expect(result).toMatchObject({ code: 'auth-required', httpStatus: 401 });
+      else expect(result).toMatchObject({ code: 803 });
+      expect(port.read('qq', 'cookie')).toBe(code === 401 ? null : 'qqmusic_session=confirmed');
+      expect(port.read('netease', 'cookie')).toBe('other-account');
+    } finally { body.mockRestore(); }
+  });
+  it('does not let the QQ adapter recommit a cookie after the transport saved it', async () => {
+    native.bootstrap.mockResolvedValue({ server: 'https://music.example.com', scope: 'original', sessions: {} });
+    const runtime = await import('../../../src/mobile/runtime');
+    const { getMobileRuntime } = await import('../../../src/services/mobileRuntime');
+    const { qqProvider } = await import('../../../src/services/onlineMusic/qqProvider');
+    await runtime.initializeRuntime(); const port = getMobileRuntime()!;
+    native.request.mockResolvedValueOnce({ status: 200, headers: {}, body: JSON.stringify({ code: 803, cookie: 'qqmusic_session=confirmed' }) });
+    // A replacement queued after the transport commit must win over the adapter's later continuation.
+    native.saveSession.mockImplementationOnce(async () => { port.write('qq', 'cookie', 'qqmusic_session=replacement'); });
+    await expect(qqProvider.auth!.checkQr!('qr-key')).resolves.toEqual({ state: 'confirmed' });
+    await runtime.flushSessions();
+    expect(port.read('qq', 'cookie')).toBe('qqmusic_session=replacement');
+    expect(native.saveSession.mock.calls.map(([args]) => args.values)).toEqual([
+      { cookie: 'qqmusic_session=confirmed' }, { cookie: 'qqmusic_session=replacement' },
+    ]);
   });
   it.each(['qq', 'netease'])('keeps valid %s responses when only another platform changes or the same cookie is saved', async provider => {
     const runtime = await import('../../../src/mobile/runtime');

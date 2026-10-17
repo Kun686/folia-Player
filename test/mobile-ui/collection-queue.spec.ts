@@ -25,6 +25,57 @@ async function playlistFixture(page: Page) {
 }
 async function openPlaylist(page: Page) { await page.getByRole('button', { name: '搜索回归歌单', exact: true }).tap(); }
 
+test('playlist paging stays reachable above the mini-player with phone safe areas', async ({ page }, info) => {
+  await playlistFixture(page);
+  await page.locator('.mobile-app').evaluate(element => {
+    (element as HTMLElement).style.setProperty('--safe-top', '62px');
+    (element as HTMLElement).style.setProperty('--safe-bottom', '34px');
+  });
+  await openPlaylist(page);
+  const more = page.getByRole('button', { name: '加载更多', exact: true });
+  await expect(more).toBeVisible();
+  const bounds = (await more.boundingBox())!, mini = (await page.locator('.mini-player').boundingBox())!;
+  expect(bounds.height).toBeGreaterThanOrEqual(44);
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(mini.y - 8);
+  expect(await more.evaluate(element => {
+    const b = element.getBoundingClientRect(), hit = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
+    return hit === element || element.contains(hit);
+  })).toBe(true);
+  await more.tap(); await expect(page.getByText('当前范围 51 首', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => (window as any).collectionPages)).toEqual([0, 50]);
+  expect(await identities(page)).toEqual(['qq-101', '100']);
+  await page.screenshot({ path: info.outputPath('playlist-pagination.png') });
+});
+
+test('landscape online library exposes paging and its first song above the mini-player', async ({ page }, info) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await playlistFixture(page);
+  await page.locator('.mobile-app').evaluate(element => {
+    const style = (element as HTMLElement).style;
+    style.setProperty('--safe-left', '44px'); style.setProperty('--safe-right', '44px'); style.setProperty('--safe-bottom', '21px');
+  });
+  await openPlaylist(page);
+  const more = page.getByRole('button', { name: '加载更多', exact: true });
+  const first = page.getByRole('button', { name: '播放 范围歌曲200', exact: true });
+  const mini = (await page.locator('.mini-player').boundingBox())!;
+  for (const control of [more, first]) {
+    await expect(control).toBeVisible();
+    const bounds = (await control.boundingBox())!;
+    expect(bounds.height).toBeGreaterThanOrEqual(44);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(mini.y);
+    expect(await control.evaluate(element => {
+      const b = element.getBoundingClientRect(), hit = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
+      return hit === element || element.contains(hit);
+    })).toBe(true);
+  }
+  await more.tap(); await expect(page.getByText('当前范围 51 首', { exact: true })).toBeVisible();
+  expect(await identities(page)).toEqual(['qq-101', '100']);
+  await page.screenshot({ path: info.outputPath('playlist-landscape.png') });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(first).toBeVisible();
+  expect(await page.locator('.library-panel').evaluate(element => getComputedStyle(element).display)).toBe('flex');
+});
+
 test('local filtering and sorting enqueue only the displayed scope, preserve playback and remain touchable after rotation', async ({ page }, info) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await searchPlaybackFixture(page);

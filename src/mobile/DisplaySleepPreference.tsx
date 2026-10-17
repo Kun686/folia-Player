@@ -14,11 +14,11 @@ export default function DisplaySleepPreference() {
     if (isNative) return connectDisplaySleepSettings((ready, error) => setStatus({ ready, error }));
   }, [attempt]);
   return <section className="mobile-preference display-sleep-preference">
-    <label className="check-label"><input type="checkbox" checked={enabled} disabled={!status.ready}
+    <label className="preference-row"><span>{t('mobile.keepScreenAwake')}</span><input className="preference-switch" type="checkbox" role="switch" checked={enabled} disabled={!status.ready}
       aria-describedby="display-sleep-hint" onChange={event => {
         try { useDesktopSettingsStore.getState().handleTogglePreventDisplaySleepDuringPlayback(event.target.checked); setLocalError(false); }
         catch { setLocalError(true); }
-      }} />{t('options.preventDisplaySleepDuringPlayback')}</label>
+      }} /></label>
     <p className="muted" id="display-sleep-hint">{t('mobile.displaySleepHint')}</p>
     {(status.error || localError) && <p role="alert">{t('mobile.error')}</p>}
     {!status.ready && status.error && <button onClick={() => setAttempt(value => value + 1)}>{t('mobile.retry')}</button>}

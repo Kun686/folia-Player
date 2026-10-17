@@ -521,14 +521,15 @@ export const compressConfig = (config: any): string => {
     if (config.lyricsFontStyle) minified.lfs = config.lyricsFontStyle;
     if (config.lyricsFontScale !== undefined) minified.lfn = config.lyricsFontScale;
     if (config.lyricsFontWeight !== undefined) minified.lfw = config.lyricsFontWeight;
-    if (config.lyricsFontFallbackFamilies?.length) minified.lff = config.lyricsFontFallbackFamilies;
+    // An explicit empty stack must clear an older stack when importing a reset configuration.
+    if (Array.isArray(config.lyricsFontFallbackFamilies)) minified.lff = config.lyricsFontFallbackFamilies;
     if (config.lyricsCustomFontFamily) minified.lcf = config.lyricsCustomFontFamily;
     if (config.subtitleFontInheritsLyrics !== undefined) minified.sfi = config.subtitleFontInheritsLyrics;
     if (config.subtitleFontScale !== undefined) minified.sfsz = config.subtitleFontScale;
     if (config.subtitleFontStyle) minified.sfs = config.subtitleFontStyle;
     if (config.subtitleFontWeight !== undefined) minified.sfw = config.subtitleFontWeight;
     if (config.subtitleFontFamily) minified.sff = config.subtitleFontFamily;
-    if (config.subtitleFontFallbackFamilies?.length) minified.sfff = config.subtitleFontFallbackFamilies;
+    if (Array.isArray(config.subtitleFontFallbackFamilies)) minified.sfff = config.subtitleFontFallbackFamilies;
 
     if (config.visualizerTunings) minified.vt = config.visualizerTunings;
     if (config.classicTuning) minified.ct = compressClassic(config.classicTuning);

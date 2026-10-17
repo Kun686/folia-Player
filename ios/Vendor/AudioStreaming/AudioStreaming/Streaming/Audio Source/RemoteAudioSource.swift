@@ -29,6 +29,9 @@ public class RemoteAudioSource: AudioStreamSource {
     private let httpBody: Data?
     private let networkingClient: NetworkingClient
     private var streamRequest: NetworkDataStream?
+    // Folia: header probes belong to the same seek lifetime as the media stream.
+    private var headerRequest: NetworkDataStream?
+    private var requestGeneration: UInt64 = 0
 
     private var additionalRequestHeaders: [String: String]
 
@@ -138,6 +141,8 @@ public class RemoteAudioSource: AudioStreamSource {
     }
 
     public func close() {
+        requestGeneration &+= 1
+        waitingForNetwork = false
         retrierTimeout.cancel()
         streamOperationQueue.isSuspended = false
         streamOperationQueue.cancelAllOperations()
@@ -146,6 +151,11 @@ public class RemoteAudioSource: AudioStreamSource {
             networkingClient.remove(task: streamTask)
         }
         streamRequest = nil
+        if let task = headerRequest {
+            task.cancel()
+            networkingClient.remove(task: task)
+        }
+        headerRequest = nil
     }
 
     public func seek(at offset: Int) {
@@ -180,10 +190,9 @@ public class RemoteAudioSource: AudioStreamSource {
     private func startNetworkService() {
         netStatusService.start { [weak self] connection in
             guard let self = self else { return }
-            guard connection.isConnected else { return }
-            if self.waitingForNetwork {
+            self.underlyingQueue.async { [weak self] in
+                guard let self, connection.isConnected, self.waitingForNetwork else { return }
                 self.seek(at: self.supportsSeek ? self.position : 0)
-                self.waitingForNetwork = false
             }
         }
     }
@@ -210,10 +219,14 @@ public class RemoteAudioSource: AudioStreamSource {
 
     private func doPerfomOpen(seek seekOffset: Int) {
         let urlRequest = buildUrlRequest(with: url, seekIfNeeded: seekOffset)
+        let generation = requestGeneration
         streamRequest = networkingClient.stream(request: urlRequest)
             .responseStream { [weak self] event in
                 guard let self = self else { return }
-                self.handleResponse(event: event)
+                self.underlyingQueue.async { [weak self] in
+                    guard let self, self.requestGeneration == generation else { return }
+                    self.handleResponse(event: event)
+                }
             }
             .resume()
 
@@ -223,34 +236,54 @@ public class RemoteAudioSource: AudioStreamSource {
     private func initialRequest(completion: @escaping () -> Void) {
         let urlRequest = fetchUrlForPartialContent(with: url)
         let task: NetworkDataStream = networkingClient.stream(request: urlRequest)
-        task.responseStream { [weak self] event in
-            switch event {
-            case let .response(urlResponse):
-                self?.parseResponseHeader(response: urlResponse)
-                task.cancel()
-                completion()
-            default:
-                break
+        let generation = requestGeneration
+        headerRequest = task
+        task.responseStream { [weak self, weak task] event in
+            guard let self else { return }
+            self.underlyingQueue.async { [weak self, weak task] in
+                guard let self, let task, self.requestGeneration == generation,
+                      self.headerRequest === task else { return }
+                switch event {
+                case let .response(urlResponse):
+                    task.cancel()
+                    self.networkingClient.remove(task: task)
+                    self.headerRequest = nil
+                    self.parseResponseHeader(response: urlResponse)
+                    guard self.requestGeneration == generation,
+                          let response = urlResponse, (200..<300).contains(response.statusCode) else { return }
+                    completion()
+                case let .stream(.failure(error)):
+                    task.cancel()
+                    self.networkingClient.remove(task: task)
+                    self.headerRequest = nil
+                    self.handleFailedStreamEvent(error: error)
+                default:
+                    break
+                }
             }
         }.resume()
     }
 
     private func handleMp4Files() {
+        let generation = requestGeneration
         mp4Restructure.optimizeIfNeeded { [weak self] result in
             guard let self else { return }
-            switch result {
-            case let .success(value):
-                if let value {
-                    self.addStreamOperation {
-                        let audioCount = self.processAudio(data: value.initialData)
-                        self.relativePosition += audioCount
+            self.underlyingQueue.async { [weak self] in
+                guard let self, self.requestGeneration == generation else { return }
+                switch result {
+                case let .success(value):
+                    if let value {
+                        self.addStreamOperation {
+                            let audioCount = self.processAudio(data: value.initialData)
+                            self.relativePosition += audioCount
+                        }
+                        self.doPerfomOpen(seek: value.mdatOffset)
+                    } else {
+                        self.doPerfomOpen(seek: 0)
                     }
-                    self.doPerfomOpen(seek: value.mdatOffset)
-                } else {
-                    self.doPerfomOpen(seek: 0)
+                case let .failure(failure):
+                    self.delegate?.errorOccurred(source: self, error: failure)
                 }
-            case let .failure(failure):
-                self.delegate?.errorOccurred(source: self, error: failure)
             }
         }
     }
@@ -405,9 +438,13 @@ public class RemoteAudioSource: AudioStreamSource {
     }
 
     private func retryOnError() {
+        let generation = requestGeneration
         retrierTimeout.retry { [weak self] in
             guard let self = self else { return }
-            self.seek(at: self.supportsSeek ? self.position : 0)
+            self.underlyingQueue.async { [weak self] in
+                guard let self, self.requestGeneration == generation else { return }
+                self.seek(at: self.supportsSeek ? self.position : 0)
+            }
         }
     }
 
@@ -417,7 +454,11 @@ public class RemoteAudioSource: AudioStreamSource {
     ///
     /// - Parameter block: A closure to be executed
     private func addStreamOperation(_ block: @escaping () -> Void) {
-        let operation = BlockOperation(block: block)
+        let generation = requestGeneration
+        let operation = BlockOperation { [weak self] in
+            guard let self, self.requestGeneration == generation else { return }
+            block()
+        }
         operation.qualityOfService = .userInitiated
         streamOperationQueue.addOperation(operation)
     }
@@ -426,7 +467,11 @@ public class RemoteAudioSource: AudioStreamSource {
     ///
     /// - Parameter block: A closure to be executed
     private func addCompletionOperation(_ block: @escaping () -> Void) {
-        let operation = BlockOperation(block: block)
+        let generation = requestGeneration
+        let operation = BlockOperation { [weak self] in
+            guard let self, self.requestGeneration == generation else { return }
+            block()
+        }
         operation.queuePriority = .veryLow
         streamOperationQueue.addOperation(operation)
     }

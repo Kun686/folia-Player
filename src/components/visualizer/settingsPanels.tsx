@@ -462,6 +462,8 @@ export const CappellaSettingsPanel: React.FC<VisualizerSettingsPanelProps> = ({
     const [feedback, setFeedback] = useState<string | null>(null);
     const [isImporting, setIsImporting] = useState(false);
     const [isImportingAvatar, setIsImportingAvatar] = useState(false);
+    const [isClearing, setIsClearing] = useState(false);
+    const [isClearingAvatar, setIsClearingAvatar] = useState(false);
     const resolvedTuning = resolveCappellaTuning(cappellaTuning, hasCappellaCustomEmojiPack);
     const emojiSourceOptions: PresetOption<CappellaTuning['emojiPackSource']>[] = useMemo(() => ([
         { value: 'builtin', label: t('options.cappellaEmojiSourceBuiltin')  },
@@ -495,6 +497,8 @@ export const CappellaSettingsPanel: React.FC<VisualizerSettingsPanelProps> = ({
             } else {
                 setFeedback(result.error || t('options.cappellaEmojiImportFailed'));
             }
+        } catch {
+            setFeedback(t('options.imageAssetSaveFailed'));
         } finally {
             setIsImporting(false);
         }
@@ -506,8 +510,15 @@ export const CappellaSettingsPanel: React.FC<VisualizerSettingsPanelProps> = ({
         }
 
         setFeedback(null);
-        await onClearCappellaCustomEmojiPack();
-        setFeedback(t('options.cappellaEmojiCleared'));
+        setIsClearing(true);
+        try {
+            await onClearCappellaCustomEmojiPack();
+            setFeedback(t('options.cappellaEmojiCleared'));
+        } catch {
+            setFeedback(t('options.imageAssetClearFailed'));
+        } finally {
+            setIsClearing(false);
+        }
     };
 
     const handleAvatarImportClick = () => {
@@ -531,6 +542,8 @@ export const CappellaSettingsPanel: React.FC<VisualizerSettingsPanelProps> = ({
             } else {
                 setFeedback(result.error || t('options.cappellaAvatarImportFailed'));
             }
+        } catch {
+            setFeedback(t('options.imageAssetSaveFailed'));
         } finally {
             setIsImportingAvatar(false);
         }
@@ -542,8 +555,15 @@ export const CappellaSettingsPanel: React.FC<VisualizerSettingsPanelProps> = ({
         }
 
         setFeedback(null);
-        await onClearCappellaCustomAvatar();
-        setFeedback(t('options.cappellaAvatarCleared'));
+        setIsClearingAvatar(true);
+        try {
+            await onClearCappellaCustomAvatar();
+            setFeedback(t('options.cappellaAvatarCleared'));
+        } catch {
+            setFeedback(t('options.imageAssetClearFailed'));
+        } finally {
+            setIsClearingAvatar(false);
+        }
     };
 
     const avatarPreviewSlots = cappellaCustomAvatarImages.length > 0
@@ -649,7 +669,7 @@ export const CappellaSettingsPanel: React.FC<VisualizerSettingsPanelProps> = ({
                     <button
                         type="button"
                         onClick={handleAvatarImportClick}
-                        disabled={isImportingAvatar || isCappellaCustomAvatarLoading}
+                        disabled={isImportingAvatar || isClearingAvatar || isCappellaCustomAvatarLoading}
                         className="px-3 py-2 rounded-full text-sm transition-all border disabled:cursor-not-allowed disabled:opacity-50"
                         style={{
                             color: 'var(--text-primary)',
@@ -664,7 +684,7 @@ export const CappellaSettingsPanel: React.FC<VisualizerSettingsPanelProps> = ({
                     <button
                         type="button"
                         onClick={() => void handleClearCustomAvatar()}
-                        disabled={!hasCappellaCustomAvatar || isImportingAvatar || isCappellaCustomAvatarLoading}
+                        disabled={!hasCappellaCustomAvatar || isImportingAvatar || isClearingAvatar || isCappellaCustomAvatarLoading}
                         className="px-3 py-2 rounded-full text-sm transition-all border disabled:cursor-not-allowed disabled:opacity-50"
                         style={{
                             color: 'var(--text-primary)',
@@ -757,7 +777,7 @@ export const CappellaSettingsPanel: React.FC<VisualizerSettingsPanelProps> = ({
                 <button
                     type="button"
                     onClick={handleImportClick}
-                    disabled={isImporting || isCappellaCustomEmojiPackLoading}
+                    disabled={isImporting || isClearing || isCappellaCustomEmojiPackLoading}
                     className="px-3 py-2 rounded-full text-sm transition-all border disabled:cursor-not-allowed disabled:opacity-50"
                     style={{
                         color: 'var(--text-primary)',
@@ -772,7 +792,7 @@ export const CappellaSettingsPanel: React.FC<VisualizerSettingsPanelProps> = ({
                 <button
                     type="button"
                     onClick={() => void handleClearCustomPack()}
-                    disabled={!hasCappellaCustomEmojiPack || isImporting || isCappellaCustomEmojiPackLoading}
+                    disabled={!hasCappellaCustomEmojiPack || isImporting || isClearing || isCappellaCustomEmojiPackLoading}
                     className="px-3 py-2 rounded-full text-sm transition-all border disabled:cursor-not-allowed disabled:opacity-50"
                     style={{
                         color: 'var(--text-primary)',

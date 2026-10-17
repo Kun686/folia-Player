@@ -1,3 +1,4 @@
+import { revealMusicFeatures } from './music-features-navigation';
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 import { catalogFixture, queueQqSong } from './online-catalog-fixture';
@@ -48,7 +49,7 @@ test('daily and historical recommendations enqueue the displayed day without rep
   await page.getByRole('button', { name: '重新生成二维码', exact: true }).tap();
   await expect(page.getByText('已登录', { exact: true })).toBeVisible({ timeout: 10000 });
   await page.getByRole('dialog', { name: '扫码登录', exact: true }).getByRole('button', { name: '关闭', exact: true }).tap();
-  await seedSearchQueue(page); await page.getByRole('button', { name: '每日推荐', exact: true }).tap();
+  await seedSearchQueue(page); await revealMusicFeatures(page); await page.getByRole('button', { name: '每日推荐', exact: true }).tap();
   const sheet = page.getByRole('dialog', { name: '每日推荐', exact: true });
   await button(page).tap(); await expect(sheet.getByText('已将 2 首歌曲加入播放队列', { exact: true })).toBeVisible();
   expect(await ids(page)).toEqual(['qq-101', '100', '101', '102']);

@@ -4,19 +4,60 @@
 .sheet.sheet-pinned { padding: 0; min-height: 0; overflow: hidden; }
 /* Do not override the browser's display:none for a closed native dialog. */
 .sheet-pinned:not(dialog), dialog.sheet-pinned[open] { display: flex; flex-direction: column; }
-.sheet.sheet-pinned > header { flex: none; margin: 0; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.sheet.sheet-pinned > header { flex: none; margin: 0; padding: 12px var(--mobile-inset); border-bottom: 1px solid var(--border); }
 .sheet-pinned > header h2 { min-width: 0; overflow-wrap: anywhere; }
 .sheet-pinned > header button { flex: none; }
-.sheet-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 20px 24px; scroll-padding-block: 16px; touch-action: pan-y; }
-.settings-sheet .sheet-body { padding: 16px; }
-.settings-group { padding: 16px; margin-bottom: 16px; border: 1px solid var(--border); border-radius: 18px; background: color-mix(in srgb, var(--raised) 28%, var(--bg)); }
-.settings-group h3 { margin: 0 0 16px; font-size: 15px; font-weight: 650; line-height: 1.4; }
+.sheet-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px var(--mobile-inset) 20px; scroll-padding-block: 16px; touch-action: pan-y; }
+.settings-sheet .sheet-body { padding: var(--mobile-inset); }
+.settings-group { padding: var(--mobile-card-inset); margin-bottom: 16px; border: 1px solid var(--border); border-radius: var(--mobile-card-radius); background: color-mix(in srgb, var(--raised) 28%, var(--bg)); }
+.settings-group h3 { margin: 0 0 12px; font-size: var(--mobile-body); font-weight: 650; line-height: 1.4; }
 .settings-group > :last-child { margin-bottom: 0; }
 .settings-group > .mobile-preference { margin-block: 16px; }
 .settings-sheet .settings-group label { margin-block: 16px; }
 .settings-sheet .settings-group p { color: var(--muted); overflow-wrap: anywhere; }
 .settings-group .settings-link { display: block; width: 100%; margin-top: 8px; text-align: start; }
+.settings-group .settings-link { padding-right: 36px; position: relative; }
+.settings-group .settings-link::after { content: ''; position: absolute; right: 18px; top: 50%; width: 7px; height: 7px; border-top: 1.5px solid var(--muted); border-right: 1.5px solid var(--muted); transform: translateY(-50%) rotate(45deg); }
+.playback-view-preference { display: grid; gap: 12px; margin-bottom: 20px; }
+.playback-view-preference > span { font-size: var(--mobile-caption); color: var(--muted); }
+.playback-view-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.mobile-app .playback-view-options button { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 16px; min-height: 84px; min-width: 0; border-radius: var(--mobile-control-radius); border: 1px solid var(--border); background: var(--raised); color: var(--text); font-size: var(--mobile-body); text-align: start; touch-action: manipulation; }
+.mobile-app .playback-view-options button[aria-pressed=true] { color: var(--text); border-color: color-mix(in srgb, var(--text) 50%, transparent); background: color-mix(in srgb, var(--text) 8%, var(--raised)); }
+.playback-view-options svg { width: 24px; height: 24px; }
+.playback-view-options button > span { flex: 1; min-width: 0; }
 .settings-group .mobile-cache-controls + .mobile-cache-controls { padding-top: 12px; border-top: 1px solid var(--border); }
+/* The original visual settings share the same card edges and spacing as general settings. */
+.visual-settings {
+  --text-primary: var(--text); --text-secondary: var(--muted);
+  --mobile-settings-surface: color-mix(in srgb, var(--raised) 28%, var(--bg));
+}
+/* Desktop tuning labels multiply a muted color by low opacity. Use the mobile chrome's
+   readable secondary tone, leaving disabled controls and artwork opacity untouched. */
+.visual-settings :is(.text-xs, .text-sm, .font-mono):is(.opacity-45, .opacity-50, .opacity-55, .opacity-60, .opacity-70):not(button, input, select) {
+  color: var(--muted) !important;
+}
+/* Theme Park already uses mobile text colors; retain its inline validation colors. */
+:is(.visual-settings, .mobile-theme-editor) :is(.text-xs, .text-sm, .font-mono):is(.opacity-45, .opacity-50, .opacity-55, .opacity-60, .opacity-70):not(button, input, select) {
+  opacity: 1;
+}
+/* System-forced reduction is an active status, not disabled text. Keep its explanation readable. */
+.mobile-motion-settings div.opacity-40 {
+  color: var(--muted) !important; opacity: 1; font-size: var(--mobile-caption); line-height: 1.5;
+}
+.visual-settings-content > .settings-group { margin-top: 16px; }
+.visual-settings-content > .settings-group > :first-child { margin-top: 0; }
+.visual-settings-content > details, .typography-controls > details {
+  border: 1px solid var(--border); border-radius: var(--mobile-card-radius); padding: 0 var(--mobile-card-inset);
+  background: color-mix(in srgb, var(--raised) 28%, var(--bg));
+}
+.visual-settings-content > details > summary, .typography-controls > details > summary { font-size: var(--mobile-body); font-weight: 600; line-height: 1.4; padding-block: 14px; }
+.visual-settings-content > details[open], .typography-controls > details[open] { padding-bottom: var(--mobile-card-inset); }
+.visual-settings-content .mobile-theme-entry { width: 100%; text-align: start; font-size: var(--mobile-body); }
+.mobile-visual-reset {
+  display: block; width: 100%; min-height: 44px; margin-block: 12px; padding: 10px 14px;
+  border-radius: 12px; background: var(--raised); color: var(--text);
+  text-align: start; font-size: var(--mobile-body); touch-action: manipulation;
+}
 @media (max-height: 500px) {
   .sheet.sheet-pinned > header { padding-block: 8px; }
 }
@@ -25,3 +66,20 @@
 :root[data-sheet-compact-viewport] .sheet-backdrop { padding-top: max(4px, env(safe-area-inset-top)); padding-bottom: 4px; }
 :root[data-sheet-compact-viewport] .sheet-pinned > header { padding-block: 0; }
 :root[data-sheet-compact-viewport] .sheet-pinned > .sheet-body { padding-block: 4px; scroll-padding-block: 4px; }
+
+/* This portal lives outside .mobile-app. Read device insets here and give only the body
+   a scrollport; desktop's 62vh list plus header/footer overflows a phone after image import. */
+.tempera-image-dialog {
+  padding: max(12px, var(--safe-top, env(safe-area-inset-top, 0px))) max(12px, var(--safe-right, env(safe-area-inset-right, 0px)))
+    max(12px, var(--safe-bottom, env(safe-area-inset-bottom, 0px))) max(12px, var(--safe-left, env(safe-area-inset-left, 0px)));
+}
+.tempera-image-dialog [data-themed-dialog-panel] {
+  display: flex; flex-direction: column; min-height: 0; max-height: 100%; overflow: hidden;
+  padding: var(--mobile-inset); border-radius: var(--mobile-sheet-radius);
+}
+.tempera-image-dialog [data-themed-dialog-header], .tempera-image-dialog [data-themed-dialog-footer] { flex: none; }
+.tempera-image-dialog [data-themed-dialog-header] { margin-bottom: 12px; }
+.tempera-image-dialog [data-themed-dialog-footer] { margin-top: 12px; }
+.tempera-image-dialog [data-themed-dialog-body] { min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+.tempera-image-dialog [data-tempera-pool-scroll] { max-height: none; overflow: visible; }
+.tempera-image-dialog button { min-width: 44px; min-height: 44px; touch-action: manipulation; }

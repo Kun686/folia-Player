@@ -57,6 +57,9 @@ interface MonetLyricsRailProps {
     seekDisabled?: boolean;
     /** Shared large-screen factor. Owned by VisualizerMonet so the column and the font scale together. */
     layoutScale?: number;
+    fillHeight?: boolean;
+    /** Preserve the lyric hierarchy at the smaller mobile/preview reading size. */
+    readableLyrics?: boolean;
 }
 
 interface MonetRailSize {
@@ -129,13 +132,14 @@ const resolveLineTone = (
     entry: MonetVisibleLineEntry,
     theme: Theme,
     inactiveScale: number,
+    readableLyrics: boolean,
 ): MonetLineTone => {
     if (entry.status === 'active') {
         return {
             opacity: 1,
             scale: 1,
             blurPx: 0,
-            baseColor: colorWithAlpha(theme.primaryColor, 0.34),
+            baseColor: colorWithAlpha(theme.primaryColor, readableLyrics ? 0.72 : 0.34),
             fontWeight: 600,
             zIndex: 4,
         };
@@ -153,7 +157,7 @@ const resolveLineTone = (
         blurPx: isWaiting
             ? distance === 1 ? 0.7 : 1.8 + (distance - 2) * 0.8
             : 1.1 + (distance - 1) * 0.7,
-        baseColor: colorWithAlpha(theme.primaryColor, isWaiting ? 0.46 : 0.36),
+        baseColor: colorWithAlpha(theme.primaryColor, isWaiting ? (readableLyrics && distance === 1 ? 0.64 : 0.46) : 0.36),
         fontWeight: 500,
         zIndex: isWaiting ? 3 - distance : 2 - distance,
     };
@@ -281,6 +285,7 @@ const buildPositionedEntries = (
     layoutInputs: Omit<MonetLineLayoutInputs, 'fontPx' | 'maxWidthPx'>,
     glowBufferPx: number,
     layoutCache: MonetLayoutCache,
+    readableLyrics: boolean,
 ): PositionedMonetLineEntry[] => {
     const railWidth = railSize.width || MONET_RAIL_WIDTH_FALLBACK_PX;
     const railHeight = railSize.height || MONET_RAIL_HEIGHT_FALLBACK_PX;
@@ -294,7 +299,7 @@ const buildPositionedEntries = (
 
     const measuredEntries: PositionedMonetLineEntry[] = entries.map(entry => {
         const tone = {
-            ...resolveLineTone(entry, theme, inactiveScale),
+            ...resolveLineTone(entry, theme, inactiveScale, readableLyrics),
             fontWeight: layoutInputs.fontWeight,
         };
         const layout = getOrMeasureMonetLineLayout(layoutCache, entry, measureInputs);
@@ -799,6 +804,8 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
     onLyricLineSeek,
     seekDisabled = false,
     layoutScale = 1,
+    fillHeight = false,
+    readableLyrics = false,
 }) => {
     const railRef = useRef<HTMLDivElement | null>(null);
     const layoutCacheRef = useRef<MonetLayoutCache>(new Map());
@@ -861,9 +868,10 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
                 },
                 glowBufferPx,
                 layoutCacheRef.current,
+                readableLyrics,
             );
         },
-        [visibleEntries, railSize, theme, lyricFontPx, inactiveFontPx, translationFontPx, fontStack, translationFontStack, lyricFontWeight, translationFontWeight, secondaryTranslationFontWeight, glowBufferPx, subtitleContentMode, fontsEpoch],
+        [visibleEntries, railSize, theme, lyricFontPx, inactiveFontPx, translationFontPx, fontStack, translationFontStack, lyricFontWeight, translationFontWeight, secondaryTranslationFontWeight, glowBufferPx, subtitleContentMode, fontsEpoch, readableLyrics],
     );
     const wordColorMatchers = useMemo(
         () => prepareWordColorMatchers(theme.wordColors, keywordColoringEnabled),
@@ -1020,7 +1028,7 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
             ref={railRef}
             className="relative select-none overflow-hidden"
             style={{
-                height: `clamp(280px, 52vh, ${railMaxHeightPx}px)`,
+                height: fillHeight ? '100%' : `clamp(280px, 52vh, ${railMaxHeightPx}px)`,
                 maxWidth: `${railMaxWidthPx}px`,
                 marginLeft: `-${glowBufferPx}px`,
                 marginRight: `-${glowBufferPx}px`,

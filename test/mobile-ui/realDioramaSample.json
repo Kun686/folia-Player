@@ -1,0 +1,2539 @@
+{
+  "song": {
+    "id": "000zD9G51kXTo7",
+    "name": "太迟",
+    "artists": [
+      {
+        "name": "于博雅",
+        "id": "002gYZwp3Vg6uI"
+      }
+    ],
+    "album": {
+      "name": "太迟",
+      "id": "003PgzM929DmNg"
+    },
+    "durationMs": 179000,
+    "sourceRef": {
+      "mediaId": "000zD9G51kXTo7",
+      "providerData": {
+        "songId": 9077195,
+        "songMid": "000zD9G51kXTo7",
+        "mediaMid": "0033TVQw0t2sNI"
+      },
+      "providerId": "qq",
+      "kind": "online"
+    }
+  },
+  "position": 165.80267573696145,
+  "lyrics": {
+    "isWordByWord": true,
+    "lines": [
+      {
+        "endTime": 3.92,
+        "fullText": "太迟 - 于博雅",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 3.92,
+          "renderEndTime": 4.3,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 0,
+        "words": [
+          {
+            "endTime": 0.49,
+            "startTime": 0,
+            "text": "太"
+          },
+          {
+            "endTime": 0.98,
+            "startTime": 0.49,
+            "text": "迟"
+          },
+          {
+            "endTime": 1.47,
+            "startTime": 0.98,
+            "text": " "
+          },
+          {
+            "endTime": 1.96,
+            "startTime": 1.47,
+            "text": "-"
+          },
+          {
+            "endTime": 2.45,
+            "startTime": 1.96,
+            "text": " "
+          },
+          {
+            "endTime": 2.94,
+            "startTime": 2.45,
+            "text": "于"
+          },
+          {
+            "endTime": 3.43,
+            "startTime": 2.94,
+            "text": "博"
+          },
+          {
+            "endTime": 3.92,
+            "startTime": 3.43,
+            "text": "雅"
+          }
+        ]
+      },
+      {
+        "endTime": 7.85,
+        "fullText": "词：翁梓铭",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 3.9299999999999997,
+          "renderEndTime": 8.229999999999999,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 3.92,
+        "words": [
+          {
+            "endTime": 4.706,
+            "startTime": 3.92,
+            "text": "词"
+          },
+          {
+            "endTime": 5.492,
+            "startTime": 4.706,
+            "text": "："
+          },
+          {
+            "endTime": 6.278,
+            "startTime": 5.492,
+            "text": "翁"
+          },
+          {
+            "endTime": 7.064,
+            "startTime": 6.278,
+            "text": "梓"
+          },
+          {
+            "endTime": 7.85,
+            "startTime": 7.064,
+            "text": "铭"
+          }
+        ]
+      },
+      {
+        "endTime": 11.77,
+        "fullText": "曲：于博雅",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 3.92,
+          "renderEndTime": 12.15,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 7.85,
+        "words": [
+          {
+            "endTime": 8.634,
+            "startTime": 7.85,
+            "text": "曲"
+          },
+          {
+            "endTime": 9.418,
+            "startTime": 8.634,
+            "text": "："
+          },
+          {
+            "endTime": 10.202,
+            "startTime": 9.418,
+            "text": "于"
+          },
+          {
+            "endTime": 10.986,
+            "startTime": 10.202,
+            "text": "博"
+          },
+          {
+            "endTime": 11.77,
+            "startTime": 10.986,
+            "text": "雅"
+          }
+        ]
+      },
+      {
+        "endTime": 15.7,
+        "fullText": "编曲：翁梓铭",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 3.9299999999999997,
+          "renderEndTime": 16.08,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 11.77,
+        "words": [
+          {
+            "endTime": 12.425,
+            "startTime": 11.77,
+            "text": "编"
+          },
+          {
+            "endTime": 13.08,
+            "startTime": 12.425,
+            "text": "曲"
+          },
+          {
+            "endTime": 13.735,
+            "startTime": 13.08,
+            "text": "："
+          },
+          {
+            "endTime": 14.39,
+            "startTime": 13.735,
+            "text": "翁"
+          },
+          {
+            "endTime": 15.045,
+            "startTime": 14.39,
+            "text": "梓"
+          },
+          {
+            "endTime": 15.7,
+            "startTime": 15.045,
+            "text": "铭"
+          }
+        ]
+      },
+      {
+        "endTime": 19.63,
+        "fullText": "混音：于博雅",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 3.9299999999999997,
+          "renderEndTime": 20.009999999999998,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 15.7,
+        "words": [
+          {
+            "endTime": 16.355,
+            "startTime": 15.7,
+            "text": "混"
+          },
+          {
+            "endTime": 17.01,
+            "startTime": 16.355,
+            "text": "音"
+          },
+          {
+            "endTime": 17.665,
+            "startTime": 17.01,
+            "text": "："
+          },
+          {
+            "endTime": 18.32,
+            "startTime": 17.665,
+            "text": "于"
+          },
+          {
+            "endTime": 18.975,
+            "startTime": 18.32,
+            "text": "博"
+          },
+          {
+            "endTime": 19.63,
+            "startTime": 18.975,
+            "text": "雅"
+          }
+        ]
+      },
+      {
+        "endTime": 24.111,
+        "fullText": "时间在推移 反反复复只会前进",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.48,
+          "renderEndTime": 24.491,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 19.631,
+        "words": [
+          {
+            "endTime": 19.901,
+            "startTime": 19.631,
+            "text": "时"
+          },
+          {
+            "endTime": 20.191,
+            "startTime": 19.901,
+            "text": "间"
+          },
+          {
+            "endTime": 20.451,
+            "startTime": 20.191,
+            "text": "在"
+          },
+          {
+            "endTime": 20.741,
+            "startTime": 20.451,
+            "text": "推"
+          },
+          {
+            "endTime": 21.341,
+            "startTime": 20.741,
+            "text": "移 "
+          },
+          {
+            "endTime": 21.581,
+            "startTime": 21.341,
+            "text": "反"
+          },
+          {
+            "endTime": 21.891,
+            "startTime": 21.581,
+            "text": "反"
+          },
+          {
+            "endTime": 22.191,
+            "startTime": 21.891,
+            "text": "复"
+          },
+          {
+            "endTime": 22.481,
+            "startTime": 22.191,
+            "text": "复"
+          },
+          {
+            "endTime": 22.731,
+            "startTime": 22.481,
+            "text": "只"
+          },
+          {
+            "endTime": 23.041,
+            "startTime": 22.731,
+            "text": "会"
+          },
+          {
+            "endTime": 23.541,
+            "startTime": 23.041,
+            "text": "前"
+          },
+          {
+            "endTime": 24.111,
+            "startTime": 23.541,
+            "text": "进"
+          }
+        ]
+      },
+      {
+        "endTime": 28.721,
+        "fullText": "命运在转移 点点滴滴没有头绪",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.609999999999999,
+          "renderEndTime": 29.101,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 24.111,
+        "words": [
+          {
+            "endTime": 24.431,
+            "startTime": 24.111,
+            "text": "命"
+          },
+          {
+            "endTime": 24.741,
+            "startTime": 24.431,
+            "text": "运"
+          },
+          {
+            "endTime": 25.011,
+            "startTime": 24.741,
+            "text": "在"
+          },
+          {
+            "endTime": 25.301,
+            "startTime": 25.011,
+            "text": "转"
+          },
+          {
+            "endTime": 25.891,
+            "startTime": 25.301,
+            "text": "移 "
+          },
+          {
+            "endTime": 26.131,
+            "startTime": 25.891,
+            "text": "点"
+          },
+          {
+            "endTime": 26.431,
+            "startTime": 26.131,
+            "text": "点"
+          },
+          {
+            "endTime": 26.701,
+            "startTime": 26.431,
+            "text": "滴"
+          },
+          {
+            "endTime": 26.991,
+            "startTime": 26.701,
+            "text": "滴"
+          },
+          {
+            "endTime": 27.281,
+            "startTime": 26.991,
+            "text": "没"
+          },
+          {
+            "endTime": 27.551,
+            "startTime": 27.281,
+            "text": "有"
+          },
+          {
+            "endTime": 28.001,
+            "startTime": 27.551,
+            "text": "头"
+          },
+          {
+            "endTime": 28.721,
+            "startTime": 28.001,
+            "text": "绪"
+          }
+        ]
+      },
+      {
+        "endTime": 32.951,
+        "fullText": "太多的回忆 看似像喜剧",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.23,
+          "renderEndTime": 33.331,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 28.721,
+        "words": [
+          {
+            "endTime": 29.021,
+            "startTime": 28.721,
+            "text": "太"
+          },
+          {
+            "endTime": 29.301,
+            "startTime": 29.021,
+            "text": "多"
+          },
+          {
+            "endTime": 29.591,
+            "startTime": 29.301,
+            "text": "的"
+          },
+          {
+            "endTime": 29.931,
+            "startTime": 29.591,
+            "text": "回"
+          },
+          {
+            "endTime": 30.911,
+            "startTime": 29.931,
+            "text": "忆 "
+          },
+          {
+            "endTime": 31.091,
+            "startTime": 30.911,
+            "text": "看"
+          },
+          {
+            "endTime": 31.321,
+            "startTime": 31.091,
+            "text": "似"
+          },
+          {
+            "endTime": 31.611,
+            "startTime": 31.321,
+            "text": "像"
+          },
+          {
+            "endTime": 31.891,
+            "startTime": 31.611,
+            "text": "喜"
+          },
+          {
+            "endTime": 32.951,
+            "startTime": 31.891,
+            "text": "剧"
+          }
+        ]
+      },
+      {
+        "endTime": 37.851,
+        "fullText": "却独自在夜幕降临的时候才悟醒",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.899999999999999,
+          "renderEndTime": 38.231,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 32.951,
+        "words": [
+          {
+            "endTime": 33.281,
+            "startTime": 32.951,
+            "text": "却"
+          },
+          {
+            "endTime": 33.581,
+            "startTime": 33.281,
+            "text": "独"
+          },
+          {
+            "endTime": 33.871,
+            "startTime": 33.581,
+            "text": "自"
+          },
+          {
+            "endTime": 34.181,
+            "startTime": 33.871,
+            "text": "在"
+          },
+          {
+            "endTime": 34.481,
+            "startTime": 34.181,
+            "text": "夜"
+          },
+          {
+            "endTime": 34.801,
+            "startTime": 34.481,
+            "text": "幕"
+          },
+          {
+            "endTime": 34.991,
+            "startTime": 34.801,
+            "text": "降"
+          },
+          {
+            "endTime": 35.281,
+            "startTime": 34.991,
+            "text": "临"
+          },
+          {
+            "endTime": 35.571,
+            "startTime": 35.281,
+            "text": "的"
+          },
+          {
+            "endTime": 35.881,
+            "startTime": 35.571,
+            "text": "时"
+          },
+          {
+            "endTime": 36.191,
+            "startTime": 35.881,
+            "text": "候"
+          },
+          {
+            "endTime": 36.461,
+            "startTime": 36.191,
+            "text": "才"
+          },
+          {
+            "endTime": 37.031,
+            "startTime": 36.461,
+            "text": "悟"
+          },
+          {
+            "endTime": 37.851,
+            "startTime": 37.031,
+            "text": "醒"
+          }
+        ]
+      },
+      {
+        "endTime": 42.401,
+        "fullText": "甜蜜的话语 字字句句印在脑里",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.550000000000004,
+          "renderEndTime": 42.781000000000006,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 37.851,
+        "words": [
+          {
+            "endTime": 38.161,
+            "startTime": 37.851,
+            "text": "甜"
+          },
+          {
+            "endTime": 38.451,
+            "startTime": 38.161,
+            "text": "蜜"
+          },
+          {
+            "endTime": 38.731,
+            "startTime": 38.451,
+            "text": "的"
+          },
+          {
+            "endTime": 39.001,
+            "startTime": 38.731,
+            "text": "话"
+          },
+          {
+            "endTime": 39.571,
+            "startTime": 39.001,
+            "text": "语 "
+          },
+          {
+            "endTime": 39.841,
+            "startTime": 39.571,
+            "text": "字"
+          },
+          {
+            "endTime": 40.151,
+            "startTime": 39.841,
+            "text": "字"
+          },
+          {
+            "endTime": 40.401,
+            "startTime": 40.151,
+            "text": "句"
+          },
+          {
+            "endTime": 40.701,
+            "startTime": 40.401,
+            "text": "句"
+          },
+          {
+            "endTime": 40.991,
+            "startTime": 40.701,
+            "text": "印"
+          },
+          {
+            "endTime": 41.281,
+            "startTime": 40.991,
+            "text": "在"
+          },
+          {
+            "endTime": 41.681,
+            "startTime": 41.281,
+            "text": "脑"
+          },
+          {
+            "endTime": 42.401,
+            "startTime": 41.681,
+            "text": "里"
+          }
+        ]
+      },
+      {
+        "endTime": 46.801,
+        "fullText": "所有情绪已被时间埋葬在过去里",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.399999999999999,
+          "renderEndTime": 47.181000000000004,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 42.401,
+        "words": [
+          {
+            "endTime": 42.711,
+            "startTime": 42.401,
+            "text": "所"
+          },
+          {
+            "endTime": 43.021,
+            "startTime": 42.711,
+            "text": "有"
+          },
+          {
+            "endTime": 43.281,
+            "startTime": 43.021,
+            "text": "情"
+          },
+          {
+            "endTime": 43.611,
+            "startTime": 43.281,
+            "text": "绪"
+          },
+          {
+            "endTime": 43.941,
+            "startTime": 43.611,
+            "text": "已"
+          },
+          {
+            "endTime": 44.151,
+            "startTime": 43.941,
+            "text": "被"
+          },
+          {
+            "endTime": 44.441,
+            "startTime": 44.151,
+            "text": "时"
+          },
+          {
+            "endTime": 44.761,
+            "startTime": 44.441,
+            "text": "间"
+          },
+          {
+            "endTime": 45.041,
+            "startTime": 44.761,
+            "text": "埋"
+          },
+          {
+            "endTime": 45.331,
+            "startTime": 45.041,
+            "text": "葬"
+          },
+          {
+            "endTime": 45.601,
+            "startTime": 45.331,
+            "text": "在"
+          },
+          {
+            "endTime": 45.881,
+            "startTime": 45.601,
+            "text": "过"
+          },
+          {
+            "endTime": 46.181,
+            "startTime": 45.881,
+            "text": "去"
+          },
+          {
+            "endTime": 46.801,
+            "startTime": 46.181,
+            "text": "里"
+          }
+        ]
+      },
+      {
+        "endTime": 51.301,
+        "fullText": "分分秒秒过去 年年月月逝去",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.5,
+          "renderEndTime": 51.74,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 46.801,
+        "words": [
+          {
+            "endTime": 47.021,
+            "startTime": 46.801,
+            "text": "分"
+          },
+          {
+            "endTime": 47.321,
+            "startTime": 47.021,
+            "text": "分"
+          },
+          {
+            "endTime": 47.611,
+            "startTime": 47.321,
+            "text": "秒"
+          },
+          {
+            "endTime": 47.881,
+            "startTime": 47.611,
+            "text": "秒"
+          },
+          {
+            "endTime": 48.211,
+            "startTime": 47.881,
+            "text": "过"
+          },
+          {
+            "endTime": 49.001,
+            "startTime": 48.211,
+            "text": "去 "
+          },
+          {
+            "endTime": 49.281,
+            "startTime": 49.001,
+            "text": "年"
+          },
+          {
+            "endTime": 49.581,
+            "startTime": 49.281,
+            "text": "年"
+          },
+          {
+            "endTime": 49.871,
+            "startTime": 49.581,
+            "text": "月"
+          },
+          {
+            "endTime": 50.161,
+            "startTime": 49.871,
+            "text": "月"
+          },
+          {
+            "endTime": 50.461,
+            "startTime": 50.161,
+            "text": "逝"
+          },
+          {
+            "endTime": 51.36,
+            "startTime": 50.461,
+            "text": "去"
+          }
+        ]
+      },
+      {
+        "endTime": 53.54,
+        "fullText": "究竟还有多少欢喜",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 2.1799999999999997,
+          "renderEndTime": 53.92,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 51.36,
+        "words": [
+          {
+            "endTime": 51.62,
+            "startTime": 51.36,
+            "text": "究"
+          },
+          {
+            "endTime": 51.87,
+            "startTime": 51.62,
+            "text": "竟"
+          },
+          {
+            "endTime": 52.13,
+            "startTime": 51.87,
+            "text": "还"
+          },
+          {
+            "endTime": 52.43,
+            "startTime": 52.13,
+            "text": "有"
+          },
+          {
+            "endTime": 52.72,
+            "startTime": 52.43,
+            "text": "多"
+          },
+          {
+            "endTime": 53.02,
+            "startTime": 52.72,
+            "text": "少"
+          },
+          {
+            "endTime": 53.28,
+            "startTime": 53.02,
+            "text": "欢"
+          },
+          {
+            "endTime": 53.54,
+            "startTime": 53.28,
+            "text": "喜"
+          }
+        ]
+      },
+      {
+        "endTime": 58.48,
+        "fullText": "留在我的心底 看不清",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.939999999999998,
+          "renderEndTime": 58.86,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 53.54,
+        "words": [
+          {
+            "endTime": 53.83,
+            "startTime": 53.54,
+            "text": "留"
+          },
+          {
+            "endTime": 54.14,
+            "startTime": 53.83,
+            "text": "在"
+          },
+          {
+            "endTime": 54.43,
+            "startTime": 54.14,
+            "text": "我"
+          },
+          {
+            "endTime": 54.71,
+            "startTime": 54.43,
+            "text": "的"
+          },
+          {
+            "endTime": 55,
+            "startTime": 54.71,
+            "text": "心"
+          },
+          {
+            "endTime": 56.16,
+            "startTime": 55,
+            "text": "底 "
+          },
+          {
+            "endTime": 56.73,
+            "startTime": 56.16,
+            "text": "看"
+          },
+          {
+            "endTime": 57.02,
+            "startTime": 56.73,
+            "text": "不"
+          },
+          {
+            "endTime": 58.48,
+            "startTime": 57.02,
+            "text": "清"
+          }
+        ]
+      },
+      {
+        "endTime": 64.769,
+        "fullText": "一切都已经来不及回到过去",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.7590000000000074,
+          "renderEndTime": 65.149,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 60.01,
+        "words": [
+          {
+            "endTime": 60.18,
+            "startTime": 60.01,
+            "text": "一"
+          },
+          {
+            "endTime": 60.45,
+            "startTime": 60.18,
+            "text": "切"
+          },
+          {
+            "endTime": 60.74,
+            "startTime": 60.45,
+            "text": "都"
+          },
+          {
+            "endTime": 61.01,
+            "startTime": 60.74,
+            "text": "已"
+          },
+          {
+            "endTime": 61.3,
+            "startTime": 61.01,
+            "text": "经"
+          },
+          {
+            "endTime": 61.58,
+            "startTime": 61.3,
+            "text": "来"
+          },
+          {
+            "endTime": 61.87,
+            "startTime": 61.58,
+            "text": "不"
+          },
+          {
+            "endTime": 62.32,
+            "startTime": 61.87,
+            "text": "及"
+          },
+          {
+            "endTime": 62.7,
+            "startTime": 62.32,
+            "text": "回"
+          },
+          {
+            "endTime": 63.31,
+            "startTime": 62.7,
+            "text": "到"
+          },
+          {
+            "endTime": 63.85,
+            "startTime": 63.31,
+            "text": "过"
+          },
+          {
+            "endTime": 64.769,
+            "startTime": 63.85,
+            "text": "去"
+          }
+        ]
+      },
+      {
+        "endTime": 69.259,
+        "fullText": "我努力试着让故事继续",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.189999999999998,
+          "renderEndTime": 69.639,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 65.069,
+        "words": [
+          {
+            "endTime": 65.319,
+            "startTime": 65.069,
+            "text": "我"
+          },
+          {
+            "endTime": 65.589,
+            "startTime": 65.319,
+            "text": "努"
+          },
+          {
+            "endTime": 65.849,
+            "startTime": 65.589,
+            "text": "力"
+          },
+          {
+            "endTime": 66.149,
+            "startTime": 65.849,
+            "text": "试"
+          },
+          {
+            "endTime": 66.449,
+            "startTime": 66.149,
+            "text": "着"
+          },
+          {
+            "endTime": 67.039,
+            "startTime": 66.449,
+            "text": "让"
+          },
+          {
+            "endTime": 67.289,
+            "startTime": 67.039,
+            "text": "故"
+          },
+          {
+            "endTime": 67.849,
+            "startTime": 67.289,
+            "text": "事"
+          },
+          {
+            "endTime": 68.419,
+            "startTime": 67.849,
+            "text": "继"
+          },
+          {
+            "endTime": 69.259,
+            "startTime": 68.419,
+            "text": "续"
+          }
+        ]
+      },
+      {
+        "endTime": 72.789,
+        "fullText": "于事无补的写下去",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 3.1700000000000017,
+          "renderEndTime": 73.169,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 69.619,
+        "words": [
+          {
+            "endTime": 69.839,
+            "startTime": 69.619,
+            "text": "于"
+          },
+          {
+            "endTime": 70.119,
+            "startTime": 69.839,
+            "text": "事"
+          },
+          {
+            "endTime": 70.419,
+            "startTime": 70.119,
+            "text": "无"
+          },
+          {
+            "endTime": 70.709,
+            "startTime": 70.419,
+            "text": "补"
+          },
+          {
+            "endTime": 71.009,
+            "startTime": 70.709,
+            "text": "的"
+          },
+          {
+            "endTime": 71.569,
+            "startTime": 71.009,
+            "text": "写"
+          },
+          {
+            "endTime": 71.889,
+            "startTime": 71.569,
+            "text": "下"
+          },
+          {
+            "endTime": 72.789,
+            "startTime": 71.889,
+            "text": "去"
+          }
+        ]
+      },
+      {
+        "endTime": 77.788,
+        "fullText": "却让结局成了悲剧",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.998999999999995,
+          "renderEndTime": 78.16799999999999,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 72.789,
+        "words": [
+          {
+            "endTime": 72.999,
+            "startTime": 72.789,
+            "text": "却"
+          },
+          {
+            "endTime": 73.749,
+            "startTime": 72.999,
+            "text": "让"
+          },
+          {
+            "endTime": 74.189,
+            "startTime": 73.749,
+            "text": "结"
+          },
+          {
+            "endTime": 74.769,
+            "startTime": 74.189,
+            "text": "局"
+          },
+          {
+            "endTime": 75.309,
+            "startTime": 74.769,
+            "text": "成"
+          },
+          {
+            "endTime": 75.609,
+            "startTime": 75.309,
+            "text": "了"
+          },
+          {
+            "endTime": 76.459,
+            "startTime": 75.609,
+            "text": "悲"
+          },
+          {
+            "endTime": 77.788,
+            "startTime": 76.459,
+            "text": "剧"
+          }
+        ]
+      },
+      {
+        "endTime": 83.038,
+        "fullText": "一切都只不过是完美的闹剧",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.890000000000001,
+          "renderEndTime": 83.41799999999999,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 78.148,
+        "words": [
+          {
+            "endTime": 78.428,
+            "startTime": 78.148,
+            "text": "一"
+          },
+          {
+            "endTime": 78.718,
+            "startTime": 78.428,
+            "text": "切"
+          },
+          {
+            "endTime": 79.028,
+            "startTime": 78.718,
+            "text": "都"
+          },
+          {
+            "endTime": 79.298,
+            "startTime": 79.028,
+            "text": "只"
+          },
+          {
+            "endTime": 79.588,
+            "startTime": 79.298,
+            "text": "不"
+          },
+          {
+            "endTime": 79.848,
+            "startTime": 79.588,
+            "text": "过"
+          },
+          {
+            "endTime": 80.188,
+            "startTime": 79.848,
+            "text": "是"
+          },
+          {
+            "endTime": 80.738,
+            "startTime": 80.188,
+            "text": "完"
+          },
+          {
+            "endTime": 81.028,
+            "startTime": 80.738,
+            "text": "美"
+          },
+          {
+            "endTime": 81.598,
+            "startTime": 81.028,
+            "text": "的"
+          },
+          {
+            "endTime": 82.188,
+            "startTime": 81.598,
+            "text": "闹"
+          },
+          {
+            "endTime": 83.038,
+            "startTime": 82.188,
+            "text": "剧"
+          }
+        ]
+      },
+      {
+        "endTime": 87.667,
+        "fullText": "离不开虚华的灯红酒绿",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.329000000000008,
+          "renderEndTime": 88.047,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 83.338,
+        "words": [
+          {
+            "endTime": 83.568,
+            "startTime": 83.338,
+            "text": "离"
+          },
+          {
+            "endTime": 83.838,
+            "startTime": 83.568,
+            "text": "不"
+          },
+          {
+            "endTime": 84.158,
+            "startTime": 83.838,
+            "text": "开"
+          },
+          {
+            "endTime": 84.448,
+            "startTime": 84.158,
+            "text": "虚"
+          },
+          {
+            "endTime": 84.758,
+            "startTime": 84.448,
+            "text": "华"
+          },
+          {
+            "endTime": 85.318,
+            "startTime": 84.758,
+            "text": "的"
+          },
+          {
+            "endTime": 85.608,
+            "startTime": 85.318,
+            "text": "灯"
+          },
+          {
+            "endTime": 86.158,
+            "startTime": 85.608,
+            "text": "红"
+          },
+          {
+            "endTime": 86.728,
+            "startTime": 86.158,
+            "text": "酒"
+          },
+          {
+            "endTime": 87.667,
+            "startTime": 86.728,
+            "text": "绿"
+          }
+        ]
+      },
+      {
+        "endTime": 91.007,
+        "fullText": "这是现实下的规律",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 3.0900000000000034,
+          "renderEndTime": 91.387,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 87.917,
+        "words": [
+          {
+            "endTime": 88.147,
+            "startTime": 87.917,
+            "text": "这"
+          },
+          {
+            "endTime": 88.427,
+            "startTime": 88.147,
+            "text": "是"
+          },
+          {
+            "endTime": 88.747,
+            "startTime": 88.427,
+            "text": "现"
+          },
+          {
+            "endTime": 89.037,
+            "startTime": 88.747,
+            "text": "实"
+          },
+          {
+            "endTime": 89.347,
+            "startTime": 89.037,
+            "text": "下"
+          },
+          {
+            "endTime": 89.807,
+            "startTime": 89.347,
+            "text": "的"
+          },
+          {
+            "endTime": 90.187,
+            "startTime": 89.807,
+            "text": "规"
+          },
+          {
+            "endTime": 91.007,
+            "startTime": 90.187,
+            "text": "律"
+          }
+        ]
+      },
+      {
+        "endTime": 94.897,
+        "fullText": "来不及回到过去",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 3.8900000000000006,
+          "renderEndTime": 95.277,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 91.007,
+        "words": [
+          {
+            "endTime": 91.307,
+            "startTime": 91.007,
+            "text": "来"
+          },
+          {
+            "endTime": 91.837,
+            "startTime": 91.307,
+            "text": "不"
+          },
+          {
+            "endTime": 92.467,
+            "startTime": 91.837,
+            "text": "及"
+          },
+          {
+            "endTime": 92.747,
+            "startTime": 92.467,
+            "text": "回"
+          },
+          {
+            "endTime": 93.277,
+            "startTime": 92.747,
+            "text": "到"
+          },
+          {
+            "endTime": 93.587,
+            "startTime": 93.277,
+            "text": "过"
+          },
+          {
+            "endTime": 94.897,
+            "startTime": 93.587,
+            "text": "去"
+          }
+        ]
+      },
+      {
+        "endTime": 101.807,
+        "fullText": "时间在推移 反反复复只会前进",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.420000000000002,
+          "renderEndTime": 102.187,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 97.387,
+        "words": [
+          {
+            "endTime": 97.627,
+            "startTime": 97.387,
+            "text": "时"
+          },
+          {
+            "endTime": 97.917,
+            "startTime": 97.627,
+            "text": "间"
+          },
+          {
+            "endTime": 98.187,
+            "startTime": 97.917,
+            "text": "在"
+          },
+          {
+            "endTime": 98.477,
+            "startTime": 98.187,
+            "text": "推"
+          },
+          {
+            "endTime": 99.067,
+            "startTime": 98.477,
+            "text": "移 "
+          },
+          {
+            "endTime": 99.287,
+            "startTime": 99.067,
+            "text": "反"
+          },
+          {
+            "endTime": 99.547,
+            "startTime": 99.287,
+            "text": "反"
+          },
+          {
+            "endTime": 99.857,
+            "startTime": 99.547,
+            "text": "复"
+          },
+          {
+            "endTime": 100.147,
+            "startTime": 99.857,
+            "text": "复"
+          },
+          {
+            "endTime": 100.417,
+            "startTime": 100.147,
+            "text": "只"
+          },
+          {
+            "endTime": 100.717,
+            "startTime": 100.417,
+            "text": "会"
+          },
+          {
+            "endTime": 101.207,
+            "startTime": 100.717,
+            "text": "前"
+          },
+          {
+            "endTime": 101.807,
+            "startTime": 101.207,
+            "text": "进"
+          }
+        ]
+      },
+      {
+        "endTime": 106.437,
+        "fullText": "命运在转移 点点滴滴没有头绪",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.6299999999999955,
+          "renderEndTime": 106.817,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 101.807,
+        "words": [
+          {
+            "endTime": 102.107,
+            "startTime": 101.807,
+            "text": "命"
+          },
+          {
+            "endTime": 102.407,
+            "startTime": 102.107,
+            "text": "运"
+          },
+          {
+            "endTime": 102.697,
+            "startTime": 102.407,
+            "text": "在"
+          },
+          {
+            "endTime": 102.997,
+            "startTime": 102.697,
+            "text": "转"
+          },
+          {
+            "endTime": 103.557,
+            "startTime": 102.997,
+            "text": "移 "
+          },
+          {
+            "endTime": 103.827,
+            "startTime": 103.557,
+            "text": "点"
+          },
+          {
+            "endTime": 104.137,
+            "startTime": 103.827,
+            "text": "点"
+          },
+          {
+            "endTime": 104.437,
+            "startTime": 104.137,
+            "text": "滴"
+          },
+          {
+            "endTime": 104.707,
+            "startTime": 104.437,
+            "text": "滴"
+          },
+          {
+            "endTime": 105.007,
+            "startTime": 104.707,
+            "text": "没"
+          },
+          {
+            "endTime": 105.257,
+            "startTime": 105.007,
+            "text": "有"
+          },
+          {
+            "endTime": 105.717,
+            "startTime": 105.257,
+            "text": "头"
+          },
+          {
+            "endTime": 106.437,
+            "startTime": 105.717,
+            "text": "绪"
+          }
+        ]
+      },
+      {
+        "endTime": 110.677,
+        "fullText": "太多的回忆 看似像喜剧",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.240000000000009,
+          "renderEndTime": 111.057,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 106.437,
+        "words": [
+          {
+            "endTime": 106.697,
+            "startTime": 106.437,
+            "text": "太"
+          },
+          {
+            "endTime": 106.997,
+            "startTime": 106.697,
+            "text": "多"
+          },
+          {
+            "endTime": 107.297,
+            "startTime": 106.997,
+            "text": "的"
+          },
+          {
+            "endTime": 107.597,
+            "startTime": 107.297,
+            "text": "回"
+          },
+          {
+            "endTime": 108.517,
+            "startTime": 107.597,
+            "text": "忆 "
+          },
+          {
+            "endTime": 108.737,
+            "startTime": 108.517,
+            "text": "看"
+          },
+          {
+            "endTime": 108.987,
+            "startTime": 108.737,
+            "text": "似"
+          },
+          {
+            "endTime": 109.267,
+            "startTime": 108.987,
+            "text": "像"
+          },
+          {
+            "endTime": 109.597,
+            "startTime": 109.267,
+            "text": "喜"
+          },
+          {
+            "endTime": 110.677,
+            "startTime": 109.597,
+            "text": "剧"
+          }
+        ]
+      },
+      {
+        "endTime": 115.457,
+        "fullText": "却独自在夜幕降临的时候才悟醒",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.779999999999987,
+          "renderEndTime": 115.89699999999999,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 110.677,
+        "words": [
+          {
+            "endTime": 111.007,
+            "startTime": 110.677,
+            "text": "却"
+          },
+          {
+            "endTime": 111.287,
+            "startTime": 111.007,
+            "text": "独"
+          },
+          {
+            "endTime": 111.567,
+            "startTime": 111.287,
+            "text": "自"
+          },
+          {
+            "endTime": 111.877,
+            "startTime": 111.567,
+            "text": "在"
+          },
+          {
+            "endTime": 112.157,
+            "startTime": 111.877,
+            "text": "夜"
+          },
+          {
+            "endTime": 112.427,
+            "startTime": 112.157,
+            "text": "幕"
+          },
+          {
+            "endTime": 112.667,
+            "startTime": 112.427,
+            "text": "降"
+          },
+          {
+            "endTime": 112.967,
+            "startTime": 112.667,
+            "text": "临"
+          },
+          {
+            "endTime": 113.257,
+            "startTime": 112.967,
+            "text": "的"
+          },
+          {
+            "endTime": 113.567,
+            "startTime": 113.257,
+            "text": "时"
+          },
+          {
+            "endTime": 113.857,
+            "startTime": 113.567,
+            "text": "候"
+          },
+          {
+            "endTime": 114.167,
+            "startTime": 113.857,
+            "text": "才"
+          },
+          {
+            "endTime": 114.747,
+            "startTime": 114.167,
+            "text": "悟"
+          },
+          {
+            "endTime": 115.517,
+            "startTime": 114.747,
+            "text": "醒"
+          }
+        ]
+      },
+      {
+        "endTime": 120.117,
+        "fullText": "甜蜜的话语 字字句句印在脑里",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.6000000000000085,
+          "renderEndTime": 120.497,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 115.517,
+        "words": [
+          {
+            "endTime": 115.807,
+            "startTime": 115.517,
+            "text": "甜"
+          },
+          {
+            "endTime": 116.127,
+            "startTime": 115.807,
+            "text": "蜜"
+          },
+          {
+            "endTime": 116.427,
+            "startTime": 116.127,
+            "text": "的"
+          },
+          {
+            "endTime": 116.717,
+            "startTime": 116.427,
+            "text": "话"
+          },
+          {
+            "endTime": 117.287,
+            "startTime": 116.717,
+            "text": "语 "
+          },
+          {
+            "endTime": 117.557,
+            "startTime": 117.287,
+            "text": "字"
+          },
+          {
+            "endTime": 117.827,
+            "startTime": 117.557,
+            "text": "字"
+          },
+          {
+            "endTime": 118.087,
+            "startTime": 117.827,
+            "text": "句"
+          },
+          {
+            "endTime": 118.377,
+            "startTime": 118.087,
+            "text": "句"
+          },
+          {
+            "endTime": 118.667,
+            "startTime": 118.377,
+            "text": "印"
+          },
+          {
+            "endTime": 118.977,
+            "startTime": 118.667,
+            "text": "在"
+          },
+          {
+            "endTime": 119.417,
+            "startTime": 118.977,
+            "text": "脑"
+          },
+          {
+            "endTime": 120.117,
+            "startTime": 119.417,
+            "text": "里"
+          }
+        ]
+      },
+      {
+        "endTime": 124.487,
+        "fullText": "所有情绪已被时间埋葬在过去里",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.36999999999999,
+          "renderEndTime": 124.86699999999999,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 120.117,
+        "words": [
+          {
+            "endTime": 120.397,
+            "startTime": 120.117,
+            "text": "所"
+          },
+          {
+            "endTime": 120.697,
+            "startTime": 120.397,
+            "text": "有"
+          },
+          {
+            "endTime": 120.967,
+            "startTime": 120.697,
+            "text": "情"
+          },
+          {
+            "endTime": 121.287,
+            "startTime": 120.967,
+            "text": "绪"
+          },
+          {
+            "endTime": 121.577,
+            "startTime": 121.287,
+            "text": "已"
+          },
+          {
+            "endTime": 121.847,
+            "startTime": 121.577,
+            "text": "被"
+          },
+          {
+            "endTime": 122.107,
+            "startTime": 121.847,
+            "text": "时"
+          },
+          {
+            "endTime": 122.407,
+            "startTime": 122.107,
+            "text": "间"
+          },
+          {
+            "endTime": 122.687,
+            "startTime": 122.407,
+            "text": "埋"
+          },
+          {
+            "endTime": 122.987,
+            "startTime": 122.687,
+            "text": "葬"
+          },
+          {
+            "endTime": 123.277,
+            "startTime": 122.987,
+            "text": "在"
+          },
+          {
+            "endTime": 123.537,
+            "startTime": 123.277,
+            "text": "过"
+          },
+          {
+            "endTime": 123.897,
+            "startTime": 123.537,
+            "text": "去"
+          },
+          {
+            "endTime": 124.487,
+            "startTime": 123.897,
+            "text": "里"
+          }
+        ]
+      },
+      {
+        "endTime": 128.967,
+        "fullText": "分分秒秒过去 年年月月逝去",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.480000000000018,
+          "renderEndTime": 129.436,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 124.487,
+        "words": [
+          {
+            "endTime": 124.707,
+            "startTime": 124.487,
+            "text": "分"
+          },
+          {
+            "endTime": 124.977,
+            "startTime": 124.707,
+            "text": "分"
+          },
+          {
+            "endTime": 125.267,
+            "startTime": 124.977,
+            "text": "秒"
+          },
+          {
+            "endTime": 125.547,
+            "startTime": 125.267,
+            "text": "秒"
+          },
+          {
+            "endTime": 125.947,
+            "startTime": 125.547,
+            "text": "过"
+          },
+          {
+            "endTime": 126.687,
+            "startTime": 125.947,
+            "text": "去 "
+          },
+          {
+            "endTime": 126.967,
+            "startTime": 126.687,
+            "text": "年"
+          },
+          {
+            "endTime": 127.257,
+            "startTime": 126.967,
+            "text": "年"
+          },
+          {
+            "endTime": 127.547,
+            "startTime": 127.257,
+            "text": "月"
+          },
+          {
+            "endTime": 127.827,
+            "startTime": 127.547,
+            "text": "月"
+          },
+          {
+            "endTime": 128.217,
+            "startTime": 127.827,
+            "text": "逝"
+          },
+          {
+            "endTime": 129.056,
+            "startTime": 128.217,
+            "text": "去"
+          }
+        ]
+      },
+      {
+        "endTime": 131.266,
+        "fullText": "究竟还有多少欢喜",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 2.2099999999999795,
+          "renderEndTime": 131.646,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 129.056,
+        "words": [
+          {
+            "endTime": 129.286,
+            "startTime": 129.056,
+            "text": "究"
+          },
+          {
+            "endTime": 129.586,
+            "startTime": 129.286,
+            "text": "竟"
+          },
+          {
+            "endTime": 129.856,
+            "startTime": 129.586,
+            "text": "还"
+          },
+          {
+            "endTime": 130.156,
+            "startTime": 129.856,
+            "text": "有"
+          },
+          {
+            "endTime": 130.436,
+            "startTime": 130.156,
+            "text": "多"
+          },
+          {
+            "endTime": 130.696,
+            "startTime": 130.436,
+            "text": "少"
+          },
+          {
+            "endTime": 130.986,
+            "startTime": 130.696,
+            "text": "欢"
+          },
+          {
+            "endTime": 131.266,
+            "startTime": 130.986,
+            "text": "喜"
+          }
+        ]
+      },
+      {
+        "endTime": 136.266,
+        "fullText": "留在我的心底 看不清",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 5,
+          "renderEndTime": 136.646,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 131.266,
+        "words": [
+          {
+            "endTime": 131.556,
+            "startTime": 131.266,
+            "text": "留"
+          },
+          {
+            "endTime": 131.866,
+            "startTime": 131.556,
+            "text": "在"
+          },
+          {
+            "endTime": 132.136,
+            "startTime": 131.866,
+            "text": "我"
+          },
+          {
+            "endTime": 132.416,
+            "startTime": 132.136,
+            "text": "的"
+          },
+          {
+            "endTime": 132.706,
+            "startTime": 132.416,
+            "text": "心"
+          },
+          {
+            "endTime": 133.866,
+            "startTime": 132.706,
+            "text": "底 "
+          },
+          {
+            "endTime": 134.436,
+            "startTime": 133.866,
+            "text": "看"
+          },
+          {
+            "endTime": 134.716,
+            "startTime": 134.436,
+            "text": "不"
+          },
+          {
+            "endTime": 136.266,
+            "startTime": 134.716,
+            "text": "清"
+          }
+        ]
+      },
+      {
+        "endTime": 142.426,
+        "fullText": "一切都已经来不及回到过去",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.739999999999981,
+          "renderEndTime": 142.80599999999998,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 137.686,
+        "words": [
+          {
+            "endTime": 137.896,
+            "startTime": 137.686,
+            "text": "一"
+          },
+          {
+            "endTime": 138.136,
+            "startTime": 137.896,
+            "text": "切"
+          },
+          {
+            "endTime": 138.426,
+            "startTime": 138.136,
+            "text": "都"
+          },
+          {
+            "endTime": 138.706,
+            "startTime": 138.426,
+            "text": "已"
+          },
+          {
+            "endTime": 138.976,
+            "startTime": 138.706,
+            "text": "经"
+          },
+          {
+            "endTime": 139.276,
+            "startTime": 138.976,
+            "text": "来"
+          },
+          {
+            "endTime": 139.576,
+            "startTime": 139.276,
+            "text": "不"
+          },
+          {
+            "endTime": 140.126,
+            "startTime": 139.576,
+            "text": "及"
+          },
+          {
+            "endTime": 140.436,
+            "startTime": 140.126,
+            "text": "回"
+          },
+          {
+            "endTime": 141.036,
+            "startTime": 140.436,
+            "text": "到"
+          },
+          {
+            "endTime": 141.586,
+            "startTime": 141.036,
+            "text": "过"
+          },
+          {
+            "endTime": 142.426,
+            "startTime": 141.586,
+            "text": "去"
+          }
+        ]
+      },
+      {
+        "endTime": 147.016,
+        "fullText": "我努力试着让故事继续",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.269999999999982,
+          "renderEndTime": 147.396,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 142.746,
+        "words": [
+          {
+            "endTime": 142.986,
+            "startTime": 142.746,
+            "text": "我"
+          },
+          {
+            "endTime": 143.266,
+            "startTime": 142.986,
+            "text": "努"
+          },
+          {
+            "endTime": 143.536,
+            "startTime": 143.266,
+            "text": "力"
+          },
+          {
+            "endTime": 143.846,
+            "startTime": 143.536,
+            "text": "试"
+          },
+          {
+            "endTime": 144.136,
+            "startTime": 143.846,
+            "text": "着"
+          },
+          {
+            "endTime": 144.686,
+            "startTime": 144.136,
+            "text": "让"
+          },
+          {
+            "endTime": 144.996,
+            "startTime": 144.686,
+            "text": "故"
+          },
+          {
+            "endTime": 145.536,
+            "startTime": 144.996,
+            "text": "事"
+          },
+          {
+            "endTime": 146.146,
+            "startTime": 145.536,
+            "text": "继"
+          },
+          {
+            "endTime": 147.016,
+            "startTime": 146.146,
+            "text": "续"
+          }
+        ]
+      },
+      {
+        "endTime": 150.406,
+        "fullText": "于事无补的写下去",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 3.1100000000000136,
+          "renderEndTime": 150.786,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 147.296,
+        "words": [
+          {
+            "endTime": 147.556,
+            "startTime": 147.296,
+            "text": "于"
+          },
+          {
+            "endTime": 147.836,
+            "startTime": 147.556,
+            "text": "事"
+          },
+          {
+            "endTime": 148.116,
+            "startTime": 147.836,
+            "text": "无"
+          },
+          {
+            "endTime": 148.416,
+            "startTime": 148.116,
+            "text": "补"
+          },
+          {
+            "endTime": 148.696,
+            "startTime": 148.416,
+            "text": "的"
+          },
+          {
+            "endTime": 149.296,
+            "startTime": 148.696,
+            "text": "写"
+          },
+          {
+            "endTime": 149.586,
+            "startTime": 149.296,
+            "text": "下"
+          },
+          {
+            "endTime": 150.406,
+            "startTime": 149.586,
+            "text": "去"
+          }
+        ]
+      },
+      {
+        "endTime": 155.316,
+        "fullText": "却让结局成了悲剧",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.909999999999997,
+          "renderEndTime": 155.696,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 150.406,
+        "words": [
+          {
+            "endTime": 150.726,
+            "startTime": 150.406,
+            "text": "却"
+          },
+          {
+            "endTime": 151.356,
+            "startTime": 150.726,
+            "text": "让"
+          },
+          {
+            "endTime": 151.866,
+            "startTime": 151.356,
+            "text": "结"
+          },
+          {
+            "endTime": 152.466,
+            "startTime": 151.866,
+            "text": "局"
+          },
+          {
+            "endTime": 152.776,
+            "startTime": 152.466,
+            "text": "成"
+          },
+          {
+            "endTime": 153.256,
+            "startTime": 152.776,
+            "text": "了"
+          },
+          {
+            "endTime": 154.126,
+            "startTime": 153.256,
+            "text": "悲"
+          },
+          {
+            "endTime": 155.316,
+            "startTime": 154.126,
+            "text": "剧"
+          }
+        ]
+      },
+      {
+        "endTime": 160.746,
+        "fullText": "一切都只不过是完美的闹剧",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.850000000000023,
+          "renderEndTime": 161.126,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 155.896,
+        "words": [
+          {
+            "endTime": 156.136,
+            "startTime": 155.896,
+            "text": "一"
+          },
+          {
+            "endTime": 156.426,
+            "startTime": 156.136,
+            "text": "切"
+          },
+          {
+            "endTime": 156.736,
+            "startTime": 156.426,
+            "text": "都"
+          },
+          {
+            "endTime": 157.016,
+            "startTime": 156.736,
+            "text": "只"
+          },
+          {
+            "endTime": 157.316,
+            "startTime": 157.016,
+            "text": "不"
+          },
+          {
+            "endTime": 157.606,
+            "startTime": 157.316,
+            "text": "过"
+          },
+          {
+            "endTime": 157.906,
+            "startTime": 157.606,
+            "text": "是"
+          },
+          {
+            "endTime": 158.416,
+            "startTime": 157.906,
+            "text": "完"
+          },
+          {
+            "endTime": 158.726,
+            "startTime": 158.416,
+            "text": "美"
+          },
+          {
+            "endTime": 159.256,
+            "startTime": 158.726,
+            "text": "的"
+          },
+          {
+            "endTime": 159.836,
+            "startTime": 159.256,
+            "text": "闹"
+          },
+          {
+            "endTime": 160.746,
+            "startTime": 159.836,
+            "text": "剧"
+          }
+        ]
+      },
+      {
+        "endTime": 165.316,
+        "fullText": "离不开虚华的灯红酒绿",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 4.289999999999992,
+          "renderEndTime": 165.696,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 161.026,
+        "words": [
+          {
+            "endTime": 161.276,
+            "startTime": 161.026,
+            "text": "离"
+          },
+          {
+            "endTime": 161.556,
+            "startTime": 161.276,
+            "text": "不"
+          },
+          {
+            "endTime": 161.816,
+            "startTime": 161.556,
+            "text": "开"
+          },
+          {
+            "endTime": 162.116,
+            "startTime": 161.816,
+            "text": "虚"
+          },
+          {
+            "endTime": 162.426,
+            "startTime": 162.116,
+            "text": "华"
+          },
+          {
+            "endTime": 163.016,
+            "startTime": 162.426,
+            "text": "的"
+          },
+          {
+            "endTime": 163.286,
+            "startTime": 163.016,
+            "text": "灯"
+          },
+          {
+            "endTime": 163.856,
+            "startTime": 163.286,
+            "text": "红"
+          },
+          {
+            "endTime": 164.446,
+            "startTime": 163.856,
+            "text": "酒"
+          },
+          {
+            "endTime": 165.316,
+            "startTime": 164.446,
+            "text": "绿"
+          }
+        ]
+      },
+      {
+        "endTime": 168.736,
+        "fullText": "这是现实下的规律",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 3.119999999999976,
+          "renderEndTime": 169.11599999999999,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 165.616,
+        "words": [
+          {
+            "endTime": 165.846,
+            "startTime": 165.616,
+            "text": "这"
+          },
+          {
+            "endTime": 166.146,
+            "startTime": 165.846,
+            "text": "是"
+          },
+          {
+            "endTime": 166.436,
+            "startTime": 166.146,
+            "text": "现"
+          },
+          {
+            "endTime": 166.736,
+            "startTime": 166.436,
+            "text": "实"
+          },
+          {
+            "endTime": 167.026,
+            "startTime": 166.736,
+            "text": "下"
+          },
+          {
+            "endTime": 167.556,
+            "startTime": 167.026,
+            "text": "的"
+          },
+          {
+            "endTime": 167.896,
+            "startTime": 167.556,
+            "text": "规"
+          },
+          {
+            "endTime": 168.736,
+            "startTime": 167.896,
+            "text": "律"
+          }
+        ]
+      },
+      {
+        "endTime": 173.826,
+        "fullText": "来不及回到过去",
+        "renderHints": {
+          "lineTransitionMode": "normal",
+          "rawDuration": 5.090000000000003,
+          "renderEndTime": 174.206,
+          "timingClass": "normal",
+          "wordRevealMode": "normal"
+        },
+        "startTime": 168.736,
+        "words": [
+          {
+            "endTime": 169.026,
+            "startTime": 168.736,
+            "text": "来"
+          },
+          {
+            "endTime": 169.576,
+            "startTime": 169.026,
+            "text": "不"
+          },
+          {
+            "endTime": 170.206,
+            "startTime": 169.576,
+            "text": "及"
+          },
+          {
+            "endTime": 170.706,
+            "startTime": 170.206,
+            "text": "回"
+          },
+          {
+            "endTime": 171.016,
+            "startTime": 170.706,
+            "text": "到"
+          },
+          {
+            "endTime": 171.316,
+            "startTime": 171.016,
+            "text": "过"
+          },
+          {
+            "endTime": 173.826,
+            "startTime": 171.316,
+            "text": "去"
+          }
+        ]
+      }
+    ]
+  }
+}

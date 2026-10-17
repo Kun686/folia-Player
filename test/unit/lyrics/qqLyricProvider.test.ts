@@ -1,6 +1,7 @@
 import * as mobileRuntime from '@/services/mobileRuntime';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SongResult } from '@/types';
+import { OnlineProviderError } from '@/types/onlineMusic';
 import { qrcDecrypt } from '@/utils/lyrics/providers/qrcDecrypt';
 import { fetchQQLyrics, searchQQLyrics } from '@/utils/lyrics/providers/qqLyricProvider';
 
@@ -81,6 +82,22 @@ describe('QQ lyric provider', () => {
         expect(searchRequestBody.request.method).toBe('DoSearchForQQMusicLite');
     });
 
+    it('classifies the observed anonymous search business rejection without calling it expired login', async () => {
+        vi.spyOn(mobileRuntime, 'getMobileRuntime').mockReturnValue({
+            fetch: vi.fn(), read: () => null, write: () => undefined,
+        });
+        // Exact status/envelope observed at the real gateway; no invented song data.
+        const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+            code: 0, request: { code: 2001, data: { body: { item_song: [] } } },
+        })));
+        vi.stubGlobal('fetch', fetchMock);
+        const error = await searchQQLyrics('Power').catch(error => error);
+        expect(error).toBeInstanceOf(OnlineProviderError);
+        expect(error).toMatchObject({ code: 'unavailable', providerId: 'qq' });
+        expect(error.message).toContain('2001');
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
     it.each([
         undefined, null, {}, { body: null }, { body: {} },
         ...[null, false, 0, '', {}, 'not-a-list'].map(item_song => ({ body: { item_song } })),
@@ -92,7 +109,10 @@ describe('QQ lyric provider', () => {
             code: 0, request: { code: 0, data },
         }))));
         const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-        await expect(searchQQLyrics('test')).rejects.toThrow('QQ Music search returned no song list');
+        const error = await searchQQLyrics('test').catch(error => error);
+        expect(error).toBeInstanceOf(OnlineProviderError);
+        expect(error).toMatchObject({ code: 'invalid-response', providerId: 'qq' });
+        expect(error.message).toBe('QQ Music search returned no song list');
         expect(log).not.toHaveBeenCalled();
     });
 

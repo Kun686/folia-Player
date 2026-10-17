@@ -1,14 +1,20 @@
 /* src/mobile/mobile-shell.css — window-aware library and player chrome; renderers keep their own themes. */
-:root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color-scheme: dark; background: #09090b; }
+:root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color-scheme: dark; background: #09090b;
+  /* Shared chrome metrics; lyric renderers retain their own typography and composition. */
+  --mobile-inset: 20px; --mobile-card-inset: 16px; --mobile-control-radius: 12px; --mobile-card-radius: 18px; --mobile-sheet-radius: 24px;
+  --mobile-caption: 13px; --mobile-body: 16px; --mobile-heading: 20px;
+}
 * { box-sizing: border-box; }
 body { margin: 0; height: 100dvh; overflow: hidden; overscroll-behavior: none; }
 button, input, select { font: inherit; }
-:where(.library-panel, .mini-player, .player-controls, .sheet:not(.visual-settings)) button, .player-collapse, .visual-settings > header button {
-  min-height: 44px; min-width: 44px; border: 0; border-radius: 12px; padding: 10px 14px; background: var(--raised); color: inherit; cursor: pointer; touch-action: manipulation;
+:where(.library-panel, .mini-player, .player-controls, .sheet:not(.visual-settings)) button, .player-collapse, .visual-settings > header button, .mobile-song-theme button, .font-controls > button {
+  min-height: 44px; min-width: 44px; border: 0; border-radius: var(--mobile-control-radius); padding: 10px 14px; background: var(--raised); color: inherit; font-size: var(--mobile-body); line-height: 1.4; font-weight: 500; cursor: pointer; touch-action: manipulation;
 }
 button:disabled { opacity: .4; cursor: default; }
 button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
-input, select { color: inherit; background: var(--raised); border: 1px solid var(--border); border-radius: 12px; padding: 12px; min-height: 44px; min-width: 0; }
+input, select { color: inherit; background: var(--raised); border: 1px solid var(--border); border-radius: var(--mobile-control-radius); padding: 10px 12px; min-height: 44px; min-width: 0; }
+/* Checkboxes must not inherit text-field padding or the 44px field height. Their labels own the hit area. */
+.mobile-app input[type=checkbox] { width: 22px; height: 22px; min-height: 22px; padding: 0; margin: 0; border-radius: 6px; flex: 0 0 auto; accent-color: var(--text); }
 .mobile-app input:not([type=range]):not([type=checkbox]), .mobile-app textarea { font-size: 16px; }
 h1, h2, p { margin: 0; } h1 { font-size: 34px; font-weight: 700; letter-spacing: -.035em; line-height: 1.2; } h2 { font-size: 20px; font-weight: 650; letter-spacing: -.02em; }
 .mobile-app { --bg: #09090b; --text: #f4f4f5; --muted: #a1a1aa; --raised: #202024; --border: #ffffff12;
@@ -16,14 +22,24 @@ h1, h2, p { margin: 0; } h1 { font-size: 34px; font-weight: 700; letter-spacing:
   height: 100dvh; overflow: hidden; background: var(--bg); color: var(--text); padding: var(--safe-top) var(--safe-right) 0 var(--safe-left);
 }
 .mobile-app.daylight { --bg: #f5f5f4; --text: #1c1917; --muted: #66615d; --raised: #e8e6e3; --border: #00000012; color-scheme: light; }
-.library-panel { display: flex; flex-direction: column; height: 100%; min-width: 0; padding: 24px 22px calc(96px + var(--safe-bottom)); max-width: 760px; margin: auto; overflow-y: auto; overscroll-behavior: contain; }
+.library-panel { display: flex; flex-direction: column; min-width: 0; padding: 20px var(--mobile-inset) 16px; max-width: 760px; margin: auto; overflow-y: auto; overscroll-behavior: contain;
+  /* WKWebView pans its visual viewport on focus; keep the scroller clipped below the status bar. */
+  /* Reserve the player outside the scrollport: padding alone lets scrollIntoView hide rows behind it. */
+  position: fixed; top: calc(var(--sheet-viewport-top, 0px) + var(--safe-top)); height: calc(var(--sheet-viewport-height, 100dvh) - var(--safe-top) - 80px - max(10px, var(--safe-bottom)));
+  left: calc(var(--sheet-viewport-left, 0px) + var(--safe-left)); right: calc(100% - var(--sheet-viewport-left, 0px) - var(--sheet-viewport-width, 100%) + var(--safe-right));
+  scroll-padding-block: 12px;
+}
+:root[data-library-keyboard] .library-panel { height: calc(var(--sheet-viewport-height, 100dvh) - var(--safe-top)); }
+:root[data-library-keyboard] .mini-player { visibility: hidden; pointer-events: none; }
 .library-panel > :not(.song-list) { flex-shrink: 0; }
 .brand, .account-row, .section-heading, .sheet header, .transport { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.brand small { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .2em; line-height: 2; }
-.brand { margin-bottom: 24px; } .brand button { border-radius: 50%; padding: 10px; background: var(--raised); }
+.library-header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.brand h1 { min-width: 0; font-size: clamp(28px, 7vw, 34px); }
+.brand { margin-bottom: 12px; } .brand button { display: grid; place-items: center; border-radius: 50%; padding: 10px; background: var(--raised); }
 .providers { display: flex; background: var(--raised); border-radius: 14px; padding: 3px; gap: 2px; overflow-x: auto; scrollbar-width: none; }
 .providers button { flex: 1 0 auto; padding: 8px 10px; font-size: 13px; font-weight: 550; color: var(--muted); white-space: nowrap; }
 .providers button[aria-pressed=true] { color: var(--text); background: var(--bg); box-shadow: 0 1px 4px #0002; border-radius: 11px; }
+.providers { scroll-padding-inline: 3px; }
 .account-row { padding: 8px 0; font-size: 13px; color: var(--muted); min-width: 0; }
 .account-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-row button { background: none; color: var(--text); flex-shrink: 0; padding-inline: 8px; }
@@ -31,16 +47,68 @@ h1, h2, p { margin: 0; } h1 { font-size: 34px; font-weight: 700; letter-spacing:
 .search > svg { color: var(--muted); flex-shrink: 0; width: 18px; }
 .search input { width: 100%; padding-inline: 0; border: 0; background: transparent; outline-offset: 0; }
 .search button { font-size: 12px; flex-shrink: 0; padding-inline: 10px; background: transparent; }
-.section-heading { padding: 24px 0 12px; } .section-heading button { font-size: 12px; background: none; padding-inline: 0; color: var(--muted); }
-.section-heading h2 { font-size: 20px; }
-.collections { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 16px; }
+.section-heading { padding: 8px 0; gap: 8px; flex-wrap: wrap; } .section-heading button { font-size: var(--mobile-caption); background: none; padding-inline: 0; color: var(--muted); }
+.section-heading h2 { flex: 1 1 100px; font-size: var(--mobile-heading); min-width: 0; overflow-wrap: anywhere; }
+.section-heading > button { flex-shrink: 0; }
+.library-section-heading { flex-wrap: nowrap; }
+.library-section-title { flex: 1; min-width: 0; }
+.library-section-title h2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35; }
+.library-section-title small { display: block; margin-top: 2px; color: var(--muted); font-size: var(--mobile-caption); }
+.library-section-heading .library-queue-toggle { display: flex; align-items: center; justify-content: center; gap: 4px; min-width: 44px; }
+.library-section-heading .library-collection-back { display: grid; place-items: center; width: 44px; min-height: 44px; border-radius: 50%; color: var(--text); }
+.library-queue-toggle small { font-size: 12px; font-variant-numeric: tabular-nums; }
+.library-section-heading > .collection-queue-actions { flex: none; }
+.library-section-heading:has(.collection-queue-actions p) { flex-wrap: wrap; }
+.collections { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
 .collections button { display: flex; gap: 8px; align-items: center; flex-shrink: 0; max-width: 240px; text-align: left; }
 .collection-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .collection-actions button { font-size: 13px; }
+.library-panel > .collection-actions:empty { display: none; }
+.library-panel > .search { margin-top: 12px; }
+.library-search-tools { position: relative; display: flex; gap: 8px; margin-block: 12px; min-width: 0; }
+.library-search-tools > .search { flex: 1; min-width: 0; }
+.library-search-tools .search button { display: grid; place-items: center; }
+.library-search-tools .online-library-extras { flex: none; margin: 0; }
+.library-search-tools .online-library-extras > summary { display: grid; place-items: center; width: 44px; height: 48px; padding: 0; border-radius: 14px; background: var(--raised); list-style: none; }
+.library-search-tools .online-library-extras > summary::-webkit-details-marker { display: none; }
+.library-search-tools .online-library-extras[open] > summary { color: var(--text); }
+.library-search-tools .online-library-extras-body { position: absolute; z-index: 30; top: calc(100% + 8px); right: 0; width: min(100%, 360px); max-height: min(55dvh, 460px); overflow-y: auto; overscroll-behavior: contain; background: var(--bg); box-shadow: 0 12px 32px #0004; }
+.library-account { position: relative; }
+.library-account > summary, .queue-menu > summary { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--raised); cursor: pointer; touch-action: manipulation; list-style: none; }
+.library-account > summary::-webkit-details-marker, .queue-menu > summary::-webkit-details-marker { display: none; }
+.library-account-menu { position: absolute; z-index: 30; top: 52px; right: 0; width: 220px; padding: 12px; border: 1px solid var(--border); border-radius: 18px; background: var(--bg); box-shadow: 0 8px 32px #0004; }
+.library-account-menu p { font-size: var(--mobile-body); font-weight: 600; padding: 8px; overflow-wrap: anywhere; }
+.brand .library-account-menu button { display: block; width: 100%; border-radius: 12px; text-align: start; background: transparent; color: var(--muted); }
+.online-collections button { padding: 6px 12px 6px 6px; border: 1px solid transparent; max-width: 220px; background: transparent; color: var(--muted); }
+.online-collections button[aria-pressed=true] { border-color: var(--border); color: var(--text); background: var(--raised); }
+.online-collections .collection-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--mobile-caption); }
+.online-collections .song-art { width: 36px; height: 36px; border-radius: 8px; }
+/* Existing playlists are the overview content; retain the compact strip inside a selected playlist. */
+.online-collections-overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 8px 16px; overflow: visible; }
+.online-collections-overview button { max-width: none; width: 100%; min-width: 0; padding: 10px 0; gap: 12px; color: var(--text); }
+.online-collections-overview .song-art { width: 48px; height: 48px; border-radius: 10px; }
+.online-collections-overview .collection-name { font-size: var(--mobile-body); white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.library-pagination { display: flex; justify-content: center; padding-top: 8px; }
+.library-pagination button { background: transparent; color: var(--muted); font-size: var(--mobile-caption); }
+.song-main[aria-current=true] strong { font-weight: 700; }
+.song-row:has(.song-main[aria-current=true]) { background: color-mix(in srgb, var(--text) 6%, transparent); border-radius: 12px; }
+.account-library { display: grid; gap: 8px; margin-bottom: 12px; }
+.account-library > p { line-height: 1.6; }
+.online-library-extras { margin-bottom: 12px; }
+.online-library-extras > summary { min-height: 44px; padding-block: 12px; color: var(--muted); font-size: var(--mobile-caption); line-height: 20px; cursor: pointer; touch-action: manipulation; }
+.online-library-extras-body { display: grid; gap: 8px; padding: var(--mobile-card-inset); border: 1px solid var(--border); border-radius: var(--mobile-card-radius); }
+.online-library-extras-body .account-library { margin-bottom: 0; }
+.online-library-extras-body > p { line-height: 1.6; }
 .collection-queue-actions { margin-bottom: 12px; flex-shrink: 0; }
 .collection-queue-actions .collection-actions { align-items: center; justify-content: space-between; }
 .collection-queue-actions span, .collection-queue-actions p { font-size: 12px; line-height: 1.5; color: var(--muted); }
 .collection-queue-actions p { margin-top: 6px; }
+.collection-queue-actions.compact { margin: 0; max-width: 100%; }
+.collection-queue-actions.compact .collection-actions { gap: 4px; flex-wrap: nowrap; }
+.collection-queue-actions.compact .collection-actions > span { max-width: 78px; font-size: var(--mobile-caption); }
+.collection-queue-actions.compact .collection-actions button { display: grid; place-items: center; padding: 10px; }
+.collection-queue-actions.compact:has(p) { flex-basis: 100%; order: 3; }
+.collection-queue-actions.compact:has(p) .collection-actions { justify-content: flex-start; }
 .collections svg { flex-shrink: 0; }
 .local-sections { display: flex; gap: 6px; margin-bottom: 12px; }
 .local-sections button { flex: 1; background: transparent; color: var(--muted); padding-inline: 8px; font-size: 13px; }
@@ -67,11 +135,12 @@ h1, h2, p { margin: 0; } h1 { font-size: 34px; font-weight: 700; letter-spacing:
 .song-list { flex: 1; scrollbar-width: thin; }
 .song-row { display: flex; gap: 2px; border-bottom: 1px solid var(--border); align-items: center; }
 .song-main { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-align: left; background: none !important; height: 100%; padding: 8px 2px !important; }
-.song-art { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--raised); color: var(--muted); flex-shrink: 0; }
+.song-art { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--raised); color: var(--muted); flex-shrink: 0; overflow: hidden; }
+.song-art img { width: 100%; height: 100%; object-fit: cover; }
 .song-main span, .mini-title span { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.song-main strong { font-size: 15px; font-weight: 550; }
+.song-main strong { font-size: var(--mobile-body); font-weight: 550; }
 .song-main strong, .song-main small, .mini-title strong, .mini-title small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.song-main small, .mini-title small, .muted { color: var(--muted); font-size: 12px; }
+.song-main small, .mini-title small, .muted { color: var(--muted); font-size: var(--mobile-caption); }
 .library-panel .icon-button { padding-inline: 10px; background: transparent; color: var(--muted); flex-shrink: 0; }
 .song-main[aria-current=true] .song-art { background: var(--text); color: var(--bg); }
 .queue-toolbar { display: flex; gap: 8px; padding-bottom: 12px; flex-wrap: wrap; }
@@ -91,9 +160,28 @@ h1, h2, p { margin: 0; } h1 { font-size: 34px; font-weight: 700; letter-spacing:
   padding: 6px; border: 1px solid var(--border); border-radius: 22px; background: color-mix(in srgb, var(--raised) 92%, transparent); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: 0 8px 28px #0002;
 }
 .mini-player button { background: transparent; } .mini-title { display: flex; align-items: center; gap: 14px; min-width: 0 !important; flex: 1; text-align: left; }
+.mini-player { max-width: 720px; margin-inline: auto; }
 .mini-title svg { flex-shrink: 0; } .mini-title strong { font-size: 14px; font-weight: 600; }
-@media (max-width: 374px) { .library-panel { padding-inline: 16px; } }
+@media (max-width: 374px) { :root { --mobile-inset: 16px; --mobile-card-inset: 12px; } }
 @media (max-height: 599px) { .library-panel { padding-top: 12px; } .brand { margin-bottom: 12px; } }
+/* Pair existing library controls in short, wide windows; songs retain the full width. */
+@media (min-width: 700px) and (max-height: 500px) {
+  .library-panel[data-online=true] { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-content: start; gap: 6px 12px; padding-top: 8px; }
+  .library-panel[data-online=true] > * { grid-column: 1 / -1; min-width: 0; }
+  .library-panel[data-online=true] > .collection-actions:empty { display: none; }
+  .library-panel[data-online=true] > :is(.brand, .providers, .account-row, .library-search-tools, .collections) { grid-column: auto; }
+  .library-panel[data-online=true] > .online-collections-overview { grid-column: 1 / -1; }
+  .library-panel[data-online=true] .library-search-tools { margin-block: 0; }
+  .library-panel[data-online=true] :is(.brand, .online-library-extras, .collection-queue-actions) { margin-bottom: 0; }
+  .library-panel[data-online=true] .brand small { display: none; }
+  .library-panel[data-online=true] .brand h1 { font-size: 24px; }
+  .library-panel[data-online=true] :is(.account-row, .section-heading) { padding-block: 0; }
+  .library-panel[data-online=true] .section-heading h2 { font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .library-panel[data-online=true] .library-section-title { display: flex; align-items: baseline; gap: 8px; }
+  .library-panel[data-online=true] .library-section-title h2 { display: block; flex: 0 1 auto; }
+  .library-panel[data-online=true] .library-section-title small { flex: none; margin: 0; }
+  .library-panel[data-online=true] .collections { min-height: 44px; padding-bottom: 0; }
+}
 :root:not([data-reduce-motion~="uiMicroMotion"]) :where(.brand, .song-row, .mini-player) button:active:not(:disabled) { transform: scale(.97); transition: transform 80ms ease-out; }
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) { .mini-player { background: var(--raised); backdrop-filter: none; -webkit-backdrop-filter: none; } }
 @media (prefers-contrast: more) { .mobile-app { --border: var(--muted); } }

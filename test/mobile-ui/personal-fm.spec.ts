@@ -1,3 +1,4 @@
+import { revealMusicFeatures } from './music-features-navigation';
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 
@@ -33,7 +34,7 @@ async function login(page: Page) {
   await expect(page.getByText('已登录', { exact: true })).toBeVisible({ timeout: 10000 });
   await page.getByRole('dialog', { name: '扫码登录' }).getByRole('button', { name: '关闭', exact: true }).tap();
 }
-async function open(page: Page) { await page.getByRole('button', { name: '私人 FM', exact: true }).tap(); }
+async function open(page: Page) { await revealMusicFeatures(page); await page.getByRole('button', { name: '私人 FM', exact: true }).tap(); }
 test('original modes and scenes persist, remain touch sized across rotation, and start native playback', async ({ page }, info) => {
   await setup(page); await login(page); await open(page);
   const mode = sheet(page).getByRole('combobox', { name: 'FM 模式', exact: true });
@@ -78,11 +79,11 @@ test('fallback is explained and leaving radio preserves queued playback', async 
   expect(await page.evaluate(() => (window as any).fixturePlayback.personalFM.active)).toBe(false);
 });
 test('anonymous users, old gateways and QQ cannot start unsupported radio', async ({ page }) => {
-  await setup(page); await expect(page.getByRole('button', { name: '私人 FM', exact: true })).toBeDisabled();
+  await setup(page); await revealMusicFeatures(page); await expect(page.getByRole('button', { name: '私人 FM', exact: true })).toBeDisabled();
   await login(page);
   await page.addInitScript(() => { (window as any).fixtureHealth.personalFmProviders = undefined; });
-  await page.reload(); await expect(page.getByRole('button', { name: '私人 FM', exact: true })).toBeDisabled();
+  await page.reload(); await revealMusicFeatures(page); await expect(page.getByRole('button', { name: '私人 FM', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'QQ 音乐', exact: true }).tap();
-  await expect(page.getByRole('button', { name: '私人 FM', exact: true })).toHaveCount(0);
+  await revealMusicFeatures(page); await expect(page.getByRole('button', { name: '私人 FM', exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => (window as any).fmCalls)).toEqual([]);
 });

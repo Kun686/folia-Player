@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type CSSProperties } from 'react';
+import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { MotionValue } from 'framer-motion';
@@ -16,11 +16,16 @@ import LatticeLyricsProvider from './lyrics/LatticeLyricsProvider';
 import type { LatticeLyricSource } from './lyrics/types';
 import { getPlaybackSongKey } from '../../../utils/appPlaybackGuards';
 import { isPrimaryModifierPressed, isSecondaryModifierPressed } from '../../../utils/platform';
+import ViewportComposition from '../../shared/ViewportComposition';
+import type { ViewportPresentation } from '../../../types/viewportPresentation';
 
 // Queue display layer; it renders the play queue and never mutates it.
 
 type LatticeProps = {
-    controls: LatticePlaybackActions;
+    tools?: ReactNode;
+    backLabel?: string;
+    fitViewport?: boolean;
+    contentPresentation?: ViewportPresentation;
     lyrics: LyricData | null;
     lyricSource: LatticeLyricSource;
     lyricKeywordColoringEnabled: boolean;
@@ -36,10 +41,16 @@ type LatticeProps = {
     onPlaySong: (song: SongResult, queue: SongResult[]) => void;
     onTogglePlayback: () => void;
     onSeek: (time: number) => void;
-};
+} & ({ controls: LatticePlaybackActions; playbackExtras?: never }
+    | { controls?: never; playbackExtras: ReactNode });
 
 export default function Lattice({
     controls,
+    playbackExtras,
+    tools,
+    backLabel,
+    fitViewport,
+    contentPresentation,
     lyrics,
     lyricSource,
     lyricKeywordColoringEnabled,
@@ -102,7 +113,7 @@ export default function Lattice({
 
     return (
         <LatticeTransportContext.Provider value={transport}>
-        <LatticePlaybackProvider actions={controls} currentSong={currentSong} queue={queue} lyrics={lyrics}
+        <LatticePlaybackProvider actions={controls} extras={playbackExtras} currentSong={currentSong} queue={queue} lyrics={lyrics}
             currentTime={currentTime} duration={playbackDuration} onSeek={onSeek} isDaylight={isDaylight}>
         <LatticeLyricsProvider source={lyricSource} songKey={currentSong ? getPlaybackSongKey(currentSong) : ''}
             keywordColoringEnabled={lyricKeywordColoringEnabled}>
@@ -114,7 +125,8 @@ export default function Lattice({
             } as CSSProperties}
             aria-label={t('home.latticeLabel')}
         >
-            <PosterWall
+            <ViewportComposition presentation={contentPresentation}><PosterWall
+                fitViewport={fitViewport}
                 tiles={tiles}
                 currentSong={currentSong}
                 onPlay={wall.onPlay}
@@ -122,10 +134,10 @@ export default function Lattice({
                 onSeek={wall.onSeek}
                 onOpenPlayer={wall.onOpenPlayer}
                 onBack={onBack}
-            />
-            <LatticeFocusButton isDaylight={isDaylight} />
+            /></ViewportComposition>
+            {tools === undefined ? <LatticeFocusButton isDaylight={isDaylight} /> : tools}
             <button type="button" className="lattice-back" onClick={onBack}
-                aria-label={t('home.latticeBack')} title={t('home.latticeBack')}>
+                aria-label={backLabel ?? t('home.latticeBack')} title={backLabel ?? t('home.latticeBack')}>
                 <ChevronLeft size={20} />
             </button>
             {tiles.length === 0 && (

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
+import MobileSelect from './MobileSelect';
 
 // QueuePreference.tsx — reuse the original persisted insertion preference for foreground queue actions.
 export default function QueuePreference() {
@@ -8,8 +9,8 @@ export default function QueuePreference() {
   const behavior = useAudioSettingsStore(state => state.queueAddBehavior);
   const [failed, setFailed] = useState(false);
   return <section className="mobile-preference" aria-label={t('options.queueSettings')}>
-    <label>{t('options.queueDefaultBehavior')}
-      <select value={behavior} aria-describedby="queue-preference-hint" onChange={event => {
+    <label className="preference-row"><span>{t('options.queueDefaultBehavior')}</span>
+      <MobileSelect value={behavior} onChange={event => {
         const value = event.target.value;
         if (value !== 'append' && value !== 'next') return;
         try { useAudioSettingsStore.getState().handleSetQueueAddBehavior(value); setFailed(false); }
@@ -17,9 +18,8 @@ export default function QueuePreference() {
       }}>
         <option value="append">{t('options.queueAppendLabel')}</option>
         <option value="next">{t('options.queueNextLabel')}</option>
-      </select>
+      </MobileSelect>
     </label>
-    <p className="muted" id="queue-preference-hint">{t('options.queueDefaultBehaviorDesc')}</p>
     {failed && <p role="alert">{t('mobile.error')}</p>}
   </section>;
 }

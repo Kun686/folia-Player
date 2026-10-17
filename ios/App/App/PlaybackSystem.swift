@@ -178,7 +178,7 @@ extension PlaybackEngine {
         guard let song = currentSong else { MPNowPlayingInfoCenter.default().nowPlayingInfo = nil; return }
         let artists = (song["artists"] as? [[String: Any]] ?? []).compactMap { $0["name"] as? String }.joined(separator: " / ")
         var info: [String: Any] = [
-            MPMediaItemPropertyTitle: song["name"] as? String ?? "Folia",
+            MPMediaItemPropertyTitle: song["name"] as? String ?? "",
             MPMediaItemPropertyArtist: artists,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: playbackPosition,
             MPMediaItemPropertyPlaybackDuration: playbackDuration,

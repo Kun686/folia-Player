@@ -8,6 +8,18 @@ const storage = new Map<string, string>();
 const CONFIRMED_COOKIE = 'qqmusic_session=opaque-token';
 
 describe('QQ Music Web transport', () => {
+    it.each(['unavailable', 'invalid-response'])('preserves the mobile session for a search %s error', async errorKey => {
+        const { installMobileRuntime } = await import('@/services/mobileRuntime');
+        const fetchMock = vi.fn(async () => Response.json({ code: 502, errorKey }, { status: 502 }));
+        const write = vi.fn();
+        installMobileRuntime({ fetch: fetchMock, read: () => CONFIRMED_COOKIE, write });
+        const { requestQq } = await import('@/services/onlineMusic/qqTransport');
+        await expect(requestQq('mobile_search', { key: '我怀念的', page: 1, limit: 5 })).rejects.toMatchObject({ code: errorKey, httpStatus: 502 });
+        expect(write).not.toHaveBeenCalled();
+        const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+        expect(url).toContain('/mobile/qq/mobile/search?'); expect(url).not.toContain('opaque-token');
+        expect(new Headers(init.headers).get('x-qq-session')).toBe('opaque-token');
+    });
     it.each([401, 404, 429, 502])('keeps HTTP %s separate from the backend body code', async (status) => {
         vi.stubGlobal('fetch', vi.fn(async () => Response.json({ code: 123, token: 'private-token' }, { status })));
         const { requestQq } = await import('@/services/onlineMusic/qqTransport');

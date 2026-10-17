@@ -8,6 +8,11 @@ const writeSessionValueMock = vi.hoisted(() => vi.fn());
 const searchQQLyricsMock = vi.hoisted(() => vi.fn());
 const fetchQQLyricsMock = vi.hoisted(() => vi.fn());
 const transportState = vi.hoisted(() => ({ hasSession: true }));
+const mobileState = vi.hoisted(() => ({ enabled: false, sessionCurrent: true }));
+vi.mock('@/services/mobileRuntime', async importOriginal => ({
+    ...await importOriginal<typeof import('@/services/mobileRuntime')>(),
+    getMobileRuntime: () => mobileState.enabled ? { captureSession: () => () => mobileState.sessionCurrent } : null,
+}));
 
 vi.mock('@/services/onlineMusic/qqTransport', () => ({
     getQqTransportAvailability: () => ({ configured: true }),
@@ -157,6 +162,8 @@ const SINGER_INFO_ITEM = {
 
 describe('qqProvider', () => {
     beforeEach(() => {
+        mobileState.enabled = false;
+        mobileState.sessionCurrent = true;
         requestMock.mockReset();
         clearSessionMock.mockReset();
         writeSessionValueMock.mockReset();
@@ -357,7 +364,8 @@ describe('qqProvider', () => {
         });
 
         expect(requestMock).toHaveBeenCalledWith('login_qr_check', { key: 'qr-key' });
-        expect(writeSessionValueMock).toHaveBeenCalledExactlyOnceWith('qq', 'cookie', 'qqmusic_session=opaque-token');
+        // Persistence belongs to the transport, before this asynchronous adapter continuation.
+        expect(writeSessionValueMock).not.toHaveBeenCalled();
     });
 
     it('hands a login canceled on the phone to core as a structured reason with the backend cooldown', async () => {
@@ -667,6 +675,39 @@ describe('qqProvider', () => {
         expect(clearSessionMock).toHaveBeenCalledTimes(2);
     });
 
+    it.each(['success', 'network', 'canceled'])('does not clear a newer mobile session after an old logout %s', async outcome => {
+        mobileState.enabled = true;
+        let finish!: () => void;
+        requestMock.mockReturnValueOnce(new Promise<void>((resolve, reject) => {
+            finish = () => outcome === 'success' ? resolve() : reject(
+                outcome === 'canceled' ? new DOMException('Canceled', 'AbortError') : Error('offline'));
+        }));
+        const pending = qqProvider.auth!.logout().catch(error => error);
+        expect(requestMock).toHaveBeenCalledExactlyOnceWith('logout');
+        mobileState.sessionCurrent = false;
+        finish();
+        const result = await pending;
+        expect(clearSessionMock).not.toHaveBeenCalled();
+        expect(result).toMatchObject({ name: 'AbortError' });
+    });
+
+    it('uses authenticated search only in the mobile runtime and keeps the original normalizer', async () => {
+        mobileState.enabled = true;
+        requestMock.mockResolvedValue({ code: 200, data: { body: { item_song: [SEARCH_ITEM] } } });
+        const page = await qqProvider.search!.searchSongs(' 海阔天空 ', 5, 5);
+        expect(requestMock).toHaveBeenCalledExactlyOnceWith('mobile_search', { key: '海阔天空', page: 2, limit: 5 });
+        expect(searchQQLyricsMock).not.toHaveBeenCalled();
+        expect(page.items[0]).toMatchObject({ name: '海阔天空', durationMs: 326000,
+            sourceRef: { kind: 'online', providerId: 'qq', mediaId: '003rJSwm3TechU' } });
+        expect(page).toMatchObject({ hasMore: false, nextOffset: 6 });
+    });
+
+    it('does not convert a malformed authenticated search into an empty page', async () => {
+        mobileState.enabled = true; requestMock.mockResolvedValue({ code: 200, data: {} });
+        await expect(qqProvider.search!.searchSongs('海阔天空', 5, 0)).rejects.toMatchObject({ code: 'invalid-response' });
+        expect(searchQQLyricsMock).not.toHaveBeenCalled();
+    });
+
     it('routes search and lyrics through the existing QQ modules', async () => {
         searchQQLyricsMock.mockResolvedValue([{
             id: 5105918,
@@ -912,6 +953,19 @@ describe('qqProvider', () => {
             total: 50,
         });
         expect(requestMock.mock.calls.map(call => call[0])).toEqual(['song_list_detail']);
+    });
+
+    it('uses HTTPS for QQ playlist artwork without changing unknown origins or missing covers', () => {
+        const cover = 'http://y.gtimg.cn/music/photo_new/T002R300x300M0000016l2F430zMux.jpg?max_age=2592000';
+        const collection = normalizeQqCollection({ tid: 7, dirId: 2, dirName: '新建歌单', bigpicUrl: cover });
+        expect(collection.coverUrl).toBe('https://y.gtimg.cn/music/photo_new/T002M0000016l2F430zMux.jpg?max_age=2592000');
+        expect(normalizeQqCollection(collection)).toEqual(collection);
+        for (const other of ['http://img.example.test/cover.jpg', 'http://y.gtimg.cn.example.test/cover.jpg',
+            'http://user:pass@y.gtimg.cn/cover.jpg', 'http://y.gtimg.cn:8080/cover.jpg']) {
+            expect(normalizeQqCollection({ picUrl: other }).coverUrl).toBe(other);
+        }
+        expect(normalizeQqCollection({ bigpicUrl: '', picUrl: '' })).not.toHaveProperty('coverUrl');
+        expect(normalizeQqCollection({ picUrl: 'http://y.qq.com/cover.jpg?v=1' }).coverUrl).toBe('https://y.qq.com/cover.jpg?v=1');
     });
 
     it('remembers that a playlist is owned when the cached collection is normalized again', () => {
